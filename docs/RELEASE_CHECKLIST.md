@@ -19,7 +19,7 @@
 | 产品/SKU | Desktop Direct / 0.9 Private Beta 候选前置 |
 | 商业版本 | Commercial Baseline C0 / Desktop Window 02 Runtime Security |
 | 内部 build | 0.8.0 evidence build |
-| Git commit/tag | 窗口 01 已恢复有效仓库；尚未创建初始提交或 tag，发布候选必须补齐 |
+| Git commit/tag | 窗口 02 实现提交 `ae5d2be feat(security): close runtime security window 02`；尚未创建发布候选 tag |
 | 构建时间/环境 | 2026-07-15；Windows x64 10.0.26200；Node 24.18.0；Electron 42.7.0 |
 | 负责人 | 窗口 02（仅 ATH-SEC-001～003 工程证据；未作商业签字） |
 | 候选产物 SHA-256 | Installer `fa089e8546e4a51827bbb2938572368adafae04eddafe00804c831b6a79b069a`；unpacked EXE `0ff62b371413091312bb1bcee1bea72057dc68131de32655411ef9b93804831e` |

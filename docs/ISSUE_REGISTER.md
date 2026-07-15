@@ -75,5 +75,6 @@
 | Execute | 默认 Off；升权说明及删除、覆盖、移动、命令、程序启动、外网请求逐次确认；撤权、取消、参数脱敏、模式隔离全部通过 | 真实 Beta 用户可用性测试仍属 ATH-DESKTOP-001 |
 | 自动化与启动 | typecheck、persona、modes、theme、logger、security、web-search、tools 全部通过；开发态与打包态均输出 `ATHENA_SMOKE_READY_TO_SHOW`、`ATHENA_SMOKE_DOM_OK` | live 搜索/LLM/工具测试未作为本窗口非 live 门执行 |
 | 0.8.0 产物 | Installer 105,765,781 bytes，SHA-256 `fa089e8546e4a51827bbb2938572368adafae04eddafe00804c831b6a79b069a`；unpacked EXE 232,771,072 bytes，SHA-256 `0ff62b371413091312bb1bcee1bea72057dc68131de32655411ef9b93804831e` | 两者均为 `NotSigned`；嵌入式 ASAR 完整性需在签名发布链中启用；签名、更新与发布链仍属 ATH-REL-001/窗口 06 |
+| 交接提交 | `ae5d2be feat(security): close runtime security window 02`，包含 25 个窗口 02 文件 | 这不是发布 tag；候选版 tag 仍由发布窗口建立 |
 
 结论：窗口 02 的 Blocker 为 0，ATH-SEC-001～003 全部关闭，窗口 03 可按既定范围开始。ATH-PRIV-001、ATH-DATA-001、ATH-LEGAL-001、ATH-REL-001 保持原负责人和 Open；Steam、Cloud、Mobile、Live2D 与新产品功能未在本窗口开发。
