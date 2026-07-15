@@ -1,0 +1,6 @@
+SpeechRecognition>=3.14
+edge-tts>=7.0
+faster-whisper>=1.2
+av>=14.0
+numpy>=1.26
+sounddevice>=0.5

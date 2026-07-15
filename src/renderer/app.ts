@@ -1,0 +1,2203 @@
+/** Renderer entry: Su Shixia workspace UI, chat, voice, settings, and Athena IPC wiring. */
+
+import './style.css';
+import { ChatPanel, type ChatSource, type ChatToolExecution } from './ui/ChatPanel';
+import { InputBar } from './ui/InputBar';
+import { LiveGlass } from './ui/LiveGlass';
+import { ThemeController } from './ui/ThemeController';
+import { MicrophoneRecorder } from './voice/MicrophoneRecorder';
+
+declare global {
+  interface Window {
+    athenaAPI: {
+      sendMessage: (text: string, mode: AthenaMode, forceWebSearch?: boolean) => Promise<{
+        content: string;
+        emotion?: { label: string };
+        webSearch?: {
+          query: string;
+          sources: ChatSource[];
+          readPageCount: number;
+          searchRounds: number;
+          providers: Array<'sogou' | 'bing' | 'duckduckgo' | 'none'>;
+          error?: string;
+        };
+        toolExecutions?: ChatToolExecution[];
+      } | null>;
+      cancelExecution: () => Promise<boolean>;
+      onChatStream: (callback: (data: { content: string; done: boolean }) => void) => () => void;
+      onChatError: (callback: (error: string) => void) => () => void;
+      onWebSearchStatus: (callback: (status: WebSearchStatus) => void) => () => void;
+      onToolStatus: (callback: (status: ToolStatusEvent) => void) => () => void;
+      onReminderDue: (callback: (job: { title: string; dueAt: string }) => void) => () => void;
+      getSystemInfo: () => Promise<{ ollamaConnected: boolean; hour: number; ollamaModel: string; ollamaEndpoint: string }>;
+      getSettings: () => Promise<SettingsBundle>;
+      saveSettings: (patch: SettingsPatch) => Promise<SettingsBundle>;
+      listMemories: (options: MemoryListOptions) => Promise<MemoryListResult>;
+      deleteMemory: (kind: MemoryKind, id: number) => Promise<boolean>;
+      updateMemory: (kind: MemoryKind, id: number, patch: MemoryUpdatePatch) => Promise<boolean>;
+      debugMemory: (query: string) => Promise<MemoryDebugResult>;
+      chooseMemoryImportFile: () => Promise<string | null>;
+      previewMemoryImport: (sourcePath: string) => Promise<MemoryImportPreview>;
+      commitMemoryImport: (sourcePath: string, candidateIds: number[]) => Promise<MemoryImportCommitResult>;
+      speakText: (text: string) => Promise<VoiceResult>;
+      playAudioFile: (sourcePath: string) => Promise<VoiceResult>;
+      chooseAudioFile: () => Promise<string | null>;
+      transcribeAudioFile: (sourcePath: string) => Promise<VoiceResult>;
+      transcribeRecording: (audioBytes: Uint8Array) => Promise<VoiceResult>;
+      minimize: () => void;
+      close: () => void;
+    };
+  }
+}
+
+type MemoryKind = 'profile' | 'event' | 'project' | 'message';
+type AthenaMode = 'create' | 'companion' | 'reason' | 'execute';
+type VoiceInputState = 'idle' | 'requesting' | 'recording' | 'transcribing' | 'error';
+type AppStatusState = 'ready' | 'working' | 'offline' | 'error';
+type ToolPermissionLevel = 'off' | 'read' | 'files' | 'full';
+
+const MAX_RECORDING_MS = 60_000;
+const ATHENA_MODES: readonly AthenaMode[] = ['create', 'companion', 'reason', 'execute'];
+const MIN_RECORDING_MS = 350;
+const VOICE_ACTIVITY_THRESHOLD = 0.008;
+const VOICE_MIN_SIGNAL_LEVEL = 0.001;
+const VOICE_SILENCE_STOP_MS = 1_600;
+
+interface MemoryListOptions {
+  kind?: MemoryKind | 'all';
+  query?: string;
+  limit?: number;
+}
+
+interface MemoryListItem {
+  id: number;
+  kind: MemoryKind;
+  title: string;
+  content: string;
+  meta: string;
+  importance?: number;
+  confidence?: number;
+}
+
+interface MemoryListResult {
+  items: MemoryListItem[];
+  totals: Record<MemoryKind, number>;
+}
+
+interface MemoryUpdatePatch {
+  title?: string;
+  content?: string;
+  importance?: number;
+  confidence?: number;
+}
+
+interface MemoryDebugResult {
+  query: string;
+  keywords: string[];
+  relevanceScore: number;
+  profileFacts: MemoryListItem[];
+  relatedEvents: MemoryListItem[];
+  projectNotes: MemoryListItem[];
+  recentMessages: MemoryListItem[];
+}
+
+interface MemoryImportCandidate {
+  id: number;
+  content: string;
+  status: 'accepted' | 'rejected';
+  reason: string;
+  importance: number;
+}
+
+interface MemoryImportPreview {
+  sourcePath: string;
+  totalRecords: number;
+  assistantMessages: number;
+  extractedAddMemories: number;
+  accepted: MemoryImportCandidate[];
+  rejected: MemoryImportCandidate[];
+}
+
+interface MemoryImportCommitResult {
+  imported: number;
+  skipped: number;
+}
+
+interface VoiceResult {
+  ok: boolean;
+  text?: string;
+  audioPath?: string;
+  error?: string;
+}
+
+type PersonalizationTone = 'balanced' | 'soft' | 'playful' | 'direct';
+type ReplyLength = 'short' | 'balanced' | 'detailed';
+type InitiativeLevel = 'low' | 'balanced' | 'high';
+type AnimationLevel = 'low' | 'balanced' | 'high';
+type ThemeMode = 'day' | 'night' | 'system';
+type SttEngine = 'auto' | 'speech_recognition' | 'whisper';
+type WebSearchMode = 'auto' | 'manual';
+
+interface WebSearchStatus {
+  phase: 'searching' | 'reading' | 'refining' | 'done' | 'failed';
+  query: string;
+  resultCount?: number;
+  pageCount?: number;
+  searchRound?: number;
+  provider?: 'sogou' | 'bing' | 'duckduckgo' | 'none';
+  message?: string;
+}
+
+interface ToolStatusEvent {
+  phase: 'planning' | 'running' | 'completed' | 'failed' | 'cancelled' | 'done';
+  message: string;
+  toolName?: string;
+  toolLabel?: string;
+  callId?: string;
+}
+
+type ExecutionTaskState = 'planning' | 'running' | 'stopping' | 'completed' | 'failed' | 'cancelled' | 'not-run';
+
+interface ExecutionTimelineEvent extends ToolStatusEvent {
+  occurredAt: string;
+}
+
+interface ExecutionTask {
+  id: string;
+  goal: string;
+  mode: AthenaMode;
+  state: ExecutionTaskState;
+  startedAt: string;
+  completedAt?: string;
+  events: ExecutionTimelineEvent[];
+  executions: ChatToolExecution[];
+  finalResponse?: string;
+}
+
+interface PersonalizationSettings {
+  userName: string;
+  preferredAddress: string;
+  tone: PersonalizationTone;
+  replyLength: ReplyLength;
+  initiative: InitiativeLevel;
+  proactiveCare: boolean;
+  useMemoryInSmallTalk: boolean;
+  creatorModeHints: boolean;
+  customNotes: string;
+}
+
+interface UiSettings {
+  startupIntro: boolean;
+  compactMode: boolean;
+}
+
+interface GeneralSettings {
+  launchAtStartup: boolean;
+  closeToTray: boolean;
+  desktopNotifications: boolean;
+  autoConnectModel: boolean;
+}
+
+interface AppearanceSettings {
+  theme: ThemeMode;
+  animationLevel: AnimationLevel;
+  glassEffects: boolean;
+}
+
+interface ConversationSettings {
+  activeMode: AthenaMode;
+  enterToSend: boolean;
+  streamResponses: boolean;
+  showTimestamps: boolean;
+  saveHistory: boolean;
+}
+
+interface ToolModePermissions {
+  create: ToolPermissionLevel;
+  companion: ToolPermissionLevel;
+  reason: ToolPermissionLevel;
+  execute: ToolPermissionLevel;
+}
+
+interface ToolSettings {
+  permissionLevel: ToolPermissionLevel;
+  modePermissions: ToolModePermissions;
+  maxToolRounds: number;
+  commandTimeoutSeconds: number;
+}
+
+interface WebSearchSettings {
+  enabled: boolean;
+  mode: WebSearchMode;
+  maxResults: number;
+  deepRead: boolean;
+  secondarySearch: boolean;
+  maxPages: number;
+}
+
+interface MemorySettings {
+  enabled: boolean;
+  autoExtract: boolean;
+  retrieveProfile: boolean;
+  retrieveEvents: boolean;
+  retrieveProjects: boolean;
+  retrievalDepth: number;
+  minImportanceForAutoExtract: number;
+}
+
+interface VoiceSettings {
+  sttEnabled: boolean;
+  ttsEnabled: boolean;
+  autoPlayAssistant: boolean;
+  sttEngine: SttEngine;
+  ttsVoice: string;
+  silenceAutoStop: boolean;
+}
+
+interface DataSettings {
+  confirmBeforeDelete: boolean;
+  historyRetentionDays: number;
+  voiceCacheRetentionHours: number;
+  exportFormat: 'json' | 'markdown';
+}
+
+interface AppSettings {
+  version: number;
+  profile: string;
+  developerMode: boolean;
+  general: GeneralSettings;
+  appearance: AppearanceSettings;
+  conversation: ConversationSettings;
+  tools: ToolSettings;
+  webSearch: WebSearchSettings;
+  personalization: PersonalizationSettings;
+  memory: MemorySettings;
+  voice: VoiceSettings;
+  data: DataSettings;
+  ui: UiSettings;
+}
+
+interface ModelSettings {
+  provider: string;
+  ollama: {
+    baseUrl: string;
+    model: string;
+    temperature: number;
+    maxTokens: number;
+    numCtx: number;
+  };
+  deepseek: {
+    apiKey: string;
+    model: string;
+    temperature: number;
+    maxTokens: number;
+  };
+  fallback: {
+    enabled: boolean;
+    timeoutMs: number;
+  };
+}
+
+interface SettingsBundle {
+  settings: AppSettings;
+  model: ModelSettings;
+}
+
+interface SettingsPatch {
+  settings?: Omit<Partial<AppSettings>, 'general' | 'appearance' | 'conversation' | 'tools' | 'webSearch' | 'personalization' | 'memory' | 'voice' | 'data' | 'ui'> & {
+    general?: Partial<GeneralSettings>;
+    appearance?: Partial<AppearanceSettings>;
+    conversation?: Partial<ConversationSettings>;
+    tools?: Omit<Partial<ToolSettings>, 'modePermissions'> & {
+      modePermissions?: Partial<ToolModePermissions>;
+    };
+    webSearch?: Partial<WebSearchSettings>;
+    personalization?: Partial<PersonalizationSettings>;
+    memory?: Partial<MemorySettings>;
+    voice?: Partial<VoiceSettings>;
+    data?: Partial<DataSettings>;
+    ui?: Partial<UiSettings>;
+  };
+  model?: Omit<Partial<ModelSettings>, 'ollama' | 'fallback'> & {
+    ollama?: Partial<ModelSettings['ollama']>;
+    fallback?: Partial<ModelSettings['fallback']>;
+  };
+}
+
+const appShell = mustGet<HTMLElement>('app-shell');
+const themeController = new ThemeController(document.documentElement, appShell);
+const titlebar = mustGet<HTMLElement>('titlebar');
+const modeSwitch = mustGet<HTMLElement>('mode-switch');
+const modeExecuteButton = mustGet<HTMLButtonElement>('mode-execute-button');
+const stage = mustGet<HTMLElement>('stage');
+const chatPanel = new ChatPanel(mustGet<HTMLElement>('chat-container'));
+const inputForm = mustGet<HTMLFormElement>('input-form');
+const inputBox = mustGet<HTMLTextAreaElement>('input-box');
+const inputBar = new InputBar(
+  inputForm,
+  inputBox,
+  mustGet<HTMLButtonElement>('send-btn'),
+);
+
+const statusDot = mustGet<HTMLElement>('status-dot');
+const statusText = mustGet<HTMLElement>('status-text');
+const btnSettings = mustGet<HTMLButtonElement>('btn-settings');
+const btnMemory = mustGet<HTMLButtonElement>('btn-memory');
+const btnMinimize = mustGet<HTMLButtonElement>('btn-minimize');
+const btnClose = mustGet<HTMLButtonElement>('btn-close');
+const voiceSttBtn = mustGet<HTMLButtonElement>('voice-stt-btn');
+const voiceSttLabel = mustGet<HTMLElement>('voice-stt-label');
+const voiceFileBtn = mustGet<HTMLButtonElement>('voice-file-btn');
+const voiceTtsBtn = mustGet<HTMLButtonElement>('voice-tts-btn');
+const voiceFeedback = mustGet<HTMLElement>('voice-feedback');
+const composerMoreBtn = mustGet<HTMLButtonElement>('composer-more-btn');
+const composerSecondaryTools = mustGet<HTMLElement>('composer-secondary-tools');
+const webSearchBtn = mustGet<HTMLButtonElement>('web-search-btn');
+const webSearchLabel = mustGet<HTMLElement>('web-search-label');
+const modeHint = mustGet<HTMLElement>('mode-hint');
+const toolAccessHint = mustGet<HTMLElement>('tool-access-hint');
+const panelScrim = mustGet<HTMLElement>('panel-scrim');
+const executionPanel = mustGet<HTMLElement>('execution-panel');
+const executionCurrentCard = mustGet<HTMLElement>('execution-current-card');
+const executionStateLabel = mustGet<HTMLElement>('execution-state-label');
+const executionCurrentGoal = mustGet<HTMLElement>('execution-current-goal');
+const executionCurrentMeta = mustGet<HTMLElement>('execution-current-meta');
+const executionCurrentResult = mustGet<HTMLElement>('execution-current-result');
+const executionLiveLog = mustGet<HTMLOListElement>('execution-live-log');
+const executionHistory = mustGet<HTMLElement>('execution-history');
+const executionStop = mustGet<HTMLButtonElement>('execution-stop');
+const executionClear = mustGet<HTMLButtonElement>('execution-clear');
+const executionSettingsForm = mustGet<HTMLFormElement>('execution-settings-form');
+const executionSettingsFeedback = mustGet<HTMLElement>('execution-settings-feedback');
+const executionCurrentPermission = mustGet<HTMLElement>('execution-current-permission');
+const settingsOpenExecution = mustGet<HTMLButtonElement>('settings-open-execution');
+const memoryPanel = mustGet<HTMLElement>('memory-panel');
+const btnMemoryClose = mustGet<HTMLButtonElement>('btn-memory-close');
+const memoryTabs = mustGet<HTMLElement>('memory-tabs');
+const memoryKind = mustGet<HTMLSelectElement>('memory-kind');
+const memorySearch = mustGet<HTMLInputElement>('memory-search');
+const memoryTotalRow = mustGet<HTMLElement>('memory-total-row');
+const memoryList = mustGet<HTMLElement>('memory-list');
+const memoryDebugForm = mustGet<HTMLFormElement>('memory-debug-form');
+const memoryDebugQuery = mustGet<HTMLInputElement>('memory-debug-query');
+const memoryDebugSummary = mustGet<HTMLElement>('memory-debug-summary');
+const memoryDebugList = mustGet<HTMLElement>('memory-debug-list');
+const memoryImportPath = mustGet<HTMLInputElement>('memory-import-path');
+const memoryImportBrowse = mustGet<HTMLButtonElement>('memory-import-browse');
+const memoryImportPreview = mustGet<HTMLButtonElement>('memory-import-preview');
+const memoryImportCommit = mustGet<HTMLButtonElement>('memory-import-commit');
+const memoryImportSummary = mustGet<HTMLElement>('memory-import-summary');
+const memoryImportList = mustGet<HTMLElement>('memory-import-list');
+const settingsPanel = mustGet<HTMLElement>('settings-panel');
+const btnSettingsClose = mustGet<HTMLButtonElement>('btn-settings-close');
+const settingsForm = mustGet<HTMLFormElement>('settings-form');
+const settingLaunchStartup = mustGet<HTMLInputElement>('setting-launch-startup');
+const settingCloseTray = mustGet<HTMLInputElement>('setting-close-tray');
+const settingNotifications = mustGet<HTMLInputElement>('setting-notifications');
+const settingAutoConnectModel = mustGet<HTMLInputElement>('setting-auto-connect-model');
+const settingUserName = mustGet<HTMLInputElement>('setting-user-name');
+const settingPreferredAddress = mustGet<HTMLInputElement>('setting-preferred-address');
+const settingTone = mustGet<HTMLSelectElement>('setting-tone');
+const settingReplyLength = mustGet<HTMLSelectElement>('setting-reply-length');
+const settingInitiative = mustGet<HTMLSelectElement>('setting-initiative');
+const settingProactiveCare = mustGet<HTMLInputElement>('setting-proactive-care');
+const settingMemorySmalltalk = mustGet<HTMLInputElement>('setting-memory-smalltalk');
+const settingCreatorHints = mustGet<HTMLInputElement>('setting-creator-hints');
+const settingCustomNotes = mustGet<HTMLTextAreaElement>('setting-custom-notes');
+const settingEnterSend = mustGet<HTMLInputElement>('setting-enter-send');
+const settingStreamResponses = mustGet<HTMLInputElement>('setting-stream-responses');
+const settingShowTimestamps = mustGet<HTMLInputElement>('setting-show-timestamps');
+const settingSaveHistory = mustGet<HTMLInputElement>('setting-save-history');
+const settingToolPermissionExecute = mustGet<HTMLSelectElement>('setting-tool-permission-execute');
+const settingToolMaxRounds = mustGet<HTMLInputElement>('setting-tool-max-rounds');
+const settingToolCommandTimeout = mustGet<HTMLInputElement>('setting-tool-command-timeout');
+const settingWebSearchEnabled = mustGet<HTMLInputElement>('setting-web-search-enabled');
+const settingWebSearchMode = mustGet<HTMLSelectElement>('setting-web-search-mode');
+const settingWebSearchMaxResults = mustGet<HTMLInputElement>('setting-web-search-max-results');
+const settingWebSearchDeepRead = mustGet<HTMLInputElement>('setting-web-search-deep-read');
+const settingWebSearchSecondary = mustGet<HTMLInputElement>('setting-web-search-secondary');
+const settingWebSearchMaxPages = mustGet<HTMLInputElement>('setting-web-search-max-pages');
+const settingStartupIntro = mustGet<HTMLInputElement>('setting-startup-intro');
+const settingCompactMode = mustGet<HTMLInputElement>('setting-compact-mode');
+const settingGlassEffects = mustGet<HTMLInputElement>('setting-glass-effects');
+const settingAnimationLevel = mustGet<HTMLSelectElement>('setting-animation-level');
+const settingTheme = mustGet<HTMLSelectElement>('setting-theme');
+const settingOllamaUrl = mustGet<HTMLInputElement>('setting-ollama-url');
+const settingOllamaModel = mustGet<HTMLInputElement>('setting-ollama-model');
+const settingTemperature = mustGet<HTMLInputElement>('setting-temperature');
+const settingMaxTokens = mustGet<HTMLInputElement>('setting-max-tokens');
+const settingNumCtx = mustGet<HTMLInputElement>('setting-num-ctx');
+const settingMemoryEnabled = mustGet<HTMLInputElement>('setting-memory-enabled');
+const settingMemoryAutoExtract = mustGet<HTMLInputElement>('setting-memory-auto-extract');
+const settingMemoryProfile = mustGet<HTMLInputElement>('setting-memory-profile');
+const settingMemoryEvents = mustGet<HTMLInputElement>('setting-memory-events');
+const settingMemoryProjects = mustGet<HTMLInputElement>('setting-memory-projects');
+const settingMemoryDepth = mustGet<HTMLInputElement>('setting-memory-depth');
+const settingMemoryMinImportance = mustGet<HTMLInputElement>('setting-memory-min-importance');
+const settingSttEnabled = mustGet<HTMLInputElement>('setting-stt-enabled');
+const settingTtsEnabled = mustGet<HTMLInputElement>('setting-tts-enabled');
+const settingAutoPlayAssistant = mustGet<HTMLInputElement>('setting-auto-play-assistant');
+const settingSilenceAutoStop = mustGet<HTMLInputElement>('setting-silence-auto-stop');
+const settingSttEngine = mustGet<HTMLSelectElement>('setting-stt-engine');
+const settingTtsVoice = mustGet<HTMLInputElement>('setting-tts-voice');
+const settingConfirmDelete = mustGet<HTMLInputElement>('setting-confirm-delete');
+const settingHistoryRetention = mustGet<HTMLInputElement>('setting-history-retention');
+const settingVoiceCacheRetention = mustGet<HTMLInputElement>('setting-voice-cache-retention');
+const settingExportFormat = mustGet<HTMLSelectElement>('setting-export-format');
+const settingsFeedback = mustGet<HTMLElement>('settings-feedback');
+
+const liveGlass = new LiveGlass([titlebar, modeSwitch, inputForm]);
+
+let isStreaming = false;
+let currentContent = '';
+let currentImportPreview: MemoryImportPreview | null = null;
+let currentSettingsBundle: SettingsBundle | null = null;
+let currentMode: AthenaMode = 'companion';
+let activeRequestMode: AthenaMode | null = null;
+let pendingExecutionGoal = '';
+let pendingExecutionMode: AthenaMode = 'companion';
+let currentExecutionTask: ExecutionTask | null = null;
+let executionTasks: ExecutionTask[] = [];
+let executionTaskSequence = 0;
+let currentAudio: HTMLAudioElement | null = null;
+let voiceInputState: VoiceInputState = 'idle';
+let voiceFeedbackTimer: number | undefined;
+let voiceErrorResetTimer: number | undefined;
+let recordingDeadlineTimer: number | undefined;
+let recordingTicker: number | undefined;
+let recordingStartedAt = 0;
+let recordingPeakLevel = 0;
+let recordingLastSpeechAt = 0;
+let recordingSpeechFrames = 0;
+let recordingSpeechDetected = false;
+let currentMicrophoneLabel = '默认麦克风';
+let voiceOperationId = 0;
+let autoStopRequested = false;
+let isVoiceOutputBusy = false;
+let ollamaConnected: boolean | null = null;
+let forceWebSearchForNextMessage = false;
+
+const microphoneRecorder = new MicrophoneRecorder({
+  onVolume: updateMicrophoneMeter,
+  onError: handleMicrophoneRecorderError,
+});
+
+function setStatus(text: string, state: AppStatusState): void {
+  statusText.textContent = text;
+  statusDot.dataset.state = state;
+  appShell.dataset.state = state === 'working' ? 'thinking' : 'idle';
+}
+
+function setMode(mode: AthenaMode): void {
+  currentMode = mode;
+  appShell.dataset.mode = mode;
+  chatPanel.setActiveMode(mode);
+  stage.setAttribute('aria-hidden', String(mode === 'execute'));
+  executionPanel.setAttribute('aria-hidden', String(mode !== 'execute'));
+  modeHint.textContent = modeHintText(mode);
+  inputBox.placeholder = modePlaceholder(mode);
+  document.querySelectorAll<HTMLButtonElement>('.mode-btn').forEach((button) => {
+    const active = button.dataset.mode === mode;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-selected', String(active));
+    button.tabIndex = active ? 0 : -1;
+  });
+  syncToolAccessHint();
+}
+
+function setModeSwitchDisabled(disabled: boolean): void {
+  document.querySelectorAll<HTMLButtonElement>('.mode-btn').forEach((button) => {
+    button.disabled = disabled;
+  });
+}
+
+function handleModeSwitchKeydown(event: KeyboardEvent): void {
+  if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+  event.preventDefault();
+
+  const currentIndex = Math.max(0, ATHENA_MODES.indexOf(currentMode));
+  const nextIndex = event.key === 'Home'
+    ? 0
+    : event.key === 'End'
+      ? ATHENA_MODES.length - 1
+      : (currentIndex + (event.key === 'ArrowRight' ? 1 : -1) + ATHENA_MODES.length) % ATHENA_MODES.length;
+  const nextMode = ATHENA_MODES[nextIndex];
+  const nextButton = modeSwitch.querySelector<HTMLButtonElement>(`.mode-btn[data-mode="${nextMode}"]`);
+  nextButton?.focus({ preventScroll: true });
+  void selectMode(nextMode);
+}
+
+async function selectMode(mode: AthenaMode): Promise<void> {
+  if (mode === currentMode || isStreaming) return;
+  setMode(mode);
+  toggleComposerTools(false);
+  if (currentSettingsBundle) {
+    currentSettingsBundle.settings.conversation.activeMode = mode;
+  }
+
+  try {
+    const bundle = await window.athenaAPI.saveSettings({
+      settings: { conversation: { activeMode: mode } },
+    });
+    if (currentMode === mode) currentSettingsBundle = bundle;
+  } catch (error) {
+    console.error('Failed to persist conversation mode', error);
+  }
+}
+
+function startStartupIntro(): void {
+  appShell.dataset.intro = 'starting';
+  window.requestAnimationFrame(() => {
+    window.requestAnimationFrame(() => {
+      appShell.dataset.intro = 'entered';
+    });
+  });
+  window.setTimeout(() => {
+    appShell.dataset.intro = 'entered';
+    inputBar.focus();
+  }, 180);
+}
+
+function skipStartupIntro(): void {
+  appShell.dataset.intro = 'entered';
+}
+
+async function sendMessage(text: string): Promise<void> {
+  if (!text || isStreaming || isVoiceInputBusy()) return;
+
+  const forceWebSearch = forceWebSearchForNextMessage;
+  const requestMode = currentMode;
+  forceWebSearchForNextMessage = false;
+  toggleComposerTools(false);
+  resizeInputBox();
+  activeRequestMode = requestMode;
+  if (requestMode === 'execute') beginExecutionRequest(text);
+  else chatPanel.addMessage(text, 'user');
+  setStatus(modeThinkingText(requestMode), 'working');
+  isStreaming = true;
+  setModeSwitchDisabled(true);
+  inputBar.setDisabled(true);
+  syncVoiceControls();
+  syncWebSearchControl();
+  currentContent = '';
+  pendingExecutionGoal = text;
+  pendingExecutionMode = requestMode;
+
+  try {
+    const response = await window.athenaAPI.sendMessage(text, requestMode, forceWebSearch);
+    if (response) ollamaConnected = true;
+    if (requestMode === 'execute') {
+      finishExecutionTask(response?.toolExecutions ?? [], response?.content || currentContent);
+    } else {
+      if (!currentContent && response?.content) {
+        chatPanel.addMessage(response.content, 'assistant', response.emotion?.label);
+      } else if (response?.emotion?.label) {
+        chatPanel.setLastAssistantEmotion(response.emotion.label);
+      }
+      if (response?.webSearch?.sources?.length) {
+        chatPanel.setLastAssistantSources(response.webSearch.sources, {
+          readPageCount: response.webSearch.readPageCount,
+          searchRounds: response.webSearch.searchRounds,
+        });
+      }
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : '未知错误';
+    if (requestMode === 'execute') failActiveExecutionTask(message);
+    else chatPanel.addMessage(`出错了：${message}`, 'assistant', '需要检查');
+  } finally {
+    pendingExecutionGoal = '';
+    activeRequestMode = null;
+    isStreaming = false;
+    setModeSwitchDisabled(false);
+    inputBar.setDisabled(false);
+    syncVoiceControls();
+    syncWebSearchControl();
+    inputBar.focus();
+    restoreIdleStatus();
+    if (requestMode !== 'execute' && currentSettingsBundle?.settings.voice.autoPlayAssistant) {
+      void speakLastAssistantMessage();
+    }
+  }
+}
+
+function handleInputKeydown(event: KeyboardEvent): void {
+  if (event.key !== 'Enter' || event.isComposing) return;
+
+  const enterToSend = currentSettingsBundle?.settings.conversation.enterToSend ?? true;
+  if (enterToSend && !event.shiftKey) {
+    event.preventDefault();
+    inputForm.requestSubmit();
+    return;
+  }
+
+  if (!enterToSend && (event.ctrlKey || event.metaKey)) {
+    event.preventDefault();
+    inputForm.requestSubmit();
+  }
+}
+
+function init(): void {
+  themeController.apply('system');
+  setMode('companion');
+  renderExecutionCenter();
+  inputForm.dataset.voiceState = 'idle';
+  voiceFeedback.dataset.visible = 'false';
+  void initializeSettings();
+  inputBar.onSubmit(sendMessage);
+
+  document.querySelectorAll<HTMLButtonElement>('.mode-btn').forEach((button) => {
+    button.addEventListener('click', () => {
+      const nextMode = button.dataset.mode as AthenaMode | undefined;
+      if (nextMode) void selectMode(nextMode);
+    });
+  });
+  modeSwitch.addEventListener('keydown', handleModeSwitchKeydown);
+
+  executionStop.addEventListener('click', cancelActiveExecution);
+  executionClear.addEventListener('click', clearExecutionHistory);
+  executionSettingsForm.addEventListener('submit', (event) => {
+    event.preventDefault();
+    void saveExecutionSettings();
+  });
+  settingsOpenExecution.addEventListener('click', () => {
+    void toggleSettingsPanel(false);
+    void selectMode('execute');
+  });
+  btnSettings.addEventListener('click', () => toggleSettingsPanel());
+  btnSettingsClose.addEventListener('click', () => toggleSettingsPanel(false));
+  panelScrim.addEventListener('click', () => {
+    void toggleMemoryPanel(false);
+    void toggleSettingsPanel(false);
+  });
+  settingsForm.addEventListener('submit', (event) => {
+    event.preventDefault();
+    saveSettingsForm();
+  });
+  inputBox.addEventListener('keydown', handleInputKeydown);
+  inputBox.addEventListener('input', resizeInputBox);
+  composerMoreBtn.addEventListener('click', () => toggleComposerTools());
+  webSearchBtn.addEventListener('click', () => {
+    if (webSearchBtn.disabled) return;
+    forceWebSearchForNextMessage = !forceWebSearchForNextMessage;
+    syncWebSearchControl();
+    toggleComposerTools(false);
+  });
+  document.addEventListener('pointerdown', (event) => {
+    const target = event.target;
+    if (
+      composerSecondaryTools.dataset.open === 'true'
+      && target instanceof Node
+      && !composerSecondaryTools.contains(target)
+      && !composerMoreBtn.contains(target)
+    ) {
+      toggleComposerTools(false);
+    }
+  });
+  btnMemory.addEventListener('click', () => toggleMemoryPanel());
+  btnMemoryClose.addEventListener('click', () => toggleMemoryPanel(false));
+  memoryKind.addEventListener('change', () => loadMemoryList());
+  memorySearch.addEventListener('input', debounce(() => loadMemoryList(), 180));
+  memoryDebugForm.addEventListener('submit', (event) => {
+    event.preventDefault();
+    runMemoryDebug();
+  });
+  memoryImportBrowse.addEventListener('click', chooseImportFile);
+  memoryImportPreview.addEventListener('click', previewMemoryImport);
+  memoryImportCommit.addEventListener('click', commitMemoryImport);
+  document.querySelectorAll<HTMLButtonElement>('.memory-tab').forEach((tab) => {
+    tab.addEventListener('click', () => selectMemoryTab(tab.dataset.tab || 'manage'));
+  });
+  btnMinimize.addEventListener('click', () => window.athenaAPI.minimize());
+  btnClose.addEventListener('click', () => window.athenaAPI.close());
+  voiceSttBtn.addEventListener('click', toggleMicrophoneRecording);
+  voiceFileBtn.addEventListener('click', () => {
+    toggleComposerTools(false);
+    void transcribeAudioFile();
+  });
+  voiceTtsBtn.addEventListener('click', () => {
+    toggleComposerTools(false);
+    void speakLastAssistantMessage();
+  });
+  window.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && (voiceInputState === 'recording' || voiceInputState === 'requesting')) {
+      event.preventDefault();
+      void cancelMicrophoneRecording();
+      return;
+    }
+    if (event.key === 'Escape' && (memoryPanel.dataset.open === 'true' || settingsPanel.dataset.open === 'true')) {
+      event.preventDefault();
+      void toggleMemoryPanel(false);
+      void toggleSettingsPanel(false);
+      return;
+    }
+    if (event.key === 'Escape' && composerSecondaryTools.dataset.open === 'true') {
+      event.preventDefault();
+      toggleComposerTools(false);
+    }
+  });
+  window.addEventListener('beforeunload', () => {
+    voiceOperationId += 1;
+    clearRecordingTimers();
+    void microphoneRecorder.cancel();
+    currentAudio?.pause();
+    liveGlass.dispose();
+    themeController.dispose();
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden && (voiceInputState === 'recording' || voiceInputState === 'requesting')) {
+      void cancelMicrophoneRecording();
+    }
+  });
+
+  window.athenaAPI.onChatStream((data) => {
+    if (data.done) {
+      if (activeRequestMode !== 'execute') chatPanel.finalizeStreaming();
+      return;
+    }
+
+    currentContent += data.content;
+    if (activeRequestMode === 'execute') {
+      if (currentExecutionTask) currentExecutionTask.finalResponse = currentContent;
+      executionCurrentResult.textContent = currentContent;
+      executionCurrentResult.dataset.visible = 'true';
+    } else {
+      chatPanel.updateStreamingMessage(currentContent);
+    }
+  });
+
+  window.athenaAPI.onChatError((error) => {
+    ollamaConnected = false;
+    isStreaming = false;
+    inputBar.setDisabled(false);
+    syncVoiceControls();
+    setStatus('Ollama 离线', 'offline');
+    if (activeRequestMode === 'execute') failActiveExecutionTask(error);
+    else chatPanel.addMessage(`我暂时连不上本地模型：${error}`, 'assistant', '离线');
+  });
+
+  window.athenaAPI.onWebSearchStatus((status) => {
+    if (status.phase === 'searching') {
+      setStatus('正在搜索网页', 'working');
+      return;
+    }
+    if (status.phase === 'done') {
+      const readLabel = status.pageCount ? `，深读 ${status.pageCount} 页` : '';
+      setStatus(`${webSearchProviderLabel(status.provider)}找到 ${status.resultCount ?? 0} 个来源${readLabel}，正在整理`, 'working');
+      return;
+    }
+    if (status.phase === 'reading') {
+      setStatus(`正在逐页深读 ${status.pageCount ?? 0} 个网页`, 'working');
+      return;
+    }
+    if (status.phase === 'refining') {
+      setStatus(`正在进行第 ${status.searchRound ?? 2} 轮搜索`, 'working');
+      return;
+    }
+    setStatus('联网搜索未取得结果，正在继续', 'working');
+  });
+
+  window.athenaAPI.onToolStatus((status) => {
+    handleExecutionStatus(status);
+    if (status.phase === 'planning') {
+      setStatus('正在规划电脑操作', 'working');
+      return;
+    }
+    if (status.phase === 'running') {
+      setStatus(status.toolLabel ? `正在${status.toolLabel}` : status.message, 'working');
+      return;
+    }
+    if (status.phase === 'completed') {
+      setStatus(`${status.message}，正在继续`, 'working');
+      return;
+    }
+    if (status.phase === 'failed') {
+      setStatus('有一项电脑操作未完成，正在整理结果', 'working');
+      return;
+    }
+    if (status.phase === 'cancelled') {
+      setStatus('电脑操作已停止', 'ready');
+      return;
+    }
+    setStatus('电脑操作完成，正在整理回复', 'working');
+  });
+
+  window.athenaAPI.onReminderDue((job) => {
+    chatPanel.addMessage(`提醒时间到了：${job.title}`, 'assistant', '提醒');
+    setStatus('提醒', 'ready');
+  });
+
+  inputBar.focus();
+  resizeInputBox();
+}
+
+function webSearchProviderLabel(provider?: WebSearchStatus['provider']): string {
+  if (provider === 'sogou') return '搜狗 · ';
+  if (provider === 'bing') return '必应 · ';
+  if (provider === 'duckduckgo') return 'DuckDuckGo · ';
+  return '';
+}
+
+function beginExecutionRequest(goal: string): void {
+  executionTaskSequence += 1;
+  const now = new Date().toISOString();
+  currentExecutionTask = {
+    id: `execution-${Date.now().toString(36)}-${executionTaskSequence.toString(36)}`,
+    goal,
+    mode: 'execute',
+    state: 'planning',
+    startedAt: now,
+    events: [{ phase: 'planning', message: '已收到目标，正在准备工具规划', occurredAt: now }],
+    executions: [],
+  };
+  renderExecutionCenter();
+}
+
+function handleExecutionStatus(status: ToolStatusEvent): void {
+  const task = ensureExecutionTask();
+  task.events.push({ ...status, occurredAt: new Date().toISOString() });
+
+  if (status.phase === 'planning') task.state = 'planning';
+  else if (status.phase === 'cancelled') {
+    task.state = 'cancelled';
+    task.completedAt = new Date().toISOString();
+  } else if (status.phase === 'done') {
+    if (task.state !== 'cancelled') task.state = 'running';
+  } else {
+    task.state = 'running';
+  }
+
+  modeExecuteButton.dataset.active = String(isExecutionTaskActive(task));
+  renderExecutionCenter();
+}
+
+function ensureExecutionTask(): ExecutionTask {
+  if (currentExecutionTask && isExecutionTaskActive(currentExecutionTask)) return currentExecutionTask;
+  executionTaskSequence += 1;
+  currentExecutionTask = {
+    id: `execution-${Date.now().toString(36)}-${executionTaskSequence.toString(36)}`,
+    goal: pendingExecutionGoal || '未命名电脑任务',
+    mode: pendingExecutionMode,
+    state: 'planning',
+    startedAt: new Date().toISOString(),
+    events: [],
+    executions: [],
+  };
+  return currentExecutionTask;
+}
+
+function finishExecutionTask(executions: ChatToolExecution[], finalResponse = ''): void {
+  if (!currentExecutionTask && executions.length === 0) return;
+  const task = currentExecutionTask ?? ensureExecutionTask();
+  task.executions = executions.map(item => ({ ...item }));
+  task.finalResponse = finalResponse.trim() || task.finalResponse;
+  if (task.state !== 'cancelled' && task.state !== 'failed') {
+    task.state = executions.some(item => item.status !== 'completed')
+      ? 'failed'
+      : executions.length > 0
+        ? 'completed'
+        : 'not-run';
+  }
+  task.completedAt = task.completedAt ?? new Date().toISOString();
+  rememberExecutionTask(task);
+  modeExecuteButton.dataset.active = 'false';
+  modeExecuteButton.dataset.hasRecords = 'true';
+  renderExecutionCenter();
+}
+
+function failActiveExecutionTask(message: string): void {
+  const task = currentExecutionTask;
+  if (!task || !isExecutionTaskActive(task)) return;
+  task.state = 'failed';
+  task.finalResponse = `执行失败：${message}`;
+  task.completedAt = new Date().toISOString();
+  task.events.push({ phase: 'failed', message, occurredAt: task.completedAt });
+  rememberExecutionTask(task);
+  modeExecuteButton.dataset.active = 'false';
+  modeExecuteButton.dataset.hasRecords = 'true';
+  renderExecutionCenter();
+}
+
+function rememberExecutionTask(task: ExecutionTask): void {
+  executionTasks = [
+    {
+      ...task,
+      events: task.events.map(item => ({ ...item })),
+      executions: task.executions.map(item => ({ ...item })),
+    },
+    ...executionTasks.filter(item => item.id !== task.id),
+  ].slice(0, 20);
+}
+
+function clearExecutionHistory(): void {
+  executionTasks = [];
+  if (!currentExecutionTask || !isExecutionTaskActive(currentExecutionTask)) currentExecutionTask = null;
+  modeExecuteButton.dataset.hasRecords = 'false';
+  renderExecutionCenter();
+}
+
+async function cancelActiveExecution(): Promise<void> {
+  const task = currentExecutionTask;
+  if (!task || !isExecutionTaskActive(task) || task.state === 'stopping') return;
+  const previousState = task.state;
+  task.state = 'stopping';
+  task.events.push({ phase: 'running', message: '正在请求停止后续步骤', occurredAt: new Date().toISOString() });
+  renderExecutionCenter();
+  try {
+    const accepted = await window.athenaAPI.cancelExecution();
+    if (accepted) return;
+    task.state = previousState;
+    task.events.push({ phase: 'failed', message: '当前没有可停止的执行任务', occurredAt: new Date().toISOString() });
+  } catch (error) {
+    task.state = previousState;
+    task.events.push({
+      phase: 'failed',
+      message: `停止请求失败：${error instanceof Error ? error.message : String(error)}`,
+      occurredAt: new Date().toISOString(),
+    });
+  }
+  renderExecutionCenter();
+}
+
+function renderExecutionCenter(): void {
+  const task = currentExecutionTask;
+  const active = Boolean(task && isExecutionTaskActive(task));
+  modeExecuteButton.dataset.active = String(active);
+  modeExecuteButton.dataset.hasRecords = String(executionTasks.length > 0 || Boolean(task && !active));
+  executionStop.disabled = !active || task?.state === 'stopping';
+
+  if (!task) {
+    executionCurrentCard.dataset.state = 'idle';
+    executionStateLabel.dataset.state = 'idle';
+    executionStateLabel.textContent = '待命';
+    executionCurrentGoal.textContent = '还没有正在执行的电脑任务。';
+    executionCurrentMeta.textContent = '只有真实触发工具后，这里才会出现操作记录。';
+    executionLiveLog.replaceChildren();
+    executionCurrentResult.textContent = '';
+    executionCurrentResult.dataset.visible = 'false';
+  } else {
+    executionCurrentCard.dataset.state = task.state;
+    executionStateLabel.dataset.state = task.state;
+    executionStateLabel.textContent = executionStateText(task.state);
+    executionCurrentGoal.textContent = task.goal;
+    const level = currentSettingsBundle?.settings.tools.modePermissions[task.mode]
+      ?? currentSettingsBundle?.settings.tools.permissionLevel
+      ?? 'off';
+    const completed = task.executions.filter(item => item.status === 'completed').length;
+    const resultMeta = task.executions.length > 0 ? ` · ${completed}/${task.executions.length} 项完成` : '';
+    executionCurrentMeta.textContent = `${modeLabel(task.mode)}模式 · ${toolPermissionShortLabel(level)} · ${formatExecutionTime(task.startedAt)}${resultMeta}`;
+    const timeline = task.events.slice(-14).map(event => {
+      const item = document.createElement('li');
+      item.className = 'execution-live-step';
+      item.dataset.phase = event.phase;
+      item.textContent = `${formatExecutionTime(event.occurredAt)} · ${event.message}`;
+      return item;
+    });
+    executionLiveLog.replaceChildren(...timeline);
+    executionCurrentResult.textContent = task.finalResponse || '';
+    executionCurrentResult.dataset.visible = String(Boolean(task.finalResponse));
+  }
+
+  renderExecutionHistory();
+}
+
+function renderExecutionHistory(): void {
+  if (executionTasks.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'execution-empty';
+    empty.textContent = '真实执行完成后，会在这里保留参数、结果与耗时。';
+    executionHistory.replaceChildren(empty);
+    return;
+  }
+  executionHistory.replaceChildren(...executionTasks.map(createExecutionTaskNode));
+}
+
+function createExecutionTaskNode(task: ExecutionTask): HTMLElement {
+  const details = document.createElement('details');
+  details.className = 'execution-task';
+  details.dataset.state = task.state;
+
+  const summary = document.createElement('summary');
+  const goal = document.createElement('span');
+  goal.className = 'execution-task-goal';
+  goal.textContent = task.goal;
+  const meta = document.createElement('span');
+  meta.className = 'execution-task-meta';
+  const completed = task.executions.filter(item => item.status === 'completed').length;
+  meta.textContent = `${executionStateText(task.state)} · ${completed}/${task.executions.length} 项完成 · ${formatExecutionTime(task.startedAt)}`;
+  summary.append(goal, meta);
+
+  const body = document.createElement('div');
+  body.className = 'execution-task-body';
+  if (task.finalResponse) {
+    const finalResponse = document.createElement('div');
+    finalResponse.className = 'execution-task-response';
+    finalResponse.textContent = task.finalResponse;
+    body.appendChild(finalResponse);
+  }
+  if (task.executions.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'execution-empty';
+    empty.textContent = task.state === 'cancelled'
+      ? '任务在完成工具步骤前被停止。'
+      : '本轮没有产生真实工具调用，也没有改动电脑内容。';
+    body.appendChild(empty);
+  } else {
+    body.append(...task.executions.map(createExecutionRecordCard));
+  }
+  details.append(summary, body);
+  return details;
+}
+
+function createExecutionRecordCard(execution: ChatToolExecution): HTMLElement {
+  const card = document.createElement('details');
+  card.className = 'message-tool-card';
+  card.dataset.status = execution.status;
+
+  const title = document.createElement('summary');
+  title.className = 'message-tool-title';
+  const status = execution.status === 'completed' ? '完成' : execution.status === 'denied' ? '已拒绝' : '失败';
+  const duration = execution.durationMs >= 1000 ? `${(execution.durationMs / 1000).toFixed(1)}s` : `${execution.durationMs}ms`;
+  title.textContent = `${execution.label} · ${status} · ${duration}`;
+
+  const body = document.createElement('div');
+  body.className = 'message-tool-body';
+  const summary = document.createElement('div');
+  summary.className = 'message-tool-summary';
+  summary.textContent = execution.summary;
+  body.appendChild(summary);
+  appendExecutionPreview(body, '调用参数', execution.inputPreview);
+  appendExecutionPreview(body, '执行结果', execution.outputPreview);
+  card.append(title, body);
+  return card;
+}
+
+function appendExecutionPreview(container: HTMLElement, label: string, value: string): void {
+  if (!value) return;
+  const heading = document.createElement('div');
+  heading.className = 'message-tool-meta-label';
+  heading.textContent = label;
+  const preview = document.createElement('pre');
+  preview.textContent = value;
+  container.append(heading, preview);
+}
+
+function isExecutionTaskActive(task: ExecutionTask): boolean {
+  return task.state === 'planning' || task.state === 'running' || task.state === 'stopping';
+}
+
+function executionStateText(state: ExecutionTaskState): string {
+  if (state === 'planning') return '正在规划';
+  if (state === 'running') return '正在执行';
+  if (state === 'stopping') return '正在停止';
+  if (state === 'completed') return '已完成';
+  if (state === 'failed') return '有失败项';
+  if (state === 'cancelled') return '已停止';
+  return '未执行';
+}
+
+function formatExecutionTime(value: string): string {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? '--:--:--'
+    : date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
+async function initializeSettings(): Promise<void> {
+  try {
+    const bundle = await window.athenaAPI.getSettings();
+    currentSettingsBundle = bundle;
+    populateSettingsForm(bundle);
+    applyRuntimeSettings(bundle.settings);
+    if (bundle.settings.ui.startupIntro) startStartupIntro();
+    else skipStartupIntro();
+    void refreshStartupModelStatus(bundle.settings.general.autoConnectModel);
+  } catch {
+    startStartupIntro();
+    void refreshStartupModelStatus(true);
+  }
+}
+
+async function refreshStartupModelStatus(autoConnect: boolean): Promise<void> {
+  if (!autoConnect) {
+    ollamaConnected = null;
+    chatPanel.addMessage('时夏在。模型自动连接先关着，需要聊天时再叫醒本地模型就好。', 'assistant', '待命');
+    setStatus('待命', 'ready');
+    return;
+  }
+
+  try {
+    const info = await window.athenaAPI.getSystemInfo();
+    ollamaConnected = info.ollamaConnected;
+    if (info.ollamaConnected) {
+      chatPanel.addMessage(`${greetingForHour(info.hour)}，时夏在。今天想先聊两句，还是把手头的事往前推一点？`, 'assistant', '温柔');
+      setStatus('就绪', 'ready');
+    } else {
+      chatPanel.addMessage(`我已经醒着，但还没连上 Ollama。请确认 ${info.ollamaEndpoint} 正在运行，并且本地有 ${info.ollamaModel}。`, 'assistant', '等待模型');
+      setStatus('Ollama 离线', 'offline');
+    }
+  } catch {
+    ollamaConnected = null;
+    chatPanel.addMessage('初始化状态检查失败，但窗口已经准备好了。', 'assistant', '需要检查');
+    setStatus('检查失败', 'error');
+  }
+}
+
+async function toggleMemoryPanel(force?: boolean): Promise<void> {
+  const next = force ?? memoryPanel.dataset.open !== 'true';
+  memoryPanel.dataset.open = String(next);
+  if (next) settingsPanel.dataset.open = 'false';
+  toggleComposerTools(false);
+  syncPanelState();
+  if (next) {
+    await loadMemoryList();
+    memorySearch.focus({ preventScroll: true });
+    appShell.scrollLeft = 0;
+    document.documentElement.scrollLeft = 0;
+    document.body.scrollLeft = 0;
+  }
+}
+
+async function toggleSettingsPanel(force?: boolean): Promise<void> {
+  const next = force ?? settingsPanel.dataset.open !== 'true';
+  settingsPanel.dataset.open = String(next);
+  if (next) {
+    memoryPanel.dataset.open = 'false';
+    toggleComposerTools(false);
+    syncPanelState();
+    await loadSettingsPanel();
+    settingUserName.focus({ preventScroll: true });
+    appShell.scrollLeft = 0;
+    document.documentElement.scrollLeft = 0;
+    document.body.scrollLeft = 0;
+  }
+  if (!next) syncPanelState();
+}
+
+function syncPanelState(): void {
+  const memoryOpen = memoryPanel.dataset.open === 'true';
+  const settingsOpen = settingsPanel.dataset.open === 'true';
+  const anyOpen = memoryOpen || settingsOpen;
+  panelScrim.dataset.visible = String(anyOpen);
+  panelScrim.setAttribute('aria-hidden', String(!anyOpen));
+  memoryPanel.setAttribute('aria-hidden', String(!memoryOpen));
+  settingsPanel.setAttribute('aria-hidden', String(!settingsOpen));
+  btnMemory.setAttribute('aria-expanded', String(memoryOpen));
+  btnSettings.setAttribute('aria-expanded', String(settingsOpen));
+}
+
+function toggleComposerTools(force?: boolean): void {
+  const next = force ?? composerSecondaryTools.dataset.open !== 'true';
+  composerSecondaryTools.dataset.open = String(next);
+  composerMoreBtn.setAttribute('aria-expanded', String(next));
+}
+
+function resizeInputBox(): void {
+  inputBox.style.height = 'auto';
+  inputBox.style.height = `${Math.min(inputBox.scrollHeight, 116)}px`;
+}
+
+async function loadSettingsPanel(): Promise<void> {
+  setSettingsFeedback('读取设置中...');
+  try {
+    const bundle = await window.athenaAPI.getSettings();
+    currentSettingsBundle = bundle;
+    populateSettingsForm(bundle);
+    applyRuntimeSettings(bundle.settings);
+    setSettingsFeedback('');
+  } catch (error) {
+    setSettingsFeedback(`读取失败：${error instanceof Error ? error.message : String(error)}`, 'error');
+  }
+}
+
+async function saveExecutionSettings(): Promise<void> {
+  setExecutionSettingsFeedback('保存中...');
+  try {
+    const bundle = await window.athenaAPI.saveSettings({
+      settings: {
+        tools: {
+          modePermissions: {
+            execute: settingToolPermissionExecute.value as ToolPermissionLevel,
+          },
+          maxToolRounds: Number(settingToolMaxRounds.value),
+          commandTimeoutSeconds: Number(settingToolCommandTimeout.value),
+        },
+      },
+    });
+    currentSettingsBundle = bundle;
+    populateSettingsForm(bundle);
+    applyRuntimeSettings(bundle.settings);
+    setExecutionSettingsFeedback('执行权限已保存，并已立即生效。', 'success');
+  } catch (error) {
+    setExecutionSettingsFeedback(`保存失败：${error instanceof Error ? error.message : String(error)}`, 'error');
+  }
+}
+
+function populateSettingsForm(bundle: SettingsBundle): void {
+  const { appearance, conversation, data, general, memory, personalization, tools, ui, voice, webSearch } = bundle.settings;
+  settingLaunchStartup.checked = general.launchAtStartup;
+  settingCloseTray.checked = general.closeToTray;
+  settingNotifications.checked = general.desktopNotifications;
+  settingAutoConnectModel.checked = general.autoConnectModel;
+  settingUserName.value = personalization.userName;
+  settingPreferredAddress.value = personalization.preferredAddress;
+  settingTone.value = personalization.tone;
+  settingReplyLength.value = personalization.replyLength;
+  settingInitiative.value = personalization.initiative;
+  settingProactiveCare.checked = personalization.proactiveCare;
+  settingMemorySmalltalk.checked = personalization.useMemoryInSmallTalk;
+  settingCreatorHints.checked = personalization.creatorModeHints;
+  settingCustomNotes.value = personalization.customNotes;
+  settingEnterSend.checked = conversation.enterToSend;
+  settingStreamResponses.checked = conversation.streamResponses;
+  settingShowTimestamps.checked = conversation.showTimestamps;
+  settingSaveHistory.checked = conversation.saveHistory;
+  settingToolPermissionExecute.value = tools.modePermissions.execute;
+  settingToolMaxRounds.value = String(tools.maxToolRounds);
+  settingToolCommandTimeout.value = String(tools.commandTimeoutSeconds);
+  settingWebSearchEnabled.checked = webSearch.enabled;
+  settingWebSearchMode.value = webSearch.mode;
+  settingWebSearchMaxResults.value = String(webSearch.maxResults);
+  settingWebSearchDeepRead.checked = webSearch.deepRead;
+  settingWebSearchSecondary.checked = webSearch.secondarySearch;
+  settingWebSearchMaxPages.value = String(webSearch.maxPages);
+  settingStartupIntro.checked = ui.startupIntro;
+  settingCompactMode.checked = ui.compactMode;
+  settingGlassEffects.checked = appearance.glassEffects;
+  settingAnimationLevel.value = appearance.animationLevel;
+  settingTheme.value = appearance.theme;
+  settingOllamaUrl.value = bundle.model.ollama.baseUrl;
+  settingOllamaModel.value = bundle.model.ollama.model;
+  settingTemperature.value = String(bundle.model.ollama.temperature);
+  settingMaxTokens.value = String(bundle.model.ollama.maxTokens);
+  settingNumCtx.value = String(bundle.model.ollama.numCtx);
+  settingMemoryEnabled.checked = memory.enabled;
+  settingMemoryAutoExtract.checked = memory.autoExtract;
+  settingMemoryProfile.checked = memory.retrieveProfile;
+  settingMemoryEvents.checked = memory.retrieveEvents;
+  settingMemoryProjects.checked = memory.retrieveProjects;
+  settingMemoryDepth.value = String(memory.retrievalDepth);
+  settingMemoryMinImportance.value = String(memory.minImportanceForAutoExtract);
+  settingSttEnabled.checked = voice.sttEnabled;
+  settingTtsEnabled.checked = voice.ttsEnabled;
+  settingAutoPlayAssistant.checked = voice.autoPlayAssistant;
+  settingSilenceAutoStop.checked = voice.silenceAutoStop;
+  settingSttEngine.value = voice.sttEngine;
+  settingTtsVoice.value = voice.ttsVoice;
+  settingConfirmDelete.checked = data.confirmBeforeDelete;
+  settingHistoryRetention.value = String(data.historyRetentionDays);
+  settingVoiceCacheRetention.value = String(data.voiceCacheRetentionHours);
+  settingExportFormat.value = data.exportFormat;
+}
+
+async function saveSettingsForm(): Promise<void> {
+  setSettingsFeedback('保存中...');
+  const previousModel = currentSettingsBundle?.model.ollama;
+
+  try {
+    const bundle = await window.athenaAPI.saveSettings({
+      settings: {
+        general: {
+          launchAtStartup: settingLaunchStartup.checked,
+          closeToTray: settingCloseTray.checked,
+          desktopNotifications: settingNotifications.checked,
+          autoConnectModel: settingAutoConnectModel.checked,
+        },
+        appearance: {
+          theme: settingTheme.value as ThemeMode,
+          animationLevel: settingAnimationLevel.value as AnimationLevel,
+          glassEffects: settingGlassEffects.checked,
+        },
+        conversation: {
+          activeMode: currentMode,
+          enterToSend: settingEnterSend.checked,
+          streamResponses: settingStreamResponses.checked,
+          showTimestamps: settingShowTimestamps.checked,
+          saveHistory: settingSaveHistory.checked,
+        },
+        tools: {
+          modePermissions: {
+            execute: settingToolPermissionExecute.value as ToolPermissionLevel,
+          },
+          maxToolRounds: Number(settingToolMaxRounds.value),
+          commandTimeoutSeconds: Number(settingToolCommandTimeout.value),
+        },
+        webSearch: {
+          enabled: settingWebSearchEnabled.checked,
+          mode: settingWebSearchMode.value as WebSearchMode,
+          maxResults: Number(settingWebSearchMaxResults.value),
+          deepRead: settingWebSearchDeepRead.checked,
+          secondarySearch: settingWebSearchSecondary.checked,
+          maxPages: Number(settingWebSearchMaxPages.value),
+        },
+        personalization: {
+          userName: settingUserName.value,
+          preferredAddress: settingPreferredAddress.value,
+          tone: settingTone.value as PersonalizationTone,
+          replyLength: settingReplyLength.value as ReplyLength,
+          initiative: settingInitiative.value as InitiativeLevel,
+          proactiveCare: settingProactiveCare.checked,
+          useMemoryInSmallTalk: settingMemorySmalltalk.checked,
+          creatorModeHints: settingCreatorHints.checked,
+          customNotes: settingCustomNotes.value,
+        },
+        ui: {
+          startupIntro: settingStartupIntro.checked,
+          compactMode: settingCompactMode.checked,
+        },
+        memory: {
+          enabled: settingMemoryEnabled.checked,
+          autoExtract: settingMemoryAutoExtract.checked,
+          retrieveProfile: settingMemoryProfile.checked,
+          retrieveEvents: settingMemoryEvents.checked,
+          retrieveProjects: settingMemoryProjects.checked,
+          retrievalDepth: Number(settingMemoryDepth.value),
+          minImportanceForAutoExtract: Number(settingMemoryMinImportance.value),
+        },
+        voice: {
+          sttEnabled: settingSttEnabled.checked,
+          ttsEnabled: settingTtsEnabled.checked,
+          autoPlayAssistant: settingAutoPlayAssistant.checked,
+          silenceAutoStop: settingSilenceAutoStop.checked,
+          sttEngine: settingSttEngine.value as SttEngine,
+          ttsVoice: settingTtsVoice.value,
+        },
+        data: {
+          confirmBeforeDelete: settingConfirmDelete.checked,
+          historyRetentionDays: Number(settingHistoryRetention.value),
+          voiceCacheRetentionHours: Number(settingVoiceCacheRetention.value),
+          exportFormat: settingExportFormat.value as 'json' | 'markdown',
+        },
+      },
+      model: {
+        ollama: {
+          baseUrl: settingOllamaUrl.value,
+          model: settingOllamaModel.value,
+          temperature: Number(settingTemperature.value),
+          maxTokens: Number(settingMaxTokens.value),
+          numCtx: Number(settingNumCtx.value),
+        },
+      },
+    });
+
+    currentSettingsBundle = bundle;
+    populateSettingsForm(bundle);
+    applyRuntimeSettings(bundle.settings);
+    const modelChanged = previousModel
+      && (
+        previousModel.baseUrl !== bundle.model.ollama.baseUrl
+        || previousModel.model !== bundle.model.ollama.model
+        || previousModel.temperature !== bundle.model.ollama.temperature
+        || previousModel.maxTokens !== bundle.model.ollama.maxTokens
+        || previousModel.numCtx !== bundle.model.ollama.numCtx
+      );
+    setSettingsFeedback(modelChanged ? '已保存。个性化下一轮生效，模型参数重启后生效。' : '已保存。个性化下一轮对话生效。', 'success');
+  } catch (error) {
+    setSettingsFeedback(`保存失败：${error instanceof Error ? error.message : String(error)}`, 'error');
+  }
+}
+
+function applyRuntimeSettings(settings: AppSettings): void {
+  setMode(settings.conversation.activeMode);
+  appShell.dataset.compact = String(settings.ui.compactMode);
+  appShell.dataset.animation = settings.appearance.animationLevel;
+  appShell.dataset.glass = String(settings.appearance.glassEffects);
+  themeController.apply(settings.appearance.theme);
+  liveGlass.setMotionReduced(settings.appearance.animationLevel === 'low');
+  chatPanel.setShowTimestamps(settings.conversation.showTimestamps);
+  syncToolAccessHint();
+  syncVoiceControls();
+  syncWebSearchControl();
+}
+
+function syncToolAccessHint(): void {
+  const tools = currentSettingsBundle?.settings.tools;
+  const executeLevel = tools?.modePermissions.execute ?? tools?.permissionLevel ?? 'off';
+  const level: ToolPermissionLevel = currentMode === 'execute' ? executeLevel : 'off';
+  toolAccessHint.textContent = currentMode === 'execute'
+    ? `执行权限 · ${toolPermissionShortLabel(level)}`
+    : `${modeLabel(currentMode)} · 纯聊天`;
+  toolAccessHint.dataset.level = level;
+  toolAccessHint.title = currentMode === 'execute'
+    ? `执行模式当前工具权限：${toolPermissionShortLabel(level)}`
+    : `${modeLabel(currentMode)}模式不会调用本机工具；需要操作电脑时切换到执行`;
+  executionCurrentPermission.textContent = `当前 · ${toolPermissionShortLabel(executeLevel)}`;
+  executionCurrentPermission.dataset.level = executeLevel;
+}
+
+function syncWebSearchControl(): void {
+  const settings = currentSettingsBundle?.settings.webSearch;
+  const enabled = settings?.enabled ?? true;
+  if (!enabled) forceWebSearchForNextMessage = false;
+
+  webSearchBtn.disabled = !enabled || isStreaming || isVoiceInputBusy();
+  webSearchBtn.setAttribute('aria-pressed', String(forceWebSearchForNextMessage));
+  webSearchBtn.dataset.active = String(forceWebSearchForNextMessage);
+
+  if (!enabled) {
+    webSearchLabel.textContent = '联网搜索已关闭';
+    webSearchBtn.title = '请先在设置中启用联网搜索';
+    return;
+  }
+  if (forceWebSearchForNextMessage) {
+    webSearchLabel.textContent = '已开启 · 本轮联网';
+    webSearchBtn.title = '取消本轮联网搜索';
+    return;
+  }
+  webSearchLabel.textContent = settings?.mode === 'auto' ? '联网搜索 · 自动' : '本轮联网搜索';
+  webSearchBtn.title = '强制下一条消息联网搜索';
+}
+
+function setSettingsFeedback(message: string, kind: 'info' | 'success' | 'error' = 'info'): void {
+  settingsFeedback.textContent = message;
+  settingsFeedback.dataset.kind = kind;
+}
+
+function setExecutionSettingsFeedback(message: string, kind: 'info' | 'success' | 'error' = 'info'): void {
+  executionSettingsFeedback.textContent = message;
+  executionSettingsFeedback.dataset.kind = kind;
+}
+
+function selectMemoryTab(tabName: string): void {
+  memoryTabs.dataset.active = tabName;
+  document.querySelectorAll<HTMLButtonElement>('.memory-tab').forEach((tab) => {
+    tab.classList.toggle('active', tab.dataset.tab === tabName);
+  });
+  document.querySelectorAll<HTMLElement>('.memory-view').forEach((view) => {
+    view.classList.toggle('active', view.id === `memory-${tabName}-view`);
+  });
+  if (tabName === 'debug') memoryDebugQuery.focus();
+  if (tabName === 'import') memoryImportPath.focus();
+}
+
+async function loadMemoryList(): Promise<void> {
+  memoryList.textContent = '读取中...';
+  try {
+    const result = await window.athenaAPI.listMemories({
+      kind: memoryKind.value as MemoryKind | 'all',
+      query: memorySearch.value,
+      limit: 100,
+    });
+    renderMemoryTotals(result.totals);
+    renderMemoryItems(memoryList, result.items, true);
+  } catch (error) {
+    memoryList.textContent = `读取失败：${error instanceof Error ? error.message : String(error)}`;
+  }
+}
+
+function renderMemoryTotals(totals: Record<MemoryKind, number>): void {
+  memoryTotalRow.textContent = `画像 ${totals.profile} · 事件 ${totals.event} · 项目 ${totals.project} · 对话 ${totals.message}`;
+}
+
+function renderMemoryItems(container: HTMLElement, items: MemoryListItem[], allowDelete: boolean): void {
+  container.replaceChildren();
+  if (items.length === 0) {
+    container.textContent = '没有匹配的记忆';
+    return;
+  }
+
+  for (const item of items) {
+    const row = document.createElement('article');
+    row.className = 'memory-item';
+    row.dataset.kind = item.kind;
+
+    const head = document.createElement('div');
+    head.className = 'memory-item-head';
+
+    const title = document.createElement('div');
+    title.className = 'memory-item-title';
+    title.textContent = `${kindLabel(item.kind)} · ${item.title}`;
+
+    const actions = document.createElement('div');
+    actions.className = 'memory-item-actions';
+    if (allowDelete) {
+      const edit = document.createElement('button');
+      edit.type = 'button';
+      edit.title = '编辑';
+      edit.textContent = '✎';
+      edit.addEventListener('click', () => showMemoryEditor(row, item));
+      actions.appendChild(edit);
+
+      const del = document.createElement('button');
+      del.type = 'button';
+      del.title = '删除';
+      del.textContent = '×';
+      del.addEventListener('click', async () => {
+        if (currentSettingsBundle?.settings.data.confirmBeforeDelete ?? true) {
+          const confirmed = window.confirm(`删除这条${kindLabel(item.kind)}记忆？`);
+          if (!confirmed) return;
+        }
+        const ok = await window.athenaAPI.deleteMemory(item.kind, item.id);
+        if (ok) await loadMemoryList();
+      });
+      actions.appendChild(del);
+    }
+
+    const content = document.createElement('div');
+    content.className = 'memory-item-content';
+    content.textContent = item.content;
+
+    const meta = document.createElement('div');
+    meta.className = 'memory-item-meta';
+    meta.textContent = `${item.meta}${item.importance ? ` · importance ${item.importance}` : ''}`;
+
+    head.append(title, actions);
+    row.append(head, content, meta);
+    container.appendChild(row);
+  }
+}
+
+function showMemoryEditor(row: HTMLElement, item: MemoryListItem): void {
+  const existing = row.querySelector('.memory-edit-form');
+  if (existing) {
+    existing.remove();
+    return;
+  }
+
+  const form = document.createElement('form');
+  form.className = 'memory-edit-form';
+
+  const titleInput = document.createElement('input');
+  titleInput.type = 'text';
+  titleInput.value = item.title;
+  titleInput.placeholder = '标题';
+
+  const contentInput = document.createElement('textarea');
+  contentInput.value = item.content;
+  contentInput.placeholder = '内容';
+
+  const importanceInput = document.createElement('input');
+  importanceInput.type = 'number';
+  importanceInput.min = '1';
+  importanceInput.max = '10';
+  importanceInput.step = '1';
+  importanceInput.value = String(item.importance ?? 5);
+
+  const confidenceInput = document.createElement('input');
+  confidenceInput.type = 'number';
+  confidenceInput.min = '0';
+  confidenceInput.max = '1';
+  confidenceInput.step = '0.05';
+  confidenceInput.value = String(item.confidence ?? 0.7);
+  confidenceInput.disabled = item.kind !== 'profile';
+
+  const save = document.createElement('button');
+  save.type = 'submit';
+  save.textContent = '保存';
+
+  const cancel = document.createElement('button');
+  cancel.type = 'button';
+  cancel.textContent = '取消';
+  cancel.addEventListener('click', () => form.remove());
+
+  form.append(titleInput, contentInput, importanceInput, confidenceInput, save, cancel);
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const ok = await window.athenaAPI.updateMemory(item.kind, item.id, {
+      title: titleInput.value,
+      content: contentInput.value,
+      importance: Number(importanceInput.value),
+      confidence: Number(confidenceInput.value),
+    });
+    if (ok) await loadMemoryList();
+  });
+  row.appendChild(form);
+}
+
+async function runMemoryDebug(): Promise<void> {
+  const query = memoryDebugQuery.value.trim();
+  if (!query) return;
+
+  memoryDebugSummary.textContent = '检索中...';
+  memoryDebugList.replaceChildren();
+
+  try {
+    const result = await window.athenaAPI.debugMemory(query);
+    memoryDebugSummary.textContent = `关键词：${result.keywords.join(' / ') || '无'} · 相关度 ${result.relevanceScore.toFixed(2)}`;
+    renderDebugSection('画像', result.profileFacts);
+    renderDebugSection('项目', result.projectNotes);
+    renderDebugSection('事件', result.relatedEvents);
+    renderDebugSection('最近对话', result.recentMessages);
+  } catch (error) {
+    memoryDebugSummary.textContent = `检索失败：${error instanceof Error ? error.message : String(error)}`;
+  }
+}
+
+function renderDebugSection(title: string, items: MemoryListItem[]): void {
+  const section = document.createElement('section');
+  section.className = 'memory-debug-section';
+  const heading = document.createElement('div');
+  heading.className = 'memory-debug-heading';
+  heading.textContent = `${title} ${items.length}`;
+  const body = document.createElement('div');
+  body.className = 'memory-debug-body';
+  renderMemoryItems(body, items, false);
+  section.append(heading, body);
+  memoryDebugList.appendChild(section);
+}
+
+async function chooseImportFile(): Promise<void> {
+  const filePath = await window.athenaAPI.chooseMemoryImportFile();
+  if (filePath) memoryImportPath.value = filePath;
+}
+
+async function previewMemoryImport(): Promise<void> {
+  const sourcePath = memoryImportPath.value.trim();
+  if (!sourcePath) return;
+
+  memoryImportSummary.textContent = '解析中...';
+  memoryImportList.replaceChildren();
+  memoryImportCommit.disabled = true;
+  currentImportPreview = null;
+
+  try {
+    const preview = await window.athenaAPI.previewMemoryImport(sourcePath);
+    currentImportPreview = preview;
+    memoryImportCommit.disabled = preview.accepted.length === 0;
+    memoryImportSummary.textContent = `记录 ${preview.totalRecords} · 助手 ${preview.assistantMessages} · 提取 ${preview.extractedAddMemories} · 可导入 ${preview.accepted.length} · 过滤 ${preview.rejected.length}`;
+    renderImportCandidates(preview);
+  } catch (error) {
+    memoryImportSummary.textContent = `预览失败：${error instanceof Error ? error.message : String(error)}`;
+  }
+}
+
+function renderImportCandidates(preview: MemoryImportPreview): void {
+  memoryImportList.replaceChildren();
+  const acceptedHead = document.createElement('div');
+  acceptedHead.className = 'memory-debug-heading';
+  acceptedHead.textContent = '可导入';
+  memoryImportList.appendChild(acceptedHead);
+  for (const candidate of preview.accepted) {
+    memoryImportList.appendChild(renderImportCandidate(candidate, true));
+  }
+
+  const rejectedHead = document.createElement('div');
+  rejectedHead.className = 'memory-debug-heading';
+  rejectedHead.textContent = '已过滤';
+  memoryImportList.appendChild(rejectedHead);
+  for (const candidate of preview.rejected.slice(0, 80)) {
+    memoryImportList.appendChild(renderImportCandidate(candidate, false));
+  }
+}
+
+function renderImportCandidate(candidate: MemoryImportCandidate, selectable: boolean): HTMLElement {
+  const row = document.createElement('label');
+  row.className = 'memory-import-item';
+  const checkbox = document.createElement('input');
+  checkbox.type = 'checkbox';
+  checkbox.value = String(candidate.id);
+  checkbox.checked = selectable;
+  checkbox.disabled = !selectable;
+  checkbox.className = 'memory-import-check';
+
+  const body = document.createElement('span');
+  body.className = 'memory-import-body';
+  body.textContent = candidate.content;
+
+  const reason = document.createElement('span');
+  reason.className = 'memory-import-reason';
+  reason.textContent = `${candidate.reason} · importance ${candidate.importance}`;
+
+  row.append(checkbox, body, reason);
+  return row;
+}
+
+async function commitMemoryImport(): Promise<void> {
+  if (!currentImportPreview) return;
+  const ids = Array.from(memoryImportList.querySelectorAll<HTMLInputElement>('.memory-import-check'))
+    .filter(input => input.checked && !input.disabled)
+    .map(input => Number(input.value));
+  memoryImportSummary.textContent = '导入中...';
+  const result = await window.athenaAPI.commitMemoryImport(currentImportPreview.sourcePath, ids);
+  memoryImportSummary.textContent = `已导入 ${result.imported} · 跳过重复 ${result.skipped}`;
+  await loadMemoryList();
+}
+
+function isVoiceInputBusy(): boolean {
+  return voiceInputState === 'requesting'
+    || voiceInputState === 'recording'
+    || voiceInputState === 'transcribing';
+}
+
+function syncVoiceControls(): void {
+  const busy = isVoiceInputBusy();
+  const voice = currentSettingsBundle?.settings.voice;
+  const sttEnabled = voice?.sttEnabled ?? true;
+  const ttsEnabled = voice?.ttsEnabled ?? true;
+  voiceSttBtn.disabled = isStreaming
+    || !sttEnabled
+    || isVoiceOutputBusy
+    || voiceInputState === 'requesting'
+    || voiceInputState === 'transcribing';
+  voiceFileBtn.disabled = isStreaming || !sttEnabled || isVoiceOutputBusy || busy;
+  voiceTtsBtn.disabled = isStreaming || !ttsEnabled || isVoiceOutputBusy || busy;
+  voiceSttBtn.dataset.enabled = String(sttEnabled);
+  voiceFileBtn.dataset.enabled = String(sttEnabled);
+  voiceTtsBtn.dataset.enabled = String(ttsEnabled);
+  inputBar.setSendDisabled(isStreaming || busy);
+  syncWebSearchControl();
+}
+
+function setVoiceInputState(state: VoiceInputState): void {
+  voiceInputState = state;
+  inputForm.dataset.voiceState = state;
+  const isRecording = state === 'recording';
+  voiceSttBtn.setAttribute('aria-pressed', String(isRecording));
+  voiceSttBtn.title = isRecording ? '停止录音并识别' : '开始录音';
+  voiceSttBtn.setAttribute('aria-label', voiceSttBtn.title);
+
+  if (!isRecording) {
+    voiceSttLabel.textContent = '';
+    clearMicrophoneMeter();
+  } else if (!voiceSttLabel.textContent) {
+    voiceSttLabel.textContent = '00:00';
+  }
+
+  syncVoiceControls();
+}
+
+function showVoiceFeedback(
+  message: string,
+  kind: 'info' | 'success' | 'error' = 'info',
+  autoHideMs = 0,
+): void {
+  if (voiceFeedbackTimer) window.clearTimeout(voiceFeedbackTimer);
+  voiceFeedbackTimer = undefined;
+  voiceFeedback.textContent = message;
+  voiceFeedback.dataset.kind = kind;
+  voiceFeedback.dataset.visible = String(Boolean(message));
+
+  if (message && autoHideMs > 0) {
+    voiceFeedbackTimer = window.setTimeout(() => {
+      voiceFeedback.textContent = '';
+      voiceFeedback.dataset.visible = 'false';
+      voiceFeedbackTimer = undefined;
+    }, autoHideMs);
+  }
+}
+
+function restoreIdleStatus(): void {
+  if (isStreaming || isVoiceInputBusy() || isVoiceOutputBusy) return;
+  if (ollamaConnected === false) setStatus('Ollama 离线', 'offline');
+  else setStatus('就绪', 'ready');
+}
+
+async function toggleMicrophoneRecording(): Promise<void> {
+  if (voiceInputState === 'recording') {
+    await stopAndTranscribeRecording();
+    return;
+  }
+
+  if (isStreaming || isVoiceInputBusy() || isVoiceOutputBusy) return;
+
+  stopCurrentAudio();
+  if (voiceErrorResetTimer) window.clearTimeout(voiceErrorResetTimer);
+  const operationId = ++voiceOperationId;
+  autoStopRequested = false;
+  setVoiceInputState('requesting');
+  showVoiceFeedback('正在请求麦克风权限…');
+  setStatus('连接麦克风…', 'working');
+
+  try {
+    await microphoneRecorder.start();
+    if (operationId !== voiceOperationId || voiceInputState !== 'requesting') return;
+    setVoiceInputState('recording');
+    resetRecordingActivity();
+    currentMicrophoneLabel = microphoneRecorder.deviceLabel;
+    startRecordingTimers();
+    updateRecordingDuration(0);
+    setStatus('正在聆听', 'working');
+  } catch (error) {
+    if (operationId !== voiceOperationId) return;
+    failVoiceInput(error);
+  }
+}
+
+async function stopAndTranscribeRecording(): Promise<void> {
+  if (voiceInputState !== 'recording') return;
+
+  const operationId = ++voiceOperationId;
+  const durationMs = recordingStartedAt > 0
+    ? performance.now() - recordingStartedAt
+    : microphoneRecorder.durationMs;
+  const detectedSpeech = recordingSpeechDetected;
+  const peakLevel = recordingPeakLevel;
+  const microphoneLabel = currentMicrophoneLabel;
+  clearRecordingTimers();
+  autoStopRequested = true;
+  setVoiceInputState('transcribing');
+  showVoiceFeedback('正在识别语音…');
+  setStatus('语音识别中…', 'working');
+
+  try {
+    const wav = await microphoneRecorder.stop();
+    if (operationId !== voiceOperationId) return;
+    if (durationMs < MIN_RECORDING_MS) {
+      throw new Error('录音时间太短，请再说一次。');
+    }
+    if (!detectedSpeech && peakLevel < VOICE_MIN_SIGNAL_LEVEL) {
+      throw new Error(`没有检测到声音。当前设备：${microphoneLabel}。请靠近麦克风或切换 Windows 默认输入设备。`);
+    }
+
+    const result = await window.athenaAPI.transcribeRecording(wav);
+    if (operationId !== voiceOperationId) return;
+    const text = result.text?.trim() || '';
+    if (!result.ok || !text) {
+      throw new Error(result.error || '没有识别到清晰的语音。');
+    }
+
+    inputBar.insertAtCursor(text);
+    inputBar.focus();
+    completeVoiceInput('听写完成，已插入输入框');
+  } catch (error) {
+    if (operationId !== voiceOperationId) return;
+    failVoiceInput(error);
+  }
+}
+
+async function cancelMicrophoneRecording(): Promise<void> {
+  if (voiceInputState !== 'recording' && voiceInputState !== 'requesting') return;
+
+  const operationId = ++voiceOperationId;
+  clearRecordingTimers();
+  resetRecordingActivity();
+  autoStopRequested = true;
+  setVoiceInputState('idle');
+  showVoiceFeedback('已取消录音', 'info', 1800);
+  restoreIdleStatus();
+  inputBar.focus();
+
+  try {
+    await microphoneRecorder.cancel();
+  } catch (error) {
+    if (operationId === voiceOperationId) failVoiceInput(error);
+  }
+}
+
+function startRecordingTimers(): void {
+  clearRecordingTimers();
+  recordingStartedAt = performance.now();
+  recordingTicker = window.setInterval(() => {
+    updateRecordingDuration(performance.now() - recordingStartedAt);
+  }, 250);
+  recordingDeadlineTimer = window.setTimeout(() => {
+    if (voiceInputState !== 'recording' || autoStopRequested) return;
+    autoStopRequested = true;
+    void stopAndTranscribeRecording();
+  }, MAX_RECORDING_MS);
+}
+
+function clearRecordingTimers(): void {
+  if (recordingTicker) window.clearInterval(recordingTicker);
+  if (recordingDeadlineTimer) window.clearTimeout(recordingDeadlineTimer);
+  recordingTicker = undefined;
+  recordingDeadlineTimer = undefined;
+  recordingStartedAt = 0;
+}
+
+function updateRecordingDuration(durationMs: number): void {
+  if (voiceInputState !== 'recording') return;
+
+  const elapsed = formatRecordingDuration(durationMs);
+  voiceSttLabel.textContent = elapsed;
+  showVoiceFeedback(`正在聆听 ${elapsed} · ${currentMicrophoneLabel} · 说完会自动识别`);
+
+  if (
+    (currentSettingsBundle?.settings.voice.silenceAutoStop ?? true)
+    && recordingSpeechDetected
+    && performance.now() - recordingLastSpeechAt >= VOICE_SILENCE_STOP_MS
+    && !autoStopRequested
+  ) {
+    autoStopRequested = true;
+    showVoiceFeedback('检测到停顿，正在识别语音…');
+    void stopAndTranscribeRecording();
+  }
+}
+
+function handleMicrophoneRecorderError(error: Error): void {
+  if (voiceInputState !== 'recording' && voiceInputState !== 'requesting') return;
+  voiceOperationId += 1;
+  clearRecordingTimers();
+  failVoiceInput(error);
+}
+
+function updateMicrophoneMeter(level: number): void {
+  if (voiceInputState !== 'recording') return;
+  recordingPeakLevel = Math.max(recordingPeakLevel, level);
+  if (level >= VOICE_ACTIVITY_THRESHOLD) {
+    recordingSpeechFrames += 1;
+    if (recordingSpeechFrames >= 2) {
+      recordingSpeechDetected = true;
+      recordingLastSpeechAt = performance.now();
+    }
+  } else {
+    recordingSpeechFrames = 0;
+  }
+  const normalized = Math.max(0, Math.min(1, level * 5));
+  inputForm.style.setProperty('--voice-glow', `${24 + normalized * 36}px`);
+  inputForm.style.setProperty('--voice-button-glow', `${16 + normalized * 28}px`);
+  liveGlass.setVoiceLevel(normalized);
+}
+
+function resetRecordingActivity(): void {
+  recordingPeakLevel = 0;
+  recordingLastSpeechAt = 0;
+  recordingSpeechFrames = 0;
+  recordingSpeechDetected = false;
+}
+
+function clearMicrophoneMeter(): void {
+  inputForm.style.removeProperty('--voice-glow');
+  inputForm.style.removeProperty('--voice-button-glow');
+  liveGlass.setVoiceLevel(0);
+}
+
+function formatRecordingDuration(durationMs: number): string {
+  const totalSeconds = Math.min(99 * 60 + 59, Math.max(0, Math.floor(durationMs / 1_000)));
+  const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
+  const seconds = (totalSeconds % 60).toString().padStart(2, '0');
+  return `${minutes}:${seconds}`;
+}
+
+function completeVoiceInput(message: string): void {
+  clearRecordingTimers();
+  resetRecordingActivity();
+  setVoiceInputState('idle');
+  showVoiceFeedback(message, 'success', 3600);
+  restoreIdleStatus();
+}
+
+function failVoiceInput(error: unknown): void {
+  clearRecordingTimers();
+  resetRecordingActivity();
+  setVoiceInputState('error');
+  showVoiceFeedback(describeVoiceError(error), 'error', 6500);
+  setStatus('语音输入失败', 'error');
+
+  if (voiceErrorResetTimer) window.clearTimeout(voiceErrorResetTimer);
+  voiceErrorResetTimer = window.setTimeout(() => {
+    if (voiceInputState !== 'error') return;
+    setVoiceInputState('idle');
+    restoreIdleStatus();
+  }, 2400);
+}
+
+function describeVoiceError(error: unknown): string {
+  const name = error instanceof DOMException ? error.name : '';
+  const raw = error instanceof Error ? error.message : String(error);
+  const value = `${name} ${raw}`.toLowerCase();
+
+  if (value.includes('notallowederror') || value.includes('permission')) {
+    return '麦克风权限被拒绝，请在 Windows 隐私设置中允许 Athena 使用麦克风。';
+  }
+  if (value.includes('notfounderror') || value.includes('no microphone')) {
+    return '没有找到可用麦克风，请连接设备后重试。';
+  }
+  if (value.includes('notreadableerror') || value.includes('trackstarterror') || value.includes('device in use')) {
+    return '麦克风暂时不可用，可能正在被其他应用占用。';
+  }
+  if (value.includes('service_error') || value.includes('stt_network') || value.includes('requesterror') || value.includes('network')) {
+    return '语音识别服务暂时无法连接，请检查网络后重试。';
+  }
+  if (value.includes('no_speech') || value.includes('unknownvalue') || value.includes('没有识别')) {
+    return '没有识别到清晰的语音，请靠近麦克风再说一次。';
+  }
+  if (value.includes('audio_error')) return '录音格式无法读取，请重新录制后再试。';
+  if (value.includes('dependency_error')) return '本机语音识别组件未安装完整，请检查 Python 语音依赖。';
+  if (value.includes('timed out') || value.includes('timeout')) {
+    return '语音识别超时，请缩短录音后重试。';
+  }
+  if (name === 'AbortError') return '录音已取消。';
+  return raw || '语音输入失败，请重试。';
+}
+
+async function transcribeAudioFile(): Promise<void> {
+  if (isStreaming || isVoiceInputBusy() || isVoiceOutputBusy) return;
+
+  try {
+    const sourcePath = await window.athenaAPI.chooseAudioFile();
+    if (!sourcePath) return;
+
+    setVoiceInputState('transcribing');
+    showVoiceFeedback('正在识别导入的音频…');
+    setStatus('音频识别中…', 'working');
+    const result = await window.athenaAPI.transcribeAudioFile(sourcePath);
+    const text = result.text?.trim() || '';
+    if (!result.ok || !text) {
+      throw new Error(result.error || '没有识别到清晰的语音。');
+    }
+
+    inputBar.insertAtCursor(text);
+    inputBar.focus();
+    completeVoiceInput('音频听写完成，已插入输入框');
+  } catch (error) {
+    failVoiceInput(error);
+  }
+}
+
+async function speakLastAssistantMessage(): Promise<void> {
+  const text = chatPanel.getLastAssistantContent().trim();
+  if (!text || isStreaming || isVoiceInputBusy() || isVoiceOutputBusy) return;
+
+  isVoiceOutputBusy = true;
+  syncVoiceControls();
+  showVoiceFeedback('正在合成朗读…');
+  setStatus('合成语音...', 'working');
+  try {
+    const result = await window.athenaAPI.speakText(text);
+    if (!result.ok || !result.audioPath) {
+      throw new Error(result.error || '没有生成音频');
+    }
+
+    stopCurrentAudio();
+    showVoiceFeedback('正在朗读回复 · 系统默认输出设备');
+    setStatus('正在朗读', 'working');
+    const playback = await window.athenaAPI.playAudioFile(result.audioPath);
+    if (!playback.ok) {
+      await playAudioInRenderer(result.audioPath);
+    } else {
+      showVoiceFeedback('朗读完成', 'success', 1800);
+    }
+  } catch (error) {
+    stopCurrentAudio();
+    showVoiceFeedback(`朗读失败：${error instanceof Error ? error.message : String(error)}`, 'error', 4800);
+  } finally {
+    isVoiceOutputBusy = false;
+    syncVoiceControls();
+    if (!currentAudio) restoreIdleStatus();
+  }
+}
+
+async function playAudioInRenderer(audioPath: string): Promise<void> {
+  const audio = new Audio(toFileUrl(audioPath));
+  audio.preload = 'auto';
+  audio.muted = false;
+  audio.volume = 1;
+  currentAudio = audio;
+  audio.addEventListener('ended', () => {
+    if (currentAudio !== audio) return;
+    currentAudio = null;
+    showVoiceFeedback('朗读完成', 'success', 1800);
+    restoreIdleStatus();
+  }, { once: true });
+  audio.addEventListener('error', () => {
+    if (currentAudio !== audio) return;
+    currentAudio = null;
+    showVoiceFeedback('朗读失败：无法播放生成的音频', 'error', 4800);
+    restoreIdleStatus();
+  }, { once: true });
+  const sinkAudio = audio as HTMLAudioElement & { setSinkId?: (sinkId: string) => Promise<void> };
+  if (sinkAudio.setSinkId) {
+    try {
+      await sinkAudio.setSinkId('default');
+    } catch {
+      // Default playback still works when explicit sink selection is unavailable.
+    }
+  }
+  await waitForAudioReady(audio);
+  await audio.play();
+}
+
+function waitForAudioReady(audio: HTMLAudioElement): Promise<void> {
+  if (audio.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) return Promise.resolve();
+
+  return new Promise((resolve, reject) => {
+    const timeout = window.setTimeout(() => finish(new Error('音频加载超时')), 8000);
+    const onReady = (): void => finish();
+    const onError = (): void => finish(new Error('无法读取生成的音频'));
+    const finish = (error?: Error): void => {
+      window.clearTimeout(timeout);
+      audio.removeEventListener('canplay', onReady);
+      audio.removeEventListener('error', onError);
+      if (error) reject(error);
+      else resolve();
+    };
+
+    audio.addEventListener('canplay', onReady, { once: true });
+    audio.addEventListener('error', onError, { once: true });
+    audio.load();
+  });
+}
+
+function stopCurrentAudio(): void {
+  if (!currentAudio) return;
+  currentAudio.pause();
+  currentAudio.currentTime = 0;
+  currentAudio = null;
+}
+
+function toFileUrl(filePath: string): string {
+  return encodeURI(`file:///${filePath.replace(/\\/g, '/')}`);
+}
+
+function kindLabel(kind: MemoryKind): string {
+  const labels: Record<MemoryKind, string> = {
+    profile: '画像',
+    event: '事件',
+    project: '项目',
+    message: '对话',
+  };
+  return labels[kind];
+}
+
+function toolPermissionShortLabel(level: ToolPermissionLevel): string {
+  if (level === 'read') return '全盘只读';
+  if (level === 'files') return '文件读写';
+  if (level === 'full') return '完全访问';
+  return '关闭';
+}
+
+function modeLabel(mode: AthenaMode): string {
+  if (mode === 'create') return '创作';
+  if (mode === 'reason') return '推理';
+  if (mode === 'execute') return '执行';
+  return '陪伴';
+}
+
+function modeThinkingText(mode: AthenaMode): string {
+  if (mode === 'create') return '时夏在构思...';
+  if (mode === 'reason') return '时夏在推理...';
+  if (mode === 'execute') return '时夏在规划执行...';
+  return '时夏在听...';
+}
+
+function modeHintText(mode: AthenaMode): string {
+  if (mode === 'create') return '创作模式 · 发散并落地';
+  if (mode === 'reason') return '推理模式 · 核验后判断';
+  if (mode === 'execute') return '执行模式 · 调用工具完成任务';
+  return '陪伴模式 · 自然地聊';
+}
+
+function modePlaceholder(mode: AthenaMode): string {
+  if (mode === 'create') return '描述想做的画面、文字或方案...';
+  if (mode === 'reason') return '把问题、条件和目标告诉时夏...';
+  if (mode === 'execute') return '用自然语言描述要在电脑上完成的任务...';
+  return '和时夏说点什么...';
+}
+
+function debounce(fn: () => void, delay: number): () => void {
+  let timer: number | undefined;
+  return () => {
+    if (timer) window.clearTimeout(timer);
+    timer = window.setTimeout(fn, delay);
+  };
+}
+
+function greetingForHour(hour: number): string {
+  if (hour >= 5 && hour < 12) return '早上好';
+  if (hour >= 12 && hour < 18) return '下午好';
+  if (hour >= 18 && hour < 23) return '晚上好';
+  return '夜深了';
+}
+
+function mustGet<T extends HTMLElement>(id: string): T {
+  const element = document.getElementById(id);
+  if (!element) throw new Error(`Missing element: #${id}`);
+  return element as T;
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Athena 宣传页 - 品牌首页</title>
+  <link rel="stylesheet" href="./promo.css" />
+</head>
+<body>
+  <div class="site-shell">
+    <header class="topbar">
+      <a class="brand" href="./index.html">
+        <img src="../resources/su-shixia-icon-1080.png" alt="Athena" />
+        <span class="brand-name">Athena<span>Muse & Venus</span></span>
+      </a>
+      <nav class="nav" aria-label="宣传页导航">
+        <a class="active" href="./index.html">品牌首页</a>
+        <a href="./product.html">功能卖点</a>
+        <a href="./visual.html">视觉概念</a>
+      </nav>
+      <a class="top-action" href="../README.md">查看项目</a>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="hero-copy">
+          <span class="kicker">LOCAL AI DESKTOP COMPANION</span>
+          <h1>让灵感和温柔，停在你的桌面上。</h1>
+          <p class="lead">Athena 是一个本地 AI 桌面陪伴体：她能记住长期上下文，协助学习、创作、绘画与日常整理，也能在 Muse 与 Venus 的不同状态间切换。</p>
+          <div class="actions">
+            <a class="btn primary" href="./product.html">看功能卖点</a>
+            <a class="btn" href="./visual.html">看启动仪式</a>
+          </div>
+        </div>
+
+        <div class="visual-panel" aria-label="Athena 界面预览">
+          <canvas class="orbital-canvas" data-line-canvas="orbit"></canvas>
+          <div class="app-card">
+            <div class="message-line">晚上好，Athena 已经醒着。今天想让 Muse 帮你构思，还是让 Venus 陪你慢慢整理？</div>
+            <div class="message-line">状态：温柔 · 本地模型 · 长期记忆在线</div>
+            <div class="metric-strip">
+              <div class="metric"><strong>Local</strong><span>本地模型优先</span></div>
+              <div class="metric"><strong>Memory</strong><span>长期上下文</span></div>
+              <div class="metric"><strong>Flow</strong><span>工作流协助</span></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="band">
+        <div class="section-head">
+          <h2>不是聊天窗口，而是一种有连续性的桌面存在。</h2>
+          <p>Athena 的宣传核心不是“多一个 AI”，而是“一个能随着你每天工作和生活沉淀下来的本地伙伴”。</p>
+        </div>
+        <div class="grid">
+          <article class="feature"><i>M</i><div><h3>Muse 创作态</h3><p>适合构思、写作、发散、整理灵感，把模糊想法变成可执行的结构。</p></div></article>
+          <article class="feature"><i>V</i><div><h3>Venus 陪伴态</h3><p>更柔和、更慢，适合复盘、情绪整理、日常计划和自我对话。</p></div></article>
+          <article class="feature"><i>O</i><div><h3>Oracle 推演态</h3><p>用于拆解问题、比较路径、推演项目风险，让决策更清醒。</p></div></article>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <span>Athena · Muse & Venus</span>
+      <span>Designed for a local, memorable AI companion.</span>
+    </footer>
+  </div>
+  <script src="./promo.js"></script>
+</body>
+</html>
+

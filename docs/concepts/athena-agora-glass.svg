@@ -1,0 +1,171 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="480" height="700" viewBox="0 0 480 700">
+  <defs>
+    <linearGradient id="daylight" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f6f2e9"/>
+      <stop offset="0.5" stop-color="#eef1ed"/>
+      <stop offset="1" stop-color="#e5ecea"/>
+    </linearGradient>
+    <radialGradient id="sunWash" cx="0.06" cy="0.12" r="0.84">
+      <stop offset="0" stop-color="#f4d89f" stop-opacity="0.48"/>
+      <stop offset="0.46" stop-color="#efdcb9" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="glassPlane" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.64"/>
+      <stop offset="0.38" stop-color="#b8d6dc" stop-opacity="0.36"/>
+      <stop offset="1" stop-color="#f8fbfa" stop-opacity="0.18"/>
+    </linearGradient>
+    <linearGradient id="liveGlass" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.42"/>
+      <stop offset="0.34" stop-color="#f8eee1" stop-opacity="0.18"/>
+      <stop offset="0.68" stop-color="#cfe3e6" stop-opacity="0.20"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0.24"/>
+    </linearGradient>
+    <linearGradient id="glassSheen" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0"/>
+      <stop offset="0.5" stop-color="#ffffff" stop-opacity="0.58"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="terracotta" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#c98879"/>
+      <stop offset="1" stop-color="#ac6d62"/>
+    </linearGradient>
+    <linearGradient id="coolTile" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#edf5f6"/>
+      <stop offset="1" stop-color="#e2ecee"/>
+    </linearGradient>
+    <linearGradient id="warmTile" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f7efeb"/>
+      <stop offset="1" stop-color="#efe2dc"/>
+    </linearGradient>
+    <pattern id="mineral" width="30" height="30" patternUnits="userSpaceOnUse">
+      <circle cx="4" cy="8" r="0.42" fill="#42545b" opacity="0.045"/>
+      <circle cx="22" cy="5" r="0.32" fill="#42545b" opacity="0.035"/>
+      <circle cx="12" cy="24" r="0.38" fill="#42545b" opacity="0.04"/>
+      <circle cx="27" cy="19" r="0.28" fill="#42545b" opacity="0.03"/>
+    </pattern>
+    <filter id="floatShadow" x="-30%" y="-45%" width="160%" height="210%">
+      <feDropShadow dx="0" dy="12" stdDeviation="18" flood-color="#65777b" flood-opacity="0.15"/>
+    </filter>
+    <filter id="controlShadow" x="-30%" y="-50%" width="160%" height="220%">
+      <feDropShadow dx="0" dy="7" stdDeviation="12" flood-color="#66777b" flood-opacity="0.16"/>
+    </filter>
+    <filter id="softPlane" x="-25%" y="-25%" width="150%" height="160%">
+      <feDropShadow dx="-9" dy="15" stdDeviation="20" flood-color="#7c9da5" flood-opacity="0.13"/>
+    </filter>
+    <clipPath id="windowClip">
+      <rect width="480" height="700" rx="22"/>
+    </clipPath>
+    <clipPath id="titleGlassClip">
+      <rect x="10" y="10" width="460" height="50" rx="17"/>
+    </clipPath>
+    <clipPath id="composerGlassClip">
+      <rect x="12" y="596" width="456" height="88" rx="26"/>
+    </clipPath>
+  </defs>
+
+  <g clip-path="url(#windowClip)">
+    <rect width="480" height="700" fill="url(#daylight)"/>
+    <!-- Research-led, generated 3D material plate: real marble depth replaces vector stand-ins. -->
+    <image href="athena-classical-material-field.png" x="0" y="0" width="480" height="700" preserveAspectRatio="xMidYMid slice" opacity="0.62"/>
+    <rect width="480" height="700" fill="url(#daylight)" opacity="0.28"/>
+    <rect width="480" height="700" fill="url(#sunWash)"/>
+
+    <!-- One broad architectural plane replaces the previous line network. -->
+    <g filter="url(#softPlane)" opacity="0.88">
+      <path d="M307 8 L502 -18 L522 438 L351 500 Z" fill="url(#glassPlane)"/>
+      <ellipse cx="419" cy="205" rx="96" ry="118" fill="#ffffff" fill-opacity="0.13"/>
+    </g>
+
+    <!-- Olive remains a quiet Athena marker beside the larger architectural cue. -->
+    <g transform="translate(395 467) rotate(-18)" fill="#7d886c" opacity="0.32">
+      <path d="M0 24 C12 15 24 7 38 -3" fill="none" stroke="#7d886c" stroke-width="1.3"/>
+      <path d="M8 17 C3 12 5 6 12 6 C15 11 13 15 8 17 Z"/>
+      <path d="M18 11 C14 5 17 0 24 1 C27 6 24 10 18 11 Z"/>
+      <path d="M28 5 C25 -1 29 -6 35 -4 C37 1 34 4 28 5 Z"/>
+      <path d="M15 14 C21 16 25 12 23 7 C18 6 15 9 15 14 Z"/>
+      <path d="M26 8 C32 10 36 6 34 1 C29 0 26 3 26 8 Z"/>
+    </g>
+
+    <!-- Title bar: transparent live glass, with event-driven light and refraction in runtime. -->
+    <g filter="url(#controlShadow)">
+      <rect x="10" y="10" width="460" height="50" rx="17" fill="url(#liveGlass)" stroke="#ffffff" stroke-opacity="0.54" stroke-width="0.7"/>
+    </g>
+    <g clip-path="url(#titleGlassClip)" pointer-events="none">
+      <ellipse cx="344" cy="3" rx="126" ry="38" fill="#c5e1e6" fill-opacity="0.13"/>
+      <ellipse cx="88" cy="18" rx="96" ry="42" fill="#f6d6a3" fill-opacity="0.12"/>
+      <path d="M-30 15 L214 -18 L308 8 L34 42 Z" fill="url(#glassSheen)" opacity="0.44"/>
+    </g>
+    <rect x="20" y="19" width="31" height="31" rx="11" fill="#c58577" fill-opacity="0.22"/>
+    <text x="35.5" y="39.5" text-anchor="middle" fill="#7e514b" font-family="Microsoft YaHei UI, Segoe UI, sans-serif" font-size="13">夏</text>
+    <text x="60" y="30" fill="#2d383d" font-family="Microsoft YaHei UI, Segoe UI, sans-serif" font-size="12" font-weight="650">苏时夏</text>
+    <ellipse cx="63" cy="42" rx="5" ry="3.4" fill="#7d886c" transform="rotate(-18 63 42)"/>
+    <text x="73" y="45" fill="#6f7a7e" font-family="Segoe UI, sans-serif" font-size="7.4" letter-spacing="0.55">本地在线</text>
+    <g fill="none" stroke="#59656a" stroke-opacity="0.78" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M359 26h12v12h-12z M362 30h6 M362 34h6"/>
+      <circle cx="397" cy="32" r="6"/><path d="M397 27v2 M397 35v2 M392 32h2 M400 32h2"/>
+      <path d="M428 35h11"/>
+      <path d="M455 28l8 8 M463 28l-8 8"/>
+    </g>
+
+    <!-- Compact selector: only the active mode carries a secondary label. -->
+    <g filter="url(#controlShadow)">
+      <rect x="102" y="75" width="276" height="44" rx="18" fill="#ffffff" fill-opacity="0.58"/>
+      <rect x="190" y="79" width="100" height="36" rx="14" fill="url(#terracotta)"/>
+    </g>
+    <text x="146" y="101" text-anchor="middle" fill="#657176" font-family="Microsoft YaHei UI, Segoe UI, sans-serif" font-size="10">创作</text>
+    <text x="240" y="95" text-anchor="middle" fill="#ffffff" font-family="Microsoft YaHei UI, Segoe UI, sans-serif" font-size="10" font-weight="650">陪伴</text>
+    <text x="240" y="107" text-anchor="middle" fill="#f8e8e4" font-family="Segoe UI, sans-serif" font-size="5.8" letter-spacing="1.15">PHILIA</text>
+    <text x="334" y="101" text-anchor="middle" fill="#657176" font-family="Microsoft YaHei UI, Segoe UI, sans-serif" font-size="10">推理</text>
+
+    <!-- Open Agora field: typography and whitespace carry the hierarchy. -->
+    <text x="34" y="153" fill="#9a7e4e" font-family="Segoe UI, sans-serif" font-size="7.6" letter-spacing="1.65">AGORA · 陪伴空间</text>
+    <text x="34" y="205" fill="#29343a" font-family="Microsoft YaHei UI, Segoe UI, sans-serif" font-size="27" font-weight="330">在这里，</text>
+    <text x="34" y="243" fill="#29343a" font-family="Microsoft YaHei UI, Segoe UI, sans-serif" font-size="27" font-weight="330">想法可以慢慢成形。</text>
+    <text x="34" y="278" fill="#69757a" font-family="Microsoft YaHei UI, Segoe UI, sans-serif" font-size="10.7">创作、整理、推理，或者只是说两句。</text>
+
+    <!-- One grouped action surface, with tonal rows instead of outlined tickets. -->
+    <g filter="url(#floatShadow)">
+      <rect x="30" y="310" width="350" height="116" rx="22" fill="#ffffff" fill-opacity="0.5"/>
+    </g>
+    <rect x="42" y="322" width="326" height="42" rx="14" fill="url(#coolTile)"/>
+    <rect x="50" y="330" width="26" height="26" rx="9" fill="#7398a7" fill-opacity="0.2"/>
+    <path d="M57 349l11-11 M62 338h6v6" fill="none" stroke="#5f8999" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="88" y="347" fill="#34434a" font-family="Microsoft YaHei UI, Segoe UI, sans-serif" font-size="10.7">继续上次的创作或项目</text>
+    <path d="M343 343h9 M348 338l5 5-5 5" fill="none" stroke="#6b7b80" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <rect x="42" y="372" width="326" height="42" rx="14" fill="url(#warmTile)"/>
+    <rect x="50" y="380" width="26" height="26" rx="9" fill="#b9796c" fill-opacity="0.2"/>
+    <path d="M57 387h12v8h-7l-4 3v-3h-1z" fill="none" stroke="#aa6f64" stroke-width="1.15" stroke-linejoin="round"/>
+    <text x="88" y="397" fill="#493b38" font-family="Microsoft YaHei UI, Segoe UI, sans-serif" font-size="10.7">今天就随便聊两句</text>
+    <path d="M343 393h9 M348 388l5 5-5 5" fill="none" stroke="#806d69" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <!-- Assistant text stays open; only functional groups become cards. -->
+    <rect x="34" y="456" width="24" height="24" rx="9" fill="#b9796c" fill-opacity="0.2"/>
+    <text x="46" y="473" text-anchor="middle" fill="#925d54" font-family="Microsoft YaHei UI, Segoe UI, sans-serif" font-size="9">夏</text>
+    <text x="68" y="472" fill="#996459" font-family="Microsoft YaHei UI, Segoe UI, sans-serif" font-size="8.5">时夏</text>
+    <text x="34" y="505" fill="#344047" font-family="Microsoft YaHei UI, Segoe UI, sans-serif" font-size="11.5">我在。你先放下一句话，</text>
+    <text x="34" y="526" fill="#344047" font-family="Microsoft YaHei UI, Segoe UI, sans-serif" font-size="11.5">剩下的我们一起慢慢理清。</text>
+
+    <!-- Composer: transparent live glass; background material remains visible through it. -->
+    <g filter="url(#floatShadow)">
+      <rect x="12" y="596" width="456" height="88" rx="26" fill="url(#liveGlass)" stroke="#ffffff" stroke-opacity="0.6" stroke-width="0.75"/>
+    </g>
+    <g clip-path="url(#composerGlassClip)" pointer-events="none">
+      <ellipse cx="408" cy="606" rx="118" ry="52" fill="#b9dae0" fill-opacity="0.15"/>
+      <ellipse cx="92" cy="678" rx="148" ry="48" fill="#f0cda1" fill-opacity="0.1"/>
+      <path d="M-30 620 L222 582 L344 604 L38 653 Z" fill="url(#glassSheen)" opacity="0.38"/>
+    </g>
+    <circle cx="40" cy="630" r="15" fill="#ffffff" fill-opacity="0.34"/>
+    <path d="M34 630h12 M40 624v12" stroke="#5f6c71" stroke-width="1.25" stroke-linecap="round"/>
+    <text x="66" y="634" fill="#7b8588" font-family="Microsoft YaHei UI, Segoe UI, sans-serif" font-size="11">和时夏说点什么…</text>
+    <circle cx="388" cy="630" r="15" fill="#ffffff" fill-opacity="0.34"/>
+    <path d="M388 622v9a4 4 0 0 1-8 0v-9a4 4 0 0 1 8 0z M378 630a6 6 0 0 0 12 0 M384 638v4 M380 642h8" transform="translate(4 0)" fill="none" stroke="#637075" stroke-width="1.1" stroke-linecap="round"/>
+    <circle cx="432" cy="630" r="17" fill="url(#terracotta)"/>
+    <path d="M425 630h13 M433 624l6 6-6 6" fill="none" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="32" y="667" fill="#7d8789" font-family="Segoe UI, sans-serif" font-size="7" letter-spacing="1">本地记忆已连接</text>
+    <text x="448" y="667" text-anchor="end" fill="#8a9293" font-family="Segoe UI, sans-serif" font-size="7" letter-spacing="0.8">ENTER 发送</text>
+
+    <rect width="480" height="700" fill="url(#mineral)" opacity="0.66" pointer-events="none"/>
+  </g>
+</svg>

@@ -1,0 +1,25 @@
+{
+  "working": {
+    "maxMessages": 20,
+    "maxTokens": 4096
+  },
+  "episodic": {
+    "maxEvents": 1000,
+    "importanceThreshold": 3,
+    "decayDays": 90
+  },
+  "semantic": {
+    "minConfidence": 0.3,
+    "maxFacts": 500,
+    "decayDays": 180
+  },
+  "profile": {
+    "autoExtract": true,
+    "minImportanceForAutoExtract": 5
+  },
+  "embedding": {
+    "enabled": false,
+    "dimension": 768,
+    "provider": "ollama"
+  }
+}

@@ -1,0 +1,65 @@
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Build output
+dist/
+release/
+*.blockmap
+
+# Runtime database and local user state
+database/athena.db
+database/*.db-shm
+database/*.db-wal
+memory/*.json
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.agents/
+.codex/
+
+# Logs
+logs/
+*.log
+download_log.txt
+
+# Temp
+temp/
+cache/
+__pycache__/
+*.py[cod]
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.lnk
+
+# Local model/runtime payloads: tracked code must reference exact release manifests,
+# not commit multi-GB developer-machine artifacts.
+models/
+resources/OllamaSetup.exe
+
+# Root-level voice and download probes retained under legacy/root-artifacts.
+test*.mp3
+test*.wav
+tts_*.mp3
+tts_txt_*.txt
+stt_test_*.txt
+public.zip
+
+# Preserve the audit manifest while excluding the archived binary payloads.
+legacy/root-artifacts/**
+!legacy/root-artifacts/README.md
+!legacy/root-artifacts/MANIFEST.sha256

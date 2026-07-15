@@ -1,0 +1,23 @@
+{
+  "name": "athena-dark",
+  "colors": {
+    "primary": "#8b5cf6",
+    "primaryLight": "#a78bfa",
+    "primaryDark": "#6d28d9",
+    "accent": "#f472b6",
+    "background": "#0a0015",
+    "surface": "#1a0a2e",
+    "surfaceLight": "#2a1a3e",
+    "text": "#e2e0f0",
+    "textMuted": "#8b8aa0",
+    "textDim": "#5a5970",
+    "success": "#34d399",
+    "warning": "#fbbf24",
+    "error": "#f87171"
+  },
+  "effects": {
+    "bloomIntensity": 0.3,
+    "particleDensity": 0.6,
+    "glowRadius": 0.5
+  }
+}

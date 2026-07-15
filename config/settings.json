@@ -1,0 +1,80 @@
+{
+  "version": 1,
+  "profile": "default",
+  "developerMode": false,
+  "general": {
+    "launchAtStartup": false,
+    "closeToTray": false,
+    "desktopNotifications": true,
+    "autoConnectModel": true
+  },
+  "appearance": {
+    "theme": "night",
+    "animationLevel": "high",
+    "glassEffects": true
+  },
+  "conversation": {
+    "activeMode": "execute",
+    "enterToSend": true,
+    "streamResponses": true,
+    "showTimestamps": false,
+    "saveHistory": true
+  },
+  "tools": {
+    "permissionLevel": "full",
+    "modePermissions": {
+      "create": "off",
+      "companion": "off",
+      "reason": "off",
+      "execute": "full"
+    },
+    "maxToolRounds": 4,
+    "commandTimeoutSeconds": 60
+  },
+  "webSearch": {
+    "enabled": true,
+    "mode": "auto",
+    "maxResults": 5,
+    "deepRead": true,
+    "secondarySearch": true,
+    "maxPages": 3
+  },
+  "personalization": {
+    "userName": "",
+    "preferredAddress": "",
+    "tone": "balanced",
+    "replyLength": "balanced",
+    "initiative": "balanced",
+    "proactiveCare": true,
+    "useMemoryInSmallTalk": true,
+    "creatorModeHints": true,
+    "customNotes": ""
+  },
+  "memory": {
+    "enabled": true,
+    "autoExtract": true,
+    "retrieveProfile": true,
+    "retrieveEvents": true,
+    "retrieveProjects": true,
+    "retrievalDepth": 8,
+    "minImportanceForAutoExtract": 5
+  },
+  "voice": {
+    "sttEnabled": true,
+    "ttsEnabled": true,
+    "autoPlayAssistant": true,
+    "sttEngine": "auto",
+    "ttsVoice": "zh-CN-XiaoxiaoNeural",
+    "silenceAutoStop": true
+  },
+  "data": {
+    "confirmBeforeDelete": true,
+    "historyRetentionDays": 0,
+    "voiceCacheRetentionHours": 24,
+    "exportFormat": "json"
+  },
+  "ui": {
+    "startupIntro": true,
+    "compactMode": false
+  }
+}

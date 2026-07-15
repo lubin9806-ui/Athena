@@ -1,0 +1,35 @@
+appId: com.athena.desktop
+productName: Athena
+directories:
+  output: release
+files:
+  - dist/**/*
+  - resources/**/*
+  - "!resources/OllamaSetup.exe"
+  - config/**/*
+  - skills/**/*
+  - assets/**/*
+extraResources:
+  - from: database
+    to: database
+    filter:
+      - "**/*"
+  - from: tts.py
+    to: voice/tts.py
+  - from: stt.py
+    to: voice/stt.py
+  - from: stt_whisper.py
+    to: voice/stt_whisper.py
+  - from: play_audio.py
+    to: voice/play_audio.py
+  - from: requirements-voice.txt
+    to: voice/requirements-voice.txt
+win:
+  target: nsis
+  icon: resources/su-shixia.ico
+  signAndEditExecutable: false
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true

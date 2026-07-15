@@ -1,0 +1,24 @@
+{
+  "window": {
+    "width": 480,
+    "height": 700,
+    "minWidth": 360,
+    "minHeight": 500,
+    "position": "bottom-right",
+    "offsetX": 20,
+    "offsetY": 60,
+    "frameless": true,
+    "alwaysOnTop": false,
+    "startMinimized": false
+  },
+  "startup": {
+    "autoStart": false,
+    "startMinimized": true,
+    "trayEnabled": true
+  },
+  "behavior": {
+    "idleTimeout": 300,
+    "snoozeOnIdle": false,
+    "showGreeting": true
+  }
+}

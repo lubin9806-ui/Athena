@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Athena · 苏时夏</title>
+  <style>
+    :root { --bg: #0a0015; --surface: #1a0a2e; --surface-light: #2a1a3e; --primary: #8b5cf6; --primary-light: #a78bfa; --text: #e2e0f0; --text-muted: #8b8aa0; --accent: #f472b6; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; height: 100vh; display: flex; flex-direction: column; }
+    #titlebar { display: flex; align-items: center; justify-content: space-between; padding: 12px 20px; background: var(--surface); user-select: none; border-bottom: 1px solid var(--surface-light); }
+    #titlebar-title { font-size: 15px; font-weight: 600; color: var(--primary-light); display: flex; align-items: center; gap: 8px; }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #34d399; display: inline-block; }
+    #status { font-size: 12px; color: var(--text-dim); font-weight: 400; }
+    #voice-toggle { background: none; border: 1px solid var(--surface-light); color: var(--text-muted); padding: 4px 12px; border-radius: 12px; cursor: pointer; font-size: 12px; transition: all 0.2s; }
+    #voice-toggle:hover { border-color: var(--primary); color: var(--primary-light); }
+    #voice-toggle.on { border-color: var(--primary); color: var(--primary-light); background: rgba(139,92,246,0.1); }
+    #chat { flex: 1; overflow-y: auto; padding: 16px 20px; display: flex; flex-direction: column; gap: 12px; }
+    #chat::-webkit-scrollbar { width: 4px; }
+    #chat::-webkit-scrollbar-thumb { background: var(--surface-light); border-radius: 2px; }
+    .msg { max-width: 80%; padding: 10px 16px; border-radius: 12px; font-size: 14px; line-height: 1.6; animation: fadeIn 0.3s; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .msg.user { align-self: flex-end; background: var(--primary); color: #fff; border-bottom-right-radius: 4px; }
+    .msg.athena { align-self: flex-start; background: var(--surface); color: var(--text); border-bottom-left-radius: 4px; }
+    .msg .sbtn { display: inline-block; margin-left: 6px; cursor: pointer; font-size: 12px; opacity: 0.5; background: none; border: none; color: var(--text-muted); font-family: inherit; }
+    .msg .sbtn:hover { opacity: 1; color: var(--accent); }
+    .msg .sbtn.playing { opacity: 1; color: var(--accent); animation: pulse 0.5s infinite; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+    #input-area { display: flex; gap: 8px; padding: 12px 20px; background: var(--surface); border-top: 1px solid var(--surface-light); }
+    #input { flex: 1; background: var(--surface-light); border: none; border-radius: 24px; padding: 10px 18px; color: var(--text); font-size: 14px; outline: none; }
+    #input:focus { box-shadow: 0 0 0 2px var(--primary); }
+    #send { width: 40px; height: 40px; border-radius: 50%; border: none; background: var(--primary); color: #fff; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+    #send:hover { background: var(--primary-light); }
+    #send:disabled { background: var(--surface-light); cursor: not-allowed; }
+    #mic-btn { width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--surface-light); background: transparent; color: var(--text-muted); cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+    #mic-btn:hover { border-color: var(--primary); color: var(--primary-light); }
+    #mic-btn.recording { border-color: #f87171; color: #f87171; }
+    #mic-btn.listening { border-color: #34d399; color: #34d399; }
+  </style>
+</head>
+<body>
+  <div id="titlebar">
+    <div id="titlebar-title">
+      <span class="status-dot" id="dot"></span>
+      <span>苏时夏</span>
+      <span id="status">就绪</span>
+    </div>
+    <button id="voice-toggle">🔇 语音关</button>
+  </div>
+  <div id="chat"></div>
+  <div id="input-area">
+    <input id="input" type="text" placeholder="跟时夏说点什么..." />
+    <button id="send">➤</button>
+  </div>
+
+  <script>
+    // ===== TTS - Audio Context unlock for Electron =====
+    let audioPlayer = new Audio();
+    let audioCtx = null;
+    function unlockAudio() {
+      if (!audioCtx) {
+        try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) {}
+      }
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume().catch(function(){});
+      }
+    }
+    function speak(text) {
+      if (!text) return;
+      unlockAudio();
+      audioPlayer.pause();
+      audioPlayer = new Audio('/api/tts?text=' + encodeURIComponent(text) + '&voice=xiaoxiao');
+      audioPlayer.play().catch(function(e) { console.log('TTS:', e.message); });
+    }
+    // 用户第一次点击/键盘时解锁 audio context（解决 Electron 自动播放限制）
+    document.addEventListener('click', unlockAudio, { once: true });
+    document.addEventListener('keydown', unlockAudio, { once: true });
+
+    var chat = document.getElementById('chat'), input = document.getElementById('input'), sendBtn = document.getElementById('send'), status = document.getElementById('status'), dot = document.getElementById('dot'), voiceToggle = document.getElementById('voice-toggle');
+    var voiceEnabled = false, sending = false;
+
+    voiceToggle.onclick = function() { voiceEnabled = !voiceEnabled; voiceToggle.textContent = voiceEnabled ? '🔊 语音开' : '🔇 语音关'; voiceToggle.classList.toggle('on', voiceEnabled); };
+
+    function addMsg(c, r) {
+      var d = document.createElement('div'); d.className = 'msg ' + r;
+      d.innerHTML = '<span>' + c + '</span>';
+      if (r === 'athena' && c) {
+        var b = document.createElement('button'); b.className = 'sbtn'; b.textContent = '🔊';
+        b.onclick = function() { speak(c); b.classList.add('playing'); setTimeout(function() { b.classList.remove('playing'); }, c.length*100+500); };
+        d.appendChild(b);
+        if (voiceEnabled) setTimeout(function() { speak(c); }, 300);
+      }
+      chat.appendChild(d); chat.scrollTop = chat.scrollHeight;
+    }
+    function setStatus(t, ok) { status.textContent = t; dot.style.background = ok ? '#34d399' : '#f87171'; }
+
+    // ===== STT — 用 AudioContext 直接编码真实 WAV（兼容 Electron 和浏览器）=====
+    var scriptNode = null;
+    var micSource = null;
+    var micStream = null;
+    var pcmChunks = [];
+    var isRecording = false;
+    var sampleRate = 16000;
+
+    function stopMicStream() {
+      if (micSource) { try { micSource.disconnect(); } catch(e) {} micSource = null; }
+      if (scriptNode) { try { scriptNode.disconnect(); } catch(e) {} scriptNode = null; }
+      if (micStream) { micStream.getTracks().forEach(function(t) { t.stop(); }); micStream = null; }
+    }
+
+    function tryGetMic() {
+      var constr = navigator.mediaDevices && navigator.mediaDevices.getUserMedia
+        ? navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices)
+        : (navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia);
+      if (constr) {
+        return new Promise(function(resolve, reject) {
+          constr({ audio: true }, resolve, reject);
+        });
+      }
+      return Promise.reject(new Error('getUserMedia not supported'));
+    }
+
+    // WAV 编码器：把 Float32 PCM 转成 RIFF WAV 文件
+    function encodeWAV(samples) {
+      var len = samples.length;
+      var buf = new ArrayBuffer(44 + len * 2);
+      var dv = new DataView(buf);
+      // RIFF header
+      writeStr(dv, 0, 'RIFF');
+      dv.setUint32(4, 36 + len * 2, true);
+      writeStr(dv, 8, 'WAVE');
+      // fmt chunk
+      writeStr(dv, 12, 'fmt ');
+      dv.setUint32(16, 16, true);
+      dv.setUint16(20, 1, true); // PCM
+      dv.setUint16(22, 1, true); // mono
+      dv.setUint32(24, sampleRate, true);
+      dv.setUint32(28, sampleRate * 2, true);
+      dv.setUint16(32, 2, true);
+      dv.setUint16(34, 16, true);
+      // data chunk
+      writeStr(dv, 36, 'data');
+      dv.setUint32(40, len * 2, true);
+      for (var i = 0; i < len; i++) {
+        var s = Math.max(-1, Math.min(1, samples[i]));
+        dv.setInt16(44 + i * 2, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+      }
+      return buf;
+    }
+    function writeStr(dv, off, str) {
+      for (var i = 0; i < str.length; i++) dv.setUint8(off + i, str.charCodeAt(i));
+    }
+
+    function startRecording() {
+      // 使用 AudioContext（每次录音新建确保不被 suspend 卡住）
+      try {
+        if (!window.__athenaAc) {
+          window.__athenaAc = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: sampleRate });
+        }
+        audioCtx = window.__athenaAc;
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+      } catch(e) {
+        setStatus('AudioContext 不可用', false);
+        var btn = document.getElementById('mic-btn');
+        if (btn) btn.textContent = '🎤';
+        return;
+      }
+
+      tryGetMic().then(function(stream) {
+        console.log('Mic acquired');
+        micStream = stream;
+        try {
+          micSource = audioCtx.createMediaStreamSource(stream);
+          // 用 ScriptProcessorNode 采集 PCM（AudioWorklet 更优但 Chrome 旧版不兼容）
+          scriptNode = audioCtx.createScriptProcessor(4096, 1, 1);
+          pcmChunks = [];
+          scriptNode.onaudioprocess = function(e) {
+            var input = e.inputBuffer.getChannelData(0);
+            var chunk = new Float32Array(input.length);
+            chunk.set(input);
+            pcmChunks.push(chunk);
+          };
+          micSource.connect(scriptNode);
+          scriptNode.connect(audioCtx.destination);
+          isRecording = true;
+          console.log('Recording with AudioContext...');
+        } catch(e) {
+          console.log('AudioNode setup failed:', e.message);
+          stopMicStream();
+          // 降级到 MediaRecorder
+          if (typeof MediaRecorder !== 'undefined') {
+            console.log('Fallback to MediaRecorder...');
+            try {
+              var mr = new MediaRecorder(stream);
+              var mrChunks = [];
+              mr.ondataavailable = function(e) { if (e.data.size > 0) mrChunks.push(e.data); };
+              mr.onstop = function() {
+                stopMicStream();
+                var blob = new Blob(mrChunks);
+                var reader = new FileReader();
+                reader.onloadend = function() {
+                  var b64 = reader.result.split(',')[1];
+                  setStatus('识别中...', true);
+                  var btn = document.getElementById('mic-btn');
+                  if (btn) { btn.textContent = '⏳'; btn.classList.remove('recording'); }
+                  fetch('/api/stt', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ audio: b64 }) })
+                    .then(function(r) { return r.json(); })
+                    .then(function(d) { if (d.error) setStatus('识别错误: ' + d.error, false); else if (d.text) { input.value = d.text; send(); } else setStatus('没听清', false); if (btn) btn.textContent = '🎤'; })
+                    .catch(function(e) { setStatus('识别请求失败', false); console.log(e); if (btn) btn.textContent = '🎤'; });
+                };
+                reader.readAsDataURL(blob);
+              };
+              mr.start();
+              window.__tmpMr = mr;
+            } catch(e2) {
+              setStatus('录音不可用', false);
+              if (btn) btn.textContent = '🎤';
+            }
+          }
+        }
+      }).catch(function(e) {
+        console.log('Mic error:', e.message || e);
+        setStatus('麦克风: ' + (e.message || e), false);
+        isRecording = false;
+        var btn = document.getElementById('mic-btn');
+        if (btn) btn.textContent = '🎤';
+      });
+    }
+
+    // 停止录音 → 编码 WAV → 发送
+    function stopAndSend() {
+      if (window.__tmpMr) {
+        try { window.__tmpMr.stop(); } catch(e) {}
+        window.__tmpMr = null;
+        return;
+      }
+      if (pcmChunks.length === 0) {
+        stopMicStream();
+        isRecording = false;
+        var btn = document.getElementById('mic-btn');
+        if (btn) btn.textContent = '🎤';
+        setStatus('录音太短', false);
+        return;
+      }
+      stopMicStream();
+      isRecording = false;
+      // 合并所有 PCM chunk
+      var totalLen = 0;
+      for (var i = 0; i < pcmChunks.length; i++) totalLen += pcmChunks[i].length;
+      var allSamples = new Float32Array(totalLen);
+      var offset = 0;
+      for (var i = 0; i < pcmChunks.length; i++) {
+        allSamples.set(pcmChunks[i], offset);
+        offset += pcmChunks[i].length;
+      }
+      // 编码为 WAV
+      var wavBuf = encodeWAV(allSamples);
+      var wavBlob = new Blob([wavBuf], { type: 'audio/wav' });
+      var reader = new FileReader();
+      reader.onloadend = function() {
+        var b64 = reader.result.split(',')[1];
+        setStatus('识别中...', true);
+        var btn = document.getElementById('mic-btn');
+        if (btn) { btn.textContent = '⏳'; btn.classList.remove('recording'); }
+        fetch('/api/stt', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ audio: b64 }) })
+          .then(function(r) { return r.json(); })
+          .then(function(d) {
+            if (d.error) { setStatus('识别错误: ' + d.error, false); }
+            else if (d.text) { input.value = d.text; send(); }
+            else { setStatus('没听清', false); }
+            if (btn) btn.textContent = '🎤';
+          })
+          .catch(function(e) { setStatus('识别请求失败', false); console.log(e); if (btn) btn.textContent = '🎤'; });
+      };
+      reader.readAsDataURL(wavBlob);
+    }
+
+    // 麦克风按钮
+    (function() {
+      var mic = document.createElement('button'); mic.id = 'mic-btn'; mic.textContent = '🎤'; mic.title = '点击说话';
+      mic.onclick = function() {
+        console.log('Mic button clicked');
+        if (isRecording) {
+          mic.classList.remove('recording');
+          mic.textContent = '⏳';
+          setStatus('处理中...', true);
+          stopAndSend();
+          return;
+        }
+        mic.classList.add('recording');
+        mic.textContent = '🔴';
+        setStatus('录音中...', true);
+        startRecording();
+      };
+      var area = document.getElementById('input-area');
+      if (area) { area.appendChild(mic); }
+      else console.error('Cannot find input-area');
+    })();
+
+    // ===== Chat =====
+    async function send() {
+      var t = input.value.trim(); if (!t || sending) return;
+      input.value = ''; addMsg(t, 'user'); setStatus('时夏正在输入...', true); sending = true; sendBtn.disabled = true;
+      try {
+        var r = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ model: 'athena-model', messages: [{ role: 'user', content: t }], stream: false }) });
+        var d = await r.json(); addMsg(d.message?.content || '', 'athena'); setStatus('就绪', true);
+      } catch(e) { addMsg('唔…好像出了点问题', 'athena'); setStatus('离线', false); }
+      sending = false; sendBtn.disabled = false;
+    }
+    sendBtn.onclick = send; input.onkeydown = function(e) { if (e.key === 'Enter') send(); };
+
+    // 首页欢迎消息
+    (function() {
+      var h = new Date().getHours();
+      var greeting = '';
+      if (h >= 5 && h < 8) greeting = '早上好呀~ 哥你起这么早？';
+      else if (h >= 8 && h < 12) greeting = '哥！上午好~ 在干嘛呢？';
+      else if (h >= 12 && h < 14) greeting = '中午好~ 吃饭了没？';
+      else if (h >= 14 && h < 18) greeting = '下午好~ 今天过得怎么样？';
+      else if (h >= 18 && h < 22) greeting = '哥！晚上好呀~ 今天过得怎么样？';
+      else greeting = '这么晚还没睡呀~ 在干嘛呢？';
+      addMsg(greeting, 'athena');
+    })();
+    input.focus();
+  </script>
+</body>
+</html>
