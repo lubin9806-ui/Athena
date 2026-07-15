@@ -98,11 +98,11 @@ async function verifyService() {
   assert.equal(companionTools.permissionLevel, 'off');
   assert.equal(createTools.permissionLevel, 'off');
   assert.equal(reasonTools.permissionLevel, 'off');
-  assert.equal(executeTools.permissionLevel, 'full');
+  assert.equal(executeTools.permissionLevel, 'off');
   assert.equal(service.getDefinitions(companionTools).length, 0);
   assert.equal(service.getDefinitions(createTools).length, 0);
   assert.equal(service.getDefinitions(reasonTools).length, 0);
-  assert(service.getDefinitions(executeTools).some(item => item.name === 'terminal_start'));
+  assert.equal(service.getDefinitions(executeTools).length, 0);
   const sensitivePreview = buildToolArgumentPreview({
     url: 'https://preview-user:preview-password@example.com/path',
     headers: {
@@ -553,8 +553,45 @@ async function verifyNoFakeProgressAndCancellation() {
   assert(statuses.includes('cancelled'));
   await assert.rejects(fs.stat(path.join(scratch, 'cancel-should-not-exist')));
   cancelRuntime.shutdown();
+
+  await fs.mkdir(scratch, { recursive: true });
+  const confirmationTarget = path.join(scratch, 'confirmation-must-preserve.txt');
+  await fs.writeFile(confirmationTarget, 'preserve', 'utf8');
+  let confirmationRound = 0;
+  let confirmationRequest;
+  const confirmationStatuses = [];
+  const confirmationRuntime = new ToolRuntime({
+    contextWindow: 4096,
+    chat: async () => 'confirmation test',
+    chatJson: async () => {
+      confirmationRound += 1;
+      return confirmationRound === 1
+        ? JSON.stringify({ kind: 'tool', content: '', calls: [{ name: 'delete_path', arguments: { path: confirmationTarget } }] })
+        : JSON.stringify({ kind: 'respond', content: 'cancelled safely', calls: [] });
+    },
+  });
+  confirmationRuntime.setPermissionLevel('full');
+  const confirmationResult = await confirmationRuntime.process({
+    messages: [{ role: 'system', content: 'test' }, { role: 'user', content: 'delete test file' }],
+    userMessage: 'delete test file',
+    mode: 'execute',
+    settings: settings('full'),
+    onStatus: status => confirmationStatuses.push(status.phase),
+    onConfirm: async request => {
+      confirmationRequest = request;
+      return false;
+    },
+  });
+  assert.equal(confirmationRequest.risk, 'destructive-file');
+  assert(confirmationStatuses.includes('confirming'));
+  assert(confirmationStatuses.includes('cancelled'));
+  assert(confirmationResult.executions.some(item => item.name === 'delete_path' && item.status === 'denied'));
+  assert.equal(await fs.readFile(confirmationTarget, 'utf8'), 'preserve');
+  confirmationRuntime.shutdown();
+  await fs.rm(scratch, { recursive: true, force: true });
   console.log('ATHENA_TOOL_NO_FAKE_PROGRESS_OK');
   console.log('ATHENA_TOOL_CANCELLATION_OK');
+  console.log('ATHENA_TOOL_HIGH_RISK_CONFIRMATION_OK');
   console.log('ATHENA_MODE_TOOL_ISOLATION_OK');
 }
 

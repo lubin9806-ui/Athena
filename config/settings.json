@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "profile": "default",
   "developerMode": false,
   "general": {
@@ -21,12 +21,12 @@
     "saveHistory": true
   },
   "tools": {
-    "permissionLevel": "full",
+    "permissionLevel": "off",
     "modePermissions": {
       "create": "off",
       "companion": "off",
       "reason": "off",
-      "execute": "full"
+      "execute": "off"
     },
     "maxToolRounds": 4,
     "commandTimeoutSeconds": 60

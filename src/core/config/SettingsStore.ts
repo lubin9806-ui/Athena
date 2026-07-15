@@ -29,7 +29,7 @@ import type {
 } from '../../shared/types';
 
 const DEFAULT_SETTINGS: AppSettings = {
-  version: 1,
+  version: 2,
   profile: 'default',
   developerMode: false,
   general: {
@@ -51,12 +51,12 @@ const DEFAULT_SETTINGS: AppSettings = {
     saveHistory: true,
   },
   tools: {
-    permissionLevel: 'full',
+    permissionLevel: 'off',
     modePermissions: {
       create: 'off',
       companion: 'off',
       reason: 'off',
-      execute: 'full',
+      execute: 'off',
     },
     maxToolRounds: 4,
     commandTimeoutSeconds: 60,
@@ -282,10 +282,18 @@ function mergeModelSettings(current: ModelSettings, patch?: SettingsPatch['model
 
 function sanitizeAppSettings(value: unknown): AppSettings {
   const source = isRecord(value) ? value : {};
+  const sourceVersion = clampInteger(source.version, 1, 99, 1);
   const general = sanitizeGeneral(source.general);
   const appearance = sanitizeAppearance(source.appearance);
   const conversation = sanitizeConversation(source.conversation);
-  const tools = normalizeToolSettings(source.tools);
+  const normalizedTools = normalizeToolSettings(source.tools);
+  const tools: ToolSettings = sourceVersion < 2
+    ? {
+      ...normalizedTools,
+      permissionLevel: 'off',
+      modePermissions: { create: 'off', companion: 'off', reason: 'off', execute: 'off' },
+    }
+    : normalizedTools;
   const webSearch = sanitizeWebSearch(source.webSearch);
   const personalization = sanitizePersonalization(source.personalization);
   const memory = sanitizeMemory(source.memory);
@@ -293,7 +301,7 @@ function sanitizeAppSettings(value: unknown): AppSettings {
   const data = sanitizeData(source.data);
   const ui = sanitizeUi(source.ui);
   return {
-    version: clampInteger(source.version, 1, 99, DEFAULT_SETTINGS.version),
+    version: DEFAULT_SETTINGS.version,
     profile: cleanString(source.profile, 80, DEFAULT_SETTINGS.profile),
     developerMode: cleanBoolean(source.developerMode, DEFAULT_SETTINGS.developerMode),
     general,

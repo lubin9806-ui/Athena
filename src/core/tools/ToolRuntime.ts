@@ -9,6 +9,7 @@ import {
 import type {
   ConversationMode,
   ToolExecutionRecord,
+  ToolConfirmationRequest,
   ToolPermissionLevel,
   ToolSettings,
   ToolStatusEvent,
@@ -51,6 +52,7 @@ export interface ToolRuntimeInput {
   numCtx?: number;
   onStream?: (chunk: string) => void;
   onStatus?: (status: ToolStatusEvent) => void;
+  onConfirm?: (request: ToolConfirmationRequest) => Promise<boolean>;
 }
 
 export interface ToolRuntimeResult {
@@ -192,6 +194,47 @@ export class ToolRuntime {
           const label = definition?.label || call.name;
           const id = this.nextCallId();
           const started = new Date();
+          const confirmation = buildToolConfirmation(call.name, label, call.arguments);
+          if (confirmation) {
+            emit(input.onStatus, {
+              phase: 'confirming',
+              message: `等待确认：${label}`,
+              toolName: call.name,
+              toolLabel: label,
+              callId: id,
+            });
+            const approved = input.onConfirm ? await input.onConfirm(confirmation) : false;
+            if (!approved) {
+              const completed = new Date();
+              const result: ComputerToolResult = {
+                status: 'denied',
+                summary: `${label}已由用户取消`,
+                output: '高风险操作未获逐次确认，因此没有执行。',
+              };
+              const record: ToolExecutionRecord = {
+                id,
+                name: call.name,
+                label,
+                status: result.status,
+                summary: result.summary,
+                inputPreview: buildToolArgumentPreview(call.arguments),
+                outputPreview: result.output,
+                startedAt: started.toISOString(),
+                completedAt: completed.toISOString(),
+                durationMs: Math.max(0, completed.getTime() - started.getTime()),
+              };
+              executions.push(record);
+              roundResults.push({ call, result, record });
+              emit(input.onStatus, {
+                phase: 'cancelled',
+                message: result.summary,
+                toolName: call.name,
+                toolLabel: label,
+                callId: id,
+              });
+              continue;
+            }
+          }
           emit(input.onStatus, {
             phase: 'running',
             message: `正在${label}`,
@@ -481,11 +524,79 @@ export function buildToolArgumentPreview(args: Record<string, unknown>): string 
   return truncate(JSON.stringify(redactPreviewValue(args), null, 2), 1_600);
 }
 
+export function buildToolConfirmation(
+  toolName: string,
+  toolLabel: string,
+  args: Record<string, unknown>,
+): ToolConfirmationRequest | null {
+  const destructiveFileTools = new Set([
+    'delete_path',
+    'move_path',
+    'move_matching_files',
+    'replace_in_file',
+  ]);
+  if (destructiveFileTools.has(toolName)
+    || (toolName === 'write_file' && String(args.mode || 'overwrite') === 'overwrite')
+    || (toolName === 'copy_path' && args.overwrite === true)) {
+    return {
+      toolName,
+      toolLabel,
+      risk: 'destructive-file',
+      explanation: '此操作会删除、覆盖或移动本机文件，结果可能无法由 Athena 自动撤销。',
+      inputPreview: buildToolArgumentPreview(args),
+    };
+  }
+
+  if (toolName === 'run_command' || toolName === 'terminal_write' || toolName === 'terminal_start') {
+    return {
+      toolName,
+      toolLabel,
+      risk: 'command',
+      explanation: '此操作会以当前 Windows 账户权限执行命令，可能修改系统或文件。',
+      inputPreview: buildToolArgumentPreview(args),
+    };
+  }
+
+  if (toolName === 'launch_program' || toolName === 'open_path') {
+    return {
+      toolName,
+      toolLabel,
+      risk: 'program',
+      explanation: '此操作会启动本机程序或脚本，并继承当前 Windows 账户权限。',
+      inputPreview: buildToolArgumentPreview(args),
+    };
+  }
+
+  if ((toolName === 'http_request' && isExternalNetworkTarget(args.url))
+    || (toolName === 'check_port' && isExternalNetworkTarget(`tcp://${String(args.host || '')}`))) {
+    return {
+      toolName,
+      toolLabel,
+      risk: 'external-network',
+      explanation: '此操作会向外部网络地址发送请求；URL、请求头或正文可能离开设备。',
+      inputPreview: buildToolArgumentPreview(args),
+    };
+  }
+
+  return null;
+}
+
+function isExternalNetworkTarget(value: unknown): boolean {
+  if (typeof value !== 'string') return true;
+  try {
+    const host = new URL(value).hostname.toLowerCase();
+    return !['localhost', '127.0.0.1', '::1'].includes(host);
+  } catch {
+    return true;
+  }
+}
+
 function redactPreviewValue(value: unknown, key = '', depth = 0): unknown {
   if (isSensitivePreviewKey(key)) return '[REDACTED]';
   if (depth >= 5) return '[nested value omitted]';
   if (typeof value === 'string') {
-    const redactedUrl = /url/i.test(key) ? redactUrlCredentials(value) : value;
+    if (['content', 'body', 'new_text', 'old_text'].includes(key)) return `[CONTENT REDACTED chars=${value.length}]`;
+    const redactedUrl = redactInlineSecrets(/url/i.test(key) ? redactUrlCredentials(value) : value);
     return ['content', 'body', 'new_text', 'old_text'].includes(key)
       ? truncate(redactedUrl, 800)
       : redactedUrl;
@@ -503,6 +614,12 @@ function redactPreviewValue(value: unknown, key = '', depth = 0): unknown {
     return output;
   }
   return value;
+}
+
+function redactInlineSecrets(value: string): string {
+  return value
+    .replace(/(authorization|cookie|password|passwd|passphrase|secret|token|api[_-]?key|credential)\s*[:=]\s*[^\s,;]+/gi, '$1=[REDACTED]')
+    .replace(/\b(?:sk|sk-proj)-[A-Za-z0-9_-]{8,}\b/g, '[REDACTED_KEY]');
 }
 
 function isSensitivePreviewKey(key: string): boolean {

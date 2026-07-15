@@ -13,6 +13,7 @@ import type {
   ToolPermissionLevel,
   ToolSettings,
   ToolStatusEvent,
+  ToolConfirmationRequest,
   WebSearchContext,
   WebSearchSummary,
 } from '../../shared/types';
@@ -54,6 +55,7 @@ export class Conversation {
       commandTimeoutSeconds: 60,
     },
     onToolStatus?: (status: ToolStatusEvent) => void,
+    onToolConfirm?: (request: ToolConfirmationRequest) => Promise<boolean>,
   ): Promise<ChatResponse> {
     // 更新情绪基调
     this.emotion.setBaseEmotion(new Date().getHours());
@@ -80,6 +82,7 @@ export class Conversation {
       numCtx: webContextWindow,
       onStream,
       onStatus: onToolStatus,
+      onConfirm: onToolConfirm,
     });
     const fullResponse = toolResult.content;
 

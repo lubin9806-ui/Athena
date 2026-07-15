@@ -42,13 +42,15 @@ class Logger {
 
     const timestamp = new Date().toISOString();
     const prefix = `[${timestamp}] [${level.toUpperCase()}] [${this.context}]`;
+    const safeMessage = redactLogValue(message);
+    const safeArgs = args.map(redactLogArgument);
 
     try {
       switch (level) {
-        case 'debug': console.debug(prefix, message, ...args); break;
-        case 'info': console.info(prefix, message, ...args); break;
-        case 'warn': console.warn(prefix, message, ...args); break;
-        case 'error': console.error(prefix, message, ...args); break;
+        case 'debug': console.debug(prefix, safeMessage, ...safeArgs); break;
+        case 'info': console.info(prefix, safeMessage, ...safeArgs); break;
+        case 'warn': console.warn(prefix, safeMessage, ...safeArgs); break;
+        case 'error': console.error(prefix, safeMessage, ...safeArgs); break;
       }
     } catch {
       // Console output can synchronously fail when a parent shell closes.
@@ -66,3 +68,25 @@ export function createLogger(context: string): Logger {
 }
 
 export const mainLogger = createLogger('Main');
+
+export function redactLogValue(value: string): string {
+  return value
+    .replace(/(authorization|cookie|password|passwd|passphrase|secret|token|api[_-]?key|credential)\s*[:=]\s*[^\s,;]+/gi, '$1=[REDACTED]')
+    .replace(/\b(?:sk|sk-proj)-[A-Za-z0-9_-]{8,}\b/g, '[REDACTED_KEY]')
+    .replace(/https?:\/\/([^\s/:@]+):([^\s/@]+)@/gi, 'https://REDACTED:REDACTED@');
+}
+
+function redactLogArgument(value: unknown): unknown {
+  if (typeof value === 'string') return redactLogValue(value);
+  if (value instanceof Error) return { name: value.name, message: redactLogValue(value.message) };
+  if (!value || typeof value !== 'object') return value;
+  try {
+    return JSON.parse(JSON.stringify(value, (key, child) => (
+      /authorization|cookie|password|passwd|passphrase|secret|token|api[_-]?key|credential/i.test(key)
+        ? '[REDACTED]'
+        : typeof child === 'string' ? redactLogValue(child) : child
+    )));
+  } catch {
+    return '[unserializable diagnostic omitted]';
+  }
+}

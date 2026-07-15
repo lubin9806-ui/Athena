@@ -18,8 +18,8 @@ contextBridge.exposeInMainWorld('athenaAPI', {
     ipcRenderer.on('chat:web-search-status', handler);
     return () => ipcRenderer.removeListener('chat:web-search-status', handler);
   },
-  onToolStatus: (callback: (status: { phase: 'planning' | 'running' | 'completed' | 'failed' | 'cancelled' | 'done'; message: string; toolName?: string; toolLabel?: string; callId?: string }) => void) => {
-    const handler = (_: any, status: { phase: 'planning' | 'running' | 'completed' | 'failed' | 'cancelled' | 'done'; message: string; toolName?: string; toolLabel?: string; callId?: string }) => callback(status);
+  onToolStatus: (callback: (status: { phase: 'planning' | 'confirming' | 'running' | 'completed' | 'failed' | 'cancelled' | 'done'; message: string; toolName?: string; toolLabel?: string; callId?: string }) => void) => {
+    const handler = (_: any, status: { phase: 'planning' | 'confirming' | 'running' | 'completed' | 'failed' | 'cancelled' | 'done'; message: string; toolName?: string; toolLabel?: string; callId?: string }) => callback(status);
     ipcRenderer.on('chat:tool-status', handler);
     return () => ipcRenderer.removeListener('chat:tool-status', handler);
   },
@@ -43,6 +43,7 @@ contextBridge.exposeInMainWorld('athenaAPI', {
   chooseAudioFile: () => ipcRenderer.invoke('voice:chooseAudioFile'),
   transcribeAudioFile: (sourcePath: string) => ipcRenderer.invoke('voice:transcribeFile', sourcePath),
   transcribeRecording: (audioBytes: Uint8Array) => ipcRenderer.invoke('voice:transcribeRecording', audioBytes),
+  requestMicrophoneAccess: () => ipcRenderer.invoke('voice:requestMicrophoneAccess'),
   minimize: () => ipcRenderer.send('window:minimize'),
   close: () => ipcRenderer.send('window:close'),
 });

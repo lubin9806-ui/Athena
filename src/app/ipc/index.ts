@@ -14,10 +14,11 @@ import {
   updateMemory,
 } from '../../memory';
 import type { MemoryKind, MemoryListOptions, MemoryUpdatePatch } from '../../memory';
-import type { ConversationMode, SettingsBundle, SettingsPatch, ToolStatusEvent, WebSearchStatus } from '../../shared/types';
+import type { SettingsBundle, SettingsPatch, ToolConfirmationRequest, ToolStatusEvent, WebSearchStatus } from '../../shared/types';
+import { armMicrophoneGrant, revokeMicrophoneGrant } from '../security/PermissionGate';
+import { cleanChatPayload, cleanExistingFilePath, isTrustedIpcSender } from './validation';
 
 const MAX_RECORDING_BYTES = 12 * 1024 * 1024;
-const MAX_CHAT_CHARS = 20_000;
 const MAX_TEXT_TO_SPEAK_CHARS = 8_000;
 const MAX_PATH_CHARS = 2_048;
 
@@ -34,6 +35,7 @@ const INVOKE_CHANNELS = [
   'memory:chooseImportFile',
   'memory:previewImport',
   'memory:commitImport',
+  'voice:requestMicrophoneAccess',
   'voice:speak',
   'voice:play',
   'voice:chooseAudioFile',
@@ -54,7 +56,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
   });
 
   const isTrustedSender = (event: IpcMainInvokeEvent | IpcMainEvent): boolean => {
-    return !mainWindow.isDestroyed() && event.sender === mainWindow.webContents;
+    return isTrustedIpcSender(event, mainWindow);
   };
 
   void controller.initialize().catch((error) => {
@@ -67,11 +69,9 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     if (!isTrustedSender(event)) return null;
 
     const settings = getAppSettings();
-    const payload = isRecord(value) ? value : null;
-    const userMessage = cleanString(payload?.text ?? value, MAX_CHAT_CHARS).trim();
-    if (!userMessage) return null;
-    const mode = cleanConversationMode(payload?.mode, settings.conversation.activeMode);
-    const forceWebSearch = payload?.forceWebSearch === true;
+    const payload = cleanChatPayload(value, settings.conversation.activeMode);
+    if (!payload) return null;
+    const { text: userMessage, mode, forceWebSearch } = payload;
 
     try {
       const response = await controller.processMessage(
@@ -95,6 +95,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
               mainWindow.webContents.send('chat:tool-status', status);
             }
           },
+          onToolConfirm: (request: ToolConfirmationRequest) => confirmToolExecution(mainWindow, request),
         },
       );
       if (!mainWindow.isDestroyed()) {
@@ -168,12 +169,16 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
 
   ipcMain.handle('memory:previewImport', async (event, sourcePath: unknown) => {
     if (!isTrustedSender(event)) throw new Error('IPC sender rejected.');
-    return previewChatRecordImport(cleanString(sourcePath, MAX_PATH_CHARS));
+    const safePath = cleanExistingFilePath(sourcePath, ['json'], MAX_PATH_CHARS);
+    if (!safePath) throw new Error('Memory import path must be an existing JSON file.');
+    return previewChatRecordImport(safePath);
   });
 
   ipcMain.handle('memory:commitImport', async (event, sourcePath: unknown, candidateIds?: unknown) => {
     if (!isTrustedSender(event)) throw new Error('IPC sender rejected.');
-    return commitChatRecordImport(cleanString(sourcePath, MAX_PATH_CHARS), cleanCandidateIds(candidateIds));
+    const safePath = cleanExistingFilePath(sourcePath, ['json'], MAX_PATH_CHARS);
+    if (!safePath) throw new Error('Memory import path must be an existing JSON file.');
+    return commitChatRecordImport(safePath, cleanCandidateIds(candidateIds));
   });
 
   ipcMain.handle('voice:speak', async (event, text: unknown) => {
@@ -184,7 +189,8 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
 
   ipcMain.handle('voice:play', async (event, sourcePath: unknown) => {
     if (!isTrustedSender(event)) return { ok: false, error: 'IPC sender rejected.' };
-    return voice.play(cleanString(sourcePath, MAX_PATH_CHARS));
+    const safePath = cleanExistingFilePath(sourcePath, ['wav', 'mp3', 'm4a', 'ogg'], MAX_PATH_CHARS);
+    return safePath ? voice.play(safePath) : { ok: false, error: 'Audio path rejected.' };
   });
 
   ipcMain.handle('voice:chooseAudioFile', async (event) => {
@@ -201,7 +207,8 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
   ipcMain.handle('voice:transcribeFile', async (event, sourcePath: unknown) => {
     if (!isTrustedSender(event)) return { ok: false, error: 'IPC sender rejected.' };
     if (!getAppSettings().voice.sttEnabled) return { ok: false, error: 'STT is disabled in settings.' };
-    return voice.transcribe(cleanString(sourcePath, MAX_PATH_CHARS));
+    const safePath = cleanExistingFilePath(sourcePath, ['wav', 'aiff', 'aif', 'flac'], MAX_PATH_CHARS);
+    return safePath ? voice.transcribe(safePath) : { ok: false, error: 'Audio path rejected.' };
   });
 
   ipcMain.handle('voice:transcribeRecording', async (event, audioBytes: unknown) => {
@@ -223,6 +230,17 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     return voice.transcribeRecording(audioBytes);
   });
 
+  ipcMain.handle('voice:requestMicrophoneAccess', async (event) => {
+    if (!isTrustedSender(event)) return false;
+    const settings = getAppSettings();
+    if (!settings.voice.sttEnabled) {
+      revokeMicrophoneGrant();
+      return false;
+    }
+    armMicrophoneGrant();
+    return true;
+  });
+
   ipcMain.on('window:minimize', (event) => {
     if (isTrustedSender(event)) mainWindow.minimize();
   });
@@ -235,6 +253,21 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     removeReminderListener();
     controller.shutdown();
   });
+}
+
+async function confirmToolExecution(mainWindow: BrowserWindow, request: ToolConfirmationRequest): Promise<boolean> {
+  if (mainWindow.isDestroyed()) return false;
+  const result = await dialog.showMessageBox(mainWindow, {
+    type: 'warning',
+    title: `确认高风险操作：${request.toolLabel}`,
+    message: request.explanation,
+    detail: request.inputPreview,
+    buttons: ['取消', '确认执行'],
+    defaultId: 0,
+    cancelId: 0,
+    noLink: true,
+  });
+  return result.response === 1;
 }
 
 function clearIpcHandlers(): void {
@@ -255,12 +288,6 @@ function cleanMemoryKind(value: unknown): MemoryKind | null {
   return typeof value === 'string' && MEMORY_KINDS.has(value as MemoryKind)
     ? value as MemoryKind
     : null;
-}
-
-function cleanConversationMode(value: unknown, fallback: ConversationMode): ConversationMode {
-  return value === 'create' || value === 'companion' || value === 'reason' || value === 'execute'
-    ? value
-    : fallback;
 }
 
 function cleanMemoryListOptions(value: unknown): MemoryListOptions {

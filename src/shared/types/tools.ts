@@ -32,9 +32,17 @@ export interface ToolExecutionRecord {
 }
 
 export interface ToolStatusEvent {
-  phase: 'planning' | 'running' | 'completed' | 'failed' | 'cancelled' | 'done';
+  phase: 'planning' | 'confirming' | 'running' | 'completed' | 'failed' | 'cancelled' | 'done';
   message: string;
   toolName?: string;
   toolLabel?: string;
   callId?: string;
+}
+
+export interface ToolConfirmationRequest {
+  toolName: string;
+  toolLabel: string;
+  risk: 'destructive-file' | 'command' | 'program' | 'external-network';
+  explanation: string;
+  inputPreview: string;
 }

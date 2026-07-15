@@ -29,6 +29,7 @@ import type {
   SystemInfo,
   ToolSettings,
   ToolStatusEvent,
+  ToolConfirmationRequest,
   WebSearchContext,
   WebSearchStatus,
 } from '../../shared/types';
@@ -39,6 +40,7 @@ interface ProcessMessageOptions {
   forceWebSearch?: boolean;
   onWebSearchStatus?: (status: WebSearchStatus) => void;
   onToolStatus?: (status: ToolStatusEvent) => void;
+  onToolConfirm?: (request: ToolConfirmationRequest) => Promise<boolean>;
 }
 
 export class AthenaController {
@@ -95,7 +97,7 @@ export class AthenaController {
     const settings = getAppSettings();
     const mode = requestedMode ?? settings.conversation.activeMode;
     const modeToolSettings = this.applyToolPermission(settings.tools, mode);
-    logger.info(`User message [mode=${mode}, tools=${modeToolSettings.permissionLevel}]: ${userMessage.slice(0, 80)}`);
+    logger.info(`User message received [mode=${mode}, tools=${modeToolSettings.permissionLevel}, chars=${userMessage.length}]`);
     this.saveMessageIfAllowed('user', userMessage, undefined, mode);
 
     const localCommand = this.processLocalCommand(userMessage, mode);
@@ -117,7 +119,7 @@ export class AthenaController {
           settings.webSearch,
           options?.onWebSearchStatus,
         );
-        logger.info(`Web research ready: query=${webPlan.query.slice(0, 80)}, sources=${webSearchContext.sources.length}, pages=${webSearchContext.pages?.length ?? 0}, rounds=${webSearchContext.searchRounds ?? 1}`);
+        logger.info(`Web research ready: queryChars=${webPlan.query.length}, sources=${webSearchContext.sources.length}, pages=${webSearchContext.pages?.length ?? 0}, rounds=${webSearchContext.searchRounds ?? 1}`);
       } catch (error) {
         const message = error instanceof Error ? error.message : '联网搜索失败。';
         webSearchContext = {
@@ -141,12 +143,13 @@ export class AthenaController {
       webSearchContext,
       modeToolSettings,
       options?.onToolStatus,
+      options?.onToolConfirm,
     );
 
     this.saveMessageIfAllowed('assistant', response.content, response.emotion.type, mode);
     this.persistExtractedMemory(userMessage);
 
-    logger.info(`Athena response: ${response.content.slice(0, 80)}`);
+    logger.info(`Athena response completed [chars=${response.content.length}]`);
     return response;
   }
 
@@ -202,12 +205,12 @@ export class AthenaController {
 
     if (extracted.projectNote) {
       addProjectNote(extracted.projectNote);
-      logger.debug(`Stored project memory: ${extracted.projectNote.project} / ${extracted.projectNote.title}`);
+      logger.debug('Stored one project memory item.');
     }
 
     if (extracted.event) {
       addMemoryEvent(extracted.event);
-      logger.debug(`Stored episodic memory: ${extracted.event.summary}`);
+      logger.debug('Stored one episodic memory item.');
     }
   }
 

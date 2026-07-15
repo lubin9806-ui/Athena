@@ -8,11 +8,11 @@
 | 严重级别 | Closed | Open/In Progress/Blocked | 说明 |
 |---|---:|---:|---|
 | Blocker | 7 | 0 | 窗口 01 的仓库、事实源与验证链 Blocker 已全部关闭 |
-| P0 | 0 | 10 | 分配给窗口 02、03、04、06、08–10；不阻止窗口 02 开始 |
+| P0 | 3 | 7 | 仅 ATH-SEC-001～003 已关闭；ATH-PRIV-001、ATH-DATA-001、ATH-LEGAL-001、ATH-REL-001 及 Steam/Cloud/Mobile P0 未关闭 |
 | P1 | 0 | 6 | 分配给窗口 05–07、11 |
 | P2/P3 | 0 | 3 | 非当前交接阻断 |
 
-窗口 02 放行规则：Blocker 开放数量为 0，且 0.8.0 构建与开发/打包态启动已通过；当前已满足。P0/P1 继续按负责窗口处理，不代表商业版本可发布。
+窗口 02 判定：运行时安全范围内 Blocker 为 0，ATH-SEC-001～003 均有可重复证据并已关闭，允许窗口 03 接手其既定隐私/数据问题。Desktop 0.9 Private Beta 仍因 ATH-PRIV-001、ATH-DATA-001、ATH-LEGAL-001、ATH-REL-001 等未关闭 P0 保持 No-Go。
 
 ## 2. 窗口 01 基线问题
 
@@ -30,9 +30,9 @@
 
 | 编号 | 问题 | 证据 | 严重级别 | 负责窗口 | 状态 | 验收条件 |
 |---|---|---|---|---|---|---|
-| ATH-SEC-001 | Electron 28、Vite 5、builder 24 存在已知漏洞并超出支持基线 | 官方 npm audit：8 项，7 High/1 Moderate；Electron 官方只支持最新三个稳定大版本 | P0 | 02 | Open | 升级受支持版本；官方 audit 无 High/Critical；自动化与打包烟测回归 |
-| ATH-SEC-002 | BrowserWindow 未显式 sandbox，HTML 无严格 CSP，生产包含 source map | `src/app/main.ts`、`src/renderer/index.html`、Vite/TS 配置 | P0 | 02 | Open | sandbox/CSP/导航/下载/权限基线和负向测试通过；生产不分发 source map |
-| ATH-SEC-003 | Execute 默认 Full，缺少面向普通用户的高危逐次确认 | `config/settings.json`、SettingsStore 默认值、ComputerTools 能力清单 | P0 | 02 | Open | 默认 Off；显式升权；危险操作确认；撤销、取消和模式隔离回归通过 |
+| ATH-SEC-001 | Electron 28、Vite 5、builder 24 存在已知漏洞并超出支持基线 | 已锁定 Electron 42.7.0、Vite 8.1.4、electron-builder 26.15.3、better-sqlite3 12.11.1；官方 registry `found 0 vulnerabilities`；开发态和打包态 smoke 均退出 0 并输出两个成功标记 | P0 | 02 | Closed | 受支持版本已锁定；官方 audit 无 High/Critical；构建与烟测有重复证据 |
+| ATH-SEC-002 | BrowserWindow 未显式 sandbox，HTML 无严格 CSP，生产包含 source map | `SECURITY_BASELINE_OK`；sandbox/CSP、外链确认、导航/下载/权限默认拒绝、IPC 发送者与负向输入已验证；最终 `app.asar` 中 `.map/.d.ts` 均为 0 | P0 | 02 | Closed | 安全基线与负向测试通过；生产包清单验证通过 |
+| ATH-SEC-003 | Execute 默认 Full，缺少面向普通用户的高危逐次确认 | settings v2 把全局和 Execute 默认值及旧配置迁移结果置为 Off；升权说明、删除/覆盖/移动/命令/程序/外网逐次确认、敏感参数脱敏、撤权/取消/模式隔离回归全部通过 | P0 | 02 | Closed | 默认 Off、显式升权、高危确认、撤销、取消和模式隔离均有自动化证据 |
 | ATH-PRIV-001 | 没有隐私政策、联网数据流说明和首次同意 | 搜索会访问第三方；Google STT/Edge TTS 会发送音频/文本 | P0 | 03 | Open | 数据地图、应用内隐私入口、逐类同意与宣传文案一致 |
 | ATH-DATA-001 | 保留/导出设置未执行，缺少完整导出、一键清除和加密决策 | `historyRetentionDays`/`exportFormat` 只有 schema/UI；SQLite 明文 | P0 | 03 | Open | 保留、导出、清除、备份恢复和静态保护方案有自动化证据 |
 | ATH-LEGAL-001 | notices 未覆盖完整 npm/Python/模型/素材来源 | `THIRD_PARTY_NOTICES.md` 仅列 Ollama/Qwen 且注明待核验 | P0 | 04 | Open | SBOM、许可清单、精确 Qwen/Ollama/Python artifact 和素材权属证据归档 |
@@ -65,3 +65,15 @@
 | 产物哈希 | Installer `3472C0B0AD3F85EC82B70553CAA0C33AAF12073FFC3F9501587DCC6D779CBEF4`；unpacked exe `67DC2A7036860A68E5312C212C31B8772AC463ED0289FCC44897867F55075E89` |
 
 窗口 01 不关闭任何窗口 02–11 的问题，也不把“已登记”写成“已解决”。
+
+## 5. 窗口 02：运行时安全关闭记录
+
+| 项目 | 最终证据 | 剩余边界 |
+|---|---|---|
+| 依赖与审计 | Electron 42.7.0、Vite 8.1.4、electron-builder 26.15.3；官方 registry `found 0 vulnerabilities` | 版本继续由候选版 audit 门约束 |
+| Electron 安全 | `SECURITY_BASELINE_OK`；sandbox、严格 CSP、导航/外链/下载/权限默认拒绝、IPC 负向验证；生产 `app.asar` 的 `.map/.d.ts` 计数均为 0 | 仅验证 Windows x64；Electron `console-message` API 有非阻断弃用警告 |
+| Execute | 默认 Off；升权说明及删除、覆盖、移动、命令、程序启动、外网请求逐次确认；撤权、取消、参数脱敏、模式隔离全部通过 | 真实 Beta 用户可用性测试仍属 ATH-DESKTOP-001 |
+| 自动化与启动 | typecheck、persona、modes、theme、logger、security、web-search、tools 全部通过；开发态与打包态均输出 `ATHENA_SMOKE_READY_TO_SHOW`、`ATHENA_SMOKE_DOM_OK` | live 搜索/LLM/工具测试未作为本窗口非 live 门执行 |
+| 0.8.0 产物 | Installer 105,765,781 bytes，SHA-256 `fa089e8546e4a51827bbb2938572368adafae04eddafe00804c831b6a79b069a`；unpacked EXE 232,771,072 bytes，SHA-256 `0ff62b371413091312bb1bcee1bea72057dc68131de32655411ef9b93804831e` | 两者均为 `NotSigned`；嵌入式 ASAR 完整性需在签名发布链中启用；签名、更新与发布链仍属 ATH-REL-001/窗口 06 |
+
+结论：窗口 02 的 Blocker 为 0，ATH-SEC-001～003 全部关闭，窗口 03 可按既定范围开始。ATH-PRIV-001、ATH-DATA-001、ATH-LEGAL-001、ATH-REL-001 保持原负责人和 Open；Steam、Cloud、Mobile、Live2D 与新产品功能未在本窗口开发。

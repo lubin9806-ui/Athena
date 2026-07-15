@@ -2,6 +2,7 @@ appId: com.athena.desktop
 productName: Athena
 directories:
   output: release
+disableAsarIntegrity: true
 files:
   - dist/**/*
   - resources/**/*
@@ -9,6 +10,8 @@ files:
   - config/**/*
   - skills/**/*
   - assets/**/*
+  - "!**/*.map"
+  - "!**/*.d.ts"
 extraResources:
   - from: database
     to: database

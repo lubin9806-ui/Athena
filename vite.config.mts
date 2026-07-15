@@ -11,8 +11,8 @@ export default defineConfig({
   build: {
     outDir: '../../dist/renderer',
     emptyOutDir: true,
-    target: 'ES2022',
-    sourcemap: true,
+    target: 'es2022',
+    sourcemap: false,
   },
   resolve: {
     alias: {

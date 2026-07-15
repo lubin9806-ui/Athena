@@ -1,12 +1,13 @@
 /** Athena 主进程入口 */
 
-import { app, BrowserWindow, Tray, Menu, nativeImage, screen, shell, WebContents } from 'electron';
+import { app, BrowserWindow, dialog, Tray, Menu, nativeImage, screen, shell, WebContents } from 'electron';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
 import { installLoggingPipeGuards } from '../engine/Logger';
 import { registerIpcHandlers } from './ipc';
+import { consumeMicrophoneGrant, hasMicrophoneGrant } from './security/PermissionGate';
 
 installLoggingPipeGuards();
 
@@ -70,17 +71,19 @@ function configureMediaPermissions(window: BrowserWindow): void {
     return permission === 'media'
       && details.isMainFrame
       && details.mediaType === 'audio'
-      && isMainAppPage(webContents, details.requestingUrl);
+      && isMainAppPage(webContents, details.requestingUrl)
+      && hasMicrophoneGrant();
   });
 
   appSession.setPermissionRequestHandler((webContents, permission, callback, details) => {
-    const mediaTypes = details.mediaTypes || [];
+    const mediaTypes = 'mediaTypes' in details && Array.isArray(details.mediaTypes) ? details.mediaTypes : [];
     const isAudioOnly = mediaTypes.length > 0 && mediaTypes.every(type => type === 'audio');
     callback(
       permission === 'media'
       && details.isMainFrame
       && isAudioOnly
-      && isMainAppPage(webContents, details.requestingUrl),
+      && isMainAppPage(webContents, details.requestingUrl)
+      && consumeMicrophoneGrant(),
     );
   });
 }
@@ -88,10 +91,25 @@ function configureMediaPermissions(window: BrowserWindow): void {
 function isSafeExternalUrl(value: string): boolean {
   try {
     const url = new URL(value);
-    return url.protocol === 'https:' || url.protocol === 'http:';
+    return url.protocol === 'https:' && !url.username && !url.password;
   } catch {
     return false;
   }
+}
+
+async function confirmExternalOpen(window: BrowserWindow, value: string): Promise<void> {
+  if (!isSafeExternalUrl(value) || window.isDestroyed()) return;
+  const result = await dialog.showMessageBox(window, {
+    type: 'warning',
+    title: '确认打开外部链接',
+    message: '此操作会启动系统浏览器并访问外部网络地址。',
+    detail: value,
+    buttons: ['取消', '打开链接'],
+    defaultId: 0,
+    cancelId: 0,
+    noLink: true,
+  });
+  if (result.response === 1 && !window.isDestroyed()) await shell.openExternal(value);
 }
 
 function createWindow(): void {
@@ -107,19 +125,23 @@ function createWindow(): void {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
+      sandbox: true,
+      webSecurity: true,
+      allowRunningInsecureContent: false,
     },
     show: false,
   });
 
   mainWindow.webContents.setAudioMuted(false);
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (isSafeExternalUrl(url)) void shell.openExternal(url);
+    void confirmExternalOpen(mainWindow!, url);
     return { action: 'deny' };
   });
+  mainWindow.webContents.session.on('will-download', (event) => event.preventDefault());
   mainWindow.webContents.on('will-navigate', (event, url) => {
     if (isMainAppPage(mainWindow?.webContents ?? null, url)) return;
     event.preventDefault();
-    if (isSafeExternalUrl(url)) void shell.openExternal(url);
+    if (mainWindow) void confirmExternalOpen(mainWindow, url);
   });
   configureMediaPermissions(mainWindow);
   mainWindow.webContents.on('render-process-gone', (_event, details) => {
@@ -190,6 +212,7 @@ function createWindow(): void {
               typeof api.saveSettings === 'function'
               && typeof api.cancelExecution === 'function'
               && typeof api.onWebSearchStatus === 'function'
+              && typeof api.requestMicrophoneAccess === 'function'
              );
              if (!uiReady) return false;
 
@@ -283,6 +306,8 @@ function createWindow(): void {
             if (!playbackProbe || playbackProbe.ok !== false) return false;
             if (!${isVoiceSmokeTest ? 'true' : 'false'}) return true;
 
+            const microphoneArmed = await api.requestMicrophoneAccess();
+            if (!microphoneArmed) return false;
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
             const audioReady = stream.getAudioTracks().length > 0;
             stream.getTracks().forEach(track => track.stop());

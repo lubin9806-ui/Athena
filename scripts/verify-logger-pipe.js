@@ -1,7 +1,11 @@
 const path = require('path');
 const { spawn } = require('child_process');
+const assert = require('node:assert/strict');
 
 const loggerPath = path.resolve(__dirname, '../dist/engine/Logger.js');
+const { redactLogValue } = require(loggerPath);
+const redacted = redactLogValue('Authorization: Bearer-secret api_key=sk-proj-supersecret https://user:pass@example.com');
+assert.doesNotMatch(redacted, /Bearer-secret|sk-proj-supersecret|user:pass/);
 const childCode = `
   const { createLogger } = require(${JSON.stringify(loggerPath)});
   const logger = createLogger('PipeProbe');

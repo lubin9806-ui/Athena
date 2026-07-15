@@ -44,6 +44,7 @@ declare global {
       chooseAudioFile: () => Promise<string | null>;
       transcribeAudioFile: (sourcePath: string) => Promise<VoiceResult>;
       transcribeRecording: (audioBytes: Uint8Array) => Promise<VoiceResult>;
+      requestMicrophoneAccess: () => Promise<boolean>;
       minimize: () => void;
       close: () => void;
     };
@@ -149,7 +150,7 @@ interface WebSearchStatus {
 }
 
 interface ToolStatusEvent {
-  phase: 'planning' | 'running' | 'completed' | 'failed' | 'cancelled' | 'done';
+  phase: 'planning' | 'confirming' | 'running' | 'completed' | 'failed' | 'cancelled' | 'done';
   message: string;
   toolName?: string;
   toolLabel?: string;
@@ -803,6 +804,10 @@ function init(): void {
       setStatus('正在规划电脑操作', 'working');
       return;
     }
+    if (status.phase === 'confirming') {
+      setStatus('等待你确认高风险操作', 'working');
+      return;
+    }
     if (status.phase === 'running') {
       setStatus(status.toolLabel ? `正在${status.toolLabel}` : status.message, 'working');
       return;
@@ -1212,6 +1217,16 @@ async function loadSettingsPanel(): Promise<void> {
 
 async function saveExecutionSettings(): Promise<void> {
   setExecutionSettingsFeedback('保存中...');
+  const previous = currentSettingsBundle?.settings.tools.modePermissions.execute ?? 'off';
+  const next = settingToolPermissionExecute.value as ToolPermissionLevel;
+  if (permissionRank(next) > permissionRank(previous)) {
+    const approved = window.confirm(`${toolPermissionShortLabel(next)}会扩大 Athena 对本机的访问范围。高危文件、命令、程序和外网操作仍会逐次确认。是否明确升权？`);
+    if (!approved) {
+      settingToolPermissionExecute.value = previous;
+      setExecutionSettingsFeedback('已取消升权，现有权限保持不变。');
+      return;
+    }
+  }
   try {
     const bundle = await window.athenaAPI.saveSettings({
       settings: {
@@ -1293,6 +1308,16 @@ function populateSettingsForm(bundle: SettingsBundle): void {
 async function saveSettingsForm(): Promise<void> {
   setSettingsFeedback('保存中...');
   const previousModel = currentSettingsBundle?.model.ollama;
+  const previousPermission = currentSettingsBundle?.settings.tools.modePermissions.execute ?? 'off';
+  const nextPermission = settingToolPermissionExecute.value as ToolPermissionLevel;
+  if (permissionRank(nextPermission) > permissionRank(previousPermission)) {
+    const approved = window.confirm(`${toolPermissionShortLabel(nextPermission)}会扩大 Athena 对本机的访问范围。高危操作仍会逐次确认。是否明确升权？`);
+    if (!approved) {
+      settingToolPermissionExecute.value = previousPermission;
+      setSettingsFeedback('已取消升权，其他设置尚未保存。');
+      return;
+    }
+  }
 
   try {
     const bundle = await window.athenaAPI.saveSettings({
@@ -1408,6 +1433,10 @@ function applyRuntimeSettings(settings: AppSettings): void {
   syncToolAccessHint();
   syncVoiceControls();
   syncWebSearchControl();
+}
+
+function permissionRank(level: ToolPermissionLevel): number {
+  return level === 'off' ? 0 : level === 'read' ? 1 : level === 'files' ? 2 : 3;
 }
 
 function syncToolAccessHint(): void {
@@ -1799,6 +1828,9 @@ async function toggleMicrophoneRecording(): Promise<void> {
   setStatus('连接麦克风…', 'working');
 
   try {
+    if (!await window.athenaAPI.requestMicrophoneAccess()) {
+      throw new Error('麦克风请求未获授权或当前设置已禁用语音输入。');
+    }
     await microphoneRecorder.start();
     if (operationId !== voiceOperationId || voiceInputState !== 'requesting') return;
     setVoiceInputState('recording');

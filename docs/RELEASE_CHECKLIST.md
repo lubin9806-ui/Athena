@@ -16,34 +16,34 @@
 
 | 字段 | 值 |
 |---|---|
-| 产品/SKU |  |
-| 商业版本 |  |
-| 内部 build |  |
+| 产品/SKU | Desktop Direct / 0.9 Private Beta 候选前置 |
+| 商业版本 | Commercial Baseline C0 / Desktop Window 02 Runtime Security |
+| 内部 build | 0.8.0 evidence build |
 | Git commit/tag | 窗口 01 已恢复有效仓库；尚未创建初始提交或 tag，发布候选必须补齐 |
-| 构建时间/环境 |  |
-| 负责人 |  |
-| 候选产物 SHA-256 |  |
-| 最终结论 | Go / No-Go |
-| 未关闭风险 |  |
+| 构建时间/环境 | 2026-07-15；Windows x64 10.0.26200；Node 24.18.0；Electron 42.7.0 |
+| 负责人 | 窗口 02（仅 ATH-SEC-001～003 工程证据；未作商业签字） |
+| 候选产物 SHA-256 | Installer `fa089e8546e4a51827bbb2938572368adafae04eddafe00804c831b6a79b069a`；unpacked EXE `0ff62b371413091312bb1bcee1bea72057dc68131de32655411ef9b93804831e` |
+| 最终结论 | **No-Go** |
+| 未关闭风险 | ATH-PRIV-001、ATH-DATA-001、ATH-LEGAL-001、ATH-REL-001；未签名包尚未启用嵌入式 ASAR 完整性；以及本清单仍未勾选的 Private Beta 发布门。窗口 02 已满足，窗口 03 可开始但 Desktop 仍为 No-Go |
 
 ## 3. 当前基线证据（2026-07-15）
 
 - [x] `npm.cmd run typecheck`
 - [x] Git 仓库有效：`rev-parse=true`、branch=`main`；大模型、环境文件、数据库和发布物 ignore probe 通过
-- [x] `npm.cmd run audit:security` 可访问官方 advisory endpoint 并返回结构化结果
+- [x] `npm.cmd run audit:security` 使用 `https://registry.npmjs.org/` → `found 0 vulnerabilities`
 - [x] `npm.cmd run test:persona`
 - [x] `npm.cmd run test:modes`
 - [x] `npm.cmd run test:theme`
 - [x] `npm.cmd run test:logger`
+- [x] `npm.cmd run test:security` → `SECURITY_BASELINE_OK`
 - [x] `npm.cmd run test:web-search` → `WEB_SEARCH_VERIFY_OK`
-- [x] `npm.cmd run test:tools` → 权限、撤销、取消、模式隔离均通过
+- [x] `npm.cmd run test:tools` → 权限迁移/降权、运行中撤权、任务取消、逐次高危拒绝、参数脱敏、模式隔离均通过
 - [x] `npm.cmd run smoke:electron` → `ATHENA_SMOKE_READY_TO_SHOW`、`ATHENA_SMOKE_DOM_OK`
 - [x] `npm.cmd run db:stats` → messages 85 / profile 9 / events 75 / project notes 5 / index 174
-- [x] `npm.cmd run build` → 0.8.0 NSIS 构建成功
-- [x] `release\win-unpacked\Athena.exe --smoke-test` → `ATHENA_SMOKE_READY_TO_SHOW`、`ATHENA_SMOKE_DOM_OK`
-- [~] `release\Athena Setup 0.8.0.exe` 已生成并记录 SHA-256，但仍未签名
-- [~] 离线包已生成，但许可、精确内容 manifest、签名和 clean-room 安装未通过
-- [ ] 官方 registry `npm audit` 清零：当前 8 项（7 High、1 Moderate）
+- [x] `npm.cmd run build` → Electron 42.7.0 / electron-builder 26.15.3 的 0.8.0 NSIS 构建成功
+- [x] `release\win-unpacked\Athena.exe --smoke-test` → 退出码 0；`ATHENA_SMOKE_READY_TO_SHOW`、`ATHENA_SMOKE_DOM_OK`
+- [~] `release\Athena Setup 0.8.0.exe` 已生成并记录 SHA-256，Authenticode 状态为 `NotSigned`
+- [x] 生产 `app.asar` 清单中 `.map` 与 `.d.ts` 计数均为 0；未使用的 Puppeteer 已从依赖和 lockfile 移除
 - [ ] live 搜索、LLM 综合、live 工具测试纳入候选版证据
 
 ## 4. Universal 发布门
@@ -58,17 +58,17 @@
 
 ### 4.2 安全
 
-- [ ] Electron 位于官方支持的最近三个稳定大版本之一
-- [ ] `npm audit --registry=https://registry.npmjs.org` 无 High/Critical；其余例外有风险接受记录
+- [x] Electron 位于官方支持的最近三个稳定大版本之一（42.7.0）
+- [x] `npm audit --registry=https://registry.npmjs.org` 无 High/Critical（当前总漏洞 0）
 - [ ] Python、Ollama、模型和外部二进制均有版本锁定、哈希和漏洞检查
-- [ ] `nodeIntegration: false`、`contextIsolation: true`、`sandbox: true` 已验证
-- [ ] 严格 CSP 已验证；无 `unsafe-eval`；生产 source map 不分发
-- [ ] IPC 全部验证发送者、类型、长度和路径；新增通道有负向测试
-- [ ] 外链只允许预期 HTTPS；导航、下载和权限请求默认拒绝
-- [ ] 麦克风只在用户动作后请求；拒绝权限不阻断文本核心功能
-- [ ] Execute 默认 Off；Read/Files/Full 升权有清晰说明和显式同意
-- [ ] 删除、覆盖、移动、命令、程序启动、外网请求等高风险动作有确认/范围策略
-- [ ] 工具降权、离开 Execute、取消任务会立即撤销可撤销能力
+- [x] `nodeIntegration: false`、`contextIsolation: true`、`sandbox: true` 已验证
+- [x] 严格 CSP 已验证；无 `unsafe-eval`/`unsafe-inline`；生产 source map 不分发
+- [x] IPC invoke 通道全部验证发送者；聊天类型/长度和文件路径有负向测试
+- [x] 外链/导航先默认拒绝，仅对无凭据 HTTPS 地址显示显式确认；下载和非音频权限请求默认拒绝
+- [x] 麦克风仅在 renderer 显式请求后短时放行；拒绝权限不阻断文本核心功能
+- [x] Execute 默认 Off；Read/Files/Full 升权有清晰说明和显式同意
+- [x] 删除、覆盖、移动、命令、程序启动、外网请求等高风险动作有逐次确认和脱敏预览
+- [x] 工具降权、离开 Execute、取消任务会立即撤销可撤销能力
 - [ ] 安装器、主 exe、卸载器和辅助可执行文件均签名并验证时间戳
 - [ ] 安装包通过 Defender/Smart App Control 测试和多引擎恶意软件扫描
 - [ ] secrets 扫描通过；候选包不含 `.env`、开发数据库、日志、缓存、用户模型目录或测试数据
@@ -85,7 +85,7 @@
 - [ ] 用户可以清除本机数据；账号平台可删除账号和关联云数据
 - [ ] 删除、保留、备份和法定留存规则一致且可验证
 - [ ] 敏感本地数据的静态加密/Windows 凭据保护方案已完成威胁评估
-- [ ] 日志默认不写完整提示、密钥、Authorization、Cookie、密码或敏感文件内容
+- [x] 日志默认不写完整提示、密钥、Authorization、Cookie、密码或敏感工具正文，脱敏有回归测试
 - [ ] 数据库升级前备份，失败时可恢复；卸载时的数据保留选择透明
 
 ### 4.4 法务与知识产权
@@ -101,9 +101,9 @@
 
 ### 4.5 可靠性和质量
 
-- [ ] 类型检查和全部非 live 自动化测试通过
+- [x] 类型检查和全部非 live 自动化测试通过
 - [ ] live 搜索、live LLM、live 工具在隔离测试环境通过
-- [ ] Electron 开发态与打包态烟测均有 `READY_TO_SHOW`、`DOM_OK`
+- [x] Electron 开发态与打包态烟测均有 `READY_TO_SHOW`、`DOM_OK`
 - [ ] 首次安装、覆盖升级、跨版本升级、卸载、重装和回滚矩阵通过
 - [ ] 无 Ollama、无模型、无 Python、断网、弱网、磁盘满、数据库锁定均有可理解降级
 - [ ] 长会话、长文本、大数据库、长时间托盘运行通过 CPU/内存/磁盘门槛
@@ -117,8 +117,8 @@
 
 - [ ] CI 从干净 checkout 构建，不依赖开发机缓存或个人 `%USERPROFILE%`
 - [ ] package manager、Node、Python 和构建工具版本锁定
-- [ ] production manifest 只包含允许文件；根目录杂物不会进入产物
-- [ ] `puppeteer` 等无用依赖移除或给出必需证据
+- [~] production `app.asar` 已验证不含 `.map/.d.ts`；完整允许文件 manifest 尚未冻结
+- [x] 未使用的 `puppeteer` 已从依赖和 lockfile 移除
 - [ ] 轻量包和离线包分别有精确 manifest、大小、哈希和许可
 - [ ] 离线包只复制指定模型 artifact，不复制整个用户 `.ollama\models`
 - [ ] 产物可重复构建并生成 SBOM、notices、SHA-256 和签名验证报告
@@ -194,6 +194,7 @@ npm.cmd run test:persona
 npm.cmd run test:modes
 npm.cmd run test:theme
 npm.cmd run test:logger
+npm.cmd run test:security
 npm.cmd run test:web-search
 npm.cmd run test:web-search:live
 npm.cmd run test:web-search:e2e
