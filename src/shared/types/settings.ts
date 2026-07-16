@@ -126,6 +126,7 @@ export interface ModelSettings {
 export interface SettingsBundle {
   settings: AppSettings;
   model: ModelSettings;
+  sku: 'desktop-direct' | 'steam';
 }
 
 export interface SettingsPatch {

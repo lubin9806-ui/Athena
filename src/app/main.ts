@@ -12,6 +12,8 @@ import { getAppSettings } from '../core/config/SettingsStore';
 import { applyDesktopSettings } from './DesktopSettings';
 import { installCrashDiagnostics, recordCrashDiagnostic } from '../core/runtime/CrashDiagnostics';
 import { initializeDesktopUpdater } from '../core/update/DesktopUpdater';
+import { describeSteamCloudAvailability, initializeSteamPlatform } from '../core/steam/SteamPlatform';
+import { isSteamExternalNavigationAllowed } from '../core/steam/SteamSkuPolicy';
 
 installLoggingPipeGuards();
 installCrashDiagnostics();
@@ -20,6 +22,8 @@ let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let isQuitting = false;
 const isSmokeTest = process.argv.includes('--smoke-test') || process.env.ATHENA_SMOKE_TEST === '1';
+const steamPlatform = initializeSteamPlatform();
+const isSteamBuild = steamPlatform.state.sku === 'steam';
 const isVoiceSmokeTest = isSmokeTest && process.env.ATHENA_SMOKE_VOICE === '1';
 const smokeScreenshotPath = process.env.ATHENA_SMOKE_SCREENSHOT?.trim();
 const smokeCaptureRipple = isSmokeTest && process.env.ATHENA_SMOKE_CAPTURE_RIPPLE === '1';
@@ -35,6 +39,15 @@ const smokePanel = process.env.ATHENA_SMOKE_PANEL === 'settings'
     : process.env.ATHENA_SMOKE_PANEL === 'execution'
       ? 'execution'
       : null;
+const smokeMode = process.env.ATHENA_SMOKE_MODE === 'create'
+  ? 'create'
+  : process.env.ATHENA_SMOKE_MODE === 'reason'
+    ? 'reason'
+    : process.env.ATHENA_SMOKE_MODE === 'companion'
+      ? 'companion'
+      : null;
+const smokeWindowWidth = smokeDimension(process.env.ATHENA_SMOKE_WIDTH, 480, 360, 3840);
+const smokeWindowHeight = smokeDimension(process.env.ATHENA_SMOKE_HEIGHT, 700, 500, 2160);
 const smokeUserDataPath = isSmokeTest
   ? path.join(os.tmpdir(), 'athena-smoke', String(process.pid))
   : null;
@@ -49,6 +62,11 @@ if (smokeUserDataPath) {
       // A terminated Chromium helper may briefly retain a cache file on Windows.
     }
   });
+}
+
+if (!smokeUserDataPath && isSteamBuild) {
+  app.setName('Athena Steam');
+  app.setPath('userData', path.join(app.getPath('appData'), 'Athena Steam'));
 }
 
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
@@ -104,6 +122,7 @@ function isSafeExternalUrl(value: string): boolean {
 }
 
 async function confirmExternalOpen(window: BrowserWindow, value: string): Promise<void> {
+  if (!isSteamExternalNavigationAllowed()) return;
   if (!isSafeExternalUrl(value) || window.isDestroyed()) return;
   const result = await dialog.showMessageBox(window, {
     type: 'warning',
@@ -120,8 +139,8 @@ async function confirmExternalOpen(window: BrowserWindow, value: string): Promis
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
-    width: 480,
-    height: 700,
+    width: isSmokeTest ? smokeWindowWidth : 480,
+    height: isSmokeTest ? smokeWindowHeight : 700,
     minWidth: 360,
     minHeight: 500,
     frame: false,
@@ -405,6 +424,18 @@ function createWindow(): void {
             await new Promise(resolve => setTimeout(resolve, 160));
           }
         }
+        if (smokeMode) {
+          const modeApplied = await mainWindow.webContents.executeJavaScript(`
+            (() => {
+              const button = document.querySelector('.mode-btn[data-mode="${smokeMode}"]');
+              if (!(button instanceof HTMLButtonElement)) return false;
+              button.click();
+              return document.getElementById('app-shell')?.dataset.mode === ${JSON.stringify(smokeMode)};
+            })()
+          `);
+          if (!modeApplied) throw new Error('Smoke mode could not be applied');
+          await new Promise(resolve => setTimeout(resolve, 220));
+        }
         if (smokeCaptureRipple) {
           await new Promise(resolve => setTimeout(resolve, 420));
           await mainWindow.webContents.executeJavaScript(`
@@ -469,6 +500,11 @@ function logSmokeReady(): void {
   console.log('ATHENA_SMOKE_READY_TO_SHOW');
 }
 
+function smokeDimension(value: string | undefined, fallback: number, minimum: number, maximum: number): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? Math.max(minimum, Math.min(maximum, Math.round(parsed))) : fallback;
+}
+
 function createTray(): void {
   const iconPath = path.join(__dirname, '../../resources/su-shixia-tray.png');
   const icon = nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 });
@@ -483,15 +519,30 @@ function createTray(): void {
 }
 
 app.whenReady().then(() => {
+  if (steamPlatform.state.status === 'relaunch-required') {
+    app.quit();
+    return;
+  }
+  if (steamPlatform.state.status === 'blocked') {
+    dialog.showErrorBox(
+      'Steam 启动校验失败',
+      `Athena Steam 需要从拥有该 AppID 的 Steam 客户端启动。\n\n${steamPlatform.state.reason || 'Unknown Steamworks error.'}`,
+    );
+    app.quit();
+    return;
+  }
+  if (isSteamBuild) {
+    console.log(`ATHENA_STEAM_READY appId=${steamPlatform.state.appId} branch=${steamPlatform.state.branch || 'default'} cloud=${describeSteamCloudAvailability(steamPlatform)}`);
+  }
   applyDesktopSettings(getAppSettings().general);
   createWindow();
-  if (mainWindow && !isSmokeTest) initializeDesktopUpdater(mainWindow);
-  if (!isSmokeTest) createTray();
+  if (mainWindow && !isSmokeTest && !isSteamBuild) initializeDesktopUpdater(mainWindow);
+  if (!isSmokeTest && !isSteamBuild) createTray();
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); else mainWindow?.show(); });
 });
 
-app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 app.on('before-quit', () => { isQuitting = true; });
+app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 
 const gotTheLock = isSmokeTest || app.requestSingleInstanceLock();
 if (!gotTheLock) app.quit();

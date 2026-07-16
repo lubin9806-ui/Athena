@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-16T13:26:27.639Z",
+  "generatedAt": "2026-07-16T13:37:50.239Z",
   "project": {
     "name": "athena",
-    "version": "0.8.0",
+    "version": "0.9.0-beta.1",
     "license": "UNLICENSED",
     "private": true
   },
@@ -21,6 +21,22 @@
     "vite": "8.1.4"
   },
   "npmRuntimePackages": [
+    {
+      "name": "@types/node",
+      "version": "20.19.43",
+      "resolved": null,
+      "license": "MIT",
+      "repository": "https://github.com/DefinitelyTyped/DefinitelyTyped.git",
+      "homepage": "https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/node"
+    },
+    {
+      "name": "argparse",
+      "version": "2.0.1",
+      "resolved": "https://registry.npmjs.org/argparse/-/argparse-2.0.1.tgz",
+      "license": "Python-2.0",
+      "repository": "nodeca/argparse",
+      "homepage": null
+    },
     {
       "name": "base64-js",
       "version": "1.5.1",
@@ -70,6 +86,14 @@
       "homepage": "https://github.com/feross/buffer"
     },
     {
+      "name": "builder-util-runtime",
+      "version": "9.7.0",
+      "resolved": "https://registry.npmjs.org/builder-util-runtime/-/builder-util-runtime-9.7.0.tgz",
+      "license": "MIT",
+      "repository": "git+https://github.com/electron-userland/electron-builder.git",
+      "homepage": "https://github.com/electron-userland/electron-builder"
+    },
+    {
       "name": "cheerio-select",
       "version": "2.1.0",
       "resolved": "https://registry.npmmirror.com/cheerio-select/-/cheerio-select-2.1.0.tgz",
@@ -87,10 +111,11 @@
     },
     {
       "name": "chownr",
-      "version": "1.1.4",
+      "version": "3.0.0",
       "resolved": "https://registry.npmjs.org/chownr/-/chownr-3.0.0.tgz",
       "license": "BlueOak-1.0.0",
-      "notice": "package.json not found in node_modules"
+      "repository": "git://github.com/isaacs/chownr.git",
+      "homepage": null
     },
     {
       "name": "css-select",
@@ -106,6 +131,14 @@
       "resolved": "https://registry.npmmirror.com/css-what/-/css-what-6.2.2.tgz",
       "license": "BSD-2-Clause",
       "repository": "https://github.com/fb55/css-what",
+      "homepage": null
+    },
+    {
+      "name": "debug",
+      "version": "4.4.3",
+      "resolved": "https://registry.npmjs.org/debug/-/debug-4.4.3.tgz",
+      "license": "MIT",
+      "repository": "git://github.com/debug-js/debug.git",
       "homepage": null
     },
     {
@@ -163,6 +196,14 @@
       "license": "BSD-2-Clause",
       "repository": "git://github.com/fb55/domutils.git",
       "homepage": null
+    },
+    {
+      "name": "electron-updater",
+      "version": "6.8.9",
+      "resolved": "https://registry.npmmirror.com/electron-updater/-/electron-updater-6.8.9.tgz",
+      "license": "MIT",
+      "repository": "git+https://github.com/electron-userland/electron-builder.git",
+      "homepage": "https://github.com/electron-userland/electron-builder"
     },
     {
       "name": "encoding-sniffer",
@@ -229,12 +270,28 @@
       "homepage": "https://github.com/mafintosh/fs-constants"
     },
     {
+      "name": "fs-extra",
+      "version": "10.1.0",
+      "resolved": "https://registry.npmjs.org/fs-extra/-/fs-extra-10.1.0.tgz",
+      "license": "MIT",
+      "repository": "https://github.com/jprichardson/node-fs-extra",
+      "homepage": "https://github.com/jprichardson/node-fs-extra"
+    },
+    {
       "name": "github-from-package",
       "version": "0.0.0",
       "resolved": null,
       "license": "MIT",
       "repository": "git://github.com/substack/github-from-package.git",
       "homepage": "https://github.com/substack/github-from-package"
+    },
+    {
+      "name": "graceful-fs",
+      "version": "4.2.11",
+      "resolved": null,
+      "license": "ISC",
+      "repository": "https://github.com/isaacs/node-graceful-fs",
+      "homepage": null
     },
     {
       "name": "htmlparser2",
@@ -277,11 +334,52 @@
       "homepage": null
     },
     {
+      "name": "js-yaml",
+      "version": "4.3.0",
+      "resolved": "https://registry.npmjs.org/js-yaml/-/js-yaml-4.3.0.tgz",
+      "license": "MIT",
+      "repository": "nodeca/js-yaml",
+      "homepage": null
+    },
+    {
+      "name": "jsonfile",
+      "version": "6.2.1",
+      "resolved": "https://registry.npmjs.org/jsonfile/-/jsonfile-6.2.1.tgz",
+      "license": "MIT",
+      "repository": "git@github.com:jprichardson/node-jsonfile.git",
+      "homepage": null
+    },
+    {
+      "name": "lazy-val",
+      "version": "1.0.5",
+      "resolved": "https://registry.npmjs.org/lazy-val/-/lazy-val-1.0.5.tgz",
+      "license": "MIT",
+      "repository": "develar/lazy-val",
+      "homepage": "https://github.com/develar/lazy-val"
+    },
+    {
+      "name": "lodash.escaperegexp",
+      "version": "4.1.2",
+      "resolved": "https://registry.npmmirror.com/lodash.escaperegexp/-/lodash.escaperegexp-4.1.2.tgz",
+      "license": "MIT",
+      "repository": "lodash/lodash",
+      "homepage": "https://lodash.com/"
+    },
+    {
+      "name": "lodash.isequal",
+      "version": "4.5.0",
+      "resolved": "https://registry.npmmirror.com/lodash.isequal/-/lodash.isequal-4.5.0.tgz",
+      "license": "MIT",
+      "repository": "lodash/lodash",
+      "homepage": "https://lodash.com/"
+    },
+    {
       "name": "mimic-response",
-      "version": "3.1.0",
+      "version": "1.0.1",
       "resolved": "https://registry.npmjs.org/mimic-response/-/mimic-response-1.0.1.tgz",
       "license": "MIT",
-      "notice": "package.json not found in node_modules"
+      "repository": "sindresorhus/mimic-response",
+      "homepage": null
     },
     {
       "name": "minimist",
@@ -298,6 +396,14 @@
       "license": "MIT",
       "repository": "https://github.com/mafintosh/mkdirp-classic.git",
       "homepage": "https://github.com/mafintosh/mkdirp-classic"
+    },
+    {
+      "name": "ms",
+      "version": "2.1.3",
+      "resolved": "https://registry.npmjs.org/ms/-/ms-2.1.3.tgz",
+      "license": "MIT",
+      "repository": "vercel/ms",
+      "homepage": null
     },
     {
       "name": "napi-build-utils",
@@ -404,9 +510,25 @@
       "homepage": null
     },
     {
+      "name": "sax",
+      "version": "1.6.0",
+      "resolved": "https://registry.npmjs.org/sax/-/sax-1.6.0.tgz",
+      "license": "BlueOak-1.0.0",
+      "repository": "git+ssh://git@github.com/isaacs/sax-js.git",
+      "homepage": null
+    },
+    {
       "name": "semver",
       "version": "7.8.5",
       "resolved": "https://registry.npmjs.org/semver/-/semver-7.8.5.tgz",
+      "license": "ISC",
+      "repository": "git+https://github.com/npm/node-semver.git",
+      "homepage": null
+    },
+    {
+      "name": "semver",
+      "version": "7.8.5",
+      "resolved": "https://registry.npmmirror.com/semver/-/semver-7.7.4.tgz",
       "license": "ISC",
       "repository": "git+https://github.com/npm/node-semver.git",
       "homepage": null
@@ -426,6 +548,14 @@
       "license": "MIT",
       "repository": "git://github.com/feross/simple-get.git",
       "homepage": "https://github.com/feross/simple-get"
+    },
+    {
+      "name": "steamworks.js",
+      "version": "0.4.0",
+      "resolved": "https://registry.npmmirror.com/steamworks.js/-/steamworks.js-0.4.0.tgz",
+      "license": "MIT",
+      "repository": "https://github.com/ceifa/steamworks.js",
+      "homepage": null
     },
     {
       "name": "string_decoder",
@@ -460,6 +590,14 @@
       "homepage": "https://github.com/mafintosh/tar-stream"
     },
     {
+      "name": "tiny-typed-emitter",
+      "version": "2.1.0",
+      "resolved": "https://registry.npmmirror.com/tiny-typed-emitter/-/tiny-typed-emitter-2.1.0.tgz",
+      "license": "MIT",
+      "repository": "https://github.com/binier/tiny-typed-emitter.git",
+      "homepage": null
+    },
+    {
       "name": "tunnel-agent",
       "version": "0.6.0",
       "resolved": null,
@@ -468,12 +606,28 @@
       "homepage": null
     },
     {
+      "name": "undici-types",
+      "version": "6.21.0",
+      "resolved": null,
+      "license": "MIT",
+      "repository": "git+https://github.com/nodejs/undici.git",
+      "homepage": "https://undici.nodejs.org"
+    },
+    {
       "name": "undici",
       "version": "7.28.0",
       "resolved": "https://registry.npmjs.org/undici/-/undici-7.28.0.tgz",
       "license": "MIT",
       "repository": "git+https://github.com/nodejs/undici.git",
       "homepage": "https://undici.nodejs.org"
+    },
+    {
+      "name": "universalify",
+      "version": "2.0.1",
+      "resolved": "https://registry.npmjs.org/universalify/-/universalify-2.0.1.tgz",
+      "license": "MIT",
+      "repository": "git+https://github.com/RyanZim/universalify.git",
+      "homepage": "https://github.com/RyanZim/universalify#readme"
     },
     {
       "name": "util-deprecate",
@@ -510,27 +664,15 @@
   ],
   "pythonVoiceRequirements": [
     {
-      "requirement": "SpeechRecognition>=3.14",
+      "requirement": "faster-whisper==1.2.1",
       "distributionStatus": "declared runtime/install-time requirement; not bundled in the Desktop installer"
     },
     {
-      "requirement": "edge-tts>=7.0",
+      "requirement": "av==17.1.0",
       "distributionStatus": "declared runtime/install-time requirement; not bundled in the Desktop installer"
     },
     {
-      "requirement": "faster-whisper>=1.2",
-      "distributionStatus": "declared runtime/install-time requirement; not bundled in the Desktop installer"
-    },
-    {
-      "requirement": "av>=14.0",
-      "distributionStatus": "declared runtime/install-time requirement; not bundled in the Desktop installer"
-    },
-    {
-      "requirement": "numpy>=1.26",
-      "distributionStatus": "declared runtime/install-time requirement; not bundled in the Desktop installer"
-    },
-    {
-      "requirement": "sounddevice>=0.5",
+      "requirement": "numpy==2.4.6",
       "distributionStatus": "declared runtime/install-time requirement; not bundled in the Desktop installer"
     }
   ],
@@ -690,13 +832,13 @@
   "bundledAssets": [
     {
       "path": "play_audio.py",
-      "bytes": 1661,
-      "sha256": "52F9D10158584DDF4440D7F342E8F90E9C3F1DF0B122CA8EC082845BF597A181"
+      "bytes": 1610,
+      "sha256": "8297A86166F2AE6D2D433E494B63D8FAE37641C49DFB205CC1AA95A6E423B901"
     },
     {
       "path": "requirements-voice.txt",
-      "bytes": 102,
-      "sha256": "AE53E5285B951DD76F2671AFBB0F413C5235BDB9381BAEDA1BF42E56A6F611D5"
+      "bytes": 191,
+      "sha256": "DA891575BACD54E699ACEB8A947347D4F8CE48DF1D2C4ABA196D1196362C5D37"
     },
     {
       "path": "resources/icon.png",
@@ -735,13 +877,13 @@
     },
     {
       "path": "stt_whisper.py",
-      "bytes": 1312,
-      "sha256": "B31D8BAC3F609CF97BE96467933F5663FD64F18B6D6ABE2034CB4BC07BA3E3D4"
+      "bytes": 1895,
+      "sha256": "6C52D1CF472B54879AB77FB6EB21DEDDC89919B9F03048A702D2B4FE97B3F625"
     },
     {
       "path": "stt.py",
-      "bytes": 1810,
-      "sha256": "702F602E685014FF9CC1C12559AF9D2AC9849E6FD399D944AD7F08BFC56C63DB"
+      "bytes": 1758,
+      "sha256": "28375EB78A83C8465B8C0D04EE6BC6EC8D38127B3F554109D63575F9A3E56507"
     },
     {
       "path": "tts.py",
@@ -753,13 +895,13 @@
     "bundledRuntimeAssets": [
       {
         "path": "play_audio.py",
-        "bytes": 1661,
-        "sha256": "52F9D10158584DDF4440D7F342E8F90E9C3F1DF0B122CA8EC082845BF597A181"
+        "bytes": 1610,
+        "sha256": "8297A86166F2AE6D2D433E494B63D8FAE37641C49DFB205CC1AA95A6E423B901"
       },
       {
         "path": "requirements-voice.txt",
-        "bytes": 102,
-        "sha256": "AE53E5285B951DD76F2671AFBB0F413C5235BDB9381BAEDA1BF42E56A6F611D5"
+        "bytes": 191,
+        "sha256": "DA891575BACD54E699ACEB8A947347D4F8CE48DF1D2C4ABA196D1196362C5D37"
       },
       {
         "path": "resources/icon.png",
@@ -798,13 +940,13 @@
       },
       {
         "path": "stt_whisper.py",
-        "bytes": 1312,
-        "sha256": "B31D8BAC3F609CF97BE96467933F5663FD64F18B6D6ABE2034CB4BC07BA3E3D4"
+        "bytes": 1895,
+        "sha256": "6C52D1CF472B54879AB77FB6EB21DEDDC89919B9F03048A702D2B4FE97B3F625"
       },
       {
         "path": "stt.py",
-        "bytes": 1810,
-        "sha256": "702F602E685014FF9CC1C12559AF9D2AC9849E6FD399D944AD7F08BFC56C63DB"
+        "bytes": 1758,
+        "sha256": "28375EB78A83C8465B8C0D04EE6BC6EC8D38127B3F554109D63575F9A3E56507"
       },
       {
         "path": "tts.py",
@@ -815,13 +957,13 @@
     "nonBundledPromotionalAssets": [
       {
         "path": "promo/index.html",
-        "bytes": 3759,
-        "sha256": "CD654B8488A6B905965444C76200BF2ABD7736647146F2DB22E0ECAD411E195A"
+        "bytes": 3689,
+        "sha256": "AFBA854B1B605DB7F2D7A2B28EB0A148FDE04E4454EE7AFE70B00221EC85DC7C"
       },
       {
         "path": "promo/posters/POSTER_BRIEF.md",
-        "bytes": 9722,
-        "sha256": "C37192D65606FB8D9B012E423423C9A10A154F88D3F100A369FA07E4DA7366B0"
+        "bytes": 9602,
+        "sha256": "66FEC4374DCA4D45851CEBDE82C2B1BFB41E6C2F2E0DC6620B18E6B3CEADB19C"
       },
       {
         "path": "promo/posters/athena-poster-01-brand.png",
@@ -855,23 +997,23 @@
       },
       {
         "path": "promo/product.html",
-        "bytes": 4019,
-        "sha256": "374F0F721922972EF93CD855DDD6647C72D15660338EABD280C3126876D9EE85"
+        "bytes": 3949,
+        "sha256": "27D23A24F50BF31B90CDF4B4B8BC4AA9851E5ED97057469C97101BFA6E99DC4A"
       },
       {
         "path": "promo/promo.css",
-        "bytes": 11527,
-        "sha256": "C7DE0E07D14232E2D813A20C26F9AE20617A7684F14DF37019532A0D3DCABF01"
+        "bytes": 10940,
+        "sha256": "5F595881025085C17F5FE03DCD0840DEC2E67B5870AC2A6F9CBF70213BA9D989"
       },
       {
         "path": "promo/promo.js",
-        "bytes": 3944,
-        "sha256": "380B786E63F7AA118FB53C8F3A721DBF1B682314CA2F301240E194A3B1EFD742"
+        "bytes": 3831,
+        "sha256": "AE05CFE5E7C8DDE603FE4B6258CAFDBA98F1B02F16CB7DFF959DF3B54D0BCFC6"
       },
       {
         "path": "promo/visual.html",
-        "bytes": 3130,
-        "sha256": "C0B735E4E21C49A86EE918903B8D2E59AB1081498B27DCAEF236D205A9432445"
+        "bytes": 3066,
+        "sha256": "A00ECD64ADC96A4D4E28A20A2D553E3E3CC2B9D9F1F5DF8EFC748E70EAA5991D"
       }
     ],
     "nonBundledConceptAssets": [
@@ -882,8 +1024,8 @@
       },
       {
         "path": "docs/concepts/athena-agora-glass.svg",
-        "bytes": 11995,
-        "sha256": "52D0E7EB5FED2AFDA5A391D9B28243FD0D006D78968683CB488DDBBD8420D572"
+        "bytes": 11824,
+        "sha256": "D9FC834A7F6E118BEE066172E995F654B55EFF4033F71B117B51CFD85F7F612C"
       },
       {
         "path": "docs/concepts/athena-classical-material-field.png",
@@ -892,8 +1034,8 @@
       },
       {
         "path": "docs/concepts/athena-classical-material-field.prompt.md",
-        "bytes": 3725,
-        "sha256": "F133881A69C129BA8CB8A72E070C0322CA42B5D4F9C648DC76F1112A50FAC673"
+        "bytes": 3687,
+        "sha256": "2BF6B11DF3E97C90FE14B4549948356C7C02BFC36A9D87D90B6BDD8B6AD22F56"
       },
       {
         "path": "docs/concepts/athena-clean-glass-baseline.png",
@@ -1158,7 +1300,7 @@
     ]
   },
   "repositoryProvenance": {
-    "gitRemote": "none configured or unavailable",
+    "gitRemote": "none configured",
     "unknownOrExcludedPayloads": [
       {
         "path": "models/",
@@ -1181,7 +1323,18 @@
       }
     ]
   },
-  "buildArtifacts": [],
+  "buildArtifacts": [
+    {
+      "path": "release/Athena Setup 0.9.0-beta.1.exe",
+      "bytes": 158385341,
+      "sha256": "7D486394F947FF36AE905DFFD9F095987B66B7C3C835D1814635F80936BF6845"
+    },
+    {
+      "path": "release/win-unpacked/Athena.exe",
+      "bytes": 232771072,
+      "sha256": "337540574E02AECDF804417DB48C2A87A682405BD3347EFCA29B617730DC94E1"
+    }
+  ],
   "packagingDecisions": [
     {
       "decision": "normal installer excludes OllamaSetup.exe and local model payloads",

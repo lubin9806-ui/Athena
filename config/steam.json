@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "releaseStage": "blocked",
+  "skuId": "athena-steam-personal-v1",
+  "displayName": "Athena Steam 1.0",
+  "appId": null,
+  "depotId": null,
+  "launchExecutable": "AthenaSteam.exe",
+  "testBranch": "steam-internal",
+  "supportedPlatforms": [
+    "windows-x64"
+  ],
+  "externalPayments": false,
+  "excludedCapabilities": [
+    "full-execute",
+    "terminal",
+    "arbitrary-http",
+    "external-payments"
+  ],
+  "cloud": {
+    "enabled": false,
+    "approval": {
+      "window": "03",
+      "status": "not-approved",
+      "approvedAt": null,
+      "evidence": null
+    },
+    "maxTotalBytes": 262144,
+    "maxFileBytes": 65536,
+    "tombstoneRetentionDays": 90,
+    "entries": []
+  }
+}

@@ -8,6 +8,7 @@ pnpm-debug.log*
 # Build output
 dist/
 release/
+release-steam/
 .build/
 *.blockmap
 

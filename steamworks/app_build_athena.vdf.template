@@ -1,0 +1,11 @@
+"AppBuild"
+{
+  "AppID" "{{APP_ID}}"
+  "Desc" "Athena Steam {{VERSION}} {{COMMIT}}"
+  "BuildOutput" "{{BUILD_OUTPUT}}"
+  "ContentRoot" "{{CONTENT_ROOT}}"
+  "Depots"
+  {
+    "{{DEPOT_ID}}" "depot_build_athena.vdf"
+  }
+}

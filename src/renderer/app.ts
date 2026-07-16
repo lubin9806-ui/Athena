@@ -326,6 +326,7 @@ interface ModelSettings {
 interface SettingsBundle {
   settings: AppSettings;
   model: ModelSettings;
+  sku: 'desktop-direct' | 'steam';
 }
 
 interface SettingsPatch {
@@ -1380,7 +1381,39 @@ function populateSettingsForm(bundle: SettingsBundle): void {
   settingExportFormat.value = data.exportFormat;
   settingConsentWebSearch.checked = privacy.networkConsent.webSearch;
   settingConsentExternalToolNetwork.checked = privacy.networkConsent.externalToolNetwork;
+  applySkuRuntimeProfile(bundle.sku);
   void refreshVoiceCapabilities();
+}
+
+function applySkuRuntimeProfile(sku: SettingsBundle['sku']): void {
+  const steam = sku === 'steam';
+  appShell.dataset.sku = sku;
+  const fullOption = settingToolPermissionExecute.querySelector<HTMLOptionElement>('option[value="full"]');
+  if (fullOption) {
+    fullOption.disabled = steam;
+    fullOption.hidden = steam;
+  }
+  settingLaunchStartup.disabled = steam;
+  settingCloseTray.disabled = steam;
+  settingStreamResponses.disabled = steam;
+  for (const control of [
+    settingWebSearchEnabled,
+    settingWebSearchMode,
+    settingWebSearchMaxResults,
+    settingWebSearchDeepRead,
+    settingWebSearchSecondary,
+    settingWebSearchMaxPages,
+    settingConsentWebSearch,
+    settingConsentExternalToolNetwork,
+  ]) {
+    control.disabled = steam;
+    control.title = steam ? 'Steam 1.0 首发构建排除此联网能力。' : '';
+  }
+  if (steam) {
+    webSearchBtn.disabled = true;
+    webSearchBtn.title = 'Steam 1.0 首发构建不包含联网搜索或任意 HTTP。';
+    toolAccessHint.title = 'Steam 1.0 最高只允许文件档；Full、终端和任意 HTTP 在主进程中强制拒绝。';
+  }
 }
 
 async function refreshVoiceCapabilities(): Promise<void> {

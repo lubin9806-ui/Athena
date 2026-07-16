@@ -370,6 +370,7 @@ function cleanSettingsPatch(value: unknown): SettingsPatch {
 function toRendererSettingsBundle(bundle: SettingsBundle): SettingsBundle {
   return {
     settings: bundle.settings,
+    sku: bundle.sku,
     model: {
       ...bundle.model,
       ollama: { ...bundle.model.ollama },

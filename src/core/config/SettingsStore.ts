@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { resolveConfigFile, resolveWritableConfigFile } from '../runtime/Paths';
+import { applySteamSettingsPolicy, capSteamToolSettings, isSteamSku } from '../steam/SteamSkuPolicy';
 import type {
   AnimationLevel,
   AppSettings,
@@ -155,14 +156,16 @@ export function getSettingsBundle(): SettingsBundle {
   return {
     settings: loadAppSettings(),
     model: loadModelSettings(),
+    sku: isSteamSku() ? 'steam' : 'desktop-direct',
   };
 }
 
 export function saveSettingsBundle(patch: SettingsPatch): SettingsBundle {
   const current = getSettingsBundle();
   const next: SettingsBundle = {
-    settings: sanitizeAppSettings(mergeAppSettings(current.settings, patch.settings)),
+    settings: applySteamSettingsPolicy(sanitizeAppSettings(mergeAppSettings(current.settings, patch.settings))),
     model: sanitizeModelSettings(mergeModelSettings(current.model, patch.model)),
+    sku: current.sku,
   };
 
   writeJson(configPath('settings.json'), next.settings);
@@ -179,12 +182,12 @@ export function getAppSettings(): AppSettings {
 }
 
 export function resolveToolSettingsForMode(settings: ToolSettings, mode: ConversationMode): ToolSettings {
-  return {
+  return capSteamToolSettings({
     ...settings,
     permissionLevel: mode === 'execute'
       ? settings.modePermissions.execute ?? settings.permissionLevel
       : 'off',
-  };
+  });
 }
 
 export function hasNetworkConsent(capability: keyof PrivacySettings['networkConsent']): boolean {
@@ -219,7 +222,7 @@ export function shouldSaveHistory(): boolean {
 }
 
 function loadAppSettings(): AppSettings {
-  return sanitizeAppSettings(readJson(resolveConfigFile('settings.json'), DEFAULT_SETTINGS));
+  return applySteamSettingsPolicy(sanitizeAppSettings(readJson(resolveConfigFile('settings.json'), DEFAULT_SETTINGS)));
 }
 
 function loadModelSettings(): ModelSettings {

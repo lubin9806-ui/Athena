@@ -17,6 +17,7 @@ import {
 } from './Personality';
 import { buildStyleProfile, type StyleProfile } from './StyleEngine';
 import { buildPersonalizationPrompt } from '../config/SettingsStore';
+import { buildSteamAiGuardrailPrompt } from '../steam/SteamAiGuardrails';
 import type { ConversationMode, Message, RetrievedContext, WebSearchContext } from '../../shared/types';
 
 export function buildSystemPrompt(style?: StyleProfile): string {
@@ -69,6 +70,7 @@ export function buildSystemPrompt(style?: StyleProfile): string {
     '- 回答优先使用中文，避免空泛套话，必要时给出具体下一步。',
     '',
     buildPersonalizationPrompt(),
+    buildSteamAiGuardrailPrompt(),
     '',
     style ? buildStyleContext(style) : '',
   ].join('\n');

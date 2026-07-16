@@ -11,6 +11,8 @@
     "dev:renderer": "vite",
     "build": "node scripts/build-desktop.js --auto-sign",
     "build:release": "node scripts/build-desktop.js --require-signing",
+    "build:steam": "node scripts/build-steam.js --require-signing --require-clean",
+    "build:steam:engineering": "node scripts/build-steam.js",
     "release:manifest": "node scripts/generate-candidate-manifest.js",
     "release:verify": "electron scripts/verify-release-engineering.js",
     "release:channel": "node scripts/channel-control.js",
@@ -27,6 +29,8 @@
     "test:release": "tsc && electron scripts/verify-release-engineering.js",
     "test:desktop-faults": "tsc && node scripts/verify-desktop-faults.js",
     "test:commercial": "tsc && node scripts/verify-commercial-readiness.js",
+    "test:steam": "tsc && electron scripts/verify-steam.js && node scripts/verify-steam-candidate.js --source-only",
+    "steam:verify-candidate": "node scripts/verify-steam-candidate.js",
     "test:web-search": "tsc && node scripts/verify-web-search.js",
     "test:web-search:live": "tsc && node scripts/verify-web-search.js --live",
     "test:web-search:e2e": "tsc && node scripts/verify-web-search.js --llm",
@@ -60,5 +64,8 @@
   "allowScripts": {
     "better-sqlite3@12.11.1": true,
     "electron-winstaller": false
+  },
+  "optionalDependencies": {
+    "steamworks.js": "0.4.0"
   }
 }

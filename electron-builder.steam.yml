@@ -1,0 +1,56 @@
+appId: com.athena.steam
+productName: Athena Steam
+executableName: AthenaSteam
+directories:
+  output: release-steam
+asar: true
+artifactName: "${productName}-${version}-${arch}.${ext}"
+files:
+  - dist/**/*
+  - resources/**/*
+  - "!resources/OllamaSetup.exe"
+  - config/**/*
+  - skills/**/*
+  - assets/**/*
+  - "!assets/steam/**/*"
+  - node_modules/steamworks.js/**/*
+  - "!node_modules/steamworks.js/dist/win64/*.lib"
+  - "!**/*.map"
+  - "!**/*.d.ts"
+asarUnpack:
+  - node_modules/steamworks.js/dist/win64/**/*
+extraResources:
+  - from: .build/build-info.json
+    to: build-info.json
+  - from: .build/steam/steam-runtime.json
+    to: steam/steam-runtime.json
+  - from: config/steam.json
+    to: steam/steam-product.json
+  - from: .build/database
+    to: database
+    filter:
+      - "athena.db"
+      - "!**/*-wal"
+      - "!**/*-shm"
+      - "!backups/**"
+      - "!migrations/**"
+      - "!seeds/**"
+  - from: tts.py
+    to: voice/tts.py
+  - from: stt.py
+    to: voice/stt.py
+  - from: stt_whisper.py
+    to: voice/stt_whisper.py
+  - from: play_audio.py
+    to: voice/play_audio.py
+  - from: tts-local.ps1
+    to: voice/tts-local.ps1
+  - from: play_audio_local.ps1
+    to: voice/play_audio_local.ps1
+  - from: requirements-voice.txt
+    to: voice/requirements-voice.txt
+win:
+  target: dir
+  icon: resources/su-shixia.ico
+  signAndEditExecutable: true
+  requestedExecutionLevel: asInvoker

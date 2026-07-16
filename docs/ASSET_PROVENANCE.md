@@ -80,3 +80,11 @@ Do not infer or invent these records. The user/project owner must provide them:
   bundled
 - source URL, license, and retention approval for each file under `models/`
 - owner, purpose, and retention approval for `新建文件夹/`
+
+## Window 08 Steam Store Assets
+
+`assets/steam/` contains AI-generated Athens-inspired store/library artwork, a generated ATHENA wordmark, deterministic Steam-format crops, and five direct Electron runtime screenshot candidates. The generated images were created with OpenAI image generation on 2026-07-16 and are disclosed as pre-generated AI content in `docs/steam/STEAM_AI_CONTENT_DISCLOSURE.md`. Exact roles and dimensions are listed in `docs/steam/STEAM_ASSET_MANIFEST.md`.
+
+The screenshot candidates were captured from the compiled Desktop baseline, not fabricated with image generation. They are not final Steam-build proof and must be recaptured or reconfirmed after a real signed AppID/private-branch build. A screenshot exposing local memory content was rejected and deleted.
+
+Public Steam use remains Blocked pending Athena name/trademark clearance, human review of generated-art originality and PG-13 suitability, final build consistency, and Valve review.

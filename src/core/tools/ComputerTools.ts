@@ -3,6 +3,7 @@ import * as path from 'path';
 import * as net from 'net';
 import { execFile, spawn, type ChildProcessWithoutNullStreams } from 'child_process';
 import { resolveProjectRoot } from '../runtime/Paths';
+import { isSteamToolAllowed } from '../steam/SteamSkuPolicy';
 import type { ToolExecutionStatus, ToolPermissionLevel, ToolSettings } from '../../shared/types';
 
 const MAX_READ_BYTES = 256 * 1024;
@@ -229,6 +230,7 @@ export class ComputerToolService {
   getDefinitions(settings: ToolSettings): ComputerToolDefinition[] {
     return TOOL_DEFINITIONS.filter((tool) => (
       PERMISSION_RANK[settings.permissionLevel] >= PERMISSION_RANK[tool.minimumLevel]
+      && isSteamToolAllowed(tool.name, tool.minimumLevel)
     ));
   }
 
@@ -236,6 +238,14 @@ export class ComputerToolService {
     const definition = TOOL_DEFINITIONS.find(tool => tool.name === name);
     if (!definition) {
       return { status: 'failed', summary: `未知工具：${name}`, output: `Tool ${name} is not registered.` };
+    }
+
+    if (!isSteamToolAllowed(definition.name, definition.minimumLevel)) {
+      return {
+        status: 'denied',
+        summary: `${definition.label}未包含在 Steam 1.0 SKU 中`,
+        output: 'Steam 1.0 excludes Full Execute, terminals, arbitrary HTTP/TCP, program launch, and external-path opening.',
+      };
     }
 
     if (PERMISSION_RANK[settings.permissionLevel] < PERMISSION_RANK[definition.minimumLevel]) {

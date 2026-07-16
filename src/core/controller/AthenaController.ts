@@ -4,6 +4,8 @@ import { EmotionEngine } from '../ai/Emotion';
 import { detectDesktopAction } from '../ai/ToolCall';
 import { getAppSettings, resolveToolSettingsForMode, shouldSaveHistory } from '../config/SettingsStore';
 import { WebSearchService } from '../web/WebSearchService';
+import { evaluateSteamAiContent, steamAiGuardrailRefusal } from '../steam/SteamAiGuardrails';
+import { isSteamSku } from '../steam/SteamSkuPolicy';
 import {
   applyDataRetention,
   canUseNetworkCapability,
@@ -109,6 +111,12 @@ export class AthenaController {
     const modeToolSettings = this.applyToolPermission(settings.tools, mode);
     modeToolSettings.allowExternalNetwork = settings.privacy.networkConsent.externalToolNetwork;
     logger.info(`User message received [mode=${mode}, tools=${modeToolSettings.permissionLevel}, chars=${userMessage.length}]`);
+    const inputGuardrail = evaluateSteamAiContent(userMessage);
+    if (!inputGuardrail.allowed) {
+      const content = steamAiGuardrailRefusal();
+      logger.warn(`Steam AI input blocked [category=${inputGuardrail.category}]`);
+      return { content, emotion: this.emotion.analyzeResponse(content) };
+    }
     this.saveMessageIfAllowed('user', userMessage, undefined, mode);
 
     const localCommand = this.processLocalCommand(userMessage, mode);
@@ -172,13 +180,19 @@ export class AthenaController {
       retrieved.recentMessages,
       retrieved,
       mode,
-      onStream,
+      isSteamSku() ? undefined : onStream,
       webSearchContext,
       modeToolSettings,
       options?.onToolStatus,
       options?.onToolConfirm,
     );
 
+    const outputGuardrail = evaluateSteamAiContent(response.content);
+    if (!outputGuardrail.allowed) {
+      response.content = steamAiGuardrailRefusal();
+      response.emotion = this.emotion.analyzeResponse(response.content);
+      logger.warn(`Steam AI output blocked [category=${outputGuardrail.category}]`);
+    }
     this.saveMessageIfAllowed('assistant', response.content, response.emotion.type, mode);
     if (response.toolExecutions?.length) {
       recordDataActivity('tool', 'execute-mode-tools', {
