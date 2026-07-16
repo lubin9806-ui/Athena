@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "releaseStage": "prelaunch",
+  "product": {
+    "name": "Athena Desktop",
+    "skuId": "athena-desktop-personal-v1",
+    "displayName": "Athena Desktop 1.x Personal",
+    "licenseModel": "one_time",
+    "accountRequired": false,
+    "maxActiveDevices": 2,
+    "includedMajorVersion": 1,
+    "freeTier": false,
+    "subscription": false,
+    "price": null,
+    "currency": null
+  },
+  "transfer": {
+    "selfServiceDeactivationRequired": true,
+    "lostDeviceRecovery": "support_review",
+    "annualSupportResetLimit": 2
+  },
+  "refund": {
+    "requestWindowDays": 14,
+    "statutoryRightsOverride": true,
+    "licenseRevokedAfterRefund": true,
+    "localDataPreserved": true
+  },
+  "provider": {
+    "mode": "unconfigured",
+    "paymentAdapter": null,
+    "licenseAdapter": null,
+    "activationBaseUrl": null,
+    "verificationPublicKey": null
+  },
+  "identity": {
+    "legalEntity": null,
+    "websiteBaseUrl": null,
+    "supportUrl": null,
+    "supportEmail": null,
+    "privacyEmail": null,
+    "securityEmail": null
+  }
+}

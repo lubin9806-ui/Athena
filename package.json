@@ -18,6 +18,7 @@
     "test:theme": "tsc && node scripts/verify-theme.js",
     "test:logger": "tsc && node scripts/verify-logger-pipe.js",
     "test:security": "tsc && node scripts/verify-security-baseline.js",
+    "test:commercial": "tsc && node scripts/verify-commercial-readiness.js",
     "test:web-search": "tsc && node scripts/verify-web-search.js",
     "test:web-search:live": "tsc && node scripts/verify-web-search.js --live",
     "test:web-search:e2e": "tsc && node scripts/verify-web-search.js --llm",
