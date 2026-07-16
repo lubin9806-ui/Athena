@@ -1,0 +1,24 @@
+{
+  "name": "@athena/cloud",
+  "version": "1.0.0-local",
+  "private": true,
+  "description": "Athena Cloud 1.0 multi-tenant service boundary",
+  "license": "UNLICENSED",
+  "type": "commonjs",
+  "main": "src/index.js",
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node --test --test-concurrency=1 test/*.test.js",
+    "verify": "node scripts/verify-cloud.js",
+    "drill": "node scripts/chaos-drill.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "12.11.1"
+  },
+  "allowScripts": {
+    "better-sqlite3@12.11.1": true
+  }
+}

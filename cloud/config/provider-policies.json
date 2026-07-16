@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "providers": [
+    {
+      "id": "local-fixture",
+      "purpose": "Deterministic local development and failure drills only",
+      "productionEligible": false,
+      "dataSent": ["prompt supplied to the current request"],
+      "promptRetention": "none",
+      "voiceRetention": "none",
+      "trainingUse": "none",
+      "processingRegions": ["local-1"],
+      "termsUrl": null,
+      "dpaUrl": null,
+      "reviewedAt": "2026-07-16",
+      "reviewStatus": "local-only"
+    }
+  ],
+  "productionDecision": null,
+  "rule": "A provider is blocked in production until terms, DPA, regions, retention, training use, subprocessors and deletion behavior are reviewed and recorded."
+}
