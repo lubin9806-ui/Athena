@@ -11,6 +11,7 @@ import { consumeMicrophoneGrant, hasMicrophoneGrant } from './security/Permissio
 import { getAppSettings } from '../core/config/SettingsStore';
 import { applyDesktopSettings } from './DesktopSettings';
 import { installCrashDiagnostics, recordCrashDiagnostic } from '../core/runtime/CrashDiagnostics';
+import { initializeDesktopUpdater } from '../core/update/DesktopUpdater';
 
 installLoggingPipeGuards();
 installCrashDiagnostics();
@@ -484,6 +485,7 @@ function createTray(): void {
 app.whenReady().then(() => {
   applyDesktopSettings(getAppSettings().general);
   createWindow();
+  if (mainWindow && !isSmokeTest) initializeDesktopUpdater(mainWindow);
   if (!isSmokeTest) createTray();
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); else mainWindow?.show(); });
 });

@@ -1,8 +1,9 @@
-﻿appId: com.athena.desktop
+appId: com.athena.desktop
 productName: Athena
 directories:
   output: release
-disableAsarIntegrity: true
+asar: true
+artifactName: "${productName} Setup ${version}.${ext}"
 files:
   - dist/**/*
   - resources/**/*
@@ -13,7 +14,13 @@ files:
   - "!**/*.map"
   - "!**/*.d.ts"
 extraResources:
-  - from: database
+  - from: .build/build-info.json
+    to: build-info.json
+  - from: .build/update-config.json
+    to: update-config.json
+  - from: .build/app-update.yml
+    to: app-update.yml
+  - from: .build/database
     to: database
     filter:
       - "athena.db"
@@ -22,22 +29,22 @@ extraResources:
       - "!backups/**"
       - "!migrations/**"
       - "!seeds/**"
-  - from: tts.py
-    to: voice/tts.py
-  - from: stt.py
-    to: voice/stt.py
   - from: stt_whisper.py
     to: voice/stt_whisper.py
-  - from: play_audio.py
-    to: voice/play_audio.py
+  - from: tts-local.ps1
+    to: voice/tts-local.ps1
+  - from: play_audio_local.ps1
+    to: voice/play_audio_local.ps1
   - from: requirements-voice.txt
     to: voice/requirements-voice.txt
 win:
   target: nsis
   icon: resources/su-shixia.ico
-  signAndEditExecutable: false
+  signAndEditExecutable: true
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
   createDesktopShortcut: true
   createStartMenuShortcut: true
+  differentialPackage: true
+  deleteAppDataOnUninstall: false

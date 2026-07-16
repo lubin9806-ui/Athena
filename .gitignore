@@ -8,6 +8,7 @@ pnpm-debug.log*
 # Build output
 dist/
 release/
+.build/
 *.blockmap
 
 # Runtime database and local user state

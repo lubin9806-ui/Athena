@@ -1,0 +1,87 @@
+name: Desktop 0.9 Beta
+
+on:
+  push:
+    branches: [main]
+    tags: ['desktop-v*']
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      signed_candidate:
+        description: Require the code-signing secret and produce a distributable candidate
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  clean-checkout:
+    runs-on: windows-2022
+    timeout-minutes: 45
+    env:
+      CI: 'true'
+      ATHENA_BUILD_COMMIT: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - name: Record deterministic source time
+        shell: pwsh
+        run: "Add-Content -LiteralPath $env:GITHUB_ENV -Value ('SOURCE_DATE_EPOCH=' + (git show -s --format=%ct HEAD))"
+      - name: Install locked dependencies
+        run: npm.cmd ci
+      - name: Rebuild SQLite for Electron ABI
+        run: npm.cmd run rebuild:sqlite:electron
+      - name: Verify release engineering
+        run: npm.cmd run test:release
+      - name: Verify product regression suite
+        shell: pwsh
+        run: |
+          npm.cmd run typecheck
+          npm.cmd run test:persona
+          npm.cmd run test:modes
+          npm.cmd run test:theme
+          npm.cmd run test:logger
+          npm.cmd run test:security
+          npm.cmd run test:privacy
+          npm.cmd run test:desktop-faults
+          npm.cmd run test:commercial
+          npm.cmd run test:supply-chain
+          npm.cmd run test:web-search
+          npm.cmd run test:tools
+          npm.cmd run audit:security
+      - name: Development smoke
+        run: npm.cmd run smoke:electron
+      - name: Build unsigned CI evidence
+        if: ${{ !startsWith(github.ref, 'refs/tags/') && inputs.signed_candidate != true }}
+        run: npm.cmd run build -- --require-clean
+      - name: Build signed candidate
+        if: ${{ startsWith(github.ref, 'refs/tags/') || inputs.signed_candidate == true }}
+        env:
+          CSC_LINK: ${{ secrets.WINDOWS_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.WINDOWS_CSC_KEY_PASSWORD }}
+          ATHENA_SIGNING_PUBLISHER: ${{ secrets.WINDOWS_SIGNING_PUBLISHER }}
+          ATHENA_UPDATE_BASE_URL: ${{ secrets.ATHENA_UPDATE_BASE_URL }}
+        run: npm.cmd run build:release -- --require-clean
+      - name: Packaged smoke
+        shell: pwsh
+        run: "& '.\\release\\win-unpacked\\Athena.exe' --smoke-test; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }"
+      - name: Generate exact candidate manifest
+        run: npm.cmd run release:manifest
+      - name: Prove checkout remained clean
+        shell: pwsh
+        run: |
+          git diff --exit-code
+          if (git status --porcelain --untracked-files=all) { throw 'Build created an unignored source-tree file.' }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: athena-desktop-${{ github.sha }}
+          path: release/candidates/**
+          if-no-files-found: error
+          retention-days: 14

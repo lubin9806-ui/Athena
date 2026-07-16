@@ -1,15 +1,19 @@
 {
   "name": "athena",
-  "version": "0.8.0",
+  "version": "0.9.0-beta.1",
   "private": true,
-  "description": "Athena - local-first AI desktop companion (internal alpha)",
+  "description": "Athena - local-first AI desktop companion (Desktop 0.9 private beta candidate)",
   "author": "Athena Project",
   "license": "UNLICENSED",
   "main": "dist/app/main.js",
   "scripts": {
     "dev": "node scripts/clean-dist.js && vite build --config vite.config.mts && tsc && electron .",
     "dev:renderer": "vite",
-    "build": "node scripts/clean-dist.js && tsc && vite build --config vite.config.mts && electron-builder --config electron-builder.yml",
+    "build": "node scripts/build-desktop.js --auto-sign",
+    "build:release": "node scripts/build-desktop.js --require-signing",
+    "release:manifest": "node scripts/generate-candidate-manifest.js",
+    "release:verify": "electron scripts/verify-release-engineering.js",
+    "release:channel": "node scripts/channel-control.js",
     "package:offline": "powershell.exe -ExecutionPolicy Bypass -NoProfile -File scripts\\package-offline.ps1",
     "audit:security": "npm audit --registry=https://registry.npmjs.org/ --audit-level=high",
     "typecheck": "tsc --noEmit",
@@ -20,6 +24,8 @@
     "test:security": "tsc && node scripts/verify-security-baseline.js",
     "test:privacy": "tsc && electron scripts/verify-privacy-data.js",
     "test:supply-chain": "node scripts/verify-supply-chain.js",
+    "test:release": "tsc && electron scripts/verify-release-engineering.js",
+    "test:desktop-faults": "tsc && node scripts/verify-desktop-faults.js",
     "test:commercial": "tsc && node scripts/verify-commercial-readiness.js",
     "test:web-search": "tsc && node scripts/verify-web-search.js",
     "test:web-search:live": "tsc && node scripts/verify-web-search.js --live",
@@ -40,7 +46,8 @@
   },
   "dependencies": {
     "better-sqlite3": "12.11.1",
-    "cheerio": "1.2.0"
+    "cheerio": "1.2.0",
+    "electron-updater": "6.8.9"
   },
   "devDependencies": {
     "@types/better-sqlite3": "7.6.13",

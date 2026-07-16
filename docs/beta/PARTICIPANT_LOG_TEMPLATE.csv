@@ -1,0 +1,1 @@
+participant_id,candidate_id,os_version,account_type,install_path,upgrade_from,ollama_state,started_at_utc,completed_at_utc,result,issue_ids,consent_recorded,notes_without_user_content
