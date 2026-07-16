@@ -3,7 +3,7 @@ export type ReplyLength = 'short' | 'balanced' | 'detailed';
 export type InitiativeLevel = 'low' | 'balanced' | 'high';
 export type AnimationLevel = 'low' | 'balanced' | 'high';
 export type ThemeMode = 'day' | 'night' | 'system';
-export type SttEngine = 'auto' | 'speech_recognition' | 'whisper';
+export type SttEngine = 'local_whisper';
 export type ConversationMode = 'create' | 'companion' | 'reason' | 'execute';
 
 import type { WebSearchSettings } from './search';

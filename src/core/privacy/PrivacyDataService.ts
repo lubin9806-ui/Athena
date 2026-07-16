@@ -264,11 +264,11 @@ function buildDataMap(settings: AppSettings): DataMapItem[] {
     {
       id: 'voice',
       label: '语音文件与转写/合成',
-      stored: '录音 wav 转写后立即删除；TTS 生成的 mp3 临时缓存；TTS 文本中转文件调用后删除',
+      stored: '录音 wav 转写后立即删除；Windows SAPI 生成的 wav 临时缓存；TTS 文本中转文件调用后删除',
       locations: [getVoiceTempDir()],
-      leavesDevice: '在线 STT 会把音频发往 Google speech_recognition；在线 TTS 会把文本发往 Edge TTS。两者都需要分别同意。',
+      leavesDevice: 'Desktop 当前只提供本地 Whisper STT 与 Windows SAPI TTS，不发送音频或朗读文本。未来联网适配器仍必须复用两类独立同意。',
       retention: `语音缓存 ${settings.data.voiceCacheRetentionHours} 小时后自动清理；一键清除会立即清理`,
-      controls: ['语音输入开关', '朗读开关', '在线 STT 同意', '在线 TTS 同意', '语音缓存保留小时', '一键清除'],
+      controls: ['语音输入开关', '朗读开关', '本地组件就绪状态', '语音缓存保留小时', '一键清除'],
     },
     {
       id: 'tools',
@@ -282,11 +282,11 @@ function buildDataMap(settings: AppSettings): DataMapItem[] {
     {
       id: 'logs',
       label: '日志',
-      stored: '当前应用 Logger 仅写控制台，并对密钥、Cookie、Authorization 等字段脱敏',
-      locations: ['stdout/stderr', path.join(resolveProjectRoot(), 'logs')],
+      stored: 'Logger 写控制台；主进程崩溃/无响应写本机最小 JSONL；两者都对密钥、Cookie、Authorization 等字段脱敏',
+      locations: ['stdout/stderr', process.env.ATHENA_DIAGNOSTICS_DIR || path.join(os.tmpdir(), 'athena', 'diagnostics'), path.join(resolveProjectRoot(), 'logs')],
       leavesDevice: '不会由应用自动上传。',
-      retention: '应用不主动写持久日志文件；来源不明 logs/ 文件不由本窗口删除',
-      controls: ['脱敏回归测试', '手工发布证据归档'],
+      retention: '崩溃诊断单文件 1 MB、最多 3 个轮转文件；来源不明 logs/ 文件不由本窗口删除',
+      controls: ['脱敏回归测试', '删除本机 diagnostics 目录', '手工发布证据归档'],
     },
     {
       id: 'temporary-files',

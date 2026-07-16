@@ -2,6 +2,7 @@ const assert = require('assert');
 const {
   WebSearchService,
   buildSecondarySearchQuery,
+  detectSearchFailurePage,
   extractSearchQuery,
   parseBingHtml,
   parseDuckDuckGoHtml,
@@ -47,6 +48,11 @@ const sogouSources = parseSogouMobileHtml(sogouFixture, 5);
 assert.strictEqual(sogouSources.length, 1, 'Sogou parser should keep only public results.');
 assert.strictEqual(sogouSources[0].url, 'https://example.cn/current?a=1');
 assert.strictEqual(sogouSources[0].snippet, '来自国内搜索源的最新摘要。');
+assert.throws(
+  () => detectSearchFailurePage('<title>安全验证</title><div>请输入验证码</div>'),
+  /反爬验证/,
+  'Anti-bot pages must be treated as provider failures.',
+);
 
 const bingFixture = `
   <li class="b_algo">
@@ -108,6 +114,8 @@ assert.match(
 );
 
 const service = new WebSearchService();
+const diagnostics = service.getDiagnostics();
+assert.deepStrictEqual(diagnostics.sogou, { attempts: 0, successes: 0, failures: {} });
 assert.strictEqual(service.plan({
   message: '普通闲聊',
   settings: { enabled: true, mode: 'manual', maxResults: 5 },

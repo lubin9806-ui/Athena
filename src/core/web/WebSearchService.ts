@@ -19,6 +19,21 @@ interface SearchEndpoint {
   mobile?: boolean;
 }
 
+export type SearchFailureCode = 'timeout' | 'rate_limited' | 'anti_bot' | 'access_denied' | 'network' | 'invalid_response' | 'no_results';
+
+export interface SearchProviderDiagnostics {
+  attempts: number;
+  successes: number;
+  failures: Partial<Record<SearchFailureCode, number>>;
+  lastFailureAt?: string;
+}
+
+export const SEARCH_PROVIDER_POLICY = {
+  sogou: { commercialApproved: false, sla: false, termsUrl: 'https://www.sogou.com/docs/user.htm?v=1' },
+  bing: { commercialApproved: false, sla: false, termsUrl: 'https://www.microsoft.com/en-us/servicesagreement' },
+  duckduckgo: { commercialApproved: false, sla: false, termsUrl: 'https://duckduckgo.com/terms' },
+} as const;
+
 const SEARCH_ENDPOINTS: readonly SearchEndpoint[] = [
   {
     provider: 'sogou',
@@ -52,6 +67,37 @@ const SEARCH_ENDPOINTS: readonly SearchEndpoint[] = [
 ] as const;
 const MAX_SEARCH_HTML_BYTES = 2 * 1024 * 1024;
 const MAX_QUERY_CHARS = 500;
+const PROVIDER_MIN_INTERVAL_MS = 1_250;
+const PROVIDER_MAX_REQUESTS_PER_MINUTE = 8;
+
+class SearchProviderError extends Error {
+  constructor(readonly code: SearchFailureCode, message: string, readonly retryAfterMs = 0) {
+    super(message);
+    this.name = 'SearchProviderError';
+  }
+}
+
+export class ProviderRequestGovernor {
+  private readonly requestedAt = new Map<ActiveSearchProvider, number[]>();
+  private readonly nextAllowedAt = new Map<ActiveSearchProvider, number>();
+
+  async acquire(provider: ActiveSearchProvider, now = Date.now()): Promise<void> {
+    const recent = (this.requestedAt.get(provider) || []).filter(value => now - value < 60_000);
+    if (recent.length >= PROVIDER_MAX_REQUESTS_PER_MINUTE) {
+      throw new SearchProviderError('rate_limited', '搜索请求过于频繁，请稍后再试。', 60_000 - (now - recent[0]));
+    }
+    const delay = Math.max(0, (this.nextAllowedAt.get(provider) || 0) - now);
+    if (delay > 0) await new Promise(resolve => setTimeout(resolve, delay));
+    const acquiredAt = Date.now();
+    recent.push(acquiredAt);
+    this.requestedAt.set(provider, recent);
+    this.nextAllowedAt.set(provider, acquiredAt + PROVIDER_MIN_INTERVAL_MS);
+  }
+
+  cooldown(provider: ActiveSearchProvider, retryAfterMs: number): void {
+    this.nextAllowedAt.set(provider, Math.max(this.nextAllowedAt.get(provider) || 0, Date.now() + retryAfterMs));
+  }
+}
 
 export interface WebSearchPlanInput {
   message: string;
@@ -70,7 +116,19 @@ export interface WebSearchPlan {
 }
 
 export class WebSearchService {
-  constructor(private readonly pageExtractor = new PageContentExtractor()) {}
+  private readonly diagnostics = new Map<ActiveSearchProvider, SearchProviderDiagnostics>();
+
+  constructor(
+    private readonly pageExtractor = new PageContentExtractor(),
+    private readonly governor = new ProviderRequestGovernor(),
+  ) {}
+
+  getDiagnostics(): Record<ActiveSearchProvider, SearchProviderDiagnostics> {
+    return Object.fromEntries((['sogou', 'bing', 'duckduckgo'] as ActiveSearchProvider[]).map(provider => [
+      provider,
+      this.diagnostics.get(provider) || { attempts: 0, successes: 0, failures: {} },
+    ])) as Record<ActiveSearchProvider, SearchProviderDiagnostics>;
+  }
 
   plan(input: WebSearchPlanInput): WebSearchPlan {
     const message = cleanQuery(input.message);
@@ -241,12 +299,17 @@ export class WebSearchService {
         ]
       : [...SEARCH_ENDPOINTS];
     let lastError: unknown;
+    const failures: SearchProviderError[] = [];
 
     for (const endpoint of orderedEndpoints) {
+      this.recordAttempt(endpoint.provider);
       try {
+        await this.governor.acquire(endpoint.provider);
         const html = await fetchSearchHtml(endpoint, query, maxResults);
+        detectSearchFailurePage(html);
         const sources = endpoint.parser(html, maxResults);
-        if (sources.length === 0) throw new Error('搜索服务没有返回可用结果。');
+        if (sources.length === 0) throw new SearchProviderError('no_results', '搜索服务没有返回可用结果。');
+        this.recordSuccess(endpoint.provider);
         return {
           query,
           provider: endpoint.provider,
@@ -258,11 +321,15 @@ export class WebSearchService {
           searchRounds: 1,
         };
       } catch (error) {
-        lastError = error;
+        const classified = classifySearchError(error);
+        if (classified.retryAfterMs > 0) this.governor.cooldown(endpoint.provider, classified.retryAfterMs);
+        this.recordFailure(endpoint.provider, classified.code);
+        failures.push(classified);
+        lastError = classified;
       }
     }
 
-    throw lastError instanceof Error ? lastError : new Error('联网搜索失败。');
+    throw failures.length > 0 ? summarizeProviderFailures(failures) : lastError instanceof Error ? lastError : new Error('联网搜索失败。');
   }
 
   private async readSources(
@@ -282,13 +349,32 @@ export class WebSearchService {
     }
     selected.push(...deferred);
 
-    const settled = await Promise.allSettled(
-      selected.slice(0, Math.max(0, maxPages)).map(source => this.pageExtractor.read(source, query)),
-    );
+    const limited = selected.slice(0, Math.max(0, maxPages));
+    const settled: PromiseSettledResult<WebPageEvidence | null>[] = [];
+    for (let index = 0; index < limited.length; index += 2) {
+      settled.push(...await Promise.allSettled(limited.slice(index, index + 2).map(source => this.pageExtractor.read(source, query))));
+    }
     return settled
       .filter((item): item is PromiseFulfilledResult<WebPageEvidence | null> => item.status === 'fulfilled')
       .map(item => item.value)
       .filter((page): page is WebPageEvidence => page !== null);
+  }
+
+  private recordAttempt(provider: ActiveSearchProvider): void {
+    const item = this.diagnostics.get(provider) || { attempts: 0, successes: 0, failures: {} };
+    item.attempts += 1;
+    this.diagnostics.set(provider, item);
+  }
+
+  private recordSuccess(provider: ActiveSearchProvider): void {
+    const item = this.diagnostics.get(provider)!;
+    item.successes += 1;
+  }
+
+  private recordFailure(provider: ActiveSearchProvider, code: SearchFailureCode): void {
+    const item = this.diagnostics.get(provider)!;
+    item.failures[code] = (item.failures[code] || 0) + 1;
+    item.lastFailureAt = new Date().toISOString();
   }
 }
 
@@ -434,7 +520,10 @@ async function fetchSearchHtml(endpoint: SearchEndpoint, query: string, maxResul
   });
 
   if (!response.ok) {
-    throw new Error(`搜索服务返回 ${response.status}。`);
+    const retryAfter = parseRetryAfter(response.headers.get('retry-after'));
+    if (response.status === 429) throw new SearchProviderError('rate_limited', '搜索服务正在限流，请稍后再试。', retryAfter || 60_000);
+    if (response.status === 401 || response.status === 403) throw new SearchProviderError('access_denied', '搜索服务拒绝了请求，已尝试其他来源。');
+    throw new SearchProviderError('invalid_response', `搜索服务暂时异常（HTTP ${response.status}）。`);
   }
 
   const contentLength = Number(response.headers.get('content-length'));
@@ -445,6 +534,40 @@ async function fetchSearchHtml(endpoint: SearchEndpoint, query: string, maxResul
   const html = await response.text();
   if (html.length > MAX_SEARCH_HTML_BYTES) throw new Error('搜索结果页面过大。');
   return html;
+}
+
+export function detectSearchFailurePage(html: string): void {
+  const sample = html.slice(0, 200_000);
+  if (/antispider|_____tmd_____|captcha|verify\s*(?:you are|that you are)|unusual traffic|安全验证|请输入验证码|访问过于频繁|人机验证/i.test(sample)) {
+    throw new SearchProviderError('anti_bot', '搜索服务触发了反爬验证，已自动尝试其他来源。');
+  }
+  if (/<title>\s*(?:access denied|forbidden|service unavailable)/i.test(sample)) {
+    throw new SearchProviderError('access_denied', '搜索服务拒绝访问，已自动尝试其他来源。');
+  }
+}
+
+function classifySearchError(error: unknown): SearchProviderError {
+  if (error instanceof SearchProviderError) return error;
+  const message = error instanceof Error ? error.message : String(error);
+  if (/timeout|timed out|aborted/i.test(message)) return new SearchProviderError('timeout', '搜索服务响应超时，已自动尝试其他来源。');
+  if (/fetch failed|network|ENOTFOUND|ECONN|socket/i.test(message)) return new SearchProviderError('network', '当前网络不可用或连接不稳定，请检查网络后重试。');
+  return new SearchProviderError('invalid_response', '搜索服务返回了无法识别的响应。');
+}
+
+function summarizeProviderFailures(failures: SearchProviderError[]): Error {
+  const codes = new Set(failures.map(item => item.code));
+  if (codes.has('network') || codes.has('timeout')) return new Error('联网搜索未完成：当前网络不可用或过慢。你仍可继续本地对话，稍后再点“联网搜索”重试。');
+  if (codes.has('rate_limited')) return new Error('联网搜索请求过于频繁，服务正在限流。请稍后重试；本地对话不受影响。');
+  if (codes.has('anti_bot') || codes.has('access_denied')) return new Error('联网搜索被第三方服务的验证或访问策略阻止。Athena 没有绕过验证；你可以稍后重试或关闭联网搜索。');
+  return new Error('联网搜索暂时没有可用结果。你仍可继续本地对话，或换一个更具体的搜索词。');
+}
+
+function parseRetryAfter(value: string | null): number {
+  if (!value) return 0;
+  const seconds = Number(value);
+  if (Number.isFinite(seconds)) return Math.max(0, seconds * 1_000);
+  const date = Date.parse(value);
+  return Number.isFinite(date) ? Math.max(0, date - Date.now()) : 0;
 }
 
 function normalizeSogouResultUrl(rawHref: string): string | null {

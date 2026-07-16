@@ -8,11 +8,16 @@ import { fileURLToPath, pathToFileURL } from 'url';
 import { installLoggingPipeGuards } from '../engine/Logger';
 import { registerIpcHandlers } from './ipc';
 import { consumeMicrophoneGrant, hasMicrophoneGrant } from './security/PermissionGate';
+import { getAppSettings } from '../core/config/SettingsStore';
+import { applyDesktopSettings } from './DesktopSettings';
+import { installCrashDiagnostics, recordCrashDiagnostic } from '../core/runtime/CrashDiagnostics';
 
 installLoggingPipeGuards();
+installCrashDiagnostics();
 
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
+let isQuitting = false;
 const isSmokeTest = process.argv.includes('--smoke-test') || process.env.ATHENA_SMOKE_TEST === '1';
 const isVoiceSmokeTest = isSmokeTest && process.env.ATHENA_SMOKE_VOICE === '1';
 const smokeScreenshotPath = process.env.ATHENA_SMOKE_SCREENSHOT?.trim();
@@ -146,6 +151,7 @@ function createWindow(): void {
   configureMediaPermissions(mainWindow);
   mainWindow.webContents.on('render-process-gone', (_event, details) => {
     console.error(`ATHENA_RENDERER_GONE reason=${details.reason} exitCode=${details.exitCode}`);
+    recordCrashDiagnostic('renderer-gone', { reason: details.reason, exitCode: details.exitCode });
   });
   if (isSmokeTest) {
     mainWindow.webContents.on('console-message', (_event, _level, message) => {
@@ -154,6 +160,7 @@ function createWindow(): void {
   }
   mainWindow.on('unresponsive', () => {
     console.error('ATHENA_WINDOW_UNRESPONSIVE');
+    recordCrashDiagnostic('window-unresponsive', {});
   });
   mainWindow.loadURL(pathToFileURL(path.join(__dirname, '../renderer/index.html')).toString());
 
@@ -220,9 +227,10 @@ function createWindow(): void {
               && typeof api.exportPrivacyData === 'function'
               && typeof api.clearLocalData === 'function'
               && typeof api.cancelExecution === 'function'
-              && typeof api.onWebSearchStatus === 'function'
-              && typeof api.requestMicrophoneAccess === 'function'
-             );
+               && typeof api.onWebSearchStatus === 'function'
+               && typeof api.requestMicrophoneAccess === 'function'
+               && typeof api.getVoiceCapabilities === 'function'
+              );
              if (!uiReady) return false;
 
              const stageRect = stage.getBoundingClientRect();
@@ -445,6 +453,12 @@ function createWindow(): void {
   mainWindow.setPosition(sw - ww - 20, sh - wh - 60);
 
   mainWindow.on('minimize', () => mainWindow?.hide());
+  mainWindow.on('close', (event) => {
+    if (!isQuitting && !isSmokeTest && getAppSettings().general.closeToTray) {
+      event.preventDefault();
+      mainWindow?.hide();
+    }
+  });
   mainWindow.on('closed', () => { mainWindow = null; });
 }
 
@@ -462,18 +476,20 @@ function createTray(): void {
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: '打开苏时夏', click: () => { mainWindow?.show(); mainWindow?.focus(); } },
     { type: 'separator' },
-    { label: '退出', click: () => app.quit() },
+    { label: '退出', click: () => { isQuitting = true; app.quit(); } },
   ]));
   tray.on('double-click', () => { mainWindow?.show(); mainWindow?.focus(); });
 }
 
 app.whenReady().then(() => {
+  applyDesktopSettings(getAppSettings().general);
   createWindow();
   if (!isSmokeTest) createTray();
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); else mainWindow?.show(); });
 });
 
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
+app.on('before-quit', () => { isQuitting = true; });
 
 const gotTheLock = isSmokeTest || app.requestSingleInstanceLock();
 if (!gotTheLock) app.quit();

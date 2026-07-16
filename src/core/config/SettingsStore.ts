@@ -28,6 +28,7 @@ import type {
   WebSearchMode,
   WebSearchSettings,
 } from '../../shared/types';
+import { ensureSufficientDiskSpace } from '../runtime/DiskSpaceGuard';
 
 const DEFAULT_SETTINGS: AppSettings = {
   version: 2,
@@ -94,8 +95,8 @@ const DEFAULT_SETTINGS: AppSettings = {
     sttEnabled: true,
     ttsEnabled: true,
     autoPlayAssistant: false,
-    sttEngine: 'auto',
-    ttsVoice: 'zh-CN-XiaoxiaoNeural',
+    sttEngine: 'local_whisper',
+    ttsVoice: '',
     silenceAutoStop: true,
   },
   data: {
@@ -144,7 +145,7 @@ const REPLY_LENGTHS = new Set<ReplyLength>(['short', 'balanced', 'detailed']);
 const INITIATIVE_LEVELS = new Set<InitiativeLevel>(['low', 'balanced', 'high']);
 const ANIMATION_LEVELS = new Set<AnimationLevel>(['low', 'balanced', 'high']);
 const THEME_MODES = new Set<ThemeMode>(['day', 'night', 'system']);
-const STT_ENGINES = new Set<SttEngine>(['auto', 'speech_recognition', 'whisper']);
+const STT_ENGINES = new Set<SttEngine>(['local_whisper']);
 const CONVERSATION_MODES = new Set<ConversationMode>(['create', 'companion', 'reason', 'execute']);
 const WEB_SEARCH_MODES = new Set<WebSearchMode>(['auto', 'manual']);
 const TOOL_PERMISSION_LEVELS = new Set<ToolPermissionLevel>(['off', 'read', 'files', 'full']);
@@ -184,6 +185,10 @@ export function resolveToolSettingsForMode(settings: ToolSettings, mode: Convers
       ? settings.modePermissions.execute ?? settings.permissionLevel
       : 'off',
   };
+}
+
+export function hasNetworkConsent(capability: keyof PrivacySettings['networkConsent']): boolean {
+  return loadAppSettings().privacy.networkConsent[capability] === true;
 }
 
 export function buildPersonalizationPrompt(): string {
@@ -449,6 +454,8 @@ function sanitizeVoice(value: unknown): VoiceSettings {
     sttEnabled: cleanBoolean(source.sttEnabled, DEFAULT_SETTINGS.voice.sttEnabled),
     ttsEnabled: cleanBoolean(source.ttsEnabled, DEFAULT_SETTINGS.voice.ttsEnabled),
     autoPlayAssistant: cleanBoolean(source.autoPlayAssistant, DEFAULT_SETTINGS.voice.autoPlayAssistant),
+    // Window 05 deliberately removes the old implicit online fallback. Legacy
+    // auto/speech_recognition/whisper values migrate to the only 1.0 engine.
     sttEngine: cleanEnum(source.sttEngine, STT_ENGINES, DEFAULT_SETTINGS.voice.sttEngine),
     ttsVoice: cleanString(source.ttsVoice, 120, DEFAULT_SETTINGS.voice.ttsVoice),
     silenceAutoStop: cleanBoolean(source.silenceAutoStop, DEFAULT_SETTINGS.voice.silenceAutoStop),
@@ -535,6 +542,7 @@ function readJson<T>(filePath: string | null, fallback: T): unknown {
 }
 
 function writeJson(filePath: string, value: unknown): void {
+  ensureSufficientDiskSpace(filePath, 2 * 1024 * 1024);
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   const next = `${JSON.stringify(value, null, 2)}\n`;
   const tmp = `${filePath}.tmp`;

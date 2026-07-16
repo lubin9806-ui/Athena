@@ -1,6 +1,5 @@
-SpeechRecognition>=3.14
-edge-tts>=7.0
-faster-whisper>=1.2
-av>=14.0
-numpy>=1.26
-sounddevice>=0.5
+# Desktop 1.0 managed offline STT sidecar (CPython 3.11.9, Windows x64).
+# Online Google STT and unofficial Edge TTS are intentionally excluded.
+faster-whisper==1.2.1
+av==17.1.0
+numpy==2.4.6

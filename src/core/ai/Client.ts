@@ -57,6 +57,9 @@ interface ModelConfig {
     maxTokens?: number;
     numCtx?: number;
   };
+  fallback?: {
+    timeoutMs?: number;
+  };
 }
 
 export class LLMClient {
@@ -65,6 +68,7 @@ export class LLMClient {
   private readonly temperature: number;
   private readonly maxTokens: number;
   private readonly numCtx: number;
+  private readonly requestTimeoutMs: number;
 
   constructor(config: ModelConfig = loadModelConfig()) {
     const ollama = config.ollama ?? {};
@@ -73,6 +77,7 @@ export class LLMClient {
     this.temperature = ollama.temperature ?? 0.7;
     this.maxTokens = ollama.maxTokens ?? 2048;
     this.numCtx = ollama.numCtx ?? 4096;
+    this.requestTimeoutMs = clamp(Math.round(config.fallback?.timeoutMs ?? 15000), 250, 120000);
   }
 
   get modelName(): string {
@@ -204,7 +209,10 @@ export class LLMClient {
 
     for (const endpoint of this.candidateEndpoints()) {
       try {
-        return await fetch(`${endpoint}${pathname}`, init);
+        return await fetch(`${endpoint}${pathname}`, {
+          ...init,
+          signal: init?.signal ?? AbortSignal.timeout(this.requestTimeoutMs),
+        });
       } catch (error) {
         lastError = error;
       }

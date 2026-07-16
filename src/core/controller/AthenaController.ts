@@ -294,6 +294,22 @@ export class AthenaController {
       return { content, emotion };
     }
 
+    if (/取消工作流/.test(userMessage)) {
+      const run = this.workflows.cancelWorkflow();
+      if (!run) return null;
+      const emotion = this.emotion.analyzeResponse(run.message);
+      this.saveMessageIfAllowed('assistant', run.message, emotion.type, mode);
+      return { content: run.message, emotion };
+    }
+
+    if (/工作流下一步|下一步工作流|继续工作流/.test(userMessage)) {
+      const run = this.workflows.advanceWorkflow();
+      if (!run) return null;
+      const emotion = this.emotion.analyzeResponse(run.message);
+      this.saveMessageIfAllowed('assistant', run.message, emotion.type, mode);
+      return { content: run.message, emotion };
+    }
+
     const workflowId = detectWorkflowId(userMessage);
     if (workflowId) {
       const run = this.workflows.runWorkflow(workflowId);

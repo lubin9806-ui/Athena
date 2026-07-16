@@ -64,7 +64,7 @@
     "sttEnabled": true,
     "ttsEnabled": true,
     "autoPlayAssistant": true,
-    "sttEngine": "auto",
+    "sttEngine": "local_whisper",
     "ttsVoice": "zh-CN-XiaoxiaoNeural",
     "silenceAutoStop": true
   },

@@ -24,6 +24,7 @@ import {
 import type { MemoryKind, MemoryListOptions, MemoryUpdatePatch } from '../../memory';
 import type { SettingsBundle, SettingsPatch, ToolConfirmationRequest, ToolStatusEvent, WebSearchStatus } from '../../shared/types';
 import { armMicrophoneGrant, revokeMicrophoneGrant } from '../security/PermissionGate';
+import { applyDesktopSettings, showReminderNotification } from '../DesktopSettings';
 import { cleanChatPayload, cleanExistingFilePath, isTrustedIpcSender } from './validation';
 
 const MAX_RECORDING_BYTES = 12 * 1024 * 1024;
@@ -52,6 +53,7 @@ const INVOKE_CHANNELS = [
   'voice:chooseAudioFile',
   'voice:transcribeFile',
   'voice:transcribeRecording',
+  'voice:capabilities',
 ] as const;
 
 const EVENT_CHANNELS = ['window:minimize', 'window:close'] as const;
@@ -63,6 +65,8 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
   const controller = new AthenaController();
   const voice = new VoiceService();
   const removeReminderListener = globalEventBus.on('reminder:due', (job) => {
+    const settings = getAppSettings();
+    showReminderNotification(job.title, settings.general.desktopNotifications);
     if (!mainWindow.isDestroyed()) mainWindow.webContents.send('reminder:due', job);
   });
 
@@ -140,6 +144,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
   ipcMain.handle('config:set', async (event, patch: unknown) => {
     if (!isTrustedSender(event)) return null;
     const bundle = saveSettingsBundle(cleanSettingsPatch(patch));
+    const desktop = applyDesktopSettings(bundle.settings.general);
     controller.applyToolPermission(bundle.settings.tools, bundle.settings.conversation.activeMode);
     const retention = applyDataRetention();
     const voiceRemoved = cleanupVoiceCache(bundle.settings.data.voiceCacheRetentionHours);
@@ -149,6 +154,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
       memoryAutoExtractEffective: bundle.settings.conversation.saveHistory && bundle.settings.memory.autoExtract,
       retention,
       voiceRemoved,
+      desktop,
     });
     return toRendererSettingsBundle(bundle);
   });
@@ -219,9 +225,8 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
   ipcMain.handle('voice:speak', async (event, text: unknown) => {
     if (!isTrustedSender(event)) return { ok: false, error: 'IPC sender rejected.' };
     if (!getAppSettings().voice.ttsEnabled) return { ok: false, error: 'TTS is disabled in settings.' };
-    const cleanText = cleanString(text, MAX_TEXT_TO_SPEAK_CHARS);
-    const result = await voice.synthesize(cleanText);
-    if (result.ok) recordDataActivity('voice', 'local-tts', { chars: cleanText.length });
+    const result = await voice.synthesize(cleanString(text, MAX_TEXT_TO_SPEAK_CHARS));
+    if (result.ok) recordDataActivity('voice', 'local-tts', { chars: cleanString(text, MAX_TEXT_TO_SPEAK_CHARS).length });
     return result;
   });
 
@@ -281,6 +286,11 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     }
     armMicrophoneGrant();
     return true;
+  });
+
+  ipcMain.handle('voice:capabilities', async (event) => {
+    if (!isTrustedSender(event)) return null;
+    return voice.getCapabilities();
   });
 
   ipcMain.on('window:minimize', (event) => {

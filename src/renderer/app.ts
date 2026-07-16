@@ -48,6 +48,7 @@ declare global {
       transcribeAudioFile: (sourcePath: string) => Promise<VoiceResult>;
       transcribeRecording: (audioBytes: Uint8Array) => Promise<VoiceResult>;
       requestMicrophoneAccess: () => Promise<boolean>;
+      getVoiceCapabilities: () => Promise<VoiceCapabilities | null>;
       minimize: () => void;
       close: () => void;
     };
@@ -134,12 +135,19 @@ interface VoiceResult {
   error?: string;
 }
 
+interface VoiceCapabilities {
+  architecture: 'desktop-local-1.0';
+  stt: { mode: 'local'; ready: boolean; reason?: string };
+  tts: { mode: 'local'; ready: boolean; provider: 'windows-sapi'; reason?: string };
+  runtimeDownloadsAllowed: false;
+}
+
 type PersonalizationTone = 'balanced' | 'soft' | 'playful' | 'direct';
 type ReplyLength = 'short' | 'balanced' | 'detailed';
 type InitiativeLevel = 'low' | 'balanced' | 'high';
 type AnimationLevel = 'low' | 'balanced' | 'high';
 type ThemeMode = 'day' | 'night' | 'system';
-type SttEngine = 'auto' | 'speech_recognition' | 'whisper';
+type SttEngine = 'local_whisper';
 type WebSearchMode = 'auto' | 'manual';
 
 interface WebSearchStatus {
@@ -493,8 +501,8 @@ const settingSttEnabled = mustGet<HTMLInputElement>('setting-stt-enabled');
 const settingTtsEnabled = mustGet<HTMLInputElement>('setting-tts-enabled');
 const settingAutoPlayAssistant = mustGet<HTMLInputElement>('setting-auto-play-assistant');
 const settingSilenceAutoStop = mustGet<HTMLInputElement>('setting-silence-auto-stop');
-const settingSttEngine = mustGet<HTMLSelectElement>('setting-stt-engine');
 const settingTtsVoice = mustGet<HTMLInputElement>('setting-tts-voice');
+const voiceCapabilityStatus = mustGet<HTMLElement>('voice-capability-status');
 const settingConfirmDelete = mustGet<HTMLInputElement>('setting-confirm-delete');
 const settingHistoryRetention = mustGet<HTMLInputElement>('setting-history-retention');
 const settingVoiceCacheRetention = mustGet<HTMLInputElement>('setting-voice-cache-retention');
@@ -1365,7 +1373,6 @@ function populateSettingsForm(bundle: SettingsBundle): void {
   settingTtsEnabled.checked = voice.ttsEnabled;
   settingAutoPlayAssistant.checked = voice.autoPlayAssistant;
   settingSilenceAutoStop.checked = voice.silenceAutoStop;
-  settingSttEngine.value = voice.sttEngine;
   settingTtsVoice.value = voice.ttsVoice;
   settingConfirmDelete.checked = data.confirmBeforeDelete;
   settingHistoryRetention.value = String(data.historyRetentionDays);
@@ -1373,6 +1380,22 @@ function populateSettingsForm(bundle: SettingsBundle): void {
   settingExportFormat.value = data.exportFormat;
   settingConsentWebSearch.checked = privacy.networkConsent.webSearch;
   settingConsentExternalToolNetwork.checked = privacy.networkConsent.externalToolNetwork;
+  void refreshVoiceCapabilities();
+}
+
+async function refreshVoiceCapabilities(): Promise<void> {
+  try {
+    const capabilities = await window.athenaAPI.getVoiceCapabilities();
+    if (!capabilities) throw new Error('语音状态不可用');
+    const stt = capabilities.stt.ready ? '本地识别已就绪' : `本地识别未就绪：${capabilities.stt.reason || '组件缺失'}`;
+    const tts = capabilities.tts.ready ? '本地朗读已就绪' : `本地朗读未就绪：${capabilities.tts.reason || '系统不支持'}`;
+    voiceCapabilityStatus.textContent = `${stt}；${tts}。`;
+    settingSttEnabled.disabled = !capabilities.stt.ready;
+    settingTtsEnabled.disabled = !capabilities.tts.ready;
+    settingAutoPlayAssistant.disabled = !capabilities.tts.ready;
+  } catch {
+    voiceCapabilityStatus.textContent = '无法检查本地语音组件；语音功能保持关闭更安全。';
+  }
 }
 
 async function saveSettingsForm(): Promise<void> {
@@ -1454,7 +1477,7 @@ async function saveSettingsForm(): Promise<void> {
           ttsEnabled: settingTtsEnabled.checked,
           autoPlayAssistant: settingAutoPlayAssistant.checked,
           silenceAutoStop: settingSilenceAutoStop.checked,
-          sttEngine: settingSttEngine.value as SttEngine,
+          sttEngine: 'local_whisper',
           ttsVoice: settingTtsVoice.value,
         },
         data: {
@@ -1545,8 +1568,8 @@ function syncWebSearchControl(): void {
   webSearchBtn.dataset.active = String(forceWebSearchForNextMessage);
 
   if (!enabled) {
-    webSearchLabel.textContent = consented ? 'Web search disabled' : 'Web search needs consent';
-    webSearchBtn.title = consented ? 'Enable web search in settings first' : 'Consent to web search in Privacy and Data Center first';
+    webSearchLabel.textContent = consented ? '联网搜索已关闭' : '联网搜索待同意';
+    webSearchBtn.title = consented ? '请先在设置中启用联网搜索' : '请先在隐私与数据中心同意联网搜索';
     return;
   }
   if (forceWebSearchForNextMessage) {
@@ -1575,7 +1598,7 @@ async function loadPrivacyCenter(): Promise<void> {
     renderPrivacyDataMap(state.dataMap);
     renderStaticProtectionDecision(state.staticProtection);
   } catch (error) {
-    privacyDataMap.textContent = `Privacy center failed to load: ${error instanceof Error ? error.message : String(error)}`;
+    privacyDataMap.textContent = `隐私中心加载失败：${error instanceof Error ? error.message : String(error)}`;
   }
 }
 
@@ -1589,11 +1612,11 @@ function renderPrivacyDataMap(items: DataMapItem[]): void {
     const body = document.createElement('div');
     body.className = 'privacy-map-body';
     const stored = document.createElement('p');
-    stored.textContent = `Stored: ${item.stored}`;
+    stored.textContent = `保存：${item.stored}`;
     const leaves = document.createElement('p');
-    leaves.textContent = `Leaves device: ${item.leavesDevice}`;
+    leaves.textContent = `离开设备：${item.leavesDevice}`;
     const retention = document.createElement('p');
-    retention.textContent = `Retention: ${item.retention}`;
+    retention.textContent = `保留：${item.retention}`;
     body.append(stored, leaves, retention);
     card.append(summary, body);
     privacyDataMap.appendChild(card);
@@ -1614,29 +1637,29 @@ function renderStaticProtectionDecision(decision: StaticProtectionDecision): voi
 
 async function exportPrivacyData(): Promise<void> {
   const format = settingExportFormat.value as 'json' | 'markdown';
-  setSettingsFeedback('Exporting privacy data...');
+  setSettingsFeedback('正在导出数据...');
   try {
     const result = await window.athenaAPI.exportPrivacyData(format);
-    if (!result) throw new Error('Export was cancelled');
-    setSettingsFeedback(`Exported ${Math.round(result.bytes / 1024)} KB: ${result.path}`, 'success');
+    if (!result) throw new Error('导出请求被拒绝');
+    setSettingsFeedback(`已导出 ${Math.round(result.bytes / 1024)} KB：${result.path}`, 'success');
     await loadPrivacyCenter();
   } catch (error) {
-    setSettingsFeedback(`Export failed: ${error instanceof Error ? error.message : String(error)}`, 'error');
+    setSettingsFeedback(`导出失败：${error instanceof Error ? error.message : String(error)}`, 'error');
   }
 }
 
 async function clearLocalData(): Promise<void> {
-  const approved = window.confirm('Clear local chats, memory, settings-derived activity records, logs, temp files, and voice cache?');
+  const approved = window.confirm('这会清除本机聊天、长期记忆、搜索/语音/工具活动记录和语音缓存。设置本身会保留。是否继续？');
   if (!approved) return;
-  setSettingsFeedback('Clearing local data...');
+  setSettingsFeedback('正在清除本机数据...');
   try {
     const result = await window.athenaAPI.clearLocalData();
-    if (!result) throw new Error('Clear was cancelled');
-    setSettingsFeedback(`Local data cleared; removed ${result.voiceCacheFilesDeleted} voice cache file(s).`, 'success');
+    if (!result) throw new Error('清除请求被拒绝');
+    setSettingsFeedback(`已清除本机数据，语音缓存删除 ${result.voiceCacheFilesDeleted} 个文件。`, 'success');
     await loadPrivacyCenter();
     await loadMemoryList();
   } catch (error) {
-    setSettingsFeedback(`Clear failed: ${error instanceof Error ? error.message : String(error)}`, 'error');
+    setSettingsFeedback(`清除失败：${error instanceof Error ? error.message : String(error)}`, 'error');
   }
 }
 

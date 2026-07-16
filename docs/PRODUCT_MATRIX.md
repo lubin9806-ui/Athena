@@ -40,7 +40,7 @@
 | STT | Partial | GA（固定架构后） | GA（固定架构后） | GA | 可选服务 | 当前会用 Google 或本地 Whisper |
 | TTS | Partial | GA（固定架构后） | GA（固定架构后） | GA | 可选服务 | 当前 Edge TTS 会发送文本 |
 | 提醒 | 进程内 Partial | GA（持久化后） | GA（持久化后） | GA | 同步 API | 当前重启会丢失 |
-| 固定工作流模板 | 骨架 | Beta | Beta | Beta | N/A | 不是完整自动化引擎 |
+| 固定工作流模板 | 已实现有界 start/next/cancel/complete 会话 | Beta | Beta | Beta | N/A | 不是持久化或第三方自动化引擎 |
 | Skills 生命周期 | 骨架 | Excluded 首发 | Excluded | Excluded | Excluded | 无商业插件协议和沙箱 |
 | 第三方插件市场 | 未实现 | Excluded | Excluded | Excluded | Planned 后续 | 不进入 1.0 承诺 |
 | Live2D/动态角色 | 未实现 | Excluded 首发 | Excluded 首发 | Excluded 首发 | N/A | 旧 roadmap 愿景，不是现有功能 |

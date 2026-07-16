@@ -47,6 +47,7 @@ contextBridge.exposeInMainWorld('athenaAPI', {
   transcribeAudioFile: (sourcePath: string) => ipcRenderer.invoke('voice:transcribeFile', sourcePath),
   transcribeRecording: (audioBytes: Uint8Array) => ipcRenderer.invoke('voice:transcribeRecording', audioBytes),
   requestMicrophoneAccess: () => ipcRenderer.invoke('voice:requestMicrophoneAccess'),
+  getVoiceCapabilities: () => ipcRenderer.invoke('voice:capabilities'),
   minimize: () => ipcRenderer.send('window:minimize'),
   close: () => ipcRenderer.send('window:close'),
 });
