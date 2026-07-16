@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-07-16T00:00:00+08:00",
+  "model": "qwen2.5:14b",
+  "ollamaModelId": "7cdf5a0187d5",
+  "architecture": "qwen2",
+  "parameters": "14.8B",
+  "quantization": "Q4_K_M",
+  "license": "Apache-2.0",
+  "source": "https://ollama.com/library/qwen2.5:14b",
+  "upstreamModel": "Qwen/Qwen2.5-14B-Instruct",
+  "redistributionGate": "Blocked for public offline redistribution until Ollama installer redistribution, Qwen model notice handling, publisher identity, and asset/trademark signoffs are approved.",
+  "files": [
+    {
+      "role": "manifest",
+      "source": "%USERPROFILE%\\.ollama\\models\\manifests\\registry.ollama.ai\\library\\qwen2.5\\14b",
+      "destination": "models/manifests/registry.ollama.ai/library/qwen2.5/14b",
+      "bytes": 858,
+      "sha256": "7CDF5A0187D5C58CC5D369B255592F7841D1C4696D45A8C8A9489440385B22F6"
+    },
+    {
+      "role": "application/vnd.docker.container.image.v1+json",
+      "source": "%USERPROFILE%\\.ollama\\models\\blobs\\sha256-db59b814cab753a51167db007fa6b6e0095f678ff24c9f7284753b75b34c6df3",
+      "destination": "models/blobs/sha256-db59b814cab753a51167db007fa6b6e0095f678ff24c9f7284753b75b34c6df3",
+      "bytes": 488,
+      "sha256": "DB59B814CAB753A51167DB007FA6B6E0095F678FF24C9F7284753B75B34C6DF3"
+    },
+    {
+      "role": "application/vnd.ollama.image.model",
+      "source": "%USERPROFILE%\\.ollama\\models\\blobs\\sha256-2049f5674b1e92b4464e5729975c9689fcfbf0b0e4443ccf10b5339f370f9a54",
+      "destination": "models/blobs/sha256-2049f5674b1e92b4464e5729975c9689fcfbf0b0e4443ccf10b5339f370f9a54",
+      "bytes": 8988110688,
+      "sha256": "2049F5674B1E92B4464E5729975C9689FCFBF0B0E4443CCF10B5339F370F9A54"
+    },
+    {
+      "role": "application/vnd.ollama.image.system",
+      "source": "%USERPROFILE%\\.ollama\\models\\blobs\\sha256-66b9ea09bd5b7099cbb4fc820f31b575c0366fa439b08245566692c6784e281e",
+      "destination": "models/blobs/sha256-66b9ea09bd5b7099cbb4fc820f31b575c0366fa439b08245566692c6784e281e",
+      "bytes": 68,
+      "sha256": "66B9EA09BD5B7099CBB4FC820F31B575C0366FA439B08245566692C6784E281E"
+    },
+    {
+      "role": "application/vnd.ollama.image.template",
+      "source": "%USERPROFILE%\\.ollama\\models\\blobs\\sha256-eb4402837c7829a690fa845de4d7f3fd842c2adee476d5341da8a46ea9255175",
+      "destination": "models/blobs/sha256-eb4402837c7829a690fa845de4d7f3fd842c2adee476d5341da8a46ea9255175",
+      "bytes": 1482,
+      "sha256": "EB4402837C7829A690FA845DE4D7F3FD842C2ADEE476D5341DA8A46EA9255175"
+    },
+    {
+      "role": "application/vnd.ollama.image.license",
+      "source": "%USERPROFILE%\\.ollama\\models\\blobs\\sha256-832dd9e00a68dd83b3c3fb9f5588dad7dcf337a0db50f7d9483f310cd292e92e",
+      "destination": "models/blobs/sha256-832dd9e00a68dd83b3c3fb9f5588dad7dcf337a0db50f7d9483f310cd292e92e",
+      "bytes": 11343,
+      "sha256": "832DD9E00A68DD83B3C3FB9F5588DAD7DCF337A0DB50F7D9483F310CD292E92E"
+    }
+  ]
+}

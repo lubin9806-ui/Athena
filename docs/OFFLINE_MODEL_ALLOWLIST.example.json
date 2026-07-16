@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Example only. Copy to OFFLINE_MODEL_ALLOWLIST.json before building an offline pack.",
+  "model": "qwen2.5:14b",
+  "files": [
+    {
+      "source": "%USERPROFILE%\\.ollama\\models\\manifests\\registry.ollama.ai\\library\\qwen2.5\\14b",
+      "destination": "models/manifests/registry.ollama.ai/library/qwen2.5/14b",
+      "sha256": "REPLACE_WITH_ACTUAL_SHA256"
+    },
+    {
+      "source": "%USERPROFILE%\\.ollama\\models\\blobs\\sha256-REPLACE_WITH_ACTUAL_BLOB",
+      "destination": "models/blobs/sha256-REPLACE_WITH_ACTUAL_BLOB",
+      "sha256": "REPLACE_WITH_ACTUAL_SHA256"
+    }
+  ]
+}

@@ -1,0 +1,82 @@
+﻿# Athena Asset Provenance
+
+Window 04 records source, packaging, and release-gate status for current
+Desktop assets. This is an engineering provenance ledger, not a legal opinion
+or final rights signoff.
+
+## Included In The Normal Desktop Installer
+
+The normal Desktop installer includes `resources/` except
+`resources/OllamaSetup.exe`, plus the voice helper scripts copied through
+`electron-builder.yml`:
+
+- `resources/icon.png`
+- `resources/tray.png`
+- `resources/splash.png`
+- `resources/su-shixia-icon.png`
+- `resources/su-shixia-tray.png`
+- `resources/su-shixia.ico`
+- `resources/su-shixia-icon-1080.png`
+- `tts.py`
+- `stt.py`
+- `stt_whisper.py`
+- `play_audio.py`
+- `requirements-voice.txt`
+
+The exact bytes and SHA-256 values are regenerated into
+`docs/SUPPLY_CHAIN_MANIFEST.json` by `npm.cmd run test:supply-chain`.
+
+Status: usable for internal alpha packaging. Public distribution is Blocked
+until the project owner supplies human signoff for the Athena name, Su Shixia
+name, icons, tray images, splash screen, screenshots, wallpapers, and any audio
+or marketing material.
+
+## Not Included In The Normal Installer
+
+These paths are retained in the repository but are not included by
+`electron-builder.yml`:
+
+- `docs/concepts/`: generated design exploration images and prompt notes.
+- `promo/`: promotional web pages, poster brief, and poster images.
+- `models/`: local model files and Hugging Face cache fragments.
+- `legacy/root-artifacts/`: preserved historical artifacts with
+  `legacy/root-artifacts/MANIFEST.sha256`.
+- `新建文件夹/`: unknown local folder retained without deletion.
+
+`docs/SUPPLY_CHAIN_MANIFEST.json` records hashes for concept and promotional
+assets as non-bundled provenance evidence. These files may not be used in a
+public website, store listing, press kit, or installer until rights and
+trademark signoff are supplied.
+
+## Voice Assets
+
+The installer includes only Athena-owned helper scripts and
+`requirements-voice.txt`. It does not bundle third-party Python wheels,
+Whisper/faster-whisper models, microphone samples, TTS voices, or recorded
+audio. Declared Python packages remain install-time/runtime requirements and
+must be re-audited if bundled later.
+
+## Model And Binary Assets
+
+- `resources/OllamaSetup.exe` is excluded from the normal installer app payload.
+- Local Ollama model stores are excluded from the normal installer.
+- Offline packs must use `docs/OFFLINE_MODEL_ALLOWLIST.json` with exact file
+  SHA-256 values.
+- Copying the whole user `.ollama\models` directory is blocked.
+- Public offline redistribution remains Blocked until Ollama installer
+  redistribution and Qwen notice-handling signoff are approved.
+
+## Blocked Proofs Needed
+
+Do not infer or invent these records. The user/project owner must provide them:
+
+- legal owner/publisher name and company authority to publish Athena
+- trademark clearance for `Athena` and `Su Shixia`
+- authoring or generation records for icons, tray images, splash images,
+  wallpapers, screenshots, posters, and promotional copy
+- font and icon licenses if future UI assets embed non-system fonts or external
+  icon packs
+- voice/audio rights if recorded voices, samples, or commercial TTS outputs are
+  bundled
+- source URL, license, and retention approval for each file under `models/`
+- owner, purpose, and retention approval for `新建文件夹/`

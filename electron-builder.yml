@@ -1,4 +1,4 @@
-appId: com.athena.desktop
+﻿appId: com.athena.desktop
 productName: Athena
 directories:
   output: release
@@ -16,7 +16,12 @@ extraResources:
   - from: database
     to: database
     filter:
-      - "**/*"
+      - "athena.db"
+      - "!**/*-wal"
+      - "!**/*-shm"
+      - "!backups/**"
+      - "!migrations/**"
+      - "!seeds/**"
   - from: tts.py
     to: voice/tts.py
   - from: stt.py

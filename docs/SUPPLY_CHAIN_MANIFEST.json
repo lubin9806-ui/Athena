@@ -1,0 +1,1205 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-07-16T13:26:27.639Z",
+  "project": {
+    "name": "athena",
+    "version": "0.8.0",
+    "license": "UNLICENSED",
+    "private": true
+  },
+  "buildTools": {
+    "node": "v24.18.0",
+    "packageLockVersion": 3,
+    "electron": {
+      "version": "42.7.0",
+      "license": "MIT",
+      "licenseSource": "https://github.com/electron/electron/blob/main/LICENSE",
+      "chromiumNoticeInPackage": "release/win-unpacked/LICENSES.chromium.html"
+    },
+    "electronBuilder": "26.15.3",
+    "typescript": "5.9.3",
+    "vite": "8.1.4"
+  },
+  "npmRuntimePackages": [
+    {
+      "name": "base64-js",
+      "version": "1.5.1",
+      "resolved": null,
+      "license": "MIT",
+      "repository": "git://github.com/beatgammit/base64-js.git",
+      "homepage": "https://github.com/beatgammit/base64-js"
+    },
+    {
+      "name": "better-sqlite3",
+      "version": "12.11.1",
+      "resolved": "https://registry.npmjs.org/better-sqlite3/-/better-sqlite3-12.11.1.tgz",
+      "license": "MIT",
+      "repository": "git://github.com/WiseLibs/better-sqlite3.git",
+      "homepage": "http://github.com/WiseLibs/better-sqlite3"
+    },
+    {
+      "name": "bindings",
+      "version": "1.5.0",
+      "resolved": null,
+      "license": "MIT",
+      "repository": "git://github.com/TooTallNate/node-bindings.git",
+      "homepage": "https://github.com/TooTallNate/node-bindings"
+    },
+    {
+      "name": "bl",
+      "version": "4.1.0",
+      "resolved": null,
+      "license": "MIT",
+      "repository": "https://github.com/rvagg/bl.git",
+      "homepage": "https://github.com/rvagg/bl"
+    },
+    {
+      "name": "boolbase",
+      "version": "1.0.0",
+      "resolved": "https://registry.npmmirror.com/boolbase/-/boolbase-1.0.0.tgz",
+      "license": "ISC",
+      "repository": "https://github.com/fb55/boolbase",
+      "homepage": "https://github.com/fb55/boolbase"
+    },
+    {
+      "name": "buffer",
+      "version": "5.7.1",
+      "resolved": null,
+      "license": "MIT",
+      "repository": "git://github.com/feross/buffer.git",
+      "homepage": "https://github.com/feross/buffer"
+    },
+    {
+      "name": "cheerio-select",
+      "version": "2.1.0",
+      "resolved": "https://registry.npmmirror.com/cheerio-select/-/cheerio-select-2.1.0.tgz",
+      "license": "BSD-2-Clause",
+      "repository": "git://github.com/cheeriojs/cheerio-select.git",
+      "homepage": null
+    },
+    {
+      "name": "cheerio",
+      "version": "1.2.0",
+      "resolved": "https://registry.npmjs.org/cheerio/-/cheerio-1.2.0.tgz",
+      "license": "MIT",
+      "repository": "git://github.com/cheeriojs/cheerio.git",
+      "homepage": "https://cheerio.js.org/"
+    },
+    {
+      "name": "chownr",
+      "version": "1.1.4",
+      "resolved": "https://registry.npmjs.org/chownr/-/chownr-3.0.0.tgz",
+      "license": "BlueOak-1.0.0",
+      "notice": "package.json not found in node_modules"
+    },
+    {
+      "name": "css-select",
+      "version": "5.2.2",
+      "resolved": "https://registry.npmmirror.com/css-select/-/css-select-5.2.2.tgz",
+      "license": "BSD-2-Clause",
+      "repository": "git://github.com/fb55/css-select.git",
+      "homepage": null
+    },
+    {
+      "name": "css-what",
+      "version": "6.2.2",
+      "resolved": "https://registry.npmmirror.com/css-what/-/css-what-6.2.2.tgz",
+      "license": "BSD-2-Clause",
+      "repository": "https://github.com/fb55/css-what",
+      "homepage": null
+    },
+    {
+      "name": "decompress-response",
+      "version": "6.0.0",
+      "resolved": null,
+      "license": "MIT",
+      "repository": "sindresorhus/decompress-response",
+      "homepage": null
+    },
+    {
+      "name": "deep-extend",
+      "version": "0.6.0",
+      "resolved": null,
+      "license": "MIT",
+      "repository": "git://github.com/unclechu/node-deep-extend.git",
+      "homepage": "https://github.com/unclechu/node-deep-extend"
+    },
+    {
+      "name": "detect-libc",
+      "version": "2.1.2",
+      "resolved": null,
+      "license": "Apache-2.0",
+      "repository": "git://github.com/lovell/detect-libc.git",
+      "homepage": null
+    },
+    {
+      "name": "dom-serializer",
+      "version": "2.0.0",
+      "resolved": "https://registry.npmmirror.com/dom-serializer/-/dom-serializer-2.0.0.tgz",
+      "license": "MIT",
+      "repository": "git://github.com/cheeriojs/dom-serializer.git",
+      "homepage": null
+    },
+    {
+      "name": "domelementtype",
+      "version": "2.3.0",
+      "resolved": "https://registry.npmmirror.com/domelementtype/-/domelementtype-2.3.0.tgz",
+      "license": "BSD-2-Clause",
+      "repository": "git://github.com/fb55/domelementtype.git",
+      "homepage": null
+    },
+    {
+      "name": "domhandler",
+      "version": "5.0.3",
+      "resolved": "https://registry.npmmirror.com/domhandler/-/domhandler-5.0.3.tgz",
+      "license": "BSD-2-Clause",
+      "repository": "git://github.com/fb55/domhandler.git",
+      "homepage": null
+    },
+    {
+      "name": "domutils",
+      "version": "3.2.2",
+      "resolved": "https://registry.npmmirror.com/domutils/-/domutils-3.2.2.tgz",
+      "license": "BSD-2-Clause",
+      "repository": "git://github.com/fb55/domutils.git",
+      "homepage": null
+    },
+    {
+      "name": "encoding-sniffer",
+      "version": "0.2.1",
+      "resolved": "https://registry.npmmirror.com/encoding-sniffer/-/encoding-sniffer-0.2.1.tgz",
+      "license": "MIT",
+      "repository": "git://github.com/fb55/encoding-sniffer.git",
+      "homepage": null
+    },
+    {
+      "name": "end-of-stream",
+      "version": "1.4.5",
+      "resolved": null,
+      "license": "MIT",
+      "repository": "git://github.com/mafintosh/end-of-stream.git",
+      "homepage": "https://github.com/mafintosh/end-of-stream"
+    },
+    {
+      "name": "entities",
+      "version": "4.5.0",
+      "resolved": "https://registry.npmmirror.com/entities/-/entities-4.5.0.tgz",
+      "license": "BSD-2-Clause",
+      "repository": "git://github.com/fb55/entities.git",
+      "homepage": null
+    },
+    {
+      "name": "entities",
+      "version": "4.5.0",
+      "resolved": "https://registry.npmjs.org/entities/-/entities-7.0.1.tgz",
+      "license": "BSD-2-Clause",
+      "repository": "git://github.com/fb55/entities.git",
+      "homepage": null
+    },
+    {
+      "name": "entities",
+      "version": "4.5.0",
+      "resolved": "https://registry.npmmirror.com/entities/-/entities-6.0.1.tgz",
+      "license": "BSD-2-Clause",
+      "repository": "git://github.com/fb55/entities.git",
+      "homepage": null
+    },
+    {
+      "name": "expand-template",
+      "version": "2.0.3",
+      "resolved": null,
+      "license": "(MIT OR WTFPL)",
+      "repository": "https://github.com/ralphtheninja/expand-template.git",
+      "homepage": "https://github.com/ralphtheninja/expand-template"
+    },
+    {
+      "name": "file-uri-to-path",
+      "version": "1.0.0",
+      "resolved": null,
+      "license": "MIT",
+      "repository": "git://github.com/TooTallNate/file-uri-to-path.git",
+      "homepage": "https://github.com/TooTallNate/file-uri-to-path"
+    },
+    {
+      "name": "fs-constants",
+      "version": "1.0.0",
+      "resolved": null,
+      "license": "MIT",
+      "repository": "https://github.com/mafintosh/fs-constants.git",
+      "homepage": "https://github.com/mafintosh/fs-constants"
+    },
+    {
+      "name": "github-from-package",
+      "version": "0.0.0",
+      "resolved": null,
+      "license": "MIT",
+      "repository": "git://github.com/substack/github-from-package.git",
+      "homepage": "https://github.com/substack/github-from-package"
+    },
+    {
+      "name": "htmlparser2",
+      "version": "10.1.0",
+      "resolved": "https://registry.npmjs.org/htmlparser2/-/htmlparser2-10.1.0.tgz",
+      "license": "MIT",
+      "repository": "git://github.com/fb55/htmlparser2.git",
+      "homepage": null
+    },
+    {
+      "name": "iconv-lite",
+      "version": "0.6.3",
+      "resolved": null,
+      "license": "MIT",
+      "repository": "git://github.com/ashtuchkin/iconv-lite.git",
+      "homepage": "https://github.com/ashtuchkin/iconv-lite"
+    },
+    {
+      "name": "ieee754",
+      "version": "1.2.1",
+      "resolved": null,
+      "license": "BSD-3-Clause",
+      "repository": "git://github.com/feross/ieee754.git",
+      "homepage": null
+    },
+    {
+      "name": "inherits",
+      "version": "2.0.4",
+      "resolved": null,
+      "license": "ISC",
+      "repository": "git://github.com/isaacs/inherits",
+      "homepage": null
+    },
+    {
+      "name": "ini",
+      "version": "1.3.8",
+      "resolved": null,
+      "license": "ISC",
+      "repository": "git://github.com/isaacs/ini.git",
+      "homepage": null
+    },
+    {
+      "name": "mimic-response",
+      "version": "3.1.0",
+      "resolved": "https://registry.npmjs.org/mimic-response/-/mimic-response-1.0.1.tgz",
+      "license": "MIT",
+      "notice": "package.json not found in node_modules"
+    },
+    {
+      "name": "minimist",
+      "version": "1.2.8",
+      "resolved": null,
+      "license": "MIT",
+      "repository": "git://github.com/minimistjs/minimist.git",
+      "homepage": "https://github.com/minimistjs/minimist"
+    },
+    {
+      "name": "mkdirp-classic",
+      "version": "0.5.3",
+      "resolved": null,
+      "license": "MIT",
+      "repository": "https://github.com/mafintosh/mkdirp-classic.git",
+      "homepage": "https://github.com/mafintosh/mkdirp-classic"
+    },
+    {
+      "name": "napi-build-utils",
+      "version": "2.0.0",
+      "resolved": null,
+      "license": "MIT",
+      "repository": "git+https://github.com/inspiredware/napi-build-utils.git",
+      "homepage": "https://github.com/inspiredware/napi-build-utils#readme"
+    },
+    {
+      "name": "node-abi",
+      "version": "3.93.0",
+      "resolved": null,
+      "license": "MIT",
+      "repository": "git+https://github.com/electron/node-abi.git",
+      "homepage": "https://github.com/electron/node-abi#readme"
+    },
+    {
+      "name": "nth-check",
+      "version": "2.1.1",
+      "resolved": "https://registry.npmmirror.com/nth-check/-/nth-check-2.1.1.tgz",
+      "license": "BSD-2-Clause",
+      "repository": "https://github.com/fb55/nth-check",
+      "homepage": "https://github.com/fb55/nth-check"
+    },
+    {
+      "name": "once",
+      "version": "1.4.0",
+      "resolved": null,
+      "license": "ISC",
+      "repository": "git://github.com/isaacs/once",
+      "homepage": null
+    },
+    {
+      "name": "parse5-htmlparser2-tree-adapter",
+      "version": "7.1.0",
+      "resolved": "https://registry.npmmirror.com/parse5-htmlparser2-tree-adapter/-/parse5-htmlparser2-tree-adapter-7.1.0.tgz",
+      "license": "MIT",
+      "repository": "git://github.com/inikulin/parse5.git",
+      "homepage": "https://parse5.js.org"
+    },
+    {
+      "name": "parse5-parser-stream",
+      "version": "7.1.2",
+      "resolved": "https://registry.npmmirror.com/parse5-parser-stream/-/parse5-parser-stream-7.1.2.tgz",
+      "license": "MIT",
+      "repository": "git://github.com/inikulin/parse5.git",
+      "homepage": "https://github.com/inikulin/parse5"
+    },
+    {
+      "name": "parse5",
+      "version": "7.3.0",
+      "resolved": "https://registry.npmmirror.com/parse5/-/parse5-7.3.0.tgz",
+      "license": "MIT",
+      "repository": "git://github.com/inikulin/parse5.git",
+      "homepage": "https://parse5.js.org"
+    },
+    {
+      "name": "prebuild-install",
+      "version": "7.1.3",
+      "resolved": null,
+      "license": "MIT",
+      "repository": "https://github.com/prebuild/prebuild-install.git",
+      "homepage": "https://github.com/prebuild/prebuild-install"
+    },
+    {
+      "name": "pump",
+      "version": "3.0.4",
+      "resolved": null,
+      "license": "MIT",
+      "repository": "git://github.com/mafintosh/pump.git",
+      "homepage": null
+    },
+    {
+      "name": "rc",
+      "version": "1.2.8",
+      "resolved": null,
+      "license": "(BSD-2-Clause OR MIT OR Apache-2.0)",
+      "repository": "https://github.com/dominictarr/rc.git",
+      "homepage": null
+    },
+    {
+      "name": "readable-stream",
+      "version": "3.6.2",
+      "resolved": null,
+      "license": "MIT",
+      "repository": "git://github.com/nodejs/readable-stream",
+      "homepage": null
+    },
+    {
+      "name": "safe-buffer",
+      "version": "5.2.1",
+      "resolved": null,
+      "license": "MIT",
+      "repository": "git://github.com/feross/safe-buffer.git",
+      "homepage": "https://github.com/feross/safe-buffer"
+    },
+    {
+      "name": "safer-buffer",
+      "version": "2.1.2",
+      "resolved": null,
+      "license": "MIT",
+      "repository": "git+https://github.com/ChALkeR/safer-buffer.git",
+      "homepage": null
+    },
+    {
+      "name": "semver",
+      "version": "7.8.5",
+      "resolved": "https://registry.npmjs.org/semver/-/semver-7.8.5.tgz",
+      "license": "ISC",
+      "repository": "git+https://github.com/npm/node-semver.git",
+      "homepage": null
+    },
+    {
+      "name": "simple-concat",
+      "version": "1.0.1",
+      "resolved": null,
+      "license": "MIT",
+      "repository": "git://github.com/feross/simple-concat.git",
+      "homepage": "https://github.com/feross/simple-concat"
+    },
+    {
+      "name": "simple-get",
+      "version": "4.0.1",
+      "resolved": null,
+      "license": "MIT",
+      "repository": "git://github.com/feross/simple-get.git",
+      "homepage": "https://github.com/feross/simple-get"
+    },
+    {
+      "name": "string_decoder",
+      "version": "1.3.0",
+      "resolved": null,
+      "license": "MIT",
+      "repository": "git://github.com/nodejs/string_decoder.git",
+      "homepage": "https://github.com/nodejs/string_decoder"
+    },
+    {
+      "name": "strip-json-comments",
+      "version": "2.0.1",
+      "resolved": null,
+      "license": "MIT",
+      "repository": "sindresorhus/strip-json-comments",
+      "homepage": null
+    },
+    {
+      "name": "tar-fs",
+      "version": "2.1.5",
+      "resolved": null,
+      "license": "MIT",
+      "repository": "https://github.com/mafintosh/tar-fs.git",
+      "homepage": "https://github.com/mafintosh/tar-fs"
+    },
+    {
+      "name": "tar-stream",
+      "version": "2.2.0",
+      "resolved": null,
+      "license": "MIT",
+      "repository": "git+https://github.com/mafintosh/tar-stream.git",
+      "homepage": "https://github.com/mafintosh/tar-stream"
+    },
+    {
+      "name": "tunnel-agent",
+      "version": "0.6.0",
+      "resolved": null,
+      "license": "Apache-2.0",
+      "repository": "https://github.com/mikeal/tunnel-agent",
+      "homepage": null
+    },
+    {
+      "name": "undici",
+      "version": "7.28.0",
+      "resolved": "https://registry.npmjs.org/undici/-/undici-7.28.0.tgz",
+      "license": "MIT",
+      "repository": "git+https://github.com/nodejs/undici.git",
+      "homepage": "https://undici.nodejs.org"
+    },
+    {
+      "name": "util-deprecate",
+      "version": "1.0.2",
+      "resolved": null,
+      "license": "MIT",
+      "repository": "git://github.com/TooTallNate/util-deprecate.git",
+      "homepage": "https://github.com/TooTallNate/util-deprecate"
+    },
+    {
+      "name": "whatwg-encoding",
+      "version": "3.1.1",
+      "resolved": "https://registry.npmmirror.com/whatwg-encoding/-/whatwg-encoding-3.1.1.tgz",
+      "license": "MIT",
+      "repository": "jsdom/whatwg-encoding",
+      "homepage": null
+    },
+    {
+      "name": "whatwg-mimetype",
+      "version": "4.0.0",
+      "resolved": "https://registry.npmmirror.com/whatwg-mimetype/-/whatwg-mimetype-4.0.0.tgz",
+      "license": "MIT",
+      "repository": "jsdom/whatwg-mimetype",
+      "homepage": null
+    },
+    {
+      "name": "wrappy",
+      "version": "1.0.2",
+      "resolved": null,
+      "license": "ISC",
+      "repository": "https://github.com/npm/wrappy",
+      "homepage": "https://github.com/npm/wrappy"
+    }
+  ],
+  "pythonVoiceRequirements": [
+    {
+      "requirement": "SpeechRecognition>=3.14",
+      "distributionStatus": "declared runtime/install-time requirement; not bundled in the Desktop installer"
+    },
+    {
+      "requirement": "edge-tts>=7.0",
+      "distributionStatus": "declared runtime/install-time requirement; not bundled in the Desktop installer"
+    },
+    {
+      "requirement": "faster-whisper>=1.2",
+      "distributionStatus": "declared runtime/install-time requirement; not bundled in the Desktop installer"
+    },
+    {
+      "requirement": "av>=14.0",
+      "distributionStatus": "declared runtime/install-time requirement; not bundled in the Desktop installer"
+    },
+    {
+      "requirement": "numpy>=1.26",
+      "distributionStatus": "declared runtime/install-time requirement; not bundled in the Desktop installer"
+    },
+    {
+      "requirement": "sounddevice>=0.5",
+      "distributionStatus": "declared runtime/install-time requirement; not bundled in the Desktop installer"
+    }
+  ],
+  "externalBinaries": [
+    {
+      "name": "OllamaSetup.exe",
+      "path": "resources/OllamaSetup.exe",
+      "version": "0.31.1",
+      "bytes": 672406784,
+      "sha256": "E56DEF86D8E5612F67F2876720C5808C01F9A5AB63DBEE7D873E9C0CB4A8FECA",
+      "license": "MIT for the open-source Ollama project; installer redistribution still requires release signoff",
+      "licenseSource": "https://github.com/ollama/ollama/blob/main/LICENSE"
+    }
+  ],
+  "models": [
+    {
+      "runtimeTag": "qwen2.5:14b",
+      "upstreamModel": "Qwen/Qwen2.5-14B-Instruct",
+      "license": "Apache-2.0",
+      "licenseSource": "https://huggingface.co/Qwen/Qwen2.5-14B-Instruct/blob/main/LICENSE",
+      "ollamaSource": "https://ollama.com/library/qwen2.5:14b",
+      "distributionPolicy": "No model payload may enter the offline pack unless docs/OFFLINE_MODEL_ALLOWLIST.json lists exact source, destination, and SHA-256."
+    }
+  ],
+  "localOllamaRuntime": {
+    "installedVersion": "0.31.2",
+    "defaultModel": {
+      "runtimeTag": "qwen2.5:14b",
+      "localOllamaId": "7cdf5a0187d5",
+      "upstreamOllamaPage": "https://ollama.com/library/qwen2.5:14b",
+      "architecture": "qwen2",
+      "parameters": "14.8B",
+      "quantization": "Q4_K_M",
+      "files": [
+        {
+          "role": "manifest",
+          "source": "C:\\Users\\lubin\\.ollama\\models\\manifests\\registry.ollama.ai\\library\\qwen2.5\\14b",
+          "destination": "models/manifests/registry.ollama.ai/library/qwen2.5/14b",
+          "bytes": 858,
+          "sha256": "7CDF5A0187D5C58CC5D369B255592F7841D1C4696D45A8C8A9489440385B22F6"
+        },
+        {
+          "role": "application/vnd.docker.container.image.v1+json",
+          "digest": "sha256:db59b814cab753a51167db007fa6b6e0095f678ff24c9f7284753b75b34c6df3",
+          "source": "C:\\Users\\lubin\\.ollama\\models\\blobs\\sha256-db59b814cab753a51167db007fa6b6e0095f678ff24c9f7284753b75b34c6df3",
+          "destination": "models/blobs/sha256-db59b814cab753a51167db007fa6b6e0095f678ff24c9f7284753b75b34c6df3",
+          "bytes": 488,
+          "manifestBytes": 488,
+          "sha256": "DB59B814CAB753A51167DB007FA6B6E0095F678FF24C9F7284753B75B34C6DF3",
+          "status": "verified"
+        },
+        {
+          "role": "application/vnd.ollama.image.model",
+          "digest": "sha256:2049f5674b1e92b4464e5729975c9689fcfbf0b0e4443ccf10b5339f370f9a54",
+          "source": "C:\\Users\\lubin\\.ollama\\models\\blobs\\sha256-2049f5674b1e92b4464e5729975c9689fcfbf0b0e4443ccf10b5339f370f9a54",
+          "destination": "models/blobs/sha256-2049f5674b1e92b4464e5729975c9689fcfbf0b0e4443ccf10b5339f370f9a54",
+          "bytes": 8988110688,
+          "manifestBytes": 8988110688,
+          "sha256": "2049F5674B1E92B4464E5729975C9689FCFBF0B0E4443CCF10B5339F370F9A54",
+          "status": "verified"
+        },
+        {
+          "role": "application/vnd.ollama.image.system",
+          "digest": "sha256:66b9ea09bd5b7099cbb4fc820f31b575c0366fa439b08245566692c6784e281e",
+          "source": "C:\\Users\\lubin\\.ollama\\models\\blobs\\sha256-66b9ea09bd5b7099cbb4fc820f31b575c0366fa439b08245566692c6784e281e",
+          "destination": "models/blobs/sha256-66b9ea09bd5b7099cbb4fc820f31b575c0366fa439b08245566692c6784e281e",
+          "bytes": 68,
+          "manifestBytes": 68,
+          "sha256": "66B9EA09BD5B7099CBB4FC820F31B575C0366FA439B08245566692C6784E281E",
+          "status": "verified"
+        },
+        {
+          "role": "application/vnd.ollama.image.template",
+          "digest": "sha256:eb4402837c7829a690fa845de4d7f3fd842c2adee476d5341da8a46ea9255175",
+          "source": "C:\\Users\\lubin\\.ollama\\models\\blobs\\sha256-eb4402837c7829a690fa845de4d7f3fd842c2adee476d5341da8a46ea9255175",
+          "destination": "models/blobs/sha256-eb4402837c7829a690fa845de4d7f3fd842c2adee476d5341da8a46ea9255175",
+          "bytes": 1482,
+          "manifestBytes": 1482,
+          "sha256": "EB4402837C7829A690FA845DE4D7F3FD842C2ADEE476D5341DA8A46EA9255175",
+          "status": "verified"
+        },
+        {
+          "role": "application/vnd.ollama.image.license",
+          "digest": "sha256:832dd9e00a68dd83b3c3fb9f5588dad7dcf337a0db50f7d9483f310cd292e92e",
+          "source": "C:\\Users\\lubin\\.ollama\\models\\blobs\\sha256-832dd9e00a68dd83b3c3fb9f5588dad7dcf337a0db50f7d9483f310cd292e92e",
+          "destination": "models/blobs/sha256-832dd9e00a68dd83b3c3fb9f5588dad7dcf337a0db50f7d9483f310cd292e92e",
+          "bytes": 11343,
+          "manifestBytes": 11343,
+          "sha256": "832DD9E00A68DD83B3C3FB9F5588DAD7DCF337A0DB50F7D9483F310CD292E92E",
+          "status": "verified"
+        }
+      ]
+    }
+  },
+  "offlineModelAllowlist": {
+    "path": "docs/OFFLINE_MODEL_ALLOWLIST.json",
+    "status": "present",
+    "sha256": "E40DE33B110DAC361BF00B3369ADD319A46BE020E9EA3EE3DC5D77C93527B2BF",
+    "content": {
+      "schemaVersion": 1,
+      "generatedAt": "2026-07-16T00:00:00+08:00",
+      "model": "qwen2.5:14b",
+      "ollamaModelId": "7cdf5a0187d5",
+      "architecture": "qwen2",
+      "parameters": "14.8B",
+      "quantization": "Q4_K_M",
+      "license": "Apache-2.0",
+      "source": "https://ollama.com/library/qwen2.5:14b",
+      "upstreamModel": "Qwen/Qwen2.5-14B-Instruct",
+      "redistributionGate": "Blocked for public offline redistribution until Ollama installer redistribution, Qwen model notice handling, publisher identity, and asset/trademark signoffs are approved.",
+      "files": [
+        {
+          "role": "manifest",
+          "source": "%USERPROFILE%\\.ollama\\models\\manifests\\registry.ollama.ai\\library\\qwen2.5\\14b",
+          "destination": "models/manifests/registry.ollama.ai/library/qwen2.5/14b",
+          "bytes": 858,
+          "sha256": "7CDF5A0187D5C58CC5D369B255592F7841D1C4696D45A8C8A9489440385B22F6"
+        },
+        {
+          "role": "application/vnd.docker.container.image.v1+json",
+          "source": "%USERPROFILE%\\.ollama\\models\\blobs\\sha256-db59b814cab753a51167db007fa6b6e0095f678ff24c9f7284753b75b34c6df3",
+          "destination": "models/blobs/sha256-db59b814cab753a51167db007fa6b6e0095f678ff24c9f7284753b75b34c6df3",
+          "bytes": 488,
+          "sha256": "DB59B814CAB753A51167DB007FA6B6E0095F678FF24C9F7284753B75B34C6DF3"
+        },
+        {
+          "role": "application/vnd.ollama.image.model",
+          "source": "%USERPROFILE%\\.ollama\\models\\blobs\\sha256-2049f5674b1e92b4464e5729975c9689fcfbf0b0e4443ccf10b5339f370f9a54",
+          "destination": "models/blobs/sha256-2049f5674b1e92b4464e5729975c9689fcfbf0b0e4443ccf10b5339f370f9a54",
+          "bytes": 8988110688,
+          "sha256": "2049F5674B1E92B4464E5729975C9689FCFBF0B0E4443CCF10B5339F370F9A54"
+        },
+        {
+          "role": "application/vnd.ollama.image.system",
+          "source": "%USERPROFILE%\\.ollama\\models\\blobs\\sha256-66b9ea09bd5b7099cbb4fc820f31b575c0366fa439b08245566692c6784e281e",
+          "destination": "models/blobs/sha256-66b9ea09bd5b7099cbb4fc820f31b575c0366fa439b08245566692c6784e281e",
+          "bytes": 68,
+          "sha256": "66B9EA09BD5B7099CBB4FC820F31B575C0366FA439B08245566692C6784E281E"
+        },
+        {
+          "role": "application/vnd.ollama.image.template",
+          "source": "%USERPROFILE%\\.ollama\\models\\blobs\\sha256-eb4402837c7829a690fa845de4d7f3fd842c2adee476d5341da8a46ea9255175",
+          "destination": "models/blobs/sha256-eb4402837c7829a690fa845de4d7f3fd842c2adee476d5341da8a46ea9255175",
+          "bytes": 1482,
+          "sha256": "EB4402837C7829A690FA845DE4D7F3FD842C2ADEE476D5341DA8A46EA9255175"
+        },
+        {
+          "role": "application/vnd.ollama.image.license",
+          "source": "%USERPROFILE%\\.ollama\\models\\blobs\\sha256-832dd9e00a68dd83b3c3fb9f5588dad7dcf337a0db50f7d9483f310cd292e92e",
+          "destination": "models/blobs/sha256-832dd9e00a68dd83b3c3fb9f5588dad7dcf337a0db50f7d9483f310cd292e92e",
+          "bytes": 11343,
+          "sha256": "832DD9E00A68DD83B3C3FB9F5588DAD7DCF337A0DB50F7D9483F310CD292E92E"
+        }
+      ]
+    }
+  },
+  "bundledAssets": [
+    {
+      "path": "play_audio.py",
+      "bytes": 1661,
+      "sha256": "52F9D10158584DDF4440D7F342E8F90E9C3F1DF0B122CA8EC082845BF597A181"
+    },
+    {
+      "path": "requirements-voice.txt",
+      "bytes": 102,
+      "sha256": "AE53E5285B951DD76F2671AFBB0F413C5235BDB9381BAEDA1BF42E56A6F611D5"
+    },
+    {
+      "path": "resources/icon.png",
+      "bytes": 9222,
+      "sha256": "7B93DE63E3800F30D341750BC25A02F0ADA79002BEB5E203FF2D1D3EB198E95D"
+    },
+    {
+      "path": "resources/splash.png",
+      "bytes": 18111,
+      "sha256": "C91972F989B88AE34A8AE7709E464FA661AB4F83F6F34FEE191BA1447F414A52"
+    },
+    {
+      "path": "resources/su-shixia-icon-1080.png",
+      "bytes": 248005,
+      "sha256": "600A5FE215957148AF0FC7247F637D6CB191A54D11A24CF2CD7051897E370843"
+    },
+    {
+      "path": "resources/su-shixia-icon.png",
+      "bytes": 103007,
+      "sha256": "9B4EA3E2B0C1D61890E007BCB24EC7BB9C829BCC167A0F41BD9D8EA01A228BFD"
+    },
+    {
+      "path": "resources/su-shixia-tray.png",
+      "bytes": 3293,
+      "sha256": "1EFB9292C8F26B1D4052EBE556AC82C98C413B9AC854CBBA2CEF9DC44B549D3E"
+    },
+    {
+      "path": "resources/su-shixia.ico",
+      "bytes": 36673,
+      "sha256": "04AEDDF9B85B6AAA8E4083DBC4E22FDFABDE88C83785A5F68A6DD8F547976D12"
+    },
+    {
+      "path": "resources/tray.png",
+      "bytes": 1443,
+      "sha256": "22F6399313D9D33F26A4F9C04104ADA416AF8A7BE66A2E580F07944E81EEEBFC"
+    },
+    {
+      "path": "stt_whisper.py",
+      "bytes": 1312,
+      "sha256": "B31D8BAC3F609CF97BE96467933F5663FD64F18B6D6ABE2034CB4BC07BA3E3D4"
+    },
+    {
+      "path": "stt.py",
+      "bytes": 1810,
+      "sha256": "702F602E685014FF9CC1C12559AF9D2AC9849E6FD399D944AD7F08BFC56C63DB"
+    },
+    {
+      "path": "tts.py",
+      "bytes": 783,
+      "sha256": "A7C40A070DCA246C51B3ED39AE0E28CAC766AD2554872FF44C53D659ACEE0D6D"
+    }
+  ],
+  "assetProvenance": {
+    "bundledRuntimeAssets": [
+      {
+        "path": "play_audio.py",
+        "bytes": 1661,
+        "sha256": "52F9D10158584DDF4440D7F342E8F90E9C3F1DF0B122CA8EC082845BF597A181"
+      },
+      {
+        "path": "requirements-voice.txt",
+        "bytes": 102,
+        "sha256": "AE53E5285B951DD76F2671AFBB0F413C5235BDB9381BAEDA1BF42E56A6F611D5"
+      },
+      {
+        "path": "resources/icon.png",
+        "bytes": 9222,
+        "sha256": "7B93DE63E3800F30D341750BC25A02F0ADA79002BEB5E203FF2D1D3EB198E95D"
+      },
+      {
+        "path": "resources/splash.png",
+        "bytes": 18111,
+        "sha256": "C91972F989B88AE34A8AE7709E464FA661AB4F83F6F34FEE191BA1447F414A52"
+      },
+      {
+        "path": "resources/su-shixia-icon-1080.png",
+        "bytes": 248005,
+        "sha256": "600A5FE215957148AF0FC7247F637D6CB191A54D11A24CF2CD7051897E370843"
+      },
+      {
+        "path": "resources/su-shixia-icon.png",
+        "bytes": 103007,
+        "sha256": "9B4EA3E2B0C1D61890E007BCB24EC7BB9C829BCC167A0F41BD9D8EA01A228BFD"
+      },
+      {
+        "path": "resources/su-shixia-tray.png",
+        "bytes": 3293,
+        "sha256": "1EFB9292C8F26B1D4052EBE556AC82C98C413B9AC854CBBA2CEF9DC44B549D3E"
+      },
+      {
+        "path": "resources/su-shixia.ico",
+        "bytes": 36673,
+        "sha256": "04AEDDF9B85B6AAA8E4083DBC4E22FDFABDE88C83785A5F68A6DD8F547976D12"
+      },
+      {
+        "path": "resources/tray.png",
+        "bytes": 1443,
+        "sha256": "22F6399313D9D33F26A4F9C04104ADA416AF8A7BE66A2E580F07944E81EEEBFC"
+      },
+      {
+        "path": "stt_whisper.py",
+        "bytes": 1312,
+        "sha256": "B31D8BAC3F609CF97BE96467933F5663FD64F18B6D6ABE2034CB4BC07BA3E3D4"
+      },
+      {
+        "path": "stt.py",
+        "bytes": 1810,
+        "sha256": "702F602E685014FF9CC1C12559AF9D2AC9849E6FD399D944AD7F08BFC56C63DB"
+      },
+      {
+        "path": "tts.py",
+        "bytes": 783,
+        "sha256": "A7C40A070DCA246C51B3ED39AE0E28CAC766AD2554872FF44C53D659ACEE0D6D"
+      }
+    ],
+    "nonBundledPromotionalAssets": [
+      {
+        "path": "promo/index.html",
+        "bytes": 3759,
+        "sha256": "CD654B8488A6B905965444C76200BF2ABD7736647146F2DB22E0ECAD411E195A"
+      },
+      {
+        "path": "promo/posters/POSTER_BRIEF.md",
+        "bytes": 9722,
+        "sha256": "C37192D65606FB8D9B012E423423C9A10A154F88D3F100A369FA07E4DA7366B0"
+      },
+      {
+        "path": "promo/posters/athena-poster-01-brand.png",
+        "bytes": 2263254,
+        "sha256": "8B104279E877627E9A553B5A04754C1C4C3AAA078CF771E92698604295FF6D3C"
+      },
+      {
+        "path": "promo/posters/athena-poster-02-memory.png",
+        "bytes": 2560998,
+        "sha256": "21C8F4A4BDED4BCE725A10B6664794198700DF2EE9D50A6724A2B634D14C5C47"
+      },
+      {
+        "path": "promo/posters/athena-poster-03-local.png",
+        "bytes": 2794293,
+        "sha256": "A003926B2C17EFD215BA1815AC6D16C9FAC61561C30DA9194E7AC8ADC26B86BB"
+      },
+      {
+        "path": "promo/posters/athena-poster-04-modes.png",
+        "bytes": 2112103,
+        "sha256": "EEF1C08DB163E399A91B9387674266D405B616CDC318CE1852E5D79FCD8D52C5"
+      },
+      {
+        "path": "promo/posters/athena-poster-05-muse.png",
+        "bytes": 2239206,
+        "sha256": "6D076CA619020C40C5255893FF0A095DAB2835CFE75D1895B4AFBC036FD9B3A2"
+      },
+      {
+        "path": "promo/posters/athena-poster-06-companion.png",
+        "bytes": 1794818,
+        "sha256": "B0C48340DAB5D1AA4EA6DFC11E402122DA51A218343027A2FCF25C18AEC6A8DD"
+      },
+      {
+        "path": "promo/product.html",
+        "bytes": 4019,
+        "sha256": "374F0F721922972EF93CD855DDD6647C72D15660338EABD280C3126876D9EE85"
+      },
+      {
+        "path": "promo/promo.css",
+        "bytes": 11527,
+        "sha256": "C7DE0E07D14232E2D813A20C26F9AE20617A7684F14DF37019532A0D3DCABF01"
+      },
+      {
+        "path": "promo/promo.js",
+        "bytes": 3944,
+        "sha256": "380B786E63F7AA118FB53C8F3A721DBF1B682314CA2F301240E194A3B1EFD742"
+      },
+      {
+        "path": "promo/visual.html",
+        "bytes": 3130,
+        "sha256": "C0B735E4E21C49A86EE918903B8D2E59AB1081498B27DCAEF236D205A9432445"
+      }
+    ],
+    "nonBundledConceptAssets": [
+      {
+        "path": "docs/concepts/athena-agora-glass.png",
+        "bytes": 1591324,
+        "sha256": "0A5798AC8FEBF401272201E915B5FF7D893DF13E7C238EF64AB8D182D83453B9"
+      },
+      {
+        "path": "docs/concepts/athena-agora-glass.svg",
+        "bytes": 11995,
+        "sha256": "52D0E7EB5FED2AFDA5A391D9B28243FD0D006D78968683CB488DDBBD8420D572"
+      },
+      {
+        "path": "docs/concepts/athena-classical-material-field.png",
+        "bytes": 1998465,
+        "sha256": "EF18AC51A9D40E4981A93A223B0F033F93DA9E95FFE11203373C444D91651F2D"
+      },
+      {
+        "path": "docs/concepts/athena-classical-material-field.prompt.md",
+        "bytes": 3725,
+        "sha256": "F133881A69C129BA8CB8A72E070C0322CA42B5D4F9C648DC76F1112A50FAC673"
+      },
+      {
+        "path": "docs/concepts/athena-clean-glass-baseline.png",
+        "bytes": 316351,
+        "sha256": "B920FDAAB2ED8C9B647BC26F1B7A8539696FAE83A6259A0F9B0F722D783900E1"
+      },
+      {
+        "path": "docs/concepts/athena-day-before-unify.png",
+        "bytes": 315053,
+        "sha256": "157A1283989B0AF18D8C5B8BB315CB4F6389C5E4315CCF0D76C01C99A89D3B49"
+      },
+      {
+        "path": "docs/concepts/athena-depth-wallpaper-final-clean.png",
+        "bytes": 522644,
+        "sha256": "7517890B863E139B4F4065685BEBFA3B7E409A2E4C7864F5E22F7B22A6AF70D9"
+      },
+      {
+        "path": "docs/concepts/athena-depth-wallpaper-final.png",
+        "bytes": 474696,
+        "sha256": "73DC6A4F6712B949ABBD56F5A5F19FD71EB6487D7E394E1CA58A1B7DC1516C86"
+      },
+      {
+        "path": "docs/concepts/athena-depth-wallpaper-runtime-v1.png",
+        "bytes": 420183,
+        "sha256": "0E6CAB0CBB97F26C2AC62712BB51FA3324C7C902D9334EA9396BE1C2BD46D467"
+      },
+      {
+        "path": "docs/concepts/athena-depth-wallpaper-runtime-v2.png",
+        "bytes": 545228,
+        "sha256": "04420FC190B7D41CD56236A523711325FCD8ECE23B0B693BF46DEC9237D494FB"
+      },
+      {
+        "path": "docs/concepts/athena-depth-wallpaper-runtime-v3.png",
+        "bytes": 476085,
+        "sha256": "10BE8B4F1B7FECCDAFE2EBF45DF716D5C16DE1924F73379B819D837559EAA365"
+      },
+      {
+        "path": "docs/concepts/athena-depth-wallpaper-runtime-v4.png",
+        "bytes": 476079,
+        "sha256": "3B39F3AF77C56EFBC31DCF2EEBF7A2EE2CBEE5A9813A6EFFC1F05A68F83618BC"
+      },
+      {
+        "path": "docs/concepts/athena-final-mode-check.png",
+        "bytes": 312871,
+        "sha256": "B3117DC52345E855AD23694603829EADFA5321CFAC75C3EEC00BEF32858296D8"
+      },
+      {
+        "path": "docs/concepts/athena-interactive-runtime-v2.png",
+        "bytes": 265114,
+        "sha256": "6938483FB429E97740D40864F56B395AAA6B40E7742F26F6328E8D2E509B5D15"
+      },
+      {
+        "path": "docs/concepts/athena-interactive-runtime-v3.png",
+        "bytes": 269172,
+        "sha256": "142D0C585BF41B18A7B1705DE6CBA6C047AD797F8DE0B7A8952065B18B9560DF"
+      },
+      {
+        "path": "docs/concepts/athena-interactive-runtime.png",
+        "bytes": 264033,
+        "sha256": "DC09BE717B73E212ED9FB52ED4217C6E065E562F45314381378E9B06A2A539EF"
+      },
+      {
+        "path": "docs/concepts/athena-mode-color-day-v1.png",
+        "bytes": 305024,
+        "sha256": "813A10A3E43F66518E40A90BF00BE529B247E2A181C8719601BC71CBE279B0B0"
+      },
+      {
+        "path": "docs/concepts/athena-mode-color-night-final.png",
+        "bytes": 236499,
+        "sha256": "05F832B20FB2C673777FD31D14428A616D693C3E9EE0528FB2361AFA5ACD9AE8"
+      },
+      {
+        "path": "docs/concepts/athena-mode-color-night-v1.png",
+        "bytes": 241802,
+        "sha256": "4768E01AB4FD4C1B45B12D219DBD750B3B71D0C8E09A05B5869BAD19C033F683"
+      },
+      {
+        "path": "docs/concepts/athena-mode-color-packaged-night-final.png",
+        "bytes": 296811,
+        "sha256": "36347F6C10298B2756AEBE76E10B2E2DD45E521868132EF501F2CE02A2B107C6"
+      },
+      {
+        "path": "docs/concepts/athena-mode-companion-qa.png",
+        "bytes": 267018,
+        "sha256": "3862D308C31D8011493912F13B7314B713D8EAC12FF4DDA50CF79DAB324DD2BB"
+      },
+      {
+        "path": "docs/concepts/athena-mode-create-qa.png",
+        "bytes": 268819,
+        "sha256": "BC5BD7C601D949B90C2EC309BED0E0A51C06E4C07A67804A4972A94F1E76F812"
+      },
+      {
+        "path": "docs/concepts/athena-mode-day-companion-final.png",
+        "bytes": 266573,
+        "sha256": "0DFD6572E8DEC5C90983D2CCCC37A9D9F1D30EB2BBEBE3D73139B6CA9A3E8C6B"
+      },
+      {
+        "path": "docs/concepts/athena-mode-day-create-final.png",
+        "bytes": 278117,
+        "sha256": "35DF0AAA846076184919C56FA61CBF0BFE824E3F41968CA806F87C3E2FB4961A"
+      },
+      {
+        "path": "docs/concepts/athena-mode-day-reason-final.png",
+        "bytes": 278683,
+        "sha256": "3B433C155D28578C47EFFDBCA08CA77A504A6121EE09C508A0776EEB3A7756DA"
+      },
+      {
+        "path": "docs/concepts/athena-mode-night-companion-final.png",
+        "bytes": 205770,
+        "sha256": "6C63B1C5F9207356157A051FE4D72CDB948A03AA135C0DF6019B4C124801D433"
+      },
+      {
+        "path": "docs/concepts/athena-mode-night-create-final.png",
+        "bytes": 215511,
+        "sha256": "AEDB87F1186C246CA840E5829F15F3DFC1D934F0E6B59688FAB44E61E2D32B83"
+      },
+      {
+        "path": "docs/concepts/athena-mode-night-reason-final.png",
+        "bytes": 214009,
+        "sha256": "7EC469B8B9C7C350281F3648C4C42B5391023B136DC423BB046C9A7FDB79ADE1"
+      },
+      {
+        "path": "docs/concepts/athena-mode-reason-qa.png",
+        "bytes": 270378,
+        "sha256": "9E19342BC1D67FB882EF3DFA3D04B2DD0923397D6C5213E9D8048AB464EA1891"
+      },
+      {
+        "path": "docs/concepts/athena-nocturne-packaged-final.png",
+        "bytes": 257393,
+        "sha256": "1F12DF87C368735FCAD848478B7D8CA680C4CE4A7D281D980AD5F0C22937E906"
+      },
+      {
+        "path": "docs/concepts/athena-nocturne-packaged-v4.png",
+        "bytes": 234101,
+        "sha256": "C55218A295576AE1285AAE7CC97A99A568078D51442783BDC7BA382A5F238EBF"
+      },
+      {
+        "path": "docs/concepts/athena-nocturne-packaged.png",
+        "bytes": 257395,
+        "sha256": "7C71CB5B20B955AF0C57C5F5956B90A7E58518B878D405D4AB5EA47C08025A63"
+      },
+      {
+        "path": "docs/concepts/athena-nocturne-settings-v1.png",
+        "bytes": 281567,
+        "sha256": "7ADBB2014A7146E6205FAD17E6CE960B6377B2898DDC2E09A5806351E3DE9918"
+      },
+      {
+        "path": "docs/concepts/athena-nocturne-settings-v2.png",
+        "bytes": 201889,
+        "sha256": "19B7751308BAF115280643C5A5CFD0C6A29C0781BC9ABFE85016279228AA284B"
+      },
+      {
+        "path": "docs/concepts/athena-nocturne-v1.png",
+        "bytes": 257395,
+        "sha256": "7C71CB5B20B955AF0C57C5F5956B90A7E58518B878D405D4AB5EA47C08025A63"
+      },
+      {
+        "path": "docs/concepts/athena-nocturne-v2.png",
+        "bytes": 245995,
+        "sha256": "20A160E07226B115CD4393EB536C78B7A46B95ACBFC37493DCB337F6950DBA45"
+      },
+      {
+        "path": "docs/concepts/athena-nocturne-v3.png",
+        "bytes": 234434,
+        "sha256": "78086412F8DD529605D773D83E8D30A9D32E543ED8B643040328ED8F16C6C82E"
+      },
+      {
+        "path": "docs/concepts/athena-nocturne-v4.png",
+        "bytes": 234101,
+        "sha256": "C55218A295576AE1285AAE7CC97A99A568078D51442783BDC7BA382A5F238EBF"
+      },
+      {
+        "path": "docs/concepts/athena-unified-glass-day-final.png",
+        "bytes": 296045,
+        "sha256": "2B619BC193EFFB0105321AC46AFEE6770BA58A02C60012A5434C14D607144DED"
+      },
+      {
+        "path": "docs/concepts/athena-unified-glass-day-v1.png",
+        "bytes": 295225,
+        "sha256": "290637DA4CBF2D2A0C33F757F21C510E0432214E6FE2F114D20090675512228F"
+      },
+      {
+        "path": "docs/concepts/athena-unified-glass-night-final.png",
+        "bytes": 231284,
+        "sha256": "BD4C07CEC0A2D204895F3B769FB6C2943DAE4B3A6D95D343DB36FCE76CC7CD7F"
+      },
+      {
+        "path": "docs/concepts/athena-unified-glass-night-v1.png",
+        "bytes": 230311,
+        "sha256": "5CF8C7CE05AACF173FF9F333F5DFE9588DF9F1710F18043A6116381A2D19FEBF"
+      },
+      {
+        "path": "docs/concepts/athena-unified-glass-packaged-day-final.png",
+        "bytes": 296081,
+        "sha256": "DF87BBBA4D0C8651BB1F62A2623A07147A1CE102BFA80295042CD3162278454A"
+      },
+      {
+        "path": "docs/concepts/athena-unified-glass-packaged-day.png",
+        "bytes": 295225,
+        "sha256": "290637DA4CBF2D2A0C33F757F21C510E0432214E6FE2F114D20090675512228F"
+      },
+      {
+        "path": "docs/concepts/athena-unified-glass-packaged-night-final.png",
+        "bytes": 231313,
+        "sha256": "16C2850B0EE68E91D958872B77AA86FC9012529319BD98DFBDEC2F709B85B8FA"
+      },
+      {
+        "path": "docs/concepts/athena-unified-glass-packaged-night.png",
+        "bytes": 230311,
+        "sha256": "5CF8C7CE05AACF173FF9F333F5DFE9588DF9F1710F18043A6116381A2D19FEBF"
+      },
+      {
+        "path": "docs/concepts/athena-unified-glass-settings-day-v1.png",
+        "bytes": 198661,
+        "sha256": "5B640B0C74C4DAC657EE493B47C1C7463C54FB778F99002F41FD425E6FA30A4D"
+      },
+      {
+        "path": "docs/concepts/athena-unified-glass-settings-day-v2.png",
+        "bytes": 201325,
+        "sha256": "665DFDEA9A43B83AA208E25A06E3E2FAF52849C6EF2B617DE8B484912606E00A"
+      },
+      {
+        "path": "docs/concepts/athena-unified-glass-settings-night-v1.png",
+        "bytes": 171740,
+        "sha256": "D7AE2BAD82565E76D7F39D7A11E686B4937443A9A75B40911609D0716FDBE4AB"
+      },
+      {
+        "path": "docs/concepts/athena-water-ice-glass-ripple-slow.png",
+        "bytes": 316507,
+        "sha256": "B329244675F81C6C0BC218170F3F89C027EF95592B24E3D990282A8458C0E48F"
+      },
+      {
+        "path": "docs/concepts/athena-water-ice-glass-ripple-v2.png",
+        "bytes": 312862,
+        "sha256": "62AE292D7089E2A504938F94F45FB09ED932D049A52BAED559EB43C09E505331"
+      },
+      {
+        "path": "docs/concepts/athena-water-ice-glass-ripple-v3.png",
+        "bytes": 314504,
+        "sha256": "0804E7DBB6F41C1C5018D22895C36ED4FA9AC75F966C52A0B6816E0BC53002A1"
+      },
+      {
+        "path": "docs/concepts/athena-water-ice-glass-ripple.png",
+        "bytes": 290746,
+        "sha256": "6680910DCDB3559CA5288AC4DB0EA71B285DF4644587349C3EE55DC384041C81"
+      },
+      {
+        "path": "docs/concepts/athena-water-ice-glass-v1.png",
+        "bytes": 312366,
+        "sha256": "944EE69520638633CD4A5010582A878E5D3437CF939C89E41E1BCFF2B10A75E8"
+      },
+      {
+        "path": "docs/concepts/athena-water-ice-pressure-response.png",
+        "bytes": 311864,
+        "sha256": "B9D2CED2EB1EFEFD2E6EFFDE3B55340FC3BC96009714BF7144E3BD318DEC91F2"
+      }
+    ],
+    "requiredHumanSignoffs": [
+      "Athena name, Su Shixia name, logos/icons, splash/tray images, screenshots, wallpapers, and poster concepts",
+      "publisher legal identity, company ownership, trademark clearance, EULA, public privacy URL, and support contact",
+      "confirmation that no third-party font, icon, photo, voice, or audio asset is redistributed without a recorded license"
+    ]
+  },
+  "repositoryProvenance": {
+    "gitRemote": "none configured or unavailable",
+    "unknownOrExcludedPayloads": [
+      {
+        "path": "models/",
+        "status": "Blocked",
+        "packagingStatus": "excluded from normal installer and offline pack",
+        "evidenceNeeded": "human approval for retention plus source URL, license, and redistribution proof for each local GGUF or placeholder file before any distribution",
+        "files": []
+      },
+      {
+        "path": "legacy/root-artifacts/",
+        "status": "archived",
+        "packagingStatus": "not included by electron-builder.yml",
+        "evidence": "legacy/root-artifacts/MANIFEST.sha256"
+      },
+      {
+        "path": "新建文件夹/",
+        "status": "Blocked",
+        "packagingStatus": "not included by electron-builder.yml",
+        "evidenceNeeded": "user confirmation of owner, purpose, and retention policy"
+      }
+    ]
+  },
+  "buildArtifacts": [],
+  "packagingDecisions": [
+    {
+      "decision": "normal installer excludes OllamaSetup.exe and local model payloads",
+      "evidence": "electron-builder.yml files excludes resources/OllamaSetup.exe; model payloads are not included"
+    },
+    {
+      "decision": "packaged resources include only database/athena.db seed data",
+      "evidence": "electron-builder.yml extraResources filters exclude database backups, migrations, WAL, and SHM files"
+    },
+    {
+      "decision": "offline pack copies only allowlisted model files with SHA-256 verification",
+      "evidence": "scripts/package-offline.ps1 requires docs/OFFLINE_MODEL_ALLOWLIST.json"
+    }
+  ],
+  "openReleaseSignoffs": [
+    "publisher legal identity, support contact, EULA, and public privacy URL",
+    "human ownership review for Athena/Su Shixia names, icons, wallpaper, screenshots, and audio",
+    "Ollama installer redistribution terms beyond project source license",
+    "code signing, updater, rollback, CI, and store credentials"
+  ]
+}
