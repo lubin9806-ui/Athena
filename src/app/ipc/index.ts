@@ -3,6 +3,14 @@
 import { ipcMain, BrowserWindow, dialog, IpcMainEvent, IpcMainInvokeEvent } from 'electron';
 import { AthenaController } from '../../core/controller/AthenaController';
 import { getAppSettings, getSettingsBundle, saveSettingsBundle } from '../../core/config/SettingsStore';
+import {
+  applyDataRetention,
+  cleanupVoiceCache,
+  clearAllLocalData,
+  exportAllData,
+  getPrivacyCenterState,
+  recordDataActivity,
+} from '../../core/privacy/PrivacyDataService';
 import { VoiceService } from '../../core/voice/VoiceService';
 import { globalEventBus } from '../../engine/EventBus';
 import {
@@ -35,6 +43,9 @@ const INVOKE_CHANNELS = [
   'memory:chooseImportFile',
   'memory:previewImport',
   'memory:commitImport',
+  'privacy:get',
+  'privacy:export',
+  'privacy:clearLocalData',
   'voice:requestMicrophoneAccess',
   'voice:speak',
   'voice:play',
@@ -130,6 +141,15 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     if (!isTrustedSender(event)) return null;
     const bundle = saveSettingsBundle(cleanSettingsPatch(patch));
     controller.applyToolPermission(bundle.settings.tools, bundle.settings.conversation.activeMode);
+    const retention = applyDataRetention();
+    const voiceRemoved = cleanupVoiceCache(bundle.settings.data.voiceCacheRetentionHours);
+    recordDataActivity('settings', 'config-set', {
+      historyRetentionDays: bundle.settings.data.historyRetentionDays,
+      saveHistory: bundle.settings.conversation.saveHistory,
+      memoryAutoExtractEffective: bundle.settings.conversation.saveHistory && bundle.settings.memory.autoExtract,
+      retention,
+      voiceRemoved,
+    });
     return toRendererSettingsBundle(bundle);
   });
 
@@ -181,10 +201,28 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     return commitChatRecordImport(safePath, cleanCandidateIds(candidateIds));
   });
 
+  ipcMain.handle('privacy:get', async (event) => {
+    if (!isTrustedSender(event)) return null;
+    return getPrivacyCenterState();
+  });
+
+  ipcMain.handle('privacy:export', async (event, format: unknown) => {
+    if (!isTrustedSender(event)) return null;
+    return exportAllData(format === 'markdown' ? 'markdown' : 'json');
+  });
+
+  ipcMain.handle('privacy:clearLocalData', async (event) => {
+    if (!isTrustedSender(event)) return null;
+    return clearAllLocalData();
+  });
+
   ipcMain.handle('voice:speak', async (event, text: unknown) => {
     if (!isTrustedSender(event)) return { ok: false, error: 'IPC sender rejected.' };
     if (!getAppSettings().voice.ttsEnabled) return { ok: false, error: 'TTS is disabled in settings.' };
-    return voice.synthesize(cleanString(text, MAX_TEXT_TO_SPEAK_CHARS));
+    const cleanText = cleanString(text, MAX_TEXT_TO_SPEAK_CHARS);
+    const result = await voice.synthesize(cleanText);
+    if (result.ok) recordDataActivity('voice', 'local-tts', { chars: cleanText.length });
+    return result;
   });
 
   ipcMain.handle('voice:play', async (event, sourcePath: unknown) => {
@@ -208,7 +246,9 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     if (!isTrustedSender(event)) return { ok: false, error: 'IPC sender rejected.' };
     if (!getAppSettings().voice.sttEnabled) return { ok: false, error: 'STT is disabled in settings.' };
     const safePath = cleanExistingFilePath(sourcePath, ['wav', 'aiff', 'aif', 'flac'], MAX_PATH_CHARS);
-    return safePath ? voice.transcribe(safePath) : { ok: false, error: 'Audio path rejected.' };
+    const result = safePath ? await voice.transcribe(safePath) : { ok: false, error: 'Audio path rejected.' };
+    if (result.ok) recordDataActivity('voice', 'local-stt-file', { sourceExtension: safePath ? safePath.split('.').pop() : '' });
+    return result;
   });
 
   ipcMain.handle('voice:transcribeRecording', async (event, audioBytes: unknown) => {
@@ -227,7 +267,9 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     if (audioBytes.byteLength > MAX_RECORDING_BYTES) {
       return { ok: false, error: 'Recording is too large (maximum 12 MB).' };
     }
-    return voice.transcribeRecording(audioBytes);
+    const result = await voice.transcribeRecording(audioBytes);
+    if (result.ok) recordDataActivity('voice', 'local-stt-recording', { bytes: audioBytes.byteLength });
+    return result;
   });
 
   ipcMain.handle('voice:requestMicrophoneAccess', async (event) => {

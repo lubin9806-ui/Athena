@@ -16,6 +16,7 @@ export interface ToolSettings {
   modePermissions: ToolModePermissions;
   maxToolRounds: number;
   commandTimeoutSeconds: number;
+  allowExternalNetwork?: boolean;
 }
 
 export interface ToolExecutionRecord {

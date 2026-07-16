@@ -29,7 +29,8 @@
       "execute": "off"
     },
     "maxToolRounds": 4,
-    "commandTimeoutSeconds": 60
+    "commandTimeoutSeconds": 60,
+    "allowExternalNetwork": false
   },
   "webSearch": {
     "enabled": true,
@@ -72,6 +73,15 @@
     "historyRetentionDays": 0,
     "voiceCacheRetentionHours": 24,
     "exportFormat": "json"
+  },
+  "privacy": {
+    "networkConsent": {
+      "webSearch": false,
+      "onlineSpeechToText": false,
+      "onlineTextToSpeech": false,
+      "externalToolNetwork": false
+    },
+    "firstRunPrivacySeenAt": "2026-07-15T15:18:13.142Z"
   },
   "ui": {
     "startupIntro": true,

@@ -269,7 +269,7 @@ export class ComputerToolService {
         case 'launch_program': return await this.launchProgram(args);
         case 'open_path': return await this.openPath(args);
         case 'http_request': return await this.httpRequest(args, settings);
-        case 'check_port': return await this.checkPort(args);
+        case 'check_port': return await this.checkPort(args, settings);
         default: return { status: 'failed', summary: `未实现工具：${name}`, output: '' };
       }
     } catch (error) {
@@ -788,6 +788,13 @@ export class ComputerToolService {
     const url = new URL(rawUrl);
     if (url.protocol !== 'http:' && url.protocol !== 'https:') throw new Error('只支持 HTTP 和 HTTPS 地址。');
     if (url.username || url.password) throw new Error('HTTP 地址不能包含用户名或密码，请改用请求头并妥善保管凭据。');
+    if (!settings.allowExternalNetwork && !isLocalNetworkHost(url.hostname)) {
+      return {
+        status: 'denied',
+        summary: '外部网络请求需要先完成隐私同意',
+        output: `host: ${url.hostname}\nreason: external_tool_network_consent_required`,
+      };
+    }
     const method = optionalString(args.method)?.toUpperCase() || 'GET';
     if (!['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'].includes(method)) throw new Error(`不支持 HTTP 方法 ${method}。`);
     const headers: Record<string, string> = {};
@@ -824,13 +831,20 @@ export class ComputerToolService {
     }
   }
 
-  private async checkPort(args: Record<string, unknown>): Promise<ComputerToolResult> {
+  private async checkPort(args: Record<string, unknown>, settings: ToolSettings): Promise<ComputerToolResult> {
     const host = optionalString(args.host) || '127.0.0.1';
     const parsedPort = typeof args.port === 'number' ? args.port : Number(args.port);
     if (!Number.isInteger(parsedPort) || parsedPort < 1 || parsedPort > 65_535) {
       throw new Error('port 必须是 1 到 65535 的整数。');
     }
     const port = parsedPort;
+    if (!settings.allowExternalNetwork && args.host && !isLocalNetworkHost(host)) {
+      return {
+        status: 'denied',
+        summary: '外部端口探测需要先完成隐私同意',
+        output: `host: ${host}\nport: ${port}\nreason: external_tool_network_consent_required`,
+      };
+    }
     const timeoutSeconds = clampInteger(args.timeout_seconds, 1, 30, 3);
     const open = await probePort(host, port, timeoutSeconds * 1000);
     return completed(`${host}:${port} ${open ? '可连接' : '未开放'}`, `host: ${host}\nport: ${port}\nopen: ${open}`);
@@ -892,6 +906,15 @@ function resolveKnownFolderAlias(value: string): string {
   ].filter(Boolean);
   const base = candidates.find(candidate => fs.existsSync(candidate)) || candidates[0];
   return child ? path.join(base, child) : base;
+}
+
+function isLocalNetworkHost(host: string): boolean {
+  const normalized = host.trim().toLowerCase().replace(/^\[|\]$/g, '');
+  return normalized === 'localhost'
+    || normalized === '127.0.0.1'
+    || normalized === '::1'
+    || normalized === '0.0.0.0'
+    || normalized.startsWith('127.');
 }
 
 function resolveBatchMovePatterns(args: Record<string, unknown>): string[] {

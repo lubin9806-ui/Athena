@@ -73,6 +73,18 @@ export interface DataSettings {
   exportFormat: 'json' | 'markdown';
 }
 
+export interface NetworkConsentSettings {
+  webSearch: boolean;
+  onlineSpeechToText: boolean;
+  onlineTextToSpeech: boolean;
+  externalToolNetwork: boolean;
+}
+
+export interface PrivacySettings {
+  networkConsent: NetworkConsentSettings;
+  firstRunPrivacySeenAt?: string;
+}
+
 export interface AppSettings {
   version: number;
   profile: string;
@@ -86,6 +98,7 @@ export interface AppSettings {
   memory: MemorySettings;
   voice: VoiceSettings;
   data: DataSettings;
+  privacy: PrivacySettings;
   ui: UiSettings;
 }
 
@@ -116,7 +129,7 @@ export interface SettingsBundle {
 }
 
 export interface SettingsPatch {
-  settings?: Omit<Partial<AppSettings>, 'general' | 'appearance' | 'conversation' | 'tools' | 'webSearch' | 'personalization' | 'memory' | 'voice' | 'data' | 'ui'> & {
+  settings?: Omit<Partial<AppSettings>, 'general' | 'appearance' | 'conversation' | 'tools' | 'webSearch' | 'personalization' | 'memory' | 'voice' | 'data' | 'privacy' | 'ui'> & {
     general?: Partial<GeneralSettings>;
     appearance?: Partial<AppearanceSettings>;
     conversation?: Partial<ConversationSettings>;
@@ -128,6 +141,9 @@ export interface SettingsPatch {
     memory?: Partial<MemorySettings>;
     voice?: Partial<VoiceSettings>;
     data?: Partial<DataSettings>;
+    privacy?: Omit<Partial<PrivacySettings>, 'networkConsent'> & {
+      networkConsent?: Partial<NetworkConsentSettings>;
+    };
     ui?: Partial<UiSettings>;
   };
   model?: Omit<Partial<ModelSettings>, 'ollama' | 'fallback'> & {

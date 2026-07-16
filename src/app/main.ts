@@ -202,6 +202,12 @@ function createWindow(): void {
                document.getElementById('setting-web-search-deep-read') &&
                document.getElementById('setting-web-search-secondary') &&
                document.getElementById('setting-web-search-max-pages') &&
+               document.getElementById('setting-consent-web-search') &&
+               document.getElementById('setting-consent-external-tool-network') &&
+               document.getElementById('privacy-data-map') &&
+               document.getElementById('privacy-static-decision') &&
+               document.getElementById('privacy-export') &&
+               document.getElementById('privacy-clear') &&
                micButton &&
               document.getElementById('voice-file-btn') &&
               document.getElementById('voice-feedback') &&
@@ -210,6 +216,9 @@ function createWindow(): void {
               typeof api.playAudioFile === 'function' &&
               typeof api.getSettings === 'function' &&
               typeof api.saveSettings === 'function'
+              && typeof api.getPrivacyCenter === 'function'
+              && typeof api.exportPrivacyData === 'function'
+              && typeof api.clearLocalData === 'function'
               && typeof api.cancelExecution === 'function'
               && typeof api.onWebSearchStatus === 'function'
               && typeof api.requestMicrophoneAccess === 'function'

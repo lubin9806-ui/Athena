@@ -39,6 +39,9 @@ declare global {
       chooseMemoryImportFile: () => Promise<string | null>;
       previewMemoryImport: (sourcePath: string) => Promise<MemoryImportPreview>;
       commitMemoryImport: (sourcePath: string, candidateIds: number[]) => Promise<MemoryImportCommitResult>;
+      getPrivacyCenter: () => Promise<PrivacyCenterState | null>;
+      exportPrivacyData: (format?: 'json' | 'markdown') => Promise<{ path: string; bytes: number } | null>;
+      clearLocalData: () => Promise<{ deletedTables: string[]; voiceCacheFilesDeleted: number } | null>;
       speakText: (text: string) => Promise<VoiceResult>;
       playAudioFile: (sourcePath: string) => Promise<VoiceResult>;
       chooseAudioFile: () => Promise<string | null>;
@@ -262,6 +265,18 @@ interface DataSettings {
   exportFormat: 'json' | 'markdown';
 }
 
+interface NetworkConsentSettings {
+  webSearch: boolean;
+  onlineSpeechToText: boolean;
+  onlineTextToSpeech: boolean;
+  externalToolNetwork: boolean;
+}
+
+interface PrivacySettings {
+  networkConsent: NetworkConsentSettings;
+  firstRunPrivacySeenAt?: string;
+}
+
 interface AppSettings {
   version: number;
   profile: string;
@@ -275,6 +290,7 @@ interface AppSettings {
   memory: MemorySettings;
   voice: VoiceSettings;
   data: DataSettings;
+  privacy: PrivacySettings;
   ui: UiSettings;
 }
 
@@ -305,7 +321,7 @@ interface SettingsBundle {
 }
 
 interface SettingsPatch {
-  settings?: Omit<Partial<AppSettings>, 'general' | 'appearance' | 'conversation' | 'tools' | 'webSearch' | 'personalization' | 'memory' | 'voice' | 'data' | 'ui'> & {
+  settings?: Omit<Partial<AppSettings>, 'general' | 'appearance' | 'conversation' | 'tools' | 'webSearch' | 'personalization' | 'memory' | 'voice' | 'data' | 'privacy' | 'ui'> & {
     general?: Partial<GeneralSettings>;
     appearance?: Partial<AppearanceSettings>;
     conversation?: Partial<ConversationSettings>;
@@ -317,12 +333,50 @@ interface SettingsPatch {
     memory?: Partial<MemorySettings>;
     voice?: Partial<VoiceSettings>;
     data?: Partial<DataSettings>;
+    privacy?: Omit<Partial<PrivacySettings>, 'networkConsent'> & {
+      networkConsent?: Partial<NetworkConsentSettings>;
+    };
     ui?: Partial<UiSettings>;
   };
   model?: Omit<Partial<ModelSettings>, 'ollama' | 'fallback'> & {
     ollama?: Partial<ModelSettings['ollama']>;
     fallback?: Partial<ModelSettings['fallback']>;
   };
+}
+
+interface DataMapItem {
+  id: string;
+  label: string;
+  stored: string;
+  locations: string[];
+  leavesDevice: string;
+  retention: string;
+  controls: string[];
+}
+
+interface NetworkCapabilityNotice {
+  id: keyof NetworkConsentSettings;
+  label: string;
+  sends: string;
+  destinations: string;
+  consented: boolean;
+}
+
+interface StaticProtectionDecision {
+  status: string;
+  claim: string;
+  threatAssessment: string[];
+  decision: string;
+  verification: string[];
+}
+
+interface PrivacyCenterState {
+  generatedAt: string;
+  dataMap: DataMapItem[];
+  networkCapabilities: NetworkCapabilityNotice[];
+  staticProtection: StaticProtectionDecision;
+  stats: unknown;
+  paths: Record<string, string>;
 }
 
 const appShell = mustGet<HTMLElement>('app-shell');
@@ -445,6 +499,12 @@ const settingConfirmDelete = mustGet<HTMLInputElement>('setting-confirm-delete')
 const settingHistoryRetention = mustGet<HTMLInputElement>('setting-history-retention');
 const settingVoiceCacheRetention = mustGet<HTMLInputElement>('setting-voice-cache-retention');
 const settingExportFormat = mustGet<HTMLSelectElement>('setting-export-format');
+const settingConsentWebSearch = mustGet<HTMLInputElement>('setting-consent-web-search');
+const settingConsentExternalToolNetwork = mustGet<HTMLInputElement>('setting-consent-external-tool-network');
+const privacyDataMap = mustGet<HTMLElement>('privacy-data-map');
+const privacyStaticDecision = mustGet<HTMLElement>('privacy-static-decision');
+const privacyExport = mustGet<HTMLButtonElement>('privacy-export');
+const privacyClear = mustGet<HTMLButtonElement>('privacy-clear');
 const settingsFeedback = mustGet<HTMLElement>('settings-feedback');
 
 const liveGlass = new LiveGlass([titlebar, modeSwitch, inputForm]);
@@ -674,6 +734,12 @@ function init(): void {
   settingsForm.addEventListener('submit', (event) => {
     event.preventDefault();
     saveSettingsForm();
+  });
+  privacyExport.addEventListener('click', () => {
+    void exportPrivacyData();
+  });
+  privacyClear.addEventListener('click', () => {
+    void clearLocalData();
   });
   inputBox.addEventListener('keydown', handleInputKeydown);
   inputBox.addEventListener('input', resizeInputBox);
@@ -1114,6 +1180,7 @@ async function initializeSettings(): Promise<void> {
     currentSettingsBundle = bundle;
     populateSettingsForm(bundle);
     applyRuntimeSettings(bundle.settings);
+    void loadPrivacyCenter();
     if (bundle.settings.ui.startupIntro) startStartupIntro();
     else skipStartupIntro();
     void refreshStartupModelStatus(bundle.settings.general.autoConnectModel);
@@ -1171,6 +1238,7 @@ async function toggleSettingsPanel(force?: boolean): Promise<void> {
     toggleComposerTools(false);
     syncPanelState();
     await loadSettingsPanel();
+    await loadPrivacyCenter();
     settingUserName.focus({ preventScroll: true });
     appShell.scrollLeft = 0;
     document.documentElement.scrollLeft = 0;
@@ -1249,7 +1317,7 @@ async function saveExecutionSettings(): Promise<void> {
 }
 
 function populateSettingsForm(bundle: SettingsBundle): void {
-  const { appearance, conversation, data, general, memory, personalization, tools, ui, voice, webSearch } = bundle.settings;
+  const { appearance, conversation, data, general, memory, personalization, privacy, tools, ui, voice, webSearch } = bundle.settings;
   settingLaunchStartup.checked = general.launchAtStartup;
   settingCloseTray.checked = general.closeToTray;
   settingNotifications.checked = general.desktopNotifications;
@@ -1303,6 +1371,8 @@ function populateSettingsForm(bundle: SettingsBundle): void {
   settingHistoryRetention.value = String(data.historyRetentionDays);
   settingVoiceCacheRetention.value = String(data.voiceCacheRetentionHours);
   settingExportFormat.value = data.exportFormat;
+  settingConsentWebSearch.checked = privacy.networkConsent.webSearch;
+  settingConsentExternalToolNetwork.checked = privacy.networkConsent.externalToolNetwork;
 }
 
 async function saveSettingsForm(): Promise<void> {
@@ -1393,6 +1463,15 @@ async function saveSettingsForm(): Promise<void> {
           voiceCacheRetentionHours: Number(settingVoiceCacheRetention.value),
           exportFormat: settingExportFormat.value as 'json' | 'markdown',
         },
+        privacy: {
+          firstRunPrivacySeenAt: currentSettingsBundle?.settings.privacy.firstRunPrivacySeenAt || new Date().toISOString(),
+          networkConsent: {
+            webSearch: settingConsentWebSearch.checked,
+            onlineSpeechToText: currentSettingsBundle?.settings.privacy.networkConsent.onlineSpeechToText ?? false,
+            onlineTextToSpeech: currentSettingsBundle?.settings.privacy.networkConsent.onlineTextToSpeech ?? false,
+            externalToolNetwork: settingConsentExternalToolNetwork.checked,
+          },
+        },
       },
       model: {
         ollama: {
@@ -1408,6 +1487,7 @@ async function saveSettingsForm(): Promise<void> {
     currentSettingsBundle = bundle;
     populateSettingsForm(bundle);
     applyRuntimeSettings(bundle.settings);
+    await loadPrivacyCenter();
     const modelChanged = previousModel
       && (
         previousModel.baseUrl !== bundle.model.ollama.baseUrl
@@ -1456,7 +1536,8 @@ function syncToolAccessHint(): void {
 
 function syncWebSearchControl(): void {
   const settings = currentSettingsBundle?.settings.webSearch;
-  const enabled = settings?.enabled ?? true;
+  const consented = currentSettingsBundle?.settings.privacy.networkConsent.webSearch ?? false;
+  const enabled = (settings?.enabled ?? true) && consented;
   if (!enabled) forceWebSearchForNextMessage = false;
 
   webSearchBtn.disabled = !enabled || isStreaming || isVoiceInputBusy();
@@ -1464,8 +1545,8 @@ function syncWebSearchControl(): void {
   webSearchBtn.dataset.active = String(forceWebSearchForNextMessage);
 
   if (!enabled) {
-    webSearchLabel.textContent = '联网搜索已关闭';
-    webSearchBtn.title = '请先在设置中启用联网搜索';
+    webSearchLabel.textContent = consented ? 'Web search disabled' : 'Web search needs consent';
+    webSearchBtn.title = consented ? 'Enable web search in settings first' : 'Consent to web search in Privacy and Data Center first';
     return;
   }
   if (forceWebSearchForNextMessage) {
@@ -1485,6 +1566,78 @@ function setSettingsFeedback(message: string, kind: 'info' | 'success' | 'error'
 function setExecutionSettingsFeedback(message: string, kind: 'info' | 'success' | 'error' = 'info'): void {
   executionSettingsFeedback.textContent = message;
   executionSettingsFeedback.dataset.kind = kind;
+}
+
+async function loadPrivacyCenter(): Promise<void> {
+  try {
+    const state = await window.athenaAPI.getPrivacyCenter();
+    if (!state) return;
+    renderPrivacyDataMap(state.dataMap);
+    renderStaticProtectionDecision(state.staticProtection);
+  } catch (error) {
+    privacyDataMap.textContent = `Privacy center failed to load: ${error instanceof Error ? error.message : String(error)}`;
+  }
+}
+
+function renderPrivacyDataMap(items: DataMapItem[]): void {
+  privacyDataMap.replaceChildren();
+  for (const item of items) {
+    const card = document.createElement('details');
+    card.className = 'privacy-map-item';
+    const summary = document.createElement('summary');
+    summary.textContent = item.label;
+    const body = document.createElement('div');
+    body.className = 'privacy-map-body';
+    const stored = document.createElement('p');
+    stored.textContent = `Stored: ${item.stored}`;
+    const leaves = document.createElement('p');
+    leaves.textContent = `Leaves device: ${item.leavesDevice}`;
+    const retention = document.createElement('p');
+    retention.textContent = `Retention: ${item.retention}`;
+    body.append(stored, leaves, retention);
+    card.append(summary, body);
+    privacyDataMap.appendChild(card);
+  }
+}
+
+function renderStaticProtectionDecision(decision: StaticProtectionDecision): void {
+  privacyStaticDecision.replaceChildren();
+  const status = document.createElement('div');
+  status.className = 'privacy-static-status';
+  status.textContent = decision.status;
+  const claim = document.createElement('p');
+  claim.textContent = decision.claim;
+  const detail = document.createElement('p');
+  detail.textContent = decision.decision;
+  privacyStaticDecision.append(status, claim, detail);
+}
+
+async function exportPrivacyData(): Promise<void> {
+  const format = settingExportFormat.value as 'json' | 'markdown';
+  setSettingsFeedback('Exporting privacy data...');
+  try {
+    const result = await window.athenaAPI.exportPrivacyData(format);
+    if (!result) throw new Error('Export was cancelled');
+    setSettingsFeedback(`Exported ${Math.round(result.bytes / 1024)} KB: ${result.path}`, 'success');
+    await loadPrivacyCenter();
+  } catch (error) {
+    setSettingsFeedback(`Export failed: ${error instanceof Error ? error.message : String(error)}`, 'error');
+  }
+}
+
+async function clearLocalData(): Promise<void> {
+  const approved = window.confirm('Clear local chats, memory, settings-derived activity records, logs, temp files, and voice cache?');
+  if (!approved) return;
+  setSettingsFeedback('Clearing local data...');
+  try {
+    const result = await window.athenaAPI.clearLocalData();
+    if (!result) throw new Error('Clear was cancelled');
+    setSettingsFeedback(`Local data cleared; removed ${result.voiceCacheFilesDeleted} voice cache file(s).`, 'success');
+    await loadPrivacyCenter();
+    await loadMemoryList();
+  } catch (error) {
+    setSettingsFeedback(`Clear failed: ${error instanceof Error ? error.message : String(error)}`, 'error');
+  }
 }
 
 function selectMemoryTab(tabName: string): void {

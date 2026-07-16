@@ -505,27 +505,43 @@
         </details>
 
         <details class="settings-section">
-          <summary class="settings-heading">数据</summary>
+          <summary class="settings-heading">Privacy and Data</summary>
           <div class="settings-section-body">
+            <div class="settings-note">This center only manages Desktop local data. This release has no account, Athena Cloud, Steam Cloud, or Mobile sync.</div>
+            <label class="settings-toggle">
+              <input id="setting-consent-web-search" type="checkbox" />
+              <span>Allow web search to send queries and page requests to third-party providers</span>
+            </label>
+            <label class="settings-toggle">
+              <input id="setting-consent-external-tool-network" type="checkbox" />
+              <span>Allow Execute mode to access external network hosts after per-action confirmation</span>
+            </label>
             <label class="settings-toggle">
               <input id="setting-confirm-delete" type="checkbox" />
-              <span>删除记忆前确认</span>
+              <span>Confirm before deleting memories</span>
             </label>
             <label class="settings-field">
-              <span>历史保留天数</span>
+              <span>History retention days</span>
               <input id="setting-history-retention" type="number" min="0" max="3650" step="1" />
             </label>
             <label class="settings-field">
-              <span>语音缓存保留小时</span>
+              <span>Voice cache retention hours</span>
               <input id="setting-voice-cache-retention" type="number" min="1" max="720" step="1" />
             </label>
             <label class="settings-field">
-              <span>导出格式</span>
+              <span>Export format</span>
               <select id="setting-export-format">
                 <option value="json">JSON</option>
                 <option value="markdown">Markdown</option>
               </select>
             </label>
+            <div class="privacy-actions">
+              <button id="privacy-export" class="settings-panel-link" type="button">Export local data</button>
+              <button id="privacy-clear" class="settings-panel-link settings-panel-danger" type="button">Clear local data</button>
+            </div>
+            <div class="settings-note settings-note-warning">Static protection decision: SQLite is still plaintext; this build must not claim encrypted storage. Database upgrades create a backup first and restore on migration failure.</div>
+            <div id="privacy-static-decision" class="privacy-static-decision"></div>
+            <div id="privacy-data-map" class="privacy-data-map"></div>
           </div>
         </details>
 

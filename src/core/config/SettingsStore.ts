@@ -14,6 +14,7 @@ import type {
   ConversationMode,
   PersonalizationSettings,
   PersonalizationTone,
+  PrivacySettings,
   ReplyLength,
   SettingsBundle,
   SettingsPatch,
@@ -102,6 +103,14 @@ const DEFAULT_SETTINGS: AppSettings = {
     historyRetentionDays: 0,
     voiceCacheRetentionHours: 24,
     exportFormat: 'json',
+  },
+  privacy: {
+    networkConsent: {
+      webSearch: false,
+      onlineSpeechToText: false,
+      onlineTextToSpeech: false,
+      externalToolNetwork: false,
+    },
   },
   ui: {
     startupIntro: true,
@@ -257,6 +266,14 @@ function mergeAppSettings(current: AppSettings, patch?: SettingsPatch['settings'
       ...current.data,
       ...patch.data,
     },
+    privacy: {
+      ...current.privacy,
+      ...patch.privacy,
+      networkConsent: {
+        ...current.privacy.networkConsent,
+        ...patch.privacy?.networkConsent,
+      },
+    },
     ui: {
       ...current.ui,
       ...patch.ui,
@@ -299,6 +316,7 @@ function sanitizeAppSettings(value: unknown): AppSettings {
   const memory = sanitizeMemory(source.memory);
   const voice = sanitizeVoice(source.voice);
   const data = sanitizeData(source.data);
+  const privacy = sanitizePrivacy(source.privacy);
   const ui = sanitizeUi(source.ui);
   return {
     version: DEFAULT_SETTINGS.version,
@@ -313,6 +331,7 @@ function sanitizeAppSettings(value: unknown): AppSettings {
     memory,
     voice,
     data,
+    privacy,
     ui,
   };
 }
@@ -356,6 +375,7 @@ export function normalizeToolSettings(value: unknown): ToolSettings {
     modePermissions: sanitizeToolModePermissions(source.modePermissions, permissionLevel),
     maxToolRounds: clampInteger(source.maxToolRounds, 1, 8, DEFAULT_SETTINGS.tools.maxToolRounds),
     commandTimeoutSeconds: clampInteger(source.commandTimeoutSeconds, 5, 300, DEFAULT_SETTINGS.tools.commandTimeoutSeconds),
+    allowExternalNetwork: cleanBoolean(source.allowExternalNetwork, false),
   };
 }
 
@@ -442,6 +462,23 @@ function sanitizeData(value: unknown): DataSettings {
     historyRetentionDays: clampInteger(source.historyRetentionDays, 0, 3650, DEFAULT_SETTINGS.data.historyRetentionDays),
     voiceCacheRetentionHours: clampInteger(source.voiceCacheRetentionHours, 1, 720, DEFAULT_SETTINGS.data.voiceCacheRetentionHours),
     exportFormat: source.exportFormat === 'markdown' ? 'markdown' : DEFAULT_SETTINGS.data.exportFormat,
+  };
+}
+
+function sanitizePrivacy(value: unknown): PrivacySettings {
+  const source = isRecord(value) ? value : {};
+  const consent = isRecord(source.networkConsent) ? source.networkConsent : {};
+  const firstRunPrivacySeenAt = typeof source.firstRunPrivacySeenAt === 'string'
+    ? source.firstRunPrivacySeenAt.slice(0, 80)
+    : undefined;
+  return {
+    networkConsent: {
+      webSearch: cleanBoolean(consent.webSearch, DEFAULT_SETTINGS.privacy.networkConsent.webSearch),
+      onlineSpeechToText: cleanBoolean(consent.onlineSpeechToText, DEFAULT_SETTINGS.privacy.networkConsent.onlineSpeechToText),
+      onlineTextToSpeech: cleanBoolean(consent.onlineTextToSpeech, DEFAULT_SETTINGS.privacy.networkConsent.onlineTextToSpeech),
+      externalToolNetwork: cleanBoolean(consent.externalToolNetwork, DEFAULT_SETTINGS.privacy.networkConsent.externalToolNetwork),
+    },
+    ...(firstRunPrivacySeenAt ? { firstRunPrivacySeenAt } : {}),
   };
 }
 

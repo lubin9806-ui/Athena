@@ -31,8 +31,7 @@
     "rebuild:sqlite:electron": "npm.cmd rebuild better-sqlite3 --runtime=electron --target=42.7.0 --disturl=https://electronjs.org/headers",
     "import:sushixia": "python scripts/import-su-shixia-chat-record.py",
     "start": "electron .",
-    "desktop": "electron .",
-    "test:supply-chain": "node scripts/verify-supply-chain.js"
+    "desktop": "electron ."
   },
   "dependencies": {
     "better-sqlite3": "12.11.1",

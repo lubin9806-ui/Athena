@@ -4,6 +4,12 @@ import { EmotionEngine } from '../ai/Emotion';
 import { detectDesktopAction } from '../ai/ToolCall';
 import { getAppSettings, resolveToolSettingsForMode, shouldSaveHistory } from '../config/SettingsStore';
 import { WebSearchService } from '../web/WebSearchService';
+import {
+  applyDataRetention,
+  canUseNetworkCapability,
+  consentRequiredMessage,
+  recordDataActivity,
+} from '../privacy/PrivacyDataService';
 import { Reminder } from '../scheduler/Reminder';
 import { WorkflowManager } from '../workflow/WorkflowManager';
 import {
@@ -76,6 +82,10 @@ export class AthenaController {
     logger.info('Initializing Athena...');
     getDatabase();
     initializeDefaultProfile();
+    const retention = applyDataRetention();
+    if (retention.messagesDeleted > 0 || retention.activityDeleted > 0) {
+      logger.info(`Data retention applied: messages=${retention.messagesDeleted}, activity=${retention.activityDeleted}`);
+    }
     const indexStats = rebuildMemoryIndex();
     logger.info(`Memory index ready: messages=${indexStats.messages}, profile=${indexStats.profile}, events=${indexStats.events}, project_notes=${indexStats.project_notes}`);
     this.emotion.setBaseEmotion(new Date().getHours());
@@ -97,6 +107,7 @@ export class AthenaController {
     const settings = getAppSettings();
     const mode = requestedMode ?? settings.conversation.activeMode;
     const modeToolSettings = this.applyToolPermission(settings.tools, mode);
+    modeToolSettings.allowExternalNetwork = settings.privacy.networkConsent.externalToolNetwork;
     logger.info(`User message received [mode=${mode}, tools=${modeToolSettings.permissionLevel}, chars=${userMessage.length}]`);
     this.saveMessageIfAllowed('user', userMessage, undefined, mode);
 
@@ -112,13 +123,35 @@ export class AthenaController {
     });
     let webSearchContext: WebSearchContext | undefined;
 
-    if (webPlan.shouldSearch) {
+    if (webPlan.shouldSearch && !canUseNetworkCapability('webSearch')) {
+      webSearchContext = {
+        query: webPlan.query,
+        provider: 'none',
+        searchedAt: new Date().toISOString(),
+        sources: [],
+        error: consentRequiredMessage('webSearch'),
+      };
+      options?.onWebSearchStatus?.({
+        phase: 'failed',
+        query: webPlan.query,
+        provider: 'none',
+        message: webSearchContext.error,
+      });
+    } else if (webPlan.shouldSearch) {
       try {
         webSearchContext = await this.webSearch.research(
           webPlan.query,
           settings.webSearch,
           options?.onWebSearchStatus,
         );
+        recordDataActivity('search', 'web-research', {
+          query: webPlan.query,
+          provider: webSearchContext.provider,
+          providers: webSearchContext.providers || [webSearchContext.provider],
+          sourceCount: webSearchContext.sources.length,
+          pageCount: webSearchContext.pages?.length ?? 0,
+          searchRounds: webSearchContext.searchRounds ?? 1,
+        });
         logger.info(`Web research ready: queryChars=${webPlan.query.length}, sources=${webSearchContext.sources.length}, pages=${webSearchContext.pages?.length ?? 0}, rounds=${webSearchContext.searchRounds ?? 1}`);
       } catch (error) {
         const message = error instanceof Error ? error.message : '联网搜索失败。';
@@ -147,7 +180,18 @@ export class AthenaController {
     );
 
     this.saveMessageIfAllowed('assistant', response.content, response.emotion.type, mode);
-    this.persistExtractedMemory(userMessage);
+    if (response.toolExecutions?.length) {
+      recordDataActivity('tool', 'execute-mode-tools', {
+        mode,
+        count: response.toolExecutions.length,
+        tools: response.toolExecutions.map(item => ({
+          name: item.name,
+          status: item.status,
+          durationMs: item.durationMs,
+        })),
+      });
+    }
+    if (settings.conversation.saveHistory) this.persistExtractedMemory(userMessage);
 
     logger.info(`Athena response completed [chars=${response.content.length}]`);
     return response;
@@ -170,6 +214,7 @@ export class AthenaController {
 
   applyToolPermission(settings: ToolSettings, mode: ConversationMode): ToolSettings {
     const resolved = resolveToolSettingsForMode(settings, mode);
+    resolved.allowExternalNetwork = canUseNetworkCapability('externalToolNetwork');
     this.conversation.setToolPermissionLevel(resolved.permissionLevel);
     return resolved;
   }
@@ -186,7 +231,9 @@ export class AthenaController {
   }
 
   private persistExtractedMemory(userMessage: string): void {
-    const memorySettings = getAppSettings().memory;
+    const settings = getAppSettings();
+    if (!settings.conversation.saveHistory) return;
+    const memorySettings = settings.memory;
     if (!memorySettings.enabled || !memorySettings.autoExtract) return;
 
     const extracted = extractMemoryFromUserMessage(userMessage);

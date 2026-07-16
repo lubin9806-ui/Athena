@@ -3,9 +3,12 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { createRequire } from 'module';
 import { resolveProjectRoot } from '../../core/runtime/Paths';
+import { ensureSufficientDiskSpace } from '../../core/runtime/DiskSpaceGuard';
 
 let db: Database.Database | null = null;
 let resolvedDbPath: string | null = null;
+export const DATABASE_SCHEMA_VERSION = 1;
+const MIGRATION_BACKUP_RETENTION = 5;
 
 export interface MemoryStats {
   messageCount: number;
@@ -22,12 +25,33 @@ export function getDatabase(): Database.Database {
   const dbPath = getDatabasePath();
   const dbDir = path.dirname(dbPath);
   if (!fs.existsSync(dbDir)) fs.mkdirSync(dbDir, { recursive: true });
+  ensureSufficientDiskSpace(dbDir, 16 * 1024 * 1024);
   seedPackagedDatabase(dbPath);
 
-  db = new Database(dbPath);
-  db.pragma('journal_mode = WAL');
-  db.pragma('foreign_keys = ON');
-  runMigrations(db);
+  let backupPath: string | null = null;
+  let opened: Database.Database | null = null;
+  try {
+    opened = new Database(dbPath);
+    opened.pragma(`busy_timeout = ${Math.max(50, Math.min(30_000, Number(process.env.ATHENA_DB_BUSY_TIMEOUT_MS) || 5_000))}`);
+    opened.pragma('journal_mode = WAL');
+    opened.pragma('foreign_keys = ON');
+    const currentVersion = Number(opened.pragma('user_version', { simple: true })) || 0;
+    if (currentVersion < DATABASE_SCHEMA_VERSION) {
+      backupPath = createConsistentMigrationBackup(opened, dbPath);
+      runMigrations(opened, currentVersion);
+    } else if (currentVersion > DATABASE_SCHEMA_VERSION) {
+      throw new Error(`Database schema ${currentVersion} is newer than this application supports (${DATABASE_SCHEMA_VERSION}).`);
+    }
+    db = opened;
+  } catch (error) {
+    try {
+      opened?.close();
+    } catch {
+      // A failed migration may leave SQLite half-open; restoration is still best effort.
+    }
+    if (backupPath) restoreDatabaseBackup(dbPath, backupPath);
+    throw error;
+  }
   return db;
 }
 
@@ -56,8 +80,59 @@ export function getStats(): MemoryStats {
   return { messageCount, profileCount, eventCount, projectNoteCount, indexCount, dbSize };
 }
 
-function runMigrations(database: Database.Database): void {
-  database.exec(`
+export function getDatabaseFilePath(): string {
+  return getDatabasePath();
+}
+
+export function getDatabaseBackupDir(): string {
+  return path.join(resolveDatabaseDir(), 'backups');
+}
+
+export function backupDatabaseBeforeMigration(dbPath: string = getDatabasePath(), now: Date = new Date()): string | null {
+  if (!fs.existsSync(dbPath)) return null;
+  const backupDir = getDatabaseBackupDir();
+  fs.mkdirSync(backupDir, { recursive: true });
+  const stamp = now.toISOString().replace(/[:.]/g, '-');
+  const backupPath = path.join(backupDir, `${path.basename(dbPath)}.before-migration-${stamp}.bak`);
+  fs.copyFileSync(dbPath, backupPath);
+  copySidecarIfPresent(`${dbPath}-wal`, `${backupPath}-wal`);
+  copySidecarIfPresent(`${dbPath}-shm`, `${backupPath}-shm`);
+  return backupPath;
+}
+
+export function restoreDatabaseBackup(dbPath: string, backupPath: string): void {
+  if (!fs.existsSync(backupPath)) return;
+  removeIfPresent(`${dbPath}-wal`);
+  removeIfPresent(`${dbPath}-shm`);
+  fs.copyFileSync(backupPath, dbPath);
+  restoreSidecarIfPresent(`${backupPath}-wal`, `${dbPath}-wal`);
+  restoreSidecarIfPresent(`${backupPath}-shm`, `${dbPath}-shm`);
+}
+
+function createConsistentMigrationBackup(database: Database.Database, dbPath: string, now: Date = new Date()): string | null {
+  if (!fs.existsSync(dbPath) || fs.statSync(dbPath).size === 0) return null;
+  const backupDir = getDatabaseBackupDir();
+  fs.mkdirSync(backupDir, { recursive: true });
+  const stamp = now.toISOString().replace(/[:.]/g, '-');
+  const backupPath = path.join(backupDir, `${path.basename(dbPath)}.before-migration-${stamp}.bak`);
+  database.pragma('wal_checkpoint(FULL)');
+  database.exec(`VACUUM INTO '${backupPath.replace(/'/g, "''")}'`);
+  pruneMigrationBackups(backupDir);
+  return backupPath;
+}
+
+function pruneMigrationBackups(backupDir: string): void {
+  const backups = fs.readdirSync(backupDir)
+    .filter(name => name.includes('.before-migration-') && name.endsWith('.bak'))
+    .map(name => ({ name, path: path.join(backupDir, name), modified: fs.statSync(path.join(backupDir, name)).mtimeMs }))
+    .sort((left, right) => right.modified - left.modified);
+  for (const backup of backups.slice(MIGRATION_BACKUP_RETENTION)) removeIfPresent(backup.path);
+}
+
+function runMigrations(database: Database.Database, currentVersion: number): void {
+  if (currentVersion < 0) throw new Error(`Invalid database schema version: ${currentVersion}`);
+  const migrate = database.transaction(() => {
+    database.exec(`
     CREATE TABLE IF NOT EXISTS messages (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       role TEXT NOT NULL CHECK(role IN ('user', 'assistant', 'system')),
@@ -126,13 +201,26 @@ function runMigrations(database: Database.Database): void {
       UNIQUE(source_table, source_id)
     );
     CREATE INDEX IF NOT EXISTS idx_memory_index_source ON memory_index(source_table, source_id);
-  `);
 
-  const messageColumns = database.prepare('PRAGMA table_info(messages)').all() as Array<{ name: string }>;
-  if (!messageColumns.some(column => column.name === 'mode')) {
-    database.exec("ALTER TABLE messages ADD COLUMN mode TEXT CHECK(mode IN ('create', 'companion', 'reason', 'execute'))");
-  }
-  database.exec('CREATE INDEX IF NOT EXISTS idx_messages_mode_created_at ON messages(mode, created_at)');
+    CREATE TABLE IF NOT EXISTS data_activity_records (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      category TEXT NOT NULL,
+      action TEXT NOT NULL,
+      detail_json TEXT NOT NULL DEFAULT '{}',
+      created_at DATETIME DEFAULT (datetime('now', 'localtime'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_data_activity_category_created ON data_activity_records(category, created_at);
+    `);
+
+    const messageColumns = database.prepare('PRAGMA table_info(messages)').all() as Array<{ name: string }>;
+    if (!messageColumns.some(column => column.name === 'mode')) {
+      database.exec("ALTER TABLE messages ADD COLUMN mode TEXT CHECK(mode IN ('create', 'companion', 'reason', 'execute'))");
+    }
+    database.exec('CREATE INDEX IF NOT EXISTS idx_messages_mode_created_at ON messages(mode, created_at)');
+    if (process.env.ATHENA_TEST_FAIL_MIGRATION === '1') throw new Error('Injected migration failure');
+    database.pragma(`user_version = ${DATABASE_SCHEMA_VERSION}`);
+  });
+  migrate();
 }
 
 function countRows(database: Database.Database, tableName: string): number {
@@ -180,4 +268,25 @@ function seedPackagedDatabase(targetPath: string): void {
   if (!fs.existsSync(sourcePath)) return;
 
   fs.copyFileSync(sourcePath, targetPath);
+}
+
+function copySidecarIfPresent(sourcePath: string, targetPath: string): void {
+  if (fs.existsSync(sourcePath)) fs.copyFileSync(sourcePath, targetPath);
+}
+
+function restoreSidecarIfPresent(sourcePath: string, targetPath: string): void {
+  try {
+    if (fs.existsSync(sourcePath)) fs.copyFileSync(sourcePath, targetPath);
+    else if (fs.existsSync(targetPath)) fs.rmSync(targetPath, { force: true });
+  } catch {
+    // Sidecar recovery should not hide the primary database restoration.
+  }
+}
+
+function removeIfPresent(filePath: string): void {
+  try {
+    if (fs.existsSync(filePath)) fs.rmSync(filePath, { force: true });
+  } catch {
+    // Restoration will surface the primary copy failure if the database is not writable.
+  }
 }
