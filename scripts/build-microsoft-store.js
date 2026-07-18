@@ -61,10 +61,12 @@ function main() {
   });
 
   const node = process.execPath;
+  const npmCli = process.env.npm_execpath || path.join(path.dirname(node), 'node_modules', 'npm', 'bin', 'npm-cli.js');
+  if (!fs.existsSync(npmCli)) fail('npm-cli-missing', 'Unable to locate npm CLI for the Electron SQLite rebuild.');
   run('assets', 'powershell.exe', ['-ExecutionPolicy', 'Bypass', '-NoProfile', '-File', path.join(ROOT, 'scripts', 'prepare-store-assets.ps1')]);
   run('clean', node, [path.join(ROOT, 'scripts', 'clean-dist.js')]);
   run('typecheck', node, [path.join(ROOT, 'node_modules', 'typescript', 'bin', 'tsc')]);
-  run('sqlite-electron-abi', 'npm.cmd', ['run', 'rebuild:sqlite:electron']);
+  run('sqlite-electron-abi', node, [npmCli, 'run', 'rebuild:sqlite:electron']);
   run('seed-database', node, [path.join(ROOT, 'node_modules', 'electron', 'cli.js'), path.join(ROOT, 'scripts', 'create-seed-database.js')]);
   run('renderer', node, [path.join(ROOT, 'node_modules', 'vite', 'bin', 'vite.js'), 'build', '--config', 'vite.config.mts']);
   run('package', node, [
