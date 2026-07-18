@@ -61,16 +61,16 @@ function main() {
   });
 
   const node = process.execPath;
-  const electronRebuildCli = path.join(ROOT, 'node_modules', '@electron', 'rebuild', 'lib', 'cli.js');
-  if (!fs.existsSync(electronRebuildCli)) fail('electron-rebuild-missing', 'Unable to locate @electron/rebuild for the SQLite ABI step.');
+  const electronBuilderCli = path.join(ROOT, 'node_modules', 'electron-builder', 'cli.js');
+  if (!fs.existsSync(electronBuilderCli)) fail('electron-builder-missing', 'Unable to locate electron-builder for the SQLite ABI and package steps.');
   run('assets', 'powershell.exe', ['-ExecutionPolicy', 'Bypass', '-NoProfile', '-File', path.join(ROOT, 'scripts', 'prepare-store-assets.ps1')]);
   run('clean', node, [path.join(ROOT, 'scripts', 'clean-dist.js')]);
   run('typecheck', node, [path.join(ROOT, 'node_modules', 'typescript', 'bin', 'tsc')]);
-  run('sqlite-electron-abi', node, [electronRebuildCli, '-f', '-w', 'better-sqlite3', '-v', '42.7.0', '-m', ROOT]);
+  run('sqlite-electron-abi', node, [electronBuilderCli, 'install-app-deps', '--platform', 'win32', '--arch', 'x64']);
   run('seed-database', node, [path.join(ROOT, 'node_modules', 'electron', 'cli.js'), path.join(ROOT, 'scripts', 'create-seed-database.js')]);
   run('renderer', node, [path.join(ROOT, 'node_modules', 'vite', 'bin', 'vite.js'), 'build', '--config', 'vite.config.mts']);
   run('package', node, [
-    path.join(ROOT, 'node_modules', 'electron-builder', 'cli.js'),
+    electronBuilderCli,
     '--config', 'electron-builder.store.yml',
     `--config.extraMetadata.version=${storeAppVersion}`,
     '--win', 'appx', '--x64', '--publish', 'never',

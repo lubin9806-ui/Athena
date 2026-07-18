@@ -121,10 +121,9 @@ function verifySource() {
 
   const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
   assert.equal(pkg.scripts['build:store'], 'node scripts/build-microsoft-store.js --require-clean');
-  assert.equal(pkg.devDependencies['@electron/rebuild'], '4.2.0');
-  assert.equal(pkg.scripts['rebuild:sqlite:electron'], 'node node_modules/@electron/rebuild/lib/cli.js -f -w better-sqlite3 -v 42.7.0 -m .');
+  assert.equal(pkg.scripts['rebuild:sqlite:electron'], 'node node_modules/electron-builder/cli.js install-app-deps --platform win32 --arch x64');
   const storeBuildScript = fs.readFileSync(path.join(ROOT, 'scripts', 'build-microsoft-store.js'), 'utf8');
-  assert.match(storeBuildScript, /run\('sqlite-electron-abi', node, \[electronRebuildCli, '-f', '-w', 'better-sqlite3', '-v', '42\.7\.0', '-m', ROOT\]\)/);
+  assert.match(storeBuildScript, /run\('sqlite-electron-abi', node, \[electronBuilderCli, 'install-app-deps', '--platform', 'win32', '--arch', 'x64'\]\)/);
   const main = fs.readFileSync(path.join(ROOT, 'src', 'app', 'main.ts'), 'utf8');
   assert.match(main, /!isMicrosoftStoreBuild\) initializeDesktopUpdater/);
   assert.match(main, /Athena Microsoft Store/);
