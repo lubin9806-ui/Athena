@@ -6,14 +6,17 @@
 
 ## 1. 结论
 
-Athena 当前是一个**可运行的 Windows 本地 Alpha**，不是可直接公开销售的 1.0。仓库元数据已统一为 `0.8.0`，商业版本为 **Commercial Baseline C0 / Internal Alpha**，直至本文件的 Desktop 1.0 发布门全部通过。
+Athena 当前是一个**可运行的 Windows Desktop 0.9 Private Beta 候选工程**，不是可直接公开销售的 1.0。仓库元数据已统一为 `0.9.0-beta.1`；在代码签名证书、安装矩阵和真实 20–50 人受控测试完成前仍为 **No-Go**。
 
 当前判定：
 
-- Desktop Direct：**No-Go**。核心体验已成形，但存在依赖漏洞、未签名、隐私/许可/数据生命周期缺口和高权限默认值。
-- Steam：**No-Go**。没有 Steamworks、Depot、所有权校验、内容问卷和 Steam 专用安全边界。
-- Mobile：**Not Started**。没有 iOS/Android 工程，且本地 14B 模型与电脑工具不适合作为移动端边界。
-- Cloud：**Not Started**。没有账号、服务端 API、租户隔离、计费、同步、审计或运维体系。
+- Desktop Direct：**No-Go**。窗口 11 于 2026-07-18 刷新确认 typecheck、迁移/回滚、供应链、故障降级、商业边界、开发 smoke 与 npm audit 可重复，但发行配置已漂移为 Execute=`full` 且部分联网同意=true，安全/隐私门实际失败并重开 ATH-SEC-003、ATH-PRIV-001；当前 installer 为完整大小但 `NotSigned`，正式签名、干净候选、安装/升级矩阵和商业外部依赖仍缺失。
+- Steam：**Blocked / No-Go**。窗口 08 已落地独立 SKU、Steamworks 启动/所有权 fail-closed 边界、SteamPipe 模板、Cloud 空白名单协议、AI 申报草案与商店素材；缺少真实合作方账号、AppID/DepotID、上传分支、签名 near-final build 和 Valve review。
+- iOS：**Blocked / No-Go**。没有 iOS 工程、Bundle ID、Apple 账号/证书、TestFlight/App Review、隐私表单或商店材料，且 Cloud 生产前置未满足。
+- Android：**Blocked / No-Go**。没有 Android 工程、package ID、Play 账号/签名、AAB/internal track、Data safety 或商店材料，且 Cloud 生产前置未满足。
+- Cloud：**Engineering Complete / Blocked / No-Go**。窗口 09 已建立独立服务端、API v1、认证隔离、加密同步、模型/计费/区域可替换接口、数据权利与安全运维基线；真实供应商、区域、计费、生产部署、外部渗透和运营签字未完成。
+
+窗口 11 独立复核与运营政策见 `WINDOW_11_RELEASE_REVIEW.md` 和 `ops/RELEASE_OPERATIONS.md`。五个平台均命中未关闭 P0、缺失外部账号/证书或不可重复证据中的至少一项，因此总发布结论为 **No-Go**；ATH-OPS-001 在真实人员、状态页和平台演练前为 Blocked。
 
 窗口交接判定与商业发布判定必须分开：窗口 01 的 Blocker 已清零，**窗口 02可以开始**；但上述四个平台仍保持 No-Go/Not Started，不能把交接放行解释为产品发布放行。
 
@@ -38,16 +41,16 @@ Athena 当前是一个**可运行的 Windows 本地 Alpha**，不是可直接公
 | 人格与样式 | 已实现 | PromptBuilder、Personality、StyleEngine 和回归测试覆盖核心身份链 |
 | 长期记忆 | 已实现 | SQLite 消息、画像、事件、项目、索引、检索、编辑、删除和聊天记录导入可用 |
 | 搜索研究 | 已实现 | 搜狗移动、必应中国、DuckDuckGo 回退，正文提取、二次搜索、引用和来源卡片可用 |
-| 电脑工具 | 已实现但不具备公开默认安全性 | 文件、终端、程序、HTTP、端口等是真实能力；权限撤销有测试，但 Execute 默认 `full` |
-| 语音 | 部分实现 | 录音、STT/TTS 和播放链路存在；依赖系统 Python、在线 Google STT、Edge TTS，Whisper 首次可能下载模型 |
+| 电脑工具 | 已实现，高风险 Beta | 文件、终端、程序、HTTP、端口等是真实能力；Execute 默认 Off，升权、逐次确认、撤权和取消有回归测试 |
+| 语音 | 本地架构已固定 | STT 只接受受管 Python 3.11 + 预置 Whisper 模型，禁止下载/在线回退；TTS 使用 Windows SAPI；缺组件时 UI 禁用并解释 |
 | 提醒 | 部分实现 | 仅进程内定时器；重启后丢失，无系统通知持久化保证 |
-| 工作流 | 骨架 | 主要是固定文字步骤；四个具体 Workflow 类仅声明 `enabled/id` |
+| 工作流 | Beta 已实现 | 四个固定模板支持 start/next/cancel/complete；不宣称持久化或第三方自动化引擎 |
 | 技能/插件 | 骨架或关闭 | SkillManager 只有注册生命周期；PluginManager 与 Planner 明确关闭；`skills/actions.js` 是旧式入口 |
 | Live2D/头像/音乐/日历等 | 未实现 | 旧愿景文档有描述，当前运行时没有可售实现 |
 | Windows 安装包 | 已实现但未签名 | NSIS 安装器和 9GB 级离线包可生成；正式签名被显式关闭 |
-| 更新、回滚、崩溃上报 | 未实现 | 没有 auto-updater、发布通道、迁移回滚、崩溃收集或远程禁用机制 |
-| 账号、订阅、权益 | 未实现 | 无登录、许可证、支付、退款、设备绑定或恢复购买 |
-| Mobile / Cloud / Steamworks | 未实现 | 仓库内没有对应工程或集成 |
+| 更新、回滚、崩溃上报 | 部分实现 | beta/stable updater、签名门、暂停/回滚 fixture 和迁移恢复已实现；真实签名 HTTPS feed 与崩溃上报仍未完成 |
+| 账号、订阅、权益 | 商业边界与本地接口已定义 | Desktop 1.0 冻结为无账号的一次性个人许可证，最多 2 台设备、覆盖 1.x；生产支付/许可证平台、公钥、价格和 UI 尚未接入 |
+| Mobile / Cloud / Steamworks | Steam 与 Cloud 本地工程边界已实现；Mobile 未实现 | Steam 无真实平台证据；Cloud 无真实供应商/区域/计费/生产部署与外部测试，均不可发布；Mobile 无客户端工程 |
 
 ## 4. 风险总览与唯一台账
 
@@ -138,9 +141,13 @@ Athena 当前是一个**可运行的 Windows 本地 Alpha**，不是可直接公
 
 退出门：`docs/RELEASE_CHECKLIST.md` 的 Universal + Desktop 全部通过并留证。
 
+窗口 07 已完成 SKU、激活/换机/退款/支持边界、可替换本地接口以及官网/商店源稿审计；ATH-PRODUCT-001 已关闭。真实发行主体、价格税务、支付与许可证平台、公钥、公开联系渠道、生产激活 UI 和签字仍为 ATH-DESKTOP-002 外部阻断，因此 Phase 3 保持 **No-Go**。
+
 ### Phase 4：Steam 1.0
 
 以 Desktop 1.0 为代码基线创建 Steam SKU；接 Steamworks、Depot、分支、所有权、Steam Cloud 白名单；提交真实商店素材、内容问卷和 near-final build。Valve 明确要求商店页只展示首发已有能力、build 在标注的操作系统正常启动，并要求 live-generated AI 披露 guardrail。
+
+窗口 08 已完成可在无账号环境中诚实验证的工程和材料部分，但保持 **Blocked / No-Go**：`athena-steam-personal-v1`、独立构建、所有权/分支检查、Steam 专用工具与外链裁剪、SteamPipe VDF、Cloud 加密冲突/删除协议、AI 申报草案和 Athens 主题素材已落盘。窗口 03 未批准任何 Cloud 条目，因此白名单为空且运行时关闭；真实 Steamworks 账号、AppID/DepotID、签名构建、私有分支、clean-machine、内容问卷和 Valve review 均未伪造。
 
 ### Phase 5：Cloud 1.0，再到 Mobile 1.0
 

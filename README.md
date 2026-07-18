@@ -2,7 +2,7 @@
 
 Athena is a local AI desktop companion built with Electron, Vite, TypeScript, SQLite, and Ollama.
 
-> Status: **Internal Alpha 0.8.0**. This repository is not a signed or store-ready 1.0 release. Commercial scope and release decisions are governed by [docs/COMMERCIAL_ROADMAP.md](docs/COMMERCIAL_ROADMAP.md), [docs/ISSUE_REGISTER.md](docs/ISSUE_REGISTER.md), and [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md).
+> Status: **Desktop 0.9 Private Beta candidate (`0.9.0-beta.1`)**. Distribution remains blocked until Authenticode signing and the controlled 20–50 person Beta gates are genuinely complete. This is not a public or store-ready 1.0 release. Commercial scope and release decisions are governed by [docs/COMMERCIAL_ROADMAP.md](docs/COMMERCIAL_ROADMAP.md), [docs/ISSUE_REGISTER.md](docs/ISSUE_REGISTER.md), and [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md).
 
 ## Start
 

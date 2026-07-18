@@ -30,6 +30,7 @@
     "test:desktop-faults": "tsc && node scripts/verify-desktop-faults.js",
     "test:commercial": "tsc && node scripts/verify-commercial-readiness.js",
     "test:steam": "tsc && electron scripts/verify-steam.js && node scripts/verify-steam-candidate.js --source-only",
+    "test:operations": "node scripts/verify-operations-readiness.js",
     "steam:verify-candidate": "node scripts/verify-steam-candidate.js",
     "test:web-search": "tsc && node scripts/verify-web-search.js",
     "test:web-search:live": "tsc && node scripts/verify-web-search.js --live",

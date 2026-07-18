@@ -1,0 +1,105 @@
+{
+  "schemaVersion": 1,
+  "releaseStage": "prelaunch",
+  "reviewId": "ATH-OPS-001",
+  "statusPage": {
+    "publicUrl": null,
+    "provider": null,
+    "sourceDocument": "docs/ops/STATUS_PAGE_TEMPLATE.md",
+    "timestampStandard": "UTC",
+    "p0InitialUpdateMinutes": 30,
+    "p1InitialUpdateMinutes": 60,
+    "components": [
+      "Desktop Direct distribution and updates",
+      "Desktop licensing",
+      "Steam distribution and Steam Cloud",
+      "Athena Cloud API",
+      "Athena Cloud authentication",
+      "Athena Cloud sync",
+      "Athena Cloud model gateway",
+      "iOS",
+      "Android",
+      "Support"
+    ]
+  },
+  "roles": {
+    "executiveOwner": null,
+    "releaseCommander": null,
+    "engineeringOwner": null,
+    "securityPrivacyOwner": null,
+    "legalLicenseOwner": null,
+    "qaReleaseOwner": null,
+    "supportCommsOwner": null,
+    "desktopOwner": null,
+    "steamOwner": null,
+    "cloudOnCallPrimary": null,
+    "cloudOnCallSecondary": null,
+    "iosOwner": null,
+    "androidOwner": null
+  },
+  "channels": {
+    "supportUrl": null,
+    "supportEmail": null,
+    "securityEmail": null,
+    "privacyEmail": null,
+    "incidentBridge": null,
+    "pagingService": null
+  },
+  "supportTargets": {
+    "P0": {
+      "acknowledgeMinutes": 15,
+      "publicUpdateMinutes": 30,
+      "updateCadenceMinutes": 60,
+      "mitigationTargetMinutes": 240,
+      "coverage": "24x7"
+    },
+    "P1": {
+      "acknowledgeMinutes": 60,
+      "publicUpdateMinutes": 60,
+      "updateCadenceMinutes": 120,
+      "mitigationTargetMinutes": 480,
+      "coverage": "24x7 for Cloud; business-hours for offline Desktop"
+    },
+    "P2": {
+      "acknowledgeBusinessHours": 8,
+      "updateCadenceBusinessDays": 2,
+      "coverage": "business-hours"
+    },
+    "P3": {
+      "acknowledgeBusinessDays": 3,
+      "updateCadenceBusinessDays": 5,
+      "coverage": "business-hours"
+    }
+  },
+  "releaseControls": {
+    "p0RequiresGlobalStop": true,
+    "unsignedArtifactDistributionAllowed": false,
+    "dirtyCheckoutDistributionAllowed": false,
+    "unrepeatableEvidenceDistributionAllowed": false,
+    "externalAccountEvidenceRequiredPerPlatform": true,
+    "certificateEvidenceRequiredPerPlatform": true,
+    "fiveRoleSignoffRequired": true,
+    "postmortemDueBusinessDays": {
+      "P0": 5,
+      "P1": 10
+    }
+  },
+  "lifecycle": {
+    "minimumEndOfSupportNoticeDays": 180,
+    "minimumCloudShutdownNoticeDays": 180,
+    "minimumExportWindowAfterShutdownDays": 90,
+    "securityFixWindowAfterEndOfSupportDays": 90,
+    "desktopSupportedLine": "latest stable 1.x plus the immediately previous minor for 90 days",
+    "cloudApiDeprecationNoticeDays": 180,
+    "mobileMinimumOsNoticeDays": 180
+  },
+  "dataMigration": {
+    "preMigrationBackupRequired": true,
+    "backupIntegrityCheckRequired": true,
+    "rollbackOrForwardFixDecisionRequired": true,
+    "destructiveMigrationNeedsExplicitApproval": true,
+    "exportBeforeServiceTerminationRequired": true,
+    "deletionLedgerRequiredForCloudAccountDeletion": true,
+    "downgradeSafetyMustBeDocumentedPerRelease": true
+  }
+}

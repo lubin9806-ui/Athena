@@ -10,9 +10,9 @@
 | 长期记忆 | SQLite `profile`、`events`、`project_notes`、`memory_index` | 不自动上传；仅作为本地模型上下文 | 历史关闭后停止自动提取；记忆面板或一键清除删除 |
 | 设置与个性化 | `config/settings.json`、`config/model.json` | 不自动上传 | 用户修改或删除配置目录；导出包含脱敏副本 |
 | 搜索查询 | SQLite `data_activity_records` 的最小活动记录 | 同意后发往 Sogou/Bing/DuckDuckGo 和结果网页 | 历史关闭时不记录；历史保留期自动清理；一键清除删除 |
-| 语音文件 | `%TEMP%\athena\voice` 或 `ATHENA_VOICE_TEMP_DIR` | 在线 STT 发送音频；在线 TTS 发送朗读文本，均需分别同意 | 录音转写后删除；TTS 缓存按小时清理；一键清除删除 |
+| 语音文件 | `%TEMP%\athena\voice` 或 `ATHENA_VOICE_TEMP_DIR` | Desktop 当前 Whisper STT 与 Windows SAPI TTS 均在本机处理 | 录音转写后删除；WAV TTS 缓存按小时清理；一键清除删除 |
 | 工具记录 | SQLite 最小活动记录；执行面板内存态详细记录 | 外部 HTTP/TCP 需外网工具同意和逐次确认；localhost 不算外部网络 | 历史关闭时不记录；历史保留期自动清理；当前窗口执行记录不持久化 |
-| 日志 | stdout/stderr；应用 Logger 不主动写持久日志 | 不自动上传 | 已有 `logs/` 来源不明文件不由窗口 03 删除；Logger 脱敏由回归测试覆盖 |
+| 日志/崩溃诊断 | stdout/stderr；`%TEMP%\athena\diagnostics\crash-diagnostics.jsonl` | 不自动上传 | 诊断脱敏、单文件 1 MB、最多 3 个轮转文件；用户可删除 diagnostics 目录 |
 | 临时文件 | 语音缓存、导出目录、数据库迁移备份 | 不自动上传 | 语音缓存自动清理；迁移备份用于失败恢复；导出文件由用户管理 |
 
 ## 联网能力与首次同意
@@ -22,8 +22,8 @@
 | 能力 | 发送内容 | 目的地 | 同意键 |
 |---|---|---|---|
 | 联网搜索和网页深读 | 搜索词、结果 URL、网页请求元数据 | Sogou、Bing、DuckDuckGo、结果网页域名 | `privacy.networkConsent.webSearch` |
-| 在线语音识别 | 用户选择或录制的音频片段 | `speech_recognition` 使用的 Google 在线识别服务 | `privacy.networkConsent.onlineSpeechToText` |
-| 在线语音合成 | 要朗读的助手回复文本 | Edge TTS 在线语音服务 | `privacy.networkConsent.onlineTextToSpeech` |
+| 在线语音识别 | 当前没有 provider/入口 | 不发送 | 未来适配器必须复用 `privacy.networkConsent.onlineSpeechToText`，不能从本地失败静默回退 |
+| 在线语音合成 | 当前没有 provider/入口 | 不发送 | 未来适配器必须复用 `privacy.networkConsent.onlineTextToSpeech`，不能从本地失败静默回退 |
 | 执行模式外部网络工具 | 用户确认的 HTTP/TCP 目标、请求头和正文 | 用户指定的外部网络地址 | `privacy.networkConsent.externalToolNetwork` |
 
 未同意时，主进程会拒绝相应能力；不是只在 UI 隐藏。

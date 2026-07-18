@@ -1,6 +1,6 @@
 # Athena 文档索引
 
-Athena 当前商业基线为 **Internal Alpha 0.8.0**。文档按以下优先级解释；低优先级文档不得覆盖高优先级结论。
+Athena 当前工程版本为 **Desktop 0.9 Private Beta candidate (`0.9.0-beta.1`)**。签名证书和真实 20–50 人 Beta 尚未完成，因此发行结论仍为 **No-Go**。文档按以下优先级解释；低优先级文档不得覆盖高优先级结论。
 
 ## 商业化唯一基线
 
@@ -11,6 +11,9 @@ Athena 当前商业基线为 **Internal Alpha 0.8.0**。文档按以下优先级
 5. `WORK_PROTOCOL.md`：窗口 01–11 的协作、交接和变更协议。
 6. `DESKTOP_1_0_COMMERCIAL_POLICY.md`：窗口 07 冻结的一次性 SKU、激活/换机、退款和联系渠道边界。
 7. `DESKTOP_1_0_GO_NO_GO.md`：Universal + Desktop 1.0 发布门复核与证据化结论。
+8. `steam/STEAM_1_0_POLICY.md`、`steam/STEAMPIPE_RUNBOOK.md`、`steam/STEAM_AI_CONTENT_DISCLOSURE.md`、`steam/STEAM_STORE_LISTING.md`、`steam/STEAM_ASSET_MANIFEST.md`、`steam/STEAM_GO_NO_GO.md`：窗口 08 Steam SKU、构建、Cloud/AI/素材与 Blocked 交接证据。
+9. `cloud/ARCHITECTURE.md`、`cloud/API_V1.md`、`cloud/THREAT_MODEL.md`、`cloud/OPERATIONS_SLO.md`、`cloud/PENETRATION_BASELINE.md`、`cloud/PROVIDER_REGISTER.md`、`cloud/CLOUD_GO_NO_GO.md`：窗口 09 独立服务端、协议、安全/运维基线与生产 No-Go 交接证据。
+10. `WINDOW_11_RELEASE_REVIEW.md`、`ops/RELEASE_OPERATIONS.md`、`ops/STATUS_PAGE_TEMPLATE.md`、`ops/INCIDENT_RECORD_TEMPLATE.md`：窗口 11 对窗口 03–10 的独立复核、五平台 Go/No-Go、责任链、事故/EOL/迁移政策和运营模板。
 
 ## 技术说明
 
@@ -30,4 +33,3 @@ Athena 当前商业基线为 **Internal Alpha 0.8.0**。文档按以下优先级
 - `changelog.md`：开发变更摘要，不替代问题台账和发布记录。
 
 如文档之间冲突，以“商业化唯一基线”的顺序为准，并在 `ISSUE_REGISTER.md` 新建编号问题，而不是在多个文档中各写一套结论。
-

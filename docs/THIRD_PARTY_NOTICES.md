@@ -1,4 +1,4 @@
-﻿# Third-Party Notices
+# Third-Party Notices
 
 Athena's Desktop installer and optional offline pack use third-party runtime,
 voice, model, and tool artifacts. Keep this file with redistributed packages.
@@ -25,6 +25,7 @@ Current direct runtime packages:
 
 - `better-sqlite3`
 - `cheerio`
+- `electron-updater` (Desktop Direct SKU only)
 - `steamworks.js` 0.4.0 (Steam SKU only; MIT; packages the Steamworks native bridge and `steam_api64.dll`)
 
 The Steam native bridge remains in the Electron main process and is unpacked from ASAR for the Windows x64 Steam build. Valve's Steamworks redistributable is used only with a real Steam-distributed AppID; see `steamworks/REDISTRIBUTABLES.md` and the Steamworks SDK terms available to partners.

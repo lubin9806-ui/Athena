@@ -1,4 +1,4 @@
-﻿# Athena Asset Provenance
+# Athena Asset Provenance
 
 Window 04 records source, packaging, and release-gate status for current
 Desktop assets. This is an engineering provenance ledger, not a legal opinion
@@ -55,6 +55,11 @@ The installer includes only Athena-owned helper scripts and
 Whisper/faster-whisper models, microphone samples, TTS voices, or recorded
 audio. Declared Python packages remain install-time/runtime requirements and
 must be re-audited if bundled later.
+
+Window 05 packages only `stt_whisper.py`, `tts-local.ps1`,
+`play_audio_local.ps1`, and the exact requirements file. Legacy online
+`stt.py`/`tts.py` and Python playback helpers remain source history only and
+are excluded from release resources.
 
 ## Model And Binary Assets
 
