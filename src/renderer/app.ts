@@ -326,7 +326,7 @@ interface ModelSettings {
 interface SettingsBundle {
   settings: AppSettings;
   model: ModelSettings;
-  sku: 'desktop-direct' | 'steam';
+  sku: 'desktop-direct' | 'steam' | 'microsoft-store';
 }
 
 interface SettingsPatch {

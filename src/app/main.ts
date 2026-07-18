@@ -14,6 +14,7 @@ import { installCrashDiagnostics, recordCrashDiagnostic } from '../core/runtime/
 import { initializeDesktopUpdater } from '../core/update/DesktopUpdater';
 import { describeSteamCloudAvailability, initializeSteamPlatform } from '../core/steam/SteamPlatform';
 import { isSteamExternalNavigationAllowed } from '../core/steam/SteamSkuPolicy';
+import { isMicrosoftStoreSku } from '../core/store/MicrosoftStoreSku';
 
 installLoggingPipeGuards();
 installCrashDiagnostics();
@@ -24,6 +25,7 @@ let isQuitting = false;
 const isSmokeTest = process.argv.includes('--smoke-test') || process.env.ATHENA_SMOKE_TEST === '1';
 const steamPlatform = initializeSteamPlatform();
 const isSteamBuild = steamPlatform.state.sku === 'steam';
+const isMicrosoftStoreBuild = isMicrosoftStoreSku();
 const isVoiceSmokeTest = isSmokeTest && process.env.ATHENA_SMOKE_VOICE === '1';
 const smokeScreenshotPath = process.env.ATHENA_SMOKE_SCREENSHOT?.trim();
 const smokeCaptureRipple = isSmokeTest && process.env.ATHENA_SMOKE_CAPTURE_RIPPLE === '1';
@@ -67,6 +69,11 @@ if (smokeUserDataPath) {
 if (!smokeUserDataPath && isSteamBuild) {
   app.setName('Athena Steam');
   app.setPath('userData', path.join(app.getPath('appData'), 'Athena Steam'));
+}
+
+if (!smokeUserDataPath && isMicrosoftStoreBuild) {
+  app.setName('Athena Microsoft Store');
+  app.setPath('userData', path.join(app.getPath('appData'), 'Athena Microsoft Store'));
 }
 
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
@@ -544,7 +551,7 @@ app.whenReady().then(() => {
   }
   applyDesktopSettings(getAppSettings().general);
   createWindow();
-  if (mainWindow && !isSmokeTest && !isSteamBuild) initializeDesktopUpdater(mainWindow);
+  if (mainWindow && !isSmokeTest && !isSteamBuild && !isMicrosoftStoreBuild) initializeDesktopUpdater(mainWindow);
   if (!isSmokeTest && !isSteamBuild) createTray();
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); else mainWindow?.show(); });
 });

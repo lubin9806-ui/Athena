@@ -1,0 +1,56 @@
+name: Microsoft Store Private Beta
+
+on:
+  workflow_dispatch:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  appx:
+    runs-on: windows-2022
+    timeout-minutes: 45
+    env:
+      CI: 'true'
+      ATHENA_BUILD_COMMIT: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+      - name: Install locked dependencies
+        run: npm.cmd ci
+      - name: Rebuild SQLite for Electron ABI
+        run: npm.cmd run rebuild:sqlite:electron
+      - name: Verify Store SKU source
+        run: npm.cmd run test:store
+      - name: Verify shared product gates
+        shell: pwsh
+        run: |
+          npm.cmd run test:security
+          npm.cmd run test:privacy
+          npm.cmd run test:supply-chain
+          npm.cmd run audit:security
+      - name: Build Store AppX
+        run: npm.cmd run build:store
+      - name: Verify Store package
+        shell: pwsh
+        run: |
+          $artifact = Get-ChildItem -LiteralPath release-store -File | Where-Object { $_.Extension -in '.appx', '.msix' } | Select-Object -First 1
+          if (-not $artifact) { throw 'Store AppX/MSIX was not generated.' }
+          npm.cmd run store:verify-package -- --artifact $artifact.FullName
+      - name: Prove checkout remained clean
+        shell: pwsh
+        run: |
+          git diff --exit-code
+          if (git status --porcelain --untracked-files=all) { throw 'Store build created an unignored source-tree file.' }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: athena-microsoft-store-${{ github.sha }}
+          path: release-store/*
+          if-no-files-found: error
+          retention-days: 14

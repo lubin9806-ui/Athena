@@ -61,6 +61,13 @@
 
 ## 3. 平台 SKU 定义
 
+### Microsoft Store Private Beta
+
+- 当前产品：`Athena AI companion`，Store ID `9NT09L9504R1`，仅限 Private Audience。
+- 使用独立 AppX/MSIX SKU、Store Package Identity 和用户数据目录；更新由 Microsoft Store 管理。
+- 不包含 Direct 的更新源、外部支付、Ollama 安装器、模型 payload、Steam runtime 或任何用户数据。
+- 当前仅完成 Partner Center 产品预留；首次包上传、认证、私密安装和 Package Flight 尚未完成，不得视为 Desktop 1.0 放行。
+
 ### Desktop Direct 1.0
 
 - 目标用户：需要本地优先、长期记忆和可选桌面自动化的 Windows 个人用户。

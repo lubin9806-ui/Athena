@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "releaseStage": "private-beta-draft",
+  "skuId": "athena-microsoft-store-private-beta-v1",
+  "productName": "Athena AI companion",
+  "storeId": "9NT09L9504R1",
+  "identityName": "AthenaL.AthenaAIcompanion",
+  "publisher": "CN=3D06B086-15FC-4F75-8056-021840D60F44",
+  "publisherDisplayName": "Athena L",
+  "packageFamilyName": "AthenaL.AthenaAIcompanion_gf9pv7kh6znee",
+  "audience": "private",
+  "supportedPlatforms": [
+    "windows-x64"
+  ],
+  "updatesManagedBy": "microsoft-store",
+  "externalPayments": false
+}

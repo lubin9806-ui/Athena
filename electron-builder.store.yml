@@ -1,0 +1,68 @@
+appId: com.athena.microsoftstore
+productName: Athena AI companion
+executableName: Athena
+directories:
+  output: release-store
+  buildResources: build
+asar: true
+artifactName: "Athena-AI-companion-${version}-${arch}.${ext}"
+files:
+  - dist/**/*
+  - resources/**/*
+  - "!resources/OllamaSetup.exe"
+  - config/**/*
+  - skills/**/*
+  - assets/**/*
+  - "!assets/steam/**/*"
+  - "!**/*.map"
+  - "!**/*.d.ts"
+extraResources:
+  - from: .build/build-info.json
+    to: build-info.json
+  - from: .build/store/store-runtime.json
+    to: store/store-runtime.json
+  - from: config/microsoft-store.json
+    to: store/store-product.json
+  - from: .build/database
+    to: database
+    filter:
+      - "athena.db"
+      - "!**/*-wal"
+      - "!**/*-shm"
+      - "!backups/**"
+      - "!migrations/**"
+      - "!seeds/**"
+  - from: stt_whisper.py
+    to: voice/stt_whisper.py
+  - from: tts-local.ps1
+    to: voice/tts-local.ps1
+  - from: play_audio_local.ps1
+    to: voice/play_audio_local.ps1
+  - from: requirements-voice.txt
+    to: voice/requirements-voice.txt
+win:
+  target: appx
+  icon: resources/su-shixia.ico
+  signAndEditExecutable: true
+  signExecutable: false
+  requestedExecutionLevel: asInvoker
+appx:
+  applicationId: AthenaAICompanion
+  identityName: AthenaL.AthenaAIcompanion
+  publisher: "CN=3D06B086-15FC-4F75-8056-021840D60F44"
+  publisherDisplayName: Athena L
+  displayName: Athena AI companion
+  backgroundColor: "#111315"
+  showNameOnTiles: true
+  addAutoLaunchExtension: false
+  setBuildNumber: true
+  minVersion: 10.0.19041.0
+  maxVersionTested: 10.0.26100.0
+  languages:
+    - zh-CN
+    - en-US
+  capabilities:
+    - runFullTrust
+    - internetClient
+    - privateNetworkClientServer
+    - microphone

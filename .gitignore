@@ -9,6 +9,7 @@ pnpm-debug.log*
 dist/
 release/
 release-steam/
+release-store/
 .build/
 *.blockmap
 

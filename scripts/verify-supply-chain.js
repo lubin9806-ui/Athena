@@ -214,7 +214,8 @@ function collectBundledAssets() {
     "play_audio.py",
     "requirements-voice.txt"
   ].map((name) => fileEntry(path.join(repoRoot, name)));
-  return [...resourceFiles, ...voiceFiles].sort((a, b) => a.path.localeCompare(b.path));
+  const storeAssets = listFiles(path.join(repoRoot, "build", "appx")).map(fileEntry);
+  return [...resourceFiles, ...voiceFiles, ...storeAssets].sort((a, b) => a.path.localeCompare(b.path));
 }
 
 function collectBuildManifest() {
@@ -506,6 +507,10 @@ function main() {
       {
         decision: "offline pack copies only allowlisted model files with SHA-256 verification",
         evidence: "scripts/package-offline.ps1 requires docs/OFFLINE_MODEL_ALLOWLIST.json"
+      },
+      {
+        decision: "Microsoft Store AppX uses Store-managed updates and excludes Direct updater metadata, OllamaSetup.exe, local model payloads, Steam runtime files, and user data",
+        evidence: "electron-builder.store.yml; scripts/verify-microsoft-store.js"
       }
     ],
     openReleaseSignoffs: [

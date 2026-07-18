@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { resolveConfigFile, resolveWritableConfigFile } from '../runtime/Paths';
 import { applySteamSettingsPolicy, capSteamToolSettings, isSteamSku } from '../steam/SteamSkuPolicy';
+import { isMicrosoftStoreSku } from '../store/MicrosoftStoreSku';
 import type {
   AnimationLevel,
   AppSettings,
@@ -156,7 +157,7 @@ export function getSettingsBundle(): SettingsBundle {
   return {
     settings: loadAppSettings(),
     model: loadModelSettings(),
-    sku: isSteamSku() ? 'steam' : 'desktop-direct',
+    sku: isSteamSku() ? 'steam' : isMicrosoftStoreSku() ? 'microsoft-store' : 'desktop-direct',
   };
 }
 

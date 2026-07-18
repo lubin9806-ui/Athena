@@ -8,3 +8,4 @@ export * from './search';
 export * from './tools';
 export * from './commercial';
 export * from './steam';
+export * from './store';
