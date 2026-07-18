@@ -247,10 +247,10 @@ function createWindow(): void {
               && typeof api.exportPrivacyData === 'function'
               && typeof api.clearLocalData === 'function'
               && typeof api.cancelExecution === 'function'
-               && typeof api.onWebSearchStatus === 'function'
-               && typeof api.requestMicrophoneAccess === 'function'
-               && typeof api.getVoiceCapabilities === 'function'
-              );
+              && typeof api.onWebSearchStatus === 'function'
+              && typeof api.requestMicrophoneAccess === 'function'
+              && typeof api.getVoiceCapabilities === 'function'
+             );
              if (!uiReady) return false;
 
              const stageRect = stage.getBoundingClientRect();
@@ -281,10 +281,18 @@ function createWindow(): void {
              if (!credentialRedacted || !toolPermissionControlsReady) return false;
              await new Promise(resolve => setTimeout(resolve, 90));
              composerMoreButton.click();
-             webSearchButton.click();
-             const webSearchForceReactive = webSearchButton.getAttribute('aria-pressed') === 'true';
-             webSearchButton.click();
-             const webSearchForceRestored = webSearchButton.getAttribute('aria-pressed') === 'false';
+             const webSearchNeedsConsent = webSearchButton.disabled && /同意/.test(webSearchButton.title || '');
+             let webSearchForceReactive = false;
+             let webSearchForceRestored = false;
+             if (webSearchNeedsConsent) {
+               webSearchForceReactive = true;
+               webSearchForceRestored = true;
+             } else {
+               webSearchButton.click();
+               webSearchForceReactive = webSearchButton.getAttribute('aria-pressed') === 'true';
+               webSearchButton.click();
+               webSearchForceRestored = webSearchButton.getAttribute('aria-pressed') === 'false';
+             }
              if (!webSearchForceReactive || !webSearchForceRestored) return false;
              const originalMode = originalSettings.settings.conversation.activeMode;
              const probeMode = originalMode === 'reason' ? 'create' : 'reason';

@@ -11,6 +11,7 @@
     "dev:renderer": "vite",
     "build": "node scripts/build-desktop.js --auto-sign",
     "build:release": "node scripts/build-desktop.js --require-signing",
+    "release:preflight": "node scripts/verify-signing-prerequisites.js",
     "build:steam": "node scripts/build-steam.js --require-signing --require-clean",
     "build:steam:engineering": "node scripts/build-steam.js",
     "release:manifest": "node scripts/generate-candidate-manifest.js",

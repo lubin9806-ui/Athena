@@ -42,6 +42,8 @@ function effectiveBuilderConfig(signed) {
 }
 
 function main() {
+  process.env.CSC_LINK ||= process.env.WINDOWS_CSC_LINK || process.env.WIN_CSC_LINK || '';
+  process.env.CSC_KEY_PASSWORD ||= process.env.WINDOWS_CSC_KEY_PASSWORD || process.env.WIN_CSC_KEY_PASSWORD || '';
   const requireSigning = process.argv.includes('--require-signing');
   const requireClean = process.argv.includes('--require-clean') || Boolean(process.env.CI);
   const signed = signingCredentialsPresent();

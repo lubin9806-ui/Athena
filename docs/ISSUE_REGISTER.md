@@ -8,7 +8,7 @@
 | 严重级别 | Closed | Open/In Progress/Blocked | 说明 |
 |---|---:|---:|---|
 | Blocker | 7 | 0 | 窗口 01 的仓库、事实源与验证链 Blocker 已全部关闭 |
-| P0 | 4 | 6 | ATH-SEC-001～002、ATH-DATA-001、ATH-LEGAL-001 已关闭；窗口 11 刷新因发行配置回归重开 ATH-SEC-003、ATH-PRIV-001；ATH-REL-001 及 Steam/Cloud/Mobile P0 未关闭 |
+| P0 | 6 | 4 | ATH-SEC-001～003、ATH-PRIV-001、ATH-DATA-001、ATH-LEGAL-001 已关闭；ATH-REL-001 及 Steam/Cloud/Mobile P0 未关闭 |
 | P1 | 3 | 3 | ATH-VOICE-001、ATH-WEB-001、ATH-CONFIG-001 已关闭；Desktop/运营三项保持 Blocked |
 | P2/P3 | 2 | 1 | ATH-ARCH-001、ATH-PRODUCT-001 已关闭；ATH-REPO-001 保持未关闭 |
 
@@ -32,11 +32,11 @@
 |---|---|---|---|---|---|---|
 | ATH-SEC-001 | Electron 28、Vite 5、builder 24 存在已知漏洞并超出支持基线 | 已锁定 Electron 42.7.0、Vite 8.1.4、electron-builder 26.15.3、better-sqlite3 12.11.1；官方 registry `found 0 vulnerabilities`；开发态和打包态 smoke 均退出 0 并输出两个成功标记 | P0 | 02 | Closed | 受支持版本已锁定；官方 audit 无 High/Critical；构建与烟测有重复证据 |
 | ATH-SEC-002 | BrowserWindow 未显式 sandbox，HTML 无严格 CSP，生产包含 source map | `SECURITY_BASELINE_OK`；sandbox/CSP、外链确认、导航/下载/权限默认拒绝、IPC 发送者与负向输入已验证；最终 `app.asar` 中 `.map/.d.ts` 均为 0 | P0 | 02 | Closed | 安全基线与负向测试通过；生产包清单验证通过 |
-| ATH-SEC-003 | Execute 默认 Full，缺少面向普通用户的高危逐次确认 | 窗口 02 的 settings v2、升权、高危确认、撤权/取消和模式隔离实现仍在；但窗口 11 于 2026-07-18 刷新发现受跟踪 `config/settings.json` 已漂移为全局/Execute=`full`，`test:security` 实际失败为 `'full' !== 'off'` | P0 | 02/11 | In Progress | **发行回归：恢复受跟踪发行默认值为 Off，验证旧配置迁移不会把 Full 带入候选，重跑 security/privacy/smoke/签名候选后方可重新 Closed** |
-| ATH-PRIV-001 | 没有隐私政策、联网数据流说明和首次同意 | 隐私中心、数据地图与主进程 consent gate 实现仍在；但窗口 11 于 2026-07-18 刷新发现受跟踪 `config/settings.json` 的 `webSearch`/`externalToolNetwork` 同意已为 true，`test:privacy` 首次默认断言实际失败 `true !== false` | P0 | 03/11 | In Progress | **发行回归：所有联网同意在发行配置中恢复为 false，隔离用户运行态与仓库发行默认值，重跑 privacy/security/smoke 后方可重新 Closed** |
+| ATH-SEC-003 | Execute 默认 Full，缺少面向普通用户的高危逐次确认 | 窗口 11 刷新曾发现本机工作树把受跟踪 Execute 配置漂移为 Full，并在 `908261e` 中如实重开；签名 Private Beta 阶段已恢复仓库发行默认值为 Off，smoke 在未同意时按禁用状态验证，`test:security` 重新输出 `SECURITY_BASELINE_OK` | P0 | 02/11 | Closed | 默认 Off、显式升权、高危确认、撤销、取消、模式隔离和 consent-disabled smoke 均有自动化证据；签名候选仍由 ATH-REL-001 单独阻断 |
+| ATH-PRIV-001 | 没有隐私政策、联网数据流说明和首次同意 | 窗口 11 刷新曾发现本机工作树把 webSearch/externalToolNetwork 同意漂移为 true，并在 `908261e` 中如实重开；签名 Private Beta 阶段已恢复发行默认值为 false，`test:privacy` 重新输出 `ATHENA_PRIVACY_DATA_OK`，开发 smoke 在未同意状态通过 | P0 | 03/11 | Closed | 应用内隐私入口、逐类默认未同意、主进程 consent gate、保留/导出/清除和当前 Desktop 数据流一致；公开 URL 仍是商业发布门 |
 | ATH-DATA-001 | 保留/导出设置未执行，缺少完整导出、一键清除和加密决策 | `historyRetentionDays` 自动清理消息和活动记录；历史关闭后不保存聊天、不记录活动且停止自动提取长期记忆；完整 JSON/Markdown 导出包含 DB 表、设置、数据地图、静态保护决策和语音缓存；一键清除聊天、记忆、搜索/语音/工具活动与语音缓存；数据库迁移前备份并失败恢复；SQLite 明文风险已写入威胁评估 | P0 | 03 | Closed | `npm.cmd run test:privacy` 覆盖保留、导出、清除、语音缓存、备份和外网工具同意门；不虚假宣称 SQLite 已加密 |
 | ATH-LEGAL-001 | notices 未覆盖完整 npm/Python/模型/素材来源 | `THIRD_PARTY_NOTICES.md` 覆盖 Electron、npm runtime、Python voice requirements、Ollama、Qwen2.5 和资产来源；`docs/SUPPLY_CHAIN_MANIFEST.json` 记录 61 个 runtime npm 包、Electron 42.7.0、OllamaSetup.exe 0.31.1 / SHA-256、Qwen2.5 Apache-2.0 来源、构建产物哈希和资源打包决策；`docs/ASSET_PROVENANCE.md` 归档当前 bundled/generated 素材来源与人工权属签字残余边界；`scripts/verify-supply-chain.js` 输出 `ATHENA_SUPPLY_CHAIN_OK` | P0 | 04 | Closed | SBOM、许可清单、Qwen/Ollama/Python artifact 和素材来源证据已归档；Ollama 再分发、人类权属签字、EULA/公开隐私 URL 仍作为发布清单 Go/No-Go，不虚假放行商业发布 |
-| ATH-REL-001 | 无签名、更新、回滚和有效 CI 发布链 | 已实现 clean-checkout Windows CI、0.9 统一版本/构建输入哈希、候选 manifest、签名强制门、beta/stable channel pause/rollback 控制及 schema 迁移备份/注入失败恢复回归；本机无代码签名证书，真实签名包、HTTPS feed 和实网回滚证据不存在 | P0 | 06 | Blocked | **外部阻断：取得受控代码签名证书/发布主体与 CI secret**；随后由干净 checkout 生成 Valid+timestamp 签名 beta 包，并完成真实 feed 更新/暂停/回滚及安装矩阵 |
+| ATH-REL-001 | 无签名、更新、回滚和有效 CI 发布链 | 已实现 clean-checkout Windows CI、0.9 统一版本/构建输入哈希、候选 manifest、签名强制门、beta/stable channel pause/rollback、schema 迁移备份/恢复；签名阶段新增 Git 路径解析和 `release:preflight`，Git 不可用时不再把 checkout 误判为 clean；本机证书/私钥、批准 publisher DN 与 HTTPS feed 均不存在 | P0 | 06/Private Beta | Blocked | **外部阻断：取得受控代码签名证书/发布主体与 CI secret，配置 `CSC_LINK`/`CSC_KEY_PASSWORD`、`ATHENA_SIGNING_PUBLISHER`、`ATHENA_UPDATE_BASE_URL`**；随后由干净 checkout 生成 Valid+timestamp beta 包，并完成真实 feed 更新/暂停/回滚及安装矩阵 |
 | ATH-VOICE-001 | 语音依赖系统 Python、在线服务和运行时模型下载 | `VOICE_ARCHITECTURE.md`；受管 Python 3.11 + 精确依赖 + 预置 Whisper；Windows SAPI TTS；禁止运行时下载/在线回退；能力检查与可理解错误 | P1 | 05 | Closed | 商业语音架构固定；依赖锁定；离线/联网降级和隐私标签通过 |
 | ATH-WEB-001 | 搜索抓取第三方 HTML，缺少正式 SLA、监控和政策审查 | `WEB_PROVIDER_REVIEW.md` 判定现有 HTML provider 无商业授权/SLA并从 1.0 排除；Internal Alpha 有 1.25 秒/8 rpm 限速、Retry-After、超时、反爬分类、无查询遥测诊断和降级 UX | P1 | 05 | Closed | provider 政策评审完成；未签约 provider 不进入 1.0；实验实现的限速、失败 UX 和本地监控有测试 |
 | ATH-CONFIG-001 | 启动项、通知、历史保留、导出等部分设置不驱动真实行为 | `SETTINGS_RUNTIME_AUDIT.md`；DesktopSettings 实现登录项/托盘/通知；全部可见控件枚举+wiring+隔离配置往返；旧在线语音/auto STT 控件移除 | P1 | 05 | Closed | 所有可见设置端到端生效并测试，或从发布版移除 |

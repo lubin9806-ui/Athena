@@ -10,7 +10,7 @@ Athena 当前是一个**可运行的 Windows Desktop 0.9 Private Beta 候选工�
 
 当前判定：
 
-- Desktop Direct：**No-Go**。窗口 11 于 2026-07-18 刷新确认 typecheck、迁移/回滚、供应链、故障降级、商业边界、开发 smoke 与 npm audit 可重复，但发行配置已漂移为 Execute=`full` 且部分联网同意=true，安全/隐私门实际失败并重开 ATH-SEC-003、ATH-PRIV-001；当前 installer 为完整大小但 `NotSigned`，正式签名、干净候选、安装/升级矩阵和商业外部依赖仍缺失。
+- Desktop Direct：**Signed Private Beta 阶段已启动 / No-Go**。窗口 11 在 `908261e` 如实记录发行配置漂移并重开安全/隐私 P0；随后的签名阶段已恢复 Execute Off 与联网默认未同意，security/privacy/release/smoke 重新通过，并关闭 Git 不在 PATH 时的 clean-checkout 误判。当前仍无代码签名证书、批准 publisher DN 和 HTTPS update feed，installer/EXE 为 `NotSigned`，安装/升级矩阵及真实 20–50 人 Beta 尚未开始。
 - Steam：**Blocked / No-Go**。窗口 08 已落地独立 SKU、Steamworks 启动/所有权 fail-closed 边界、SteamPipe 模板、Cloud 空白名单协议、AI 申报草案与商店素材；缺少真实合作方账号、AppID/DepotID、上传分支、签名 near-final build 和 Valve review。
 - iOS：**Blocked / No-Go**。没有 iOS 工程、Bundle ID、Apple 账号/证书、TestFlight/App Review、隐私表单或商店材料，且 Cloud 生产前置未满足。
 - Android：**Blocked / No-Go**。没有 Android 工程、package ID、Play 账号/签名、AAB/internal track、Data safety 或商店材料，且 Cloud 生产前置未满足。

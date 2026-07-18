@@ -5,6 +5,25 @@ const { spawnSync } = require('child_process');
 
 const ROOT = path.resolve(__dirname, '..');
 
+function resolveGit() {
+  const candidates = [
+    process.env.ATHENA_GIT_PATH,
+    'git',
+    process.platform === 'win32' ? 'C:\\Program Files\\Git\\cmd\\git.exe' : null,
+    process.platform === 'win32' ? 'C:\\Program Files (x86)\\Git\\cmd\\git.exe' : null,
+    process.platform === 'win32' && process.env.USERPROFILE
+      ? path.join(process.env.USERPROFILE, '.cache', 'codex-runtimes', 'codex-primary-runtime', 'dependencies', 'native', 'git', 'cmd', 'git.exe')
+      : null,
+  ].filter(Boolean);
+  for (const candidate of candidates) {
+    const probe = spawnSync(candidate, ['--version'], { encoding: 'utf8', windowsHide: true });
+    if (probe.status === 0) return candidate;
+  }
+  return null;
+}
+
+const GIT = resolveGit();
+
 function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'));
 }
@@ -27,7 +46,8 @@ function releaseChannel(version = packageMetadata().version) {
 }
 
 function git(args, fallback = '') {
-  const result = spawnSync('git', args, { cwd: ROOT, encoding: 'utf8', windowsHide: true });
+  if (!GIT) return fallback;
+  const result = spawnSync(GIT, args, { cwd: ROOT, encoding: 'utf8', windowsHide: true });
   return result.status === 0 ? result.stdout.trim() : fallback;
 }
 
@@ -43,8 +63,9 @@ function sourceState() {
     commit,
     shortCommit: commit === 'unknown' ? 'unknown' : commit.slice(0, 12),
     branch: git(['rev-parse', '--abbrev-ref', 'HEAD'], 'unknown'),
-    cleanCheckout: changes.length === 0,
+    cleanCheckout: commit !== 'unknown' && GIT !== null && changes.length === 0,
     changedPathCount: changes.length,
+    gitAvailable: GIT !== null,
   };
 }
 
@@ -98,8 +119,8 @@ function sha512Base64(filePath) {
 }
 
 function signingCredentialsPresent() {
-  const certificate = process.env.CSC_LINK || process.env.WIN_CSC_LINK;
-  const password = process.env.CSC_KEY_PASSWORD || process.env.WIN_CSC_KEY_PASSWORD;
+  const certificate = process.env.CSC_LINK || process.env.WIN_CSC_LINK || process.env.WINDOWS_CSC_LINK;
+  const password = process.env.CSC_KEY_PASSWORD || process.env.WIN_CSC_KEY_PASSWORD || process.env.WINDOWS_CSC_KEY_PASSWORD;
   return Boolean(certificate && password);
 }
 

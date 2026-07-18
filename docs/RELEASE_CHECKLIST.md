@@ -24,7 +24,7 @@
 | 负责人 | 窗口 11（独立复核与运营门；未代替 Product/Security/Legal/QA 人工签字） |
 | 候选产物 SHA-256 | unsigned installer `7D486394F947FF36AE905DFFD9F095987B66B7C3C835D1814635F80936BF6845`；unsigned unpacked EXE `337540574E02AECDF804417DB48C2A87A682405BD3347EFCA29B617730DC94E1` |
 | 最终结论 | **No-Go / Blocked** |
-| 未关闭风险 | ATH-SEC-003/ATH-PRIV-001：发行配置已漂移为 Execute=`full` 且部分联网同意=true；ATH-REL-001：代码签名证书、批准发布者 DN、HTTPS 更新源、clean-checkout CI 实跑和真实更新/暂停/回滚仍缺外部证据；ATH-DESKTOP-001：真实测试者 0/20–50，安装矩阵、UAC、Defender、标准用户和弱网未完成；ATH-DESKTOP-002：发行主体、价格税务、支付/许可证平台、公钥、公开支持/隐私/安全入口和签字缺失。当前包 `NotSigned` 且不得销售或分发给 Beta 参与者 |
+| 未关闭风险 | ATH-REL-001：代码签名证书、批准发布者 DN、HTTPS 更新源、clean-checkout CI 实跑和真实更新/暂停/回滚仍缺外部证据；ATH-DESKTOP-001：真实测试者 0/20–50，安装矩阵、UAC、Defender、标准用户和弱网未完成；ATH-DESKTOP-002：发行主体、价格税务、支付/许可证平台、公钥、公开支持/隐私/安全入口和签字缺失。当前包 `NotSigned` 且不得销售或分发给 Beta 参与者 |
 
 ## 3. 当前基线证据（2026-07-15）
 
@@ -95,7 +95,7 @@
 - [x] IPC invoke 通道全部验证发送者；聊天类型/长度和文件路径有负向测试
 - [x] 外链/导航先默认拒绝，仅对无凭据 HTTPS 地址显示显式确认；下载和非音频权限请求默认拒绝
 - [x] 麦克风仅在 renderer 显式请求后短时放行；拒绝权限不阻断文本核心功能
-- [ ] 窗口 11 刷新发现受跟踪发行配置的 Execute/全局权限为 Full；实现层升权说明仍在，但恢复默认 Off 并复验前不得通过
+- [x] 窗口 11 发现并重开过 Execute 配置漂移；签名 Private Beta 阶段已恢复发行默认 Off，`SECURITY_BASELINE_OK` 与 consent-disabled smoke 重新通过
 - [x] 删除、覆盖、移动、命令、程序启动、外网请求等高风险动作有逐次确认和脱敏预览
 - [x] 工具降权、离开 Execute、取消任务会立即撤销可撤销能力
 - [ ] 安装器、主 exe、卸载器和辅助可执行文件均签名并验证时间戳
@@ -106,7 +106,7 @@
 
 - [x] 数据流清单覆盖当前 Desktop 本机范围内的聊天、长期记忆、设置、搜索、语音、工具记录、日志、临时文件和本地脱敏崩溃诊断；支付未实现且不得宣传
 - [ ] 隐私政策与 EULA 有公开稳定 URL，应用内可访问
-- [ ] 联网能力有独立说明/同意实现，但窗口 11 刷新发现发行配置的 webSearch/externalToolNetwork 已预先同意；恢复默认 false 并复验前不得通过
+- [x] 联网能力有独立说明/同意；窗口 11 发现的预先同意漂移已恢复为默认 false，`ATHENA_PRIVACY_DATA_OK` 与开发 smoke 重新通过
 - [x] UI 明确区分本地推理、第三方联网和未实现的 Athena Cloud/账号/Steam/Mobile
 - [x] 历史保存开关真实生效；关闭后不会继续保存聊天或提取长期记忆
 - [x] `historyRetentionDays` 有真实清理任务和边界测试
