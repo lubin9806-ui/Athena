@@ -26,6 +26,24 @@ function artifactRecord(filePath, candidateRoot, executable = false) {
   };
 }
 
+function packagedExecutables(root) {
+  const executables = [];
+  const visit = directory => {
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      const absolute = path.join(directory, entry.name);
+      if (entry.isDirectory()) visit(absolute);
+      else if (entry.isFile() && entry.name.toLowerCase().endsWith('.exe')) {
+        executables.push({
+          ...artifactRecord(absolute, path.join(ROOT, 'release'), true),
+          file: path.relative(path.join(ROOT, 'release'), absolute).replace(/\\/g, '/'),
+        });
+      }
+    }
+  };
+  visit(root);
+  return executables.sort((left, right) => left.file.localeCompare(right.file));
+}
+
 function main() {
   const pkg = packageMetadata();
   const installerName = `Athena Setup ${pkg.version}.exe`;
@@ -55,14 +73,14 @@ function main() {
     artifactRecord(installer, candidateRoot, true),
     artifactRecord(blockmap, candidateRoot, false),
   ];
+  const executableEvidence = packagedExecutables(path.join(ROOT, 'release', 'win-unpacked'));
   const packagedAppEvidence = {
-    ...artifactRecord(sourceApp, path.join(ROOT, 'release'), true),
-    file: 'win-unpacked/Athena.exe',
+    ...executableEvidence.find(item => item.file === 'win-unpacked/Athena.exe'),
     smokeRequired: ['ATHENA_SMOKE_READY_TO_SHOW', 'ATHENA_SMOKE_DOM_OK'],
   };
   const updaterConfig = fs.readFileSync(path.join(ROOT, '.build', 'app-update.yml'), 'utf8');
   const expectedPublisher = updaterConfig.match(/^\s*-\s*'([^']+)'\s*$/m)?.[1]?.replace(/''/g, "'") || '';
-  const invalidSignatures = [...artifacts, packagedAppEvidence]
+  const invalidSignatures = [...artifacts, ...executableEvidence]
     .filter(item => item.authenticode && (
       !item.authenticode.valid
       || !item.authenticode.timestampSubject
@@ -101,6 +119,7 @@ function main() {
     },
     artifacts,
     packagedAppEvidence,
+    executableEvidence,
     distributionAllowed: blockers.length === 0,
     disposition: blockers.length === 0 ? 'CANDIDATE_READY' : 'BLOCKED',
     blockers,

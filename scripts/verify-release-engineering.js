@@ -30,7 +30,7 @@ function verifyVersionIdentity() {
   assert.match(builder, /signAndEditExecutable: true/);
   assert.match(builder, /from: \.build\/database/);
   const workflow = fs.readFileSync(path.join(ROOT, '.github', 'workflows', 'desktop-beta.yml'), 'utf8');
-  for (const required of ['actions/checkout@v4', 'npm.cmd ci', 'build:release', '--require-clean', 'WINDOWS_CSC_LINK', 'WINDOWS_SIGNING_PUBLISHER', 'ATHENA_UPDATE_BASE_URL']) {
+  for (const required of ['actions/checkout@v4', 'npm.cmd ci', 'release:preflight', 'build:release', 'release:verify-candidate', '--require-clean', 'WINDOWS_CSC_LINK', 'WINDOWS_SIGNING_PUBLISHER', 'ATHENA_UPDATE_BASE_URL']) {
     assert(workflow.includes(required), `clean-checkout CI is missing: ${required}`);
   }
   assert.strictEqual(buildInputHash(), buildInputHash());

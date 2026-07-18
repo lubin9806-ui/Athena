@@ -68,12 +68,22 @@ jobs:
           CSC_KEY_PASSWORD: ${{ secrets.WINDOWS_CSC_KEY_PASSWORD }}
           ATHENA_SIGNING_PUBLISHER: ${{ secrets.WINDOWS_SIGNING_PUBLISHER }}
           ATHENA_UPDATE_BASE_URL: ${{ secrets.ATHENA_UPDATE_BASE_URL }}
-        run: npm.cmd run build:release -- --require-clean
+        shell: pwsh
+        run: |
+          npm.cmd run release:preflight
+          npm.cmd run build:release -- --require-clean
       - name: Packaged smoke
         shell: pwsh
         run: "& '.\\release\\win-unpacked\\Athena.exe' --smoke-test; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }"
       - name: Generate exact candidate manifest
         run: npm.cmd run release:manifest
+      - name: Verify signed Private Beta candidate
+        if: ${{ startsWith(github.ref, 'refs/tags/') || inputs.signed_candidate == true }}
+        shell: pwsh
+        run: |
+          $manifest = Get-ChildItem -LiteralPath release\candidates -Filter candidate-manifest.json -Recurse | Select-Object -First 1
+          if (-not $manifest) { throw 'Candidate manifest was not generated.' }
+          npm.cmd run release:verify-candidate -- --manifest $manifest.FullName
       - name: Prove checkout remained clean
         shell: pwsh
         run: |

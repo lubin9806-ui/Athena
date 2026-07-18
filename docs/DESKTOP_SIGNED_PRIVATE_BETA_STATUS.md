@@ -6,6 +6,8 @@
 
 **阶段已启动，但签名候选构建仍为 Blocked / No-Go。** 本机没有可用代码签名证书/私钥，未配置批准 publisher DN，也未配置 HTTPS update feed。现有 installer 和 EXE 都是 `NotSigned`，不得交付 Private Beta 参与者。
 
+2026-07-18 的未签名工程构建验证了新候选门：manifest 自动枚举 `win-unpacked/Athena.exe` 和 `win-unpacked/resources/elevate.exe`，验收器同时拒绝未签名 installer、两个未签名执行文件和 dirty source，并以退出码 2 结束。该构建只作为 fail-closed 证据，不是可分发候选。
+
 ## 已关闭的本地前置
 
 - 窗口 11 捕获的发行配置漂移已处理：Execute/全局工具权限默认 Off；webSearch/externalToolNetwork consent 默认 false。
@@ -16,6 +18,8 @@
 - `smoke:electron` → `ATHENA_SMOKE_READY_TO_SHOW`、`ATHENA_SMOKE_DOM_OK`。
 - 发布脚本会解析批准的 Git 可执行文件；Git 不可用时 `cleanCheckout=false`，不再回退成假 clean。
 - `npm.cmd run release:preflight` 会一次性检查精确 Git 身份、干净 checkout、签名材料、publisher DN 和 HTTPS feed，且只输出存在性，不输出秘密。
+- `npm.cmd run test:private-beta` 验证候选门会检查哈希、完整签名、时间戳和发布者，并对篡改与未完成 Beta 保持 fail-closed。
+- CI 在签名构建前执行 preflight，生成 manifest 后执行 `release:verify-candidate`；操作顺序见 `PRIVATE_BETA_EXECUTION.md`。
 
 ## 当前外部阻断
 
