@@ -22,7 +22,7 @@ These identifiers are public package metadata. Account credentials, identity doc
 - Store package identity is separate from Desktop Direct and Steam.
 - User data uses the `Athena Microsoft Store` directory to prevent concurrent Direct/Store builds from sharing a writable database.
 - Updates are managed only by Microsoft Store; `electron-updater`, `app-update.yml` and the Direct HTTPS feed are disabled for this SKU.
-- Store package version uses `0.9.0.<build>`; the initial private package is `0.9.0.1`, and later submissions must increase `ATHENA_STORE_BUILD_NUMBER`.
+- Store package version uses `0.9.<build>.0`; the initial private package is `0.9.1.0`, and later submissions must increase `ATHENA_STORE_BUILD_NUMBER`. The fourth component stays `0` because it is reserved by Microsoft Store.
 - The package does not contain OllamaSetup.exe, a local model payload, user databases, logs, `.env`, Steam runtime files or external payment links.
 - Outbound search and tool networking remain separately consented. Full-trust, local network and microphone capabilities are declared because Electron, local Ollama and optional local voice require them.
 
@@ -39,7 +39,13 @@ npm.cmd run store:verify-package -- --artifact $artifact.FullName
 
 The tracked supply-chain manifest records Store source assets and packaging decisions. Candidate-specific AppX hashes belong to the ignored build artifact and Partner Center submission evidence; they are verified by `store:verify-package` instead of being written back into the source commit.
 
-For a later submission, set a larger fourth version component before the clean build, for example `$env:ATHENA_STORE_BUILD_NUMBER='2'`. Partner Center will reject reuse of an already submitted package version.
+For a later submission, set a larger third version component before the clean build, for example `$env:ATHENA_STORE_BUILD_NUMBER='2'`, which produces `0.9.2.0`. Partner Center will reject reuse of an already submitted package version.
+
+## Restricted capability justification
+
+The AppX declares `runFullTrust` because Athena is an Electron/Win32 desktop application. Paste the following truthful explanation into Partner Center's **Submission options** restricted-capability field:
+
+> Athena AI companion is an Electron-based Win32 desktop application packaged as AppX. It requires runFullTrust to start the Electron desktop process, communicate with the user-installed local Ollama service on 127.0.0.1, and run optional on-device voice and user-approved desktop helper processes. The application runs at the current user's medium integrity level and does not request administrator elevation. Execute tools are disabled by default and remain protected by explicit permission tiers and confirmation for high-risk actions.
 
 ## Partner Center handoff
 

@@ -28,6 +28,8 @@ function main() {
   if (!/^\d+$/.test(storeBuildNumber) || Number(storeBuildNumber) < 1 || Number(storeBuildNumber) > 65535) {
     fail('build-number-invalid', 'ATHENA_STORE_BUILD_NUMBER must be an integer from 1 through 65535.');
   }
+  const storeAppVersion = `0.9.${storeBuildNumber}`;
+  const storePackageVersion = `${storeAppVersion}.0`;
   const requireClean = process.argv.includes('--require-clean') || Boolean(process.env.CI);
   const state = sourceState();
   if (requireClean && !state.cleanCheckout) fail('dirty-checkout', 'Microsoft Store package builds require a clean checkout.');
@@ -44,7 +46,7 @@ function main() {
     identityName: product.identityName,
     packageFamilyName: product.packageFamilyName,
     updatesManagedBy: product.updatesManagedBy,
-    storePackageVersion: `0.9.0.${storeBuildNumber}`,
+    storePackageVersion,
   });
   writeJson(path.join(ROOT, '.build', 'store', 'store-runtime.json'), {
     schemaVersion: 1,
@@ -54,7 +56,7 @@ function main() {
     packageFamilyName: product.packageFamilyName,
     audience: product.audience,
     updatesManagedBy: product.updatesManagedBy,
-    storePackageVersion: `0.9.0.${storeBuildNumber}`,
+    storePackageVersion,
     generatedAt: new Date().toISOString(),
   });
 
@@ -64,12 +66,16 @@ function main() {
   run('typecheck', node, [path.join(ROOT, 'node_modules', 'typescript', 'bin', 'tsc')]);
   run('seed-database', node, [path.join(ROOT, 'node_modules', 'electron', 'cli.js'), path.join(ROOT, 'scripts', 'create-seed-database.js')]);
   run('renderer', node, [path.join(ROOT, 'node_modules', 'vite', 'bin', 'vite.js'), 'build', '--config', 'vite.config.mts']);
-  run('package', node, [path.join(ROOT, 'node_modules', 'electron-builder', 'cli.js'), '--config', 'electron-builder.store.yml', '--win', 'appx', '--x64', '--publish', 'never'], {
+  run('package', node, [
+    path.join(ROOT, 'node_modules', 'electron-builder', 'cli.js'),
+    '--config', 'electron-builder.store.yml',
+    `--config.extraMetadata.version=${storeAppVersion}`,
+    '--win', 'appx', '--x64', '--publish', 'never',
+  ], {
     ...process.env,
     ATHENA_SKU: 'microsoft-store',
-    BUILD_NUMBER: storeBuildNumber,
   });
-  console.log(`ATHENA_STORE_BUILD_OK storeId=${product.storeId} identity=${product.identityName} audience=${product.audience} packageVersion=0.9.0.${storeBuildNumber}`);
+  console.log(`ATHENA_STORE_BUILD_OK storeId=${product.storeId} identity=${product.identityName} audience=${product.audience} packageVersion=${storePackageVersion}`);
   console.log('ATHENA_STORE_NOT_SUBMITTED Partner Center upload and certification remain external actions.');
 }
 

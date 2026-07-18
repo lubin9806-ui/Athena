@@ -50,7 +50,7 @@ function verifySource() {
   for (const [key, value] of Object.entries(EXPECTED)) assert.equal(product[key], value, `Store identity drifted: ${key}`);
 
   const builder = fs.readFileSync(path.join(ROOT, 'electron-builder.store.yml'), 'utf8');
-  for (const value of [EXPECTED.identityName, EXPECTED.publisher, EXPECTED.publisherDisplayName, 'target: appx', 'runFullTrust', 'internetClient', 'microphone']) {
+  for (const value of [EXPECTED.identityName, EXPECTED.publisher, EXPECTED.publisherDisplayName, 'target: appx', 'setBuildNumber: false', 'runFullTrust', 'internetClient', 'microphone']) {
     assert(builder.includes(value), `Store builder configuration is missing: ${value}`);
   }
   assert(!builder.includes('.build/update-config.json'), 'Store package must not contain Desktop Direct update configuration.');
@@ -83,7 +83,7 @@ function verifySource() {
     packageFamilyName: EXPECTED.packageFamilyName,
     audience: 'private',
     updatesManagedBy: 'microsoft-store',
-    storePackageVersion: '0.9.0.1',
+    storePackageVersion: '0.9.1.0',
     generatedAt: new Date(0).toISOString(),
   };
   runtimeModule.setMicrosoftStoreRuntimeOverrideForTests(validRuntime);
@@ -115,8 +115,8 @@ function verifyArtifact(value) {
   assert.equal(runtime.storeId, EXPECTED.storeId);
   assert.equal(runtime.audience, 'private');
   assert.equal(runtime.updatesManagedBy, 'microsoft-store');
-  assert.equal(runtime.storePackageVersion, '0.9.0.1');
-  assert.match(manifest, /Version=["']0\.9\.0\.1["']/);
+  assert.equal(runtime.storePackageVersion, '0.9.1.0');
+  assert.match(manifest, /Version=["']0\.9\.1\.0["']/);
   console.log(`ATHENA_STORE_PACKAGE_OK file=${path.basename(artifact)} bytes=${fs.statSync(artifact).size}`);
   console.log('ATHENA_STORE_EXTERNAL_REVIEW_REQUIRED private-audience partner-center-certification package-flight');
 }

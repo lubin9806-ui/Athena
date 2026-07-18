@@ -55,7 +55,8 @@ appx:
   backgroundColor: "#111315"
   showNameOnTiles: true
   addAutoLaunchExtension: false
-  setBuildNumber: true
+  # Microsoft Store reserves the fourth package-version component; keep it at 0.
+  setBuildNumber: false
   minVersion: 10.0.19041.0
   maxVersionTested: 10.0.26100.0
   languages:
