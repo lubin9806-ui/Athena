@@ -8,7 +8,6 @@ const https = require('https');
 const { execSync, exec, spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
-const puppeteer = require('puppeteer');
 
 // ========== 已知软件路径 ==========
 const KNOWN_APPS = {
@@ -30,13 +29,10 @@ const KNOWN_APPS = {
 };
 
 const KNOWN_FOLDERS = {
-  '作品': 'G:\\generated',
-  '项目': 'G:\\Athena',
-  'vs项目': 'd:\\vs\\vs.6',
-  '下载': process.env.USERPROFILE + '\\Downloads',
-  '桌面': process.env.USERPROFILE + '\\Desktop',
-  '文档': process.env.USERPROFILE + '\\Documents',
-  '图片': process.env.USERPROFILE + '\\Pictures',
+  '下载': path.join(process.env.USERPROFILE || process.env.HOME || process.cwd(), 'Downloads'),
+  '桌面': path.join(process.env.USERPROFILE || process.env.HOME || process.cwd(), 'Desktop'),
+  '文档': path.join(process.env.USERPROFILE || process.env.HOME || process.cwd(), 'Documents'),
+  '图片': path.join(process.env.USERPROFILE || process.env.HOME || process.cwd(), 'Pictures'),
 };
 
 // ========== 辅助函数 ==========
@@ -57,37 +53,6 @@ function curl(url) {
       }
     );
   });
-}
-
-let browserInstance = null;
-async function getBrowser() {
-  if (!browserInstance) {
-    browserInstance = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox'] });
-  }
-  return browserInstance;
-}
-
-async function searchBingRendered(query) {
-  const browser = await getBrowser();
-  const page = await browser.newPage();
-  try {
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
-    await page.goto(`https://www.bing.com/search?q=${encodeURIComponent(query)}`, { waitUntil: 'domcontentloaded', timeout: 10000 });
-    const results = await page.evaluate(() => {
-      const items = Array.from(document.querySelectorAll('.b_algo'));
-      return items.slice(0, 5).map(el => {
-        const title = el.querySelector('h2 a')?.innerText?.trim() || '';
-        const snippet = el.querySelector('.b_caption p')?.innerText?.trim() || '';
-        return snippet ? `${title}：${snippet}` : title;
-      }).filter(t => t.length > 2 && !t.includes('sourceMapping') && !t.includes('sourceURL'));
-    });
-    await page.close();
-    if (results.length > 0) return results.join('\n');
-    throw new Error('no results');
-  } catch (e) {
-    await page.close();
-    throw e;
-  }
 }
 
 /** Bing 搜索（curl 实现——更稳定） */
@@ -195,28 +160,23 @@ function searchDuckDuckGo(query) {
   });
 }
 
-/** 统一搜索入口：Puppeteer 渲染 Bing → curl Bing → 百度 → DuckDuckGo 逐级 fallback */
+/** 统一搜索入口：Bing → 百度 → DuckDuckGo 逐级 fallback */
 function searchWeb(query) {
   console.log('[搜索请求]', query);
   return new Promise((resolve) => {
-    searchBingRendered(query)
-      .then(r => { console.log('[Puppeteer渲染成功]', r.slice(0,100)); resolve(r); })
+    searchBing(query)
+      .then(r => { console.log('[Bing curl成功]', r.slice(0,100)); resolve(r); })
       .catch(() => {
-        console.log('[Puppeteer失败，尝试Bing curl]');
-        searchBing(query)
-          .then(r => { console.log('[Bing curl成功]', r.slice(0,100)); resolve(r); })
+        console.log('[Bing curl失败，尝试百度]');
+        searchBaidu(query)
+          .then(r => { console.log('[百度成功]', r.slice(0,100)); resolve(r); })
           .catch(() => {
-            console.log('[Bing curl失败，尝试百度]');
-            searchBaidu(query)
-              .then(r => { console.log('[百度成功]', r.slice(0,100)); resolve(r); })
+            console.log('[百度失败，尝试DDG]');
+            searchDuckDuckGo(query)
+              .then(r => { console.log('[DDG成功]', r.slice(0,100)); resolve(r); })
               .catch(() => {
-                console.log('[百度失败，尝试DDG]');
-                searchDuckDuckGo(query)
-                  .then(r => { console.log('[DDG成功]', r.slice(0,100)); resolve(r); })
-                  .catch(() => {
-                    console.log('[全部搜索源均失败]');
-                    resolve(`搜索"${query}"没有找到有效结果`);
-                  });
+                console.log('[全部搜索源均失败]');
+                resolve(`搜索"${query}"没有找到有效结果`);
               });
           });
       });
@@ -264,8 +224,8 @@ function openExplorer(target) {
   child.unref();
 }
 
-const QWEATHER_HOST = 'nc6pg9rj8w.re.qweatherapi.com';
-const QWEATHER_KEY = 'b314eb0bc5474f0bb96905c36bfc6c1e';
+const QWEATHER_HOST = process.env.ATHENA_QWEATHER_HOST || '';
+const QWEATHER_KEY = process.env.ATHENA_QWEATHER_API_KEY || '';
 
 function fetchJson(url) {
   return new Promise((resolve, reject) => {
@@ -283,7 +243,15 @@ function fetchJson(url) {
 
 function getWeather(city) {
   return new Promise((resolve) => {
-    const cityName = city || '西安';
+    if (!QWEATHER_HOST || !QWEATHER_KEY) {
+      resolve('天气服务尚未配置。');
+      return;
+    }
+    const cityName = String(city || '').trim();
+    if (!cityName) {
+      resolve('请告诉我需要查询天气的城市。');
+      return;
+    }
     const lookupUrl = `https://${QWEATHER_HOST}/geo/v2/city/lookup?location=${encodeURIComponent(cityName)}&key=${QWEATHER_KEY}`;
     
     fetchJson(lookupUrl).then(geo => {

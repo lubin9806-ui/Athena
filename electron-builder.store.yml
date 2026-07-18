@@ -12,7 +12,11 @@ files:
   - "!resources/OllamaSetup.exe"
   - config/**/*
   - "!config/settings.json"
-  - skills/**/*
+  - "!config/commercial.json"
+  - "!config/microsoft-store.json"
+  - "!config/operations.json"
+  - "!config/steam.json"
+  - "!skills/**/*"
   - assets/**/*
   - "!assets/steam/**/*"
   - "!**/*.map"

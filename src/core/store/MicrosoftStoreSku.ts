@@ -11,7 +11,12 @@ export function isMicrosoftStoreSku(): boolean {
 export function loadMicrosoftStoreRuntimeConfig(): MicrosoftStoreRuntimeConfig | null {
   if (runtimeOverride !== undefined) return runtimeOverride;
   const configuredPath = process.env.ATHENA_STORE_RUNTIME_CONFIG?.trim();
-  const filePath = configuredPath || path.join(process.resourcesPath, 'store', 'store-runtime.json');
+  const resourcesPath = (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath;
+  const filePath = configuredPath || (resourcesPath ? path.join(resourcesPath, 'store', 'store-runtime.json') : null);
+  if (!filePath) {
+    runtimeOverride = null;
+    return runtimeOverride;
+  }
   try {
     const value = JSON.parse(fs.readFileSync(filePath, 'utf8')) as unknown;
     runtimeOverride = validateRuntimeConfig(value);

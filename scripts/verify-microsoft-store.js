@@ -1,7 +1,9 @@
 const assert = require('assert');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
+const asar = require('@electron/asar');
 const { ROOT } = require('./release-common');
 
 const EXPECTED = {
@@ -39,6 +41,64 @@ function listArchive(artifact) {
   return result.stdout.split(/\r?\n/).filter(Boolean);
 }
 
+function extractArchiveEntry(artifact, entryName, outputPath) {
+  const escapedArtifact = artifact.replace(/'/g, "''");
+  const escapedEntry = entryName.replace(/'/g, "''");
+  const escapedOutput = outputPath.replace(/'/g, "''");
+  const command = [
+    'Add-Type -AssemblyName System.IO.Compression.FileSystem',
+    `$archive=[System.IO.Compression.ZipFile]::OpenRead('${escapedArtifact}')`,
+    `try{$entry=$archive.Entries|Where-Object{$_.FullName -eq '${escapedEntry}'}|Select-Object -First 1;if(-not $entry){exit 7};[System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry,'${escapedOutput}',$true)}finally{$archive.Dispose()}`,
+  ].join(';');
+  const result = spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', command], { encoding: 'utf8', windowsHide: true });
+  assert.equal(result.status, 0, `Archive entry is missing or cannot be extracted: ${entryName}`);
+}
+
+function verifyPackagedContent(artifact) {
+  const temporaryDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'athena-store-asar-'));
+  const asarPath = path.join(temporaryDirectory, 'app.asar');
+  try {
+    extractArchiveEntry(artifact, 'app/resources/app.asar', asarPath);
+    const rawEntries = asar.listPackage(asarPath);
+    const entries = rawEntries.map(value => value.replace(/^\\/, '').replace(/\\/g, '/'));
+    const forbidden = [
+      'config/commercial.json',
+      'config/microsoft-store.json',
+      'config/operations.json',
+      'config/settings.json',
+      'config/steam.json',
+      'skills/actions.js',
+    ];
+    for (const value of forbidden) assert(!entries.includes(value), `Store AppX contains foreign or developer state: ${value}`);
+    assert(entries.includes('dist/core/ai/Personality.js'), 'Canonical Su Shixia personality is missing from Store AppX.');
+
+    const sensitivePatterns = [
+      ['developer path', /(?:C:\\Users\\lubin|G:\\Athena|d:\\vs\\vs\.6)/i],
+      ['private key', /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/],
+      ['OpenAI key', /\bsk-(?:proj-)?[A-Za-z0-9_-]{16,}/],
+      ['GitHub token', /\bgh[pousr]_[A-Za-z0-9]{20,}/],
+      ['Google key', /\bAIza[0-9A-Za-z_-]{20,}/],
+      ['Slack token', /\bxox[baprs]-[A-Za-z0-9-]{10,}/],
+      ['hard-coded API key', /(?:QWEATHER_KEY|["']apiKey["'])\s*[:=]\s*["'](?!["'])[^"']{8,}["']/i],
+    ];
+    let scannedTextFiles = 0;
+    for (let index = 0; index < rawEntries.length; index += 1) {
+      const entry = entries[index];
+      if (!/^(?:config|dist|resources|skills)\//.test(entry) || !/\.(?:css|html|js|json|md|ps1|py|txt|ya?ml)$/i.test(entry)) continue;
+      const contents = asar.extractFile(asarPath, rawEntries[index].replace(/^\\/, ''));
+      if (contents.length > 5_000_000) continue;
+      scannedTextFiles += 1;
+      const text = contents.toString('utf8');
+      for (const [label, pattern] of sensitivePatterns) {
+        assert(!pattern.test(text), `Store AppX ${label} detected in ${entry}`);
+      }
+    }
+    console.log(`ATHENA_STORE_CONTENT_CLEAN_OK entries=${entries.length} textFiles=${scannedTextFiles}`);
+  } finally {
+    fs.rmSync(temporaryDirectory, { recursive: true, force: true });
+  }
+}
+
 function verifySource() {
   const product = JSON.parse(fs.readFileSync(path.join(ROOT, 'config', 'microsoft-store.json'), 'utf8'));
   assert.equal(product.schemaVersion, 1);
@@ -50,12 +110,14 @@ function verifySource() {
   for (const [key, value] of Object.entries(EXPECTED)) assert.equal(product[key], value, `Store identity drifted: ${key}`);
 
   const builder = fs.readFileSync(path.join(ROOT, 'electron-builder.store.yml'), 'utf8');
-  for (const value of [EXPECTED.identityName, EXPECTED.publisher, EXPECTED.publisherDisplayName, 'target: appx', 'setBuildNumber: false', 'runFullTrust', 'internetClient', 'microphone']) {
+  for (const value of [EXPECTED.identityName, EXPECTED.publisher, EXPECTED.publisherDisplayName, 'target: appx', 'setBuildNumber: false', '!skills/**/*', '!config/settings.json', '!config/steam.json', 'runFullTrust', 'internetClient', 'microphone']) {
     assert(builder.includes(value), `Store builder configuration is missing: ${value}`);
   }
   assert(!builder.includes('.build/update-config.json'), 'Store package must not contain Desktop Direct update configuration.');
   assert(!builder.includes('.build/app-update.yml'), 'Store package must not contain electron-updater metadata.');
   assert(builder.includes('!config/settings.json'), 'Store package must exclude developer settings and start from runtime defaults.');
+  const legacyActions = fs.readFileSync(path.join(ROOT, 'skills', 'actions.js'), 'utf8');
+  assert(!/(?:G:\\Athena|d:\\vs\\vs\.6|QWEATHER_KEY\s*=\s*['"][a-f0-9]{24,}['"]|require\(['"]puppeteer['"]\))/i.test(legacyActions), 'Legacy actions contain developer paths, a hard-coded credential, or a missing dependency.');
 
   const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
   assert.equal(pkg.scripts['build:store'], 'node scripts/build-microsoft-store.js --require-clean');
@@ -94,6 +156,7 @@ function verifySource() {
   runtimeModule.setMicrosoftStoreRuntimeOverrideForTests(null);
   assert.equal(runtimeModule.isMicrosoftStoreSku(), false);
   runtimeModule.setMicrosoftStoreRuntimeOverrideForTests(undefined);
+  assert.equal(runtimeModule.isMicrosoftStoreSku(), false);
   console.log(`ATHENA_STORE_SOURCE_OK storeId=${EXPECTED.storeId} identity=${EXPECTED.identityName} audience=private`);
 }
 
@@ -129,6 +192,7 @@ function verifyArtifact(value) {
   if (databaseCheck.stdout) process.stdout.write(databaseCheck.stdout);
   if (databaseCheck.stderr) process.stderr.write(databaseCheck.stderr);
   assert.equal(databaseCheck.status, 0, 'Store package seed database contains user data or is invalid.');
+  verifyPackagedContent(artifact);
   console.log(`ATHENA_STORE_PACKAGE_OK file=${path.basename(artifact)} bytes=${fs.statSync(artifact).size}`);
   console.log('ATHENA_STORE_EXTERNAL_REVIEW_REQUIRED private-audience partner-center-certification package-flight');
 }

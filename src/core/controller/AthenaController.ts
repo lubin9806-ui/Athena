@@ -1,7 +1,6 @@
 import { LLMClient } from '../ai/Client';
 import { Conversation } from '../ai/Conversation';
 import { EmotionEngine } from '../ai/Emotion';
-import { detectDesktopAction } from '../ai/ToolCall';
 import { getAppSettings, resolveToolSettingsForMode, shouldSaveHistory } from '../config/SettingsStore';
 import { WebSearchService } from '../web/WebSearchService';
 import { evaluateSteamAiContent, steamAiGuardrailRefusal } from '../steam/SteamAiGuardrails';
@@ -120,12 +119,10 @@ export class AthenaController {
     const localCommand = this.processLocalCommand(userMessage, mode);
     if (localCommand) return localCommand;
 
-    const action = detectDesktopAction(userMessage);
     const webPlan = this.webSearch.plan({
       message: userMessage,
       force: options?.forceWebSearch,
       settings: settings.webSearch,
-      detectedAction: action,
     });
     let webSearchContext: WebSearchContext | undefined;
 
