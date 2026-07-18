@@ -27,6 +27,7 @@ These identifiers are public package metadata. Account credentials, identity doc
 - The packaged seed database is created from a new empty file. Messages, user profile facts, events, project notes, memory index and activity records must all be zero, with no SQLite freelist pages. Su Shixia's personality remains in the canonical code prompt and is not stored as user memory.
 - The Store package excludes the tracked development `config/settings.json`; each new user starts from runtime defaults, sees the first-run privacy state, and receives no developer personalization.
 - The Store package excludes legacy `skills/actions.js` plus Direct, Steam and operations product configs. Package verification opens the final ASAR and fails closed on developer paths, common credential formats, hard-coded API keys or cross-SKU files.
+- The Store build explicitly rebuilds `better-sqlite3` for the pinned Electron ABI before creating the seed database, so a preceding Node-based test run cannot poison package reproducibility.
 - Outbound search and tool networking remain separately consented. Full-trust, local network and microphone capabilities are declared because Electron, local Ollama and optional local voice require them.
 
 ## Engineering commands

@@ -121,6 +121,8 @@ function verifySource() {
 
   const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
   assert.equal(pkg.scripts['build:store'], 'node scripts/build-microsoft-store.js --require-clean');
+  const storeBuildScript = fs.readFileSync(path.join(ROOT, 'scripts', 'build-microsoft-store.js'), 'utf8');
+  assert.match(storeBuildScript, /run\('sqlite-electron-abi', 'npm\.cmd', \['run', 'rebuild:sqlite:electron'\]\)/);
   const main = fs.readFileSync(path.join(ROOT, 'src', 'app', 'main.ts'), 'utf8');
   assert.match(main, /!isMicrosoftStoreBuild\) initializeDesktopUpdater/);
   assert.match(main, /Athena Microsoft Store/);
