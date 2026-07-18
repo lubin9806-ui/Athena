@@ -51,7 +51,7 @@
     "clean:dist": "node scripts/clean-dist.js",
     "db:stats": "python scripts/db-tool.py stats",
     "db:reindex": "python scripts/db-tool.py reindex",
-    "rebuild:sqlite:electron": "npm.cmd rebuild better-sqlite3 --runtime=electron --target=42.7.0 --disturl=https://electronjs.org/headers",
+    "rebuild:sqlite:electron": "node node_modules/@electron/rebuild/lib/cli.js -f -w better-sqlite3 -v 42.7.0 -m .",
     "import:sushixia": "python scripts/import-su-shixia-chat-record.py",
     "start": "electron .",
     "desktop": "electron ."
@@ -62,6 +62,7 @@
     "electron-updater": "6.8.9"
   },
   "devDependencies": {
+    "@electron/rebuild": "4.2.0",
     "@types/better-sqlite3": "7.6.13",
     "@types/node": "20.19.43",
     "electron": "42.7.0",
