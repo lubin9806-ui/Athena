@@ -22,7 +22,6 @@ import {
   extractMemoryFromUserMessage,
   getDatabase,
   getStats,
-  initializeDefaultProfile,
   rebuildMemoryIndex,
   retrieveContext,
   saveMessage,
@@ -83,7 +82,6 @@ export class AthenaController {
   private async runInitialize(): Promise<void> {
     logger.info('Initializing Athena...');
     getDatabase();
-    initializeDefaultProfile();
     const retention = applyDataRetention();
     if (retention.messagesDeleted > 0 || retention.activityDeleted > 0) {
       logger.info(`Data retention applied: messages=${retention.messagesDeleted}, activity=${retention.activityDeleted}`);

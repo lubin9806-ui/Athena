@@ -143,18 +143,6 @@ export function deleteProfileFact(factContent: string): boolean {
   return result.changes > 0;
 }
 
-export function initializeDefaultProfile(): void {
-  const db = getDatabase();
-  const count = (db.prepare('SELECT COUNT(*) as c FROM profile').get() as { c: number }).c;
-  if (count > 0) return;
-
-  addProfileFacts([
-    { category: 'identity', fact: '用户正在打造 Athena 本地 AI 桌面伙伴。', confidence: 0.9, importance: 10, source: 'default' },
-    { category: 'project', fact: 'Athena 的路线图包含长期记忆、人格、语音、Live2D、电脑助手和创作助手。', confidence: 0.8, importance: 9, source: 'default' },
-    { category: 'preference', fact: '用户偏好 Athena 自然、有陪伴感，但不要空洞套话。', confidence: 0.7, importance: 8, source: 'default' },
-  ]);
-}
-
 function markProfileFactsRecalled(facts: string[]): void {
   if (facts.length === 0) return;
   const db = getDatabase();

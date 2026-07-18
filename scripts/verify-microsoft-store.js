@@ -55,12 +55,15 @@ function verifySource() {
   }
   assert(!builder.includes('.build/update-config.json'), 'Store package must not contain Desktop Direct update configuration.');
   assert(!builder.includes('.build/app-update.yml'), 'Store package must not contain electron-updater metadata.');
+  assert(builder.includes('!config/settings.json'), 'Store package must exclude developer settings and start from runtime defaults.');
 
   const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
   assert.equal(pkg.scripts['build:store'], 'node scripts/build-microsoft-store.js --require-clean');
   const main = fs.readFileSync(path.join(ROOT, 'src', 'app', 'main.ts'), 'utf8');
   assert.match(main, /!isMicrosoftStoreBuild\) initializeDesktopUpdater/);
   assert.match(main, /Athena Microsoft Store/);
+  const controller = fs.readFileSync(path.join(ROOT, 'src', 'core', 'controller', 'AthenaController.ts'), 'utf8');
+  assert(!controller.includes('initializeDefaultProfile'), 'Store users must not receive developer-specific default memory.');
 
   const assets = [
     ['StoreLogo.png', 50, 50],
@@ -115,8 +118,17 @@ function verifyArtifact(value) {
   assert.equal(runtime.storeId, EXPECTED.storeId);
   assert.equal(runtime.audience, 'private');
   assert.equal(runtime.updatesManagedBy, 'microsoft-store');
-  assert.equal(runtime.storePackageVersion, '0.9.1.0');
-  assert.match(manifest, /Version=["']0\.9\.1\.0["']/);
+  assert.match(runtime.storePackageVersion, /^0\.9\.(?:[1-9]\d{0,4})\.0$/);
+  const manifestVersion = manifest.match(/<Identity\b[^>]*\bVersion=["']([^"']+)["']/)?.[1];
+  assert.equal(manifestVersion, runtime.storePackageVersion, 'Manifest and Store runtime package versions must match.');
+  const databaseCheck = spawnSync('python', [path.join(ROOT, 'scripts', 'verify-store-package-database.py'), artifact], {
+    cwd: ROOT,
+    encoding: 'utf8',
+    windowsHide: true,
+  });
+  if (databaseCheck.stdout) process.stdout.write(databaseCheck.stdout);
+  if (databaseCheck.stderr) process.stderr.write(databaseCheck.stderr);
+  assert.equal(databaseCheck.status, 0, 'Store package seed database contains user data or is invalid.');
   console.log(`ATHENA_STORE_PACKAGE_OK file=${path.basename(artifact)} bytes=${fs.statSync(artifact).size}`);
   console.log('ATHENA_STORE_EXTERNAL_REVIEW_REQUIRED private-audience partner-center-certification package-flight');
 }

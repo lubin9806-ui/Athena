@@ -24,6 +24,8 @@ These identifiers are public package metadata. Account credentials, identity doc
 - Updates are managed only by Microsoft Store; `electron-updater`, `app-update.yml` and the Direct HTTPS feed are disabled for this SKU.
 - Store package version uses `0.9.<build>.0`; the initial private package is `0.9.1.0`, and later submissions must increase `ATHENA_STORE_BUILD_NUMBER`. The fourth component stays `0` because it is reserved by Microsoft Store.
 - The package does not contain OllamaSetup.exe, a local model payload, user databases, logs, `.env`, Steam runtime files or external payment links.
+- The packaged seed database is created from a new empty file. Messages, user profile facts, events, project notes, memory index and activity records must all be zero, with no SQLite freelist pages. Su Shixia's personality remains in the canonical code prompt and is not stored as user memory.
+- The Store package excludes the tracked development `config/settings.json`; each new user starts from runtime defaults, sees the first-run privacy state, and receives no developer personalization.
 - Outbound search and tool networking remain separately consented. Full-trust, local network and microphone capabilities are declared because Electron, local Ollama and optional local voice require them.
 
 ## Engineering commands
