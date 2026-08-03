@@ -202,6 +202,7 @@ export class AthenaController {
       modeToolSettings,
       options?.onToolStatus,
       options?.onToolConfirm,
+      { chatWindowId, userMessageId: savedUser.chatMessageId },
     );
 
     const outputGuardrail = evaluateSteamAiContent(response.content);

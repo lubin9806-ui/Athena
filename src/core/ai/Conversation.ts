@@ -1,10 +1,12 @@
 /** 对话管理 */
 
 import { LLMClient } from './Client';
-import { buildChatPrompt } from './PromptBuilder';
+import { buildChatPromptWithSnapshot } from './PromptBuilder';
+import type { ContextSnapshotPayload } from './ContextManager';
 import { EmotionEngine } from './Emotion';
 import { ToolRuntime } from '../tools/ToolRuntime';
 import { toolPermissionPrompt } from '../tools/ComputerTools';
+import { saveContextSnapshot } from '../../memory';
 import type {
   ConversationMode,
   Message,
@@ -16,7 +18,13 @@ import type {
   ToolConfirmationRequest,
   WebSearchContext,
   WebSearchSummary,
+  ContextSnapshotRecord,
 } from '../../shared/types';
+
+interface ContextSnapshotOptions {
+  chatWindowId?: number;
+  userMessageId?: number;
+}
 
 export class Conversation {
   private llm: LLMClient;
@@ -56,24 +64,31 @@ export class Conversation {
     },
     onToolStatus?: (status: ToolStatusEvent) => void,
     onToolConfirm?: (request: ToolConfirmationRequest) => Promise<boolean>,
+    contextSnapshotOptions?: ContextSnapshotOptions,
   ): Promise<ChatResponse> {
     // 更新情绪基调
     this.emotion.setBaseEmotion(new Date().getHours());
 
-    // 构建 Prompt
-    const messages = buildChatPrompt({
+    const webContextWindow = webSearchContext
+      ? Math.max(this.llm.contextWindow, (webSearchContext.pages?.length ?? 0) > 0 ? 8192 : 6144)
+      : undefined;
+    const maxPromptTokens = resolvePromptBudgetTokens(webContextWindow ?? this.llm.contextWindow);
+    const prompt = buildChatPromptWithSnapshot({
       userMessage,
       recentMessages,
       retrievedContext,
       webSearchContext,
       toolContext: toolPermissionPrompt(toolSettings),
       mode,
+      maxPromptTokens,
+    });
+    const messages = prompt.messages;
+    const contextSnapshot = persistContextSnapshot(prompt.snapshot, {
+      chatWindowId: contextSnapshotOptions?.chatWindowId ?? retrievedContext.chatWindow?.id,
+      userMessageId: contextSnapshotOptions?.userMessageId,
     });
 
     // 调用 LLM
-    const webContextWindow = webSearchContext
-      ? Math.max(this.llm.contextWindow, (webSearchContext.pages?.length ?? 0) > 0 ? 8192 : 6144)
-      : undefined;
     const toolResult = await this.tools.process({
       messages,
       userMessage,
@@ -97,12 +112,40 @@ export class Conversation {
         recalledEvents: retrievedContext.relatedEvents,
         projectNotes: retrievedContext.projectNotes,
       },
+      contextSnapshot,
       toolExecutions: toolResult.executions.length > 0 ? toolResult.executions : undefined,
     };
   }
 
   shutdown(): void {
     this.tools.shutdown();
+  }
+}
+
+function resolvePromptBudgetTokens(contextWindow: number): number {
+  const safeWindow = Math.max(1024, Math.min(32768, Math.round(contextWindow || 4096)));
+  const responseReserve = Math.max(512, Math.min(4096, Math.floor(safeWindow * 0.25)));
+  return Math.max(1024, safeWindow - responseReserve - 256);
+}
+
+function persistContextSnapshot(
+  snapshot: ContextSnapshotPayload,
+  options: ContextSnapshotOptions,
+): ContextSnapshotRecord | undefined {
+  try {
+    return saveContextSnapshot({
+      windowId: options.chatWindowId,
+      userMessageId: options.userMessageId,
+      mode: snapshot.mode,
+      budget: snapshot.budget as unknown as Record<string, unknown>,
+      included: snapshot.included,
+      omitted: snapshot.omitted,
+      promptMessageCount: snapshot.budget.promptMessageCount,
+      promptChars: snapshot.budget.promptChars,
+      estimatedPromptTokens: snapshot.budget.estimatedPromptTokens,
+    });
+  } catch {
+    return undefined;
   }
 }
 

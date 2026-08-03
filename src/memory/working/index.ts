@@ -1,6 +1,6 @@
 import { getDatabase } from '../database';
 import { deleteMemoryIndex, upsertMemoryIndex } from '../indexer';
-import type { ChatWindow, ChatWindowMessage, ConversationMode, Message, MessageRole } from '../../shared/types';
+import type { ChatWindow, ChatWindowMessage, ContextSnapshotDebugItem, ContextSnapshotRecord, ConversationMode, Message, MessageRole } from '../../shared/types';
 
 export interface MessageInput {
   role: MessageRole;
@@ -12,6 +12,18 @@ export interface MessageInput {
 export interface ChatWindowInput {
   title?: string;
   mode?: ConversationMode;
+}
+
+export interface ContextSnapshotInput {
+  windowId?: number;
+  userMessageId?: number;
+  mode?: ConversationMode;
+  budget: Record<string, unknown>;
+  included: ContextSnapshotDebugItem[];
+  omitted: ContextSnapshotDebugItem[];
+  promptMessageCount: number;
+  promptChars: number;
+  estimatedPromptTokens: number;
 }
 
 const DEFAULT_CHAT_WINDOW_TITLE = '新聊天';
@@ -292,6 +304,80 @@ export function clearMessages(): void {
   getDatabase().prepare("DELETE FROM memory_index WHERE source_table = 'messages'").run();
 }
 
+export function saveContextSnapshot(input: ContextSnapshotInput): ContextSnapshotRecord {
+  const db = getDatabase();
+  const result = db.prepare(`
+    INSERT INTO context_snapshots (
+      window_id,
+      user_message_id,
+      mode,
+      budget_json,
+      included_json,
+      omitted_json,
+      prompt_message_count,
+      prompt_chars,
+      estimated_prompt_tokens
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    input.windowId || null,
+    input.userMessageId || null,
+    input.mode || null,
+    JSON.stringify(input.budget),
+    JSON.stringify(input.included),
+    JSON.stringify(input.omitted),
+    input.promptMessageCount,
+    input.promptChars,
+    input.estimatedPromptTokens,
+  );
+  const id = result.lastInsertRowid as number;
+  return getContextSnapshot(id) || {
+    id,
+    window_id: input.windowId,
+    user_message_id: input.userMessageId,
+    mode: input.mode,
+    budget: input.budget,
+    included: input.included,
+    omitted: input.omitted,
+    prompt_message_count: input.promptMessageCount,
+    prompt_chars: input.promptChars,
+    estimated_prompt_tokens: input.estimatedPromptTokens,
+    created_at: new Date().toISOString(),
+  };
+}
+
+export function getContextSnapshot(id: number): ContextSnapshotRecord | null {
+  const row = getDatabase().prepare(`
+    SELECT id, window_id, user_message_id, mode, budget_json, included_json, omitted_json,
+           prompt_message_count, prompt_chars, estimated_prompt_tokens, created_at
+    FROM context_snapshots
+    WHERE id = ?
+    LIMIT 1
+  `).get(id);
+  return row ? rowToContextSnapshot(row) : null;
+}
+
+export function getRecentContextSnapshots(windowId?: number, limit: number = 20): ContextSnapshotRecord[] {
+  const safeLimit = Math.max(1, Math.min(100, Math.round(limit)));
+  const rows = typeof windowId === 'number' && windowId > 0
+    ? getDatabase().prepare(`
+      SELECT id, window_id, user_message_id, mode, budget_json, included_json, omitted_json,
+             prompt_message_count, prompt_chars, estimated_prompt_tokens, created_at
+      FROM context_snapshots
+      WHERE window_id = ?
+      ORDER BY id DESC
+      LIMIT ?
+    `).all(windowId, safeLimit) as any[]
+    : getDatabase().prepare(`
+      SELECT id, window_id, user_message_id, mode, budget_json, included_json, omitted_json,
+             prompt_message_count, prompt_chars, estimated_prompt_tokens, created_at
+      FROM context_snapshots
+      ORDER BY id DESC
+      LIMIT ?
+    `).all(safeLimit) as any[];
+  return rows.map(rowToContextSnapshot);
+}
+
 function rowToMessage(row: any): Message {
   return {
     id: row.id,
@@ -325,6 +411,22 @@ function rowToChatWindow(row: any): ChatWindow {
     last_active_at: row.last_active_at,
     messageCount: Number(row.message_count || 0),
     lastMessagePreview: row.last_message_preview || undefined,
+  };
+}
+
+function rowToContextSnapshot(row: any): ContextSnapshotRecord {
+  return {
+    id: row.id,
+    window_id: row.window_id || undefined,
+    user_message_id: row.user_message_id || undefined,
+    mode: row.mode || undefined,
+    budget: parseJsonObject(row.budget_json),
+    included: parseJsonArray(row.included_json),
+    omitted: parseJsonArray(row.omitted_json),
+    prompt_message_count: Number(row.prompt_message_count || 0),
+    prompt_chars: Number(row.prompt_chars || 0),
+    estimated_prompt_tokens: Number(row.estimated_prompt_tokens || 0),
+    created_at: row.created_at,
   };
 }
 
@@ -405,6 +507,24 @@ function parseWorkingState(value: string): Record<string, unknown> {
     return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as Record<string, unknown> : {};
   } catch {
     return {};
+  }
+}
+
+function parseJsonObject(value: string): Record<string, unknown> {
+  try {
+    const parsed = JSON.parse(value || '{}');
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as Record<string, unknown> : {};
+  } catch {
+    return {};
+  }
+}
+
+function parseJsonArray(value: string): ContextSnapshotDebugItem[] {
+  try {
+    const parsed = JSON.parse(value || '[]');
+    return Array.isArray(parsed) ? parsed as ContextSnapshotDebugItem[] : [];
+  } catch {
+    return [];
   }
 }
 

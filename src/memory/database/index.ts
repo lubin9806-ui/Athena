@@ -7,7 +7,7 @@ import { ensureSufficientDiskSpace } from '../../core/runtime/DiskSpaceGuard';
 
 let db: Database.Database | null = null;
 let resolvedDbPath: string | null = null;
-export const DATABASE_SCHEMA_VERSION = 2;
+export const DATABASE_SCHEMA_VERSION = 3;
 const MIGRATION_BACKUP_RETENTION = 5;
 
 export interface MemoryStats {
@@ -236,6 +236,21 @@ function runMigrations(database: Database.Database, currentVersion: number): voi
       created_at DATETIME DEFAULT (datetime('now', 'localtime'))
     );
     CREATE INDEX IF NOT EXISTS idx_data_activity_category_created ON data_activity_records(category, created_at);
+
+    CREATE TABLE IF NOT EXISTS context_snapshots (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      window_id INTEGER REFERENCES chat_windows(id) ON DELETE SET NULL,
+      user_message_id INTEGER REFERENCES chat_messages(id) ON DELETE SET NULL,
+      mode TEXT CHECK(mode IN ('create', 'companion', 'reason', 'execute')),
+      budget_json TEXT NOT NULL DEFAULT '{}',
+      included_json TEXT NOT NULL DEFAULT '[]',
+      omitted_json TEXT NOT NULL DEFAULT '[]',
+      prompt_message_count INTEGER NOT NULL DEFAULT 0,
+      prompt_chars INTEGER NOT NULL DEFAULT 0,
+      estimated_prompt_tokens INTEGER NOT NULL DEFAULT 0,
+      created_at DATETIME DEFAULT (datetime('now', 'localtime'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_context_snapshots_window_created ON context_snapshots(window_id, created_at DESC);
     `);
 
     const messageColumns = database.prepare('PRAGMA table_info(messages)').all() as Array<{ name: string }>;

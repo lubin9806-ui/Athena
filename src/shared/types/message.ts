@@ -1,7 +1,7 @@
 export type MessageRole = 'user' | 'assistant' | 'system';
 
 import type { Emotion } from './emotion';
-import type { MemoryEvent, ProjectNote } from './memory';
+import type { ContextSnapshotRecord, MemoryEvent, ProjectNote } from './memory';
 import type { ConversationMode } from './settings';
 import type { WebSearchSummary } from './search';
 import type { ToolExecutionRecord } from './tools';
@@ -47,6 +47,7 @@ export interface ChatResponse {
     recalledEvents: MemoryEvent[];
     projectNotes: ProjectNote[];
   };
+  contextSnapshot?: ContextSnapshotRecord;
   toolExecutions?: ToolExecutionRecord[];
 }
 

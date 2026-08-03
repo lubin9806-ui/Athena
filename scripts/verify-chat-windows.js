@@ -9,7 +9,7 @@ process.env.ATHENA_DB_FILENAME = 'chat-windows-test.db';
 
 const root = path.resolve(__dirname, '..');
 const memory = require(path.join(root, 'dist/memory/index.js'));
-const { buildChatPrompt } = require(path.join(root, 'dist/core/ai/PromptBuilder.js'));
+const { buildChatPrompt, buildChatPromptWithSnapshot } = require(path.join(root, 'dist/core/ai/PromptBuilder.js'));
 
 let exitCode = 0;
 try {
@@ -89,6 +89,53 @@ try {
   });
   const promptTextB = promptB.map((message) => message.content).join('\n');
   assert.ok(!promptTextB.includes('我选择方案一'), 'window B prompt must not inherit window A selection');
+
+  const longMessages = Array.from({ length: 36 }, (_, index) => ({
+    id: 10_000 + index,
+    role: index % 2 === 0 ? 'user' : 'assistant',
+    content: `long-history-${index} ` + 'x'.repeat(700),
+    created_at: new Date().toISOString(),
+  }));
+  const managed = buildChatPromptWithSnapshot({
+    userMessage: 'current-input-marker',
+    recentMessages: longMessages,
+    retrievedContext: {
+      ...contextA,
+      recentMessages: longMessages,
+      chatWindow: {
+        id: windowA.id,
+        title: 'Window A',
+        summary: 'window-summary-marker ' + 's'.repeat(900),
+        workingStateJson: JSON.stringify({ marker: 'working-state-marker', payload: 'w'.repeat(900) }),
+        messageCount: longMessages.length,
+        updatedAt: new Date().toISOString(),
+      },
+    },
+    mode: 'companion',
+    maxPromptTokens: 3200,
+  });
+  const managedText = managed.messages.map((message) => message.content).join('\n');
+  assert.ok(managedText.includes('current-input-marker'), 'current input must always be included');
+  assert.ok(managed.snapshot.budget.estimatedPromptTokens <= managed.snapshot.budget.maxPromptTokens + 128, 'managed prompt should stay close to the configured budget');
+  assert.ok(managed.snapshot.omitted.length > 0, 'context manager must omit low-priority items under pressure');
+  assert.ok(
+    managed.snapshot.omitted.some((item) => item.kind === 'old_history' || item.kind === 'window_summary' || item.kind === 'working_state'),
+    'snapshot must explain omitted lower-priority context',
+  );
+
+  const savedSnapshot = memory.saveContextSnapshot({
+    windowId: windowA.id,
+    userMessageId: undefined,
+    mode: 'companion',
+    budget: managed.snapshot.budget,
+    included: managed.snapshot.included,
+    omitted: managed.snapshot.omitted,
+    promptMessageCount: managed.snapshot.budget.promptMessageCount,
+    promptChars: managed.snapshot.budget.promptChars,
+    estimatedPromptTokens: managed.snapshot.budget.estimatedPromptTokens,
+  });
+  assert.ok(savedSnapshot.id > 0, 'context snapshot should be saved for debugging');
+  assert.equal(memory.getRecentContextSnapshots(windowA.id, 1)[0].id, savedSnapshot.id, 'latest context snapshot should be queryable');
 
   const renamed = memory.renameChatWindow(windowA.id, 'Renamed A');
   assert.equal(renamed.title, 'Renamed A');

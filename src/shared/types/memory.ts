@@ -1,6 +1,7 @@
 import type { EmotionType } from './emotion';
 import type { Message } from './message';
 import type { ProfileEntry } from './profile';
+import type { ConversationMode } from './settings';
 
 export interface MemoryEvent {
   id: number;
@@ -43,4 +44,32 @@ export interface RetrievedContext {
   recentMessages: Message[];
   chatWindow?: ChatWindowContext;
   relevanceScore: number;
+}
+
+export interface ContextSnapshotDebugItem {
+  kind: string;
+  id?: string;
+  label: string;
+  priority: number;
+  chars: number;
+  estimatedTokens: number;
+  included: boolean;
+  reason: string;
+  preview?: string;
+  truncated?: boolean;
+  originalChars?: number;
+}
+
+export interface ContextSnapshotRecord {
+  id: number;
+  window_id?: number;
+  user_message_id?: number;
+  mode?: ConversationMode;
+  budget: Record<string, unknown>;
+  included: ContextSnapshotDebugItem[];
+  omitted: ContextSnapshotDebugItem[];
+  prompt_message_count: number;
+  prompt_chars: number;
+  estimated_prompt_tokens: number;
+  created_at: string;
 }

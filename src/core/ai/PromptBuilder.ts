@@ -16,6 +16,7 @@ import {
   getTimeGreeting as getPersonaTimeGreeting,
 } from './Personality';
 import { buildStyleProfile, type StyleProfile } from './StyleEngine';
+import { buildManagedContext, type ContextSnapshotPayload } from './ContextManager';
 import { buildPersonalizationPrompt } from '../config/SettingsStore';
 import { buildSteamAiGuardrailPrompt } from '../steam/SteamAiGuardrails';
 import type { ConversationMode, Message, RetrievedContext, WebSearchContext } from '../../shared/types';
@@ -84,6 +85,18 @@ export function buildChatPrompt(input: {
   toolContext?: string;
   mode?: ConversationMode;
 }): { role: string; content: string }[] {
+  return buildChatPromptWithSnapshot(input).messages;
+}
+
+export function buildChatPromptWithSnapshot(input: {
+  userMessage: string;
+  recentMessages: Message[];
+  retrievedContext: RetrievedContext;
+  webSearchContext?: WebSearchContext;
+  toolContext?: string;
+  mode?: ConversationMode;
+  maxPromptTokens?: number;
+}): { messages: { role: string; content: string }[]; snapshot: ContextSnapshotPayload } {
   const now = new Date();
   const hour = now.getHours();
   const mode = input.mode ?? 'companion';
@@ -92,26 +105,19 @@ export function buildChatPrompt(input: {
     buildSystemPrompt(style),
     buildModeContext(mode),
     input.toolContext,
-    buildChatWindowContext(input.retrievedContext),
-    buildMemoryContext(input.retrievedContext),
-    buildWebSearchContext(input.webSearchContext),
     buildSceneContext(now, hour, style, mode),
     '请基于以上上下文自然回复用户。不要逐条复述记忆，除非它确实能帮到当前对话。',
   ].filter(Boolean).join('\n\n');
 
-  const chatHistory: { role: string; content: string }[] = [
-    { role: 'system', content: systemMessage },
-  ];
-
-  for (const msg of input.recentMessages.slice(-20)) {
-    chatHistory.push({
-      role: msg.role === 'assistant' ? 'assistant' : 'user',
-      content: msg.content,
-    });
-  }
-
-  chatHistory.push({ role: 'user', content: input.userMessage });
-  return chatHistory;
+  return buildManagedContext({
+    userMessage: input.userMessage,
+    recentMessages: input.recentMessages,
+    retrievedContext: input.retrievedContext,
+    webSearchContext: buildWebSearchContext(input.webSearchContext),
+    mode,
+    systemContext: systemMessage,
+    maxPromptTokens: input.maxPromptTokens,
+  });
 }
 
 function buildChatWindowContext(context: RetrievedContext): string {
