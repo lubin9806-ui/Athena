@@ -48,9 +48,11 @@ export function resolveConfigFile(fileName: string): string | null {
   const packagedResources = resourcesPath();
   const packagedUserData = packagedUserDataPath();
   const explicitFile = fileName === 'model.json' ? process.env.ATHENA_MODEL_CONFIG : undefined;
+  if (explicitFile) return path.resolve(explicitFile);
+  if (process.env.ATHENA_CONFIG_DIR) {
+    return path.join(path.resolve(process.env.ATHENA_CONFIG_DIR), fileName);
+  }
   return resolveExistingFile([
-    explicitFile,
-    process.env.ATHENA_CONFIG_DIR ? path.join(process.env.ATHENA_CONFIG_DIR, fileName) : undefined,
     packagedUserData ? path.join(packagedUserData, 'config', fileName) : undefined,
     path.join(projectRoot, 'config', fileName),
     packagedResources ? path.join(packagedResources, 'config', fileName) : undefined,

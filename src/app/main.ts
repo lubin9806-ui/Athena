@@ -55,12 +55,30 @@ const smokeUserDataPath = isSmokeTest
   : null;
 let smokeReadyLogged = false;
 
+if (isVoiceSmokeTest) {
+  app.disableHardwareAcceleration();
+}
+
 if (smokeUserDataPath) {
   app.setPath('userData', smokeUserDataPath);
   process.env.ATHENA_CONFIG_DIR ||= path.join(smokeUserDataPath, 'config');
   process.env.ATHENA_DB_DIR ||= path.join(smokeUserDataPath, 'database');
   process.env.ATHENA_DIAGNOSTICS_DIR ||= path.join(smokeUserDataPath, 'diagnostics');
   process.env.ATHENA_VOICE_TEMP_DIR ||= path.join(smokeUserDataPath, 'voice');
+  if (isVoiceSmokeTest) {
+    fs.mkdirSync(process.env.ATHENA_CONFIG_DIR, { recursive: true });
+    fs.writeFileSync(path.join(process.env.ATHENA_CONFIG_DIR, 'settings.json'), JSON.stringify({
+      version: 2,
+      voice: {
+        sttEnabled: true,
+        ttsEnabled: true,
+        autoPlayAssistant: false,
+        sttEngine: 'local_whisper',
+        ttsVoice: '',
+        silenceAutoStop: true,
+      },
+    }, null, 2), 'utf8');
+  }
   process.once('exit', () => {
     try {
       fs.rmSync(smokeUserDataPath, { recursive: true, force: true });
@@ -83,6 +101,7 @@ if (!smokeUserDataPath && isMicrosoftStoreBuild) {
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 if (isVoiceSmokeTest) {
   app.commandLine.appendSwitch('use-fake-device-for-media-stream');
+  app.commandLine.appendSwitch('disable-gpu');
 }
 
 function isMainAppPage(webContents: WebContents | null, requestingUrl?: string): boolean {
@@ -197,7 +216,10 @@ function createWindow(): void {
 
   mainWindow.once('ready-to-show', () => {
     if (!isSmokeTest) mainWindow?.show();
-    else logSmokeReady();
+    else {
+      if (isVoiceSmokeTest) mainWindow?.showInactive();
+      logSmokeReady();
+    }
   });
 
   mainWindow.webContents.once('did-finish-load', async () => {
@@ -398,12 +420,12 @@ function createWindow(): void {
             if (!playbackProbe || playbackProbe.ok !== false) return false;
             if (!${isVoiceSmokeTest ? 'true' : 'false'}) return true;
 
+            const voiceSmokeFail = (stage, detail = {}) => {
+              console.log('ATHENA_SMOKE_VOICE_STATE', JSON.stringify({ ok: false, stage, ...detail }));
+              return false;
+            };
             const microphoneArmed = await api.requestMicrophoneAccess();
-            if (!microphoneArmed) return false;
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-            const audioReady = stream.getAudioTracks().length > 0;
-            stream.getTracks().forEach(track => track.stop());
-            if (!audioReady) return false;
+            if (!microphoneArmed) return voiceSmokeFail('requestMicrophoneAccess');
 
             const waitFor = async (predicate, timeoutMs = 4000) => {
               const deadline = Date.now() + timeoutMs;
@@ -416,11 +438,29 @@ function createWindow(): void {
 
             micButton.click();
             const recordingStarted = await waitFor(() => micButton.getAttribute('aria-pressed') === 'true');
-            if (!recordingStarted) return false;
+            if (!recordingStarted) {
+              return voiceSmokeFail('recording-start', {
+                documentHidden: document.hidden,
+                visibilityState: document.visibilityState,
+                disabled: micButton.disabled,
+                enabled: micButton.dataset.enabled,
+                pressed: micButton.getAttribute('aria-pressed'),
+                title: micButton.title,
+                feedback: document.getElementById('voice-feedback')?.textContent || '',
+              });
+            }
             await new Promise(resolve => setTimeout(resolve, 350));
             window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
-            return waitFor(() => micButton.getAttribute('aria-pressed') === 'false');
-          } catch {
+            const recordingStopped = await waitFor(() => micButton.getAttribute('aria-pressed') === 'false');
+            if (!recordingStopped) return voiceSmokeFail('recording-stop', { pressed: micButton.getAttribute('aria-pressed') });
+            console.log('ATHENA_SMOKE_VOICE_STATE', JSON.stringify({ ok: true, stage: 'recording-cancel' }));
+            return true;
+          } catch (error) {
+            console.log('ATHENA_SMOKE_VOICE_STATE', JSON.stringify({
+              ok: false,
+              stage: 'exception',
+              message: error instanceof Error ? error.message : String(error),
+            }));
             return false;
           }
         })()

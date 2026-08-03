@@ -12,7 +12,7 @@ interface RecordingSession {
   stream: MediaStream | null;
   context: AudioContext | null;
   source: MediaStreamAudioSourceNode | null;
-  processor: AudioWorkletNode | null;
+  processor: AudioWorkletNode | ScriptProcessorNode | null;
   silentGain: GainNode | null;
   chunks: Float32Array[];
   inputSampleRate: number;
@@ -234,34 +234,16 @@ export class MicrophoneRecorder {
       session.silentGain = silentGain;
       session.inputSampleRate = context.sampleRate;
 
-      if (!context.audioWorklet || typeof AudioWorkletNode === 'undefined') {
-        throw new Error('AudioWorklet microphone capture is not supported in this environment.');
-      }
-
-      const workletUrl = URL.createObjectURL(new Blob([WORKLET_SOURCE], { type: 'application/javascript' }));
-      try {
-        await context.audioWorklet.addModule(workletUrl);
-      } finally {
-        URL.revokeObjectURL(workletUrl);
-      }
-
       if (!this.owns(session)) {
         await cleanupSession(session);
         return;
       }
 
-      const processor = new AudioWorkletNode(context, WORKLET_PROCESSOR_NAME, {
-        numberOfInputs: 1,
-        numberOfOutputs: 1,
-        channelCount: 1,
-        channelCountMode: 'explicit',
-        outputChannelCount: [1],
+      const processor = await createCaptureProcessor(context, session, (data) => {
+        this.captureFrame(session, data);
       });
       session.processor = processor;
       silentGain.gain.value = 0;
-      processor.port.onmessage = (event: MessageEvent<unknown>): void => {
-        this.captureFrame(session, event.data);
-      };
 
       source.connect(processor);
       processor.connect(silentGain);
@@ -398,8 +380,12 @@ async function cleanupSession(session: RecordingSession): Promise<void> {
     session.trackEndListeners = [];
 
     if (processor) {
-      processor.port.onmessage = null;
-      processor.port.close();
+      if (isAudioWorkletNode(processor)) {
+        processor.port.onmessage = null;
+        processor.port.close();
+      } else {
+        processor.onaudioprocess = null;
+      }
       safelyDisconnect(processor);
     }
     safelyDisconnect(source);
@@ -429,6 +415,47 @@ function stopStream(stream: MediaStream): void {
       // A track may already have ended or been stopped by the browser.
     }
   }
+}
+
+async function createCaptureProcessor(
+  context: AudioContext,
+  session: RecordingSession,
+  onFrame: (data: Float32Array) => void,
+): Promise<AudioWorkletNode | ScriptProcessorNode> {
+  if (context.audioWorklet && typeof AudioWorkletNode !== 'undefined') {
+    const workletUrl = URL.createObjectURL(new Blob([WORKLET_SOURCE], { type: 'application/javascript' }));
+    try {
+      await context.audioWorklet.addModule(workletUrl);
+      const processor = new AudioWorkletNode(context, WORKLET_PROCESSOR_NAME, {
+        numberOfInputs: 1,
+        numberOfOutputs: 1,
+        channelCount: 1,
+        channelCountMode: 'explicit',
+        outputChannelCount: [1],
+      });
+      processor.port.onmessage = (event: MessageEvent<unknown>): void => {
+        onFrame(event.data instanceof Float32Array ? event.data : new Float32Array());
+      };
+      return processor;
+    } catch {
+      // Some Electron/CSP combinations reject Blob-backed AudioWorklet modules.
+      // ScriptProcessor is deprecated but remains a reliable local fallback.
+    } finally {
+      URL.revokeObjectURL(workletUrl);
+    }
+  }
+
+  const processor = context.createScriptProcessor(WORKLET_CHUNK_SIZE, 1, 1);
+  processor.onaudioprocess = (event: AudioProcessingEvent): void => {
+    if (!session.active) return;
+    const input = event.inputBuffer.getChannelData(0);
+    if (input.length > 0) onFrame(input.slice());
+  };
+  return processor;
+}
+
+function isAudioWorkletNode(node: AudioNode): node is AudioWorkletNode {
+  return typeof AudioWorkletNode !== 'undefined' && node instanceof AudioWorkletNode;
 }
 
 function safelyDisconnect(node: AudioNode | null): void {
