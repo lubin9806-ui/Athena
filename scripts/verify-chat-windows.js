@@ -46,6 +46,17 @@ try {
   assert.equal(workingStateA.lastUserSelection, '方案一');
   assert.equal(workingStateA.messageCount, 2);
 
+  const pinnedA = memory.pinChatWindowFact(windowA.id, '方案一是当前窗口的已确认方向');
+  const pinnedB = memory.pinChatWindowFact(windowB.id, 'B 窗口只记录 B 的事实');
+  const pinnedStateA = JSON.parse(pinnedA.working_state_json);
+  const pinnedStateB = JSON.parse(pinnedB.working_state_json);
+  assert.equal(pinnedStateA.pinnedFacts.length, 1, 'window A should persist pinned facts in working state');
+  assert.equal(pinnedStateA.pinnedFacts[0].text, '方案一是当前窗口的已确认方向');
+  assert.equal(pinnedStateB.pinnedFacts[0].text, 'B 窗口只记录 B 的事实');
+  assert.ok(!JSON.stringify(pinnedStateA.pinnedFacts).includes('B 窗口'), 'pinned facts must remain scoped to their window');
+  const unpinnedA = memory.unpinChatWindowFact(windowA.id, pinnedStateA.pinnedFacts[0].id);
+  assert.equal(JSON.parse(unpinnedA.working_state_json).pinnedFacts.length, 0, 'unpinned facts should be removed from the current window');
+
   for (let index = 0; index < 8; index += 1) {
     memory.saveChatMessage(windowA.id, 'user', `持续上下文 ${index}`, undefined, 'companion');
   }

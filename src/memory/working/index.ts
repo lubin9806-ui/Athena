@@ -1,6 +1,6 @@
 import { getDatabase } from '../database';
 import { deleteMemoryIndex, upsertMemoryIndex } from '../indexer';
-import type { ChatWindow, ChatWindowMessage, ContextSnapshotDebugItem, ContextSnapshotRecord, ConversationMode, Message, MessageRole } from '../../shared/types';
+import type { ChatWindow, ChatWindowMessage, ChatWindowPinnedFact, ContextSnapshotDebugItem, ContextSnapshotRecord, ConversationMode, Message, MessageRole } from '../../shared/types';
 
 export interface MessageInput {
   role: MessageRole;
@@ -31,6 +31,8 @@ const MAX_CHAT_WINDOW_TITLE_CHARS = 80;
 const MAX_CHAT_WINDOW_SUMMARY_CHARS = 1_200;
 const MAX_CHAT_WINDOW_PREVIEW_CHARS = 120;
 const MAX_WORKING_STATE_VALUE_CHARS = 120;
+const MAX_PINNED_FACTS_PER_WINDOW = 24;
+const MAX_PINNED_FACT_CHARS = 240;
 const CHAT_WINDOW_MODES = new Set<ConversationMode>(['create', 'companion', 'reason', 'execute']);
 
 export function saveMessage(role: MessageRole, content: string, emotion?: string, mode?: ConversationMode): Message {
@@ -152,6 +154,37 @@ export function deleteChatWindow(id: number): boolean {
     WHERE id = ? AND deleted_at IS NULL
   `).run(id);
   return result.changes > 0;
+}
+
+export function pinChatWindowFact(windowId: number, text: string): ChatWindow | null {
+  const window = getChatWindow(windowId);
+  const normalized = truncateChatWindowText(text, MAX_PINNED_FACT_CHARS);
+  if (!window || window.deleted_at || !normalized) return window;
+
+  const state = parseWorkingState(window.working_state_json || window.working_state);
+  const pinnedFacts = readPinnedFacts(state);
+  const existing = pinnedFacts.find(fact => fact.text === normalized);
+  if (!existing) {
+    pinnedFacts.unshift({
+      id: createPinnedFactId(),
+      text: normalized,
+      createdAt: new Date().toISOString(),
+    });
+  }
+  state.pinnedFacts = pinnedFacts.slice(0, MAX_PINNED_FACTS_PER_WINDOW);
+  updateChatWindowWorkingState(windowId, state);
+  return getChatWindow(windowId);
+}
+
+export function unpinChatWindowFact(windowId: number, factId: string): ChatWindow | null {
+  const window = getChatWindow(windowId);
+  if (!window || window.deleted_at || !factId.trim()) return window;
+
+  const state = parseWorkingState(window.working_state_json || window.working_state);
+  const pinnedFacts = readPinnedFacts(state).filter(fact => fact.id !== factId);
+  state.pinnedFacts = pinnedFacts;
+  updateChatWindowWorkingState(windowId, state);
+  return getChatWindow(windowId);
 }
 
 export function saveChatMessage(
@@ -526,6 +559,36 @@ function parseJsonArray(value: string): ContextSnapshotDebugItem[] {
   } catch {
     return [];
   }
+}
+
+function readPinnedFacts(state: Record<string, unknown>): ChatWindowPinnedFact[] {
+  const raw = state.pinnedFacts;
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((item): ChatWindowPinnedFact | null => {
+      if (!item || typeof item !== 'object') return null;
+      const record = item as Record<string, unknown>;
+      const text = typeof record.text === 'string' ? truncateChatWindowText(record.text, MAX_PINNED_FACT_CHARS) : '';
+      if (!text) return null;
+      const id = typeof record.id === 'string' && record.id.trim() ? record.id.trim() : createPinnedFactId();
+      const createdAt = typeof record.createdAt === 'string' && record.createdAt.trim() ? record.createdAt : new Date().toISOString();
+      return { id, text, createdAt };
+    })
+    .filter((item): item is ChatWindowPinnedFact => Boolean(item))
+    .slice(0, MAX_PINNED_FACTS_PER_WINDOW);
+}
+
+function updateChatWindowWorkingState(windowId: number, state: Record<string, unknown>): void {
+  getDatabase().prepare(`
+    UPDATE chat_windows
+    SET working_state = ?,
+        updated_at = datetime('now', 'localtime')
+    WHERE id = ? AND deleted_at IS NULL
+  `).run(JSON.stringify(state), windowId);
+}
+
+function createPinnedFactId(): string {
+  return `pin-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
 function extractUserSelection(content: string): string {

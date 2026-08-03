@@ -73,3 +73,9 @@ export interface ContextSnapshotRecord {
   estimated_prompt_tokens: number;
   created_at: string;
 }
+
+export interface ChatWindowPinnedFact {
+  id: string;
+  text: string;
+  createdAt: string;
+}

@@ -47,6 +47,10 @@
       <circle cx="12" cy="12" r="9" />
       <path d="M3.5 9h17M3.5 15h17M12 3c2.3 2.5 3.5 5.5 3.5 9S14.3 18.5 12 21c-2.3-2.5-3.5-5.5-3.5-9S9.7 5.5 12 3Z" />
     </symbol>
+    <symbol id="icon-pin" viewBox="0 0 24 24">
+      <path d="M12 17v5" />
+      <path d="M7 3h10l-2 7 4 4v3H5v-3l4-4-2-7Z" />
+    </symbol>
   </svg>
 
   <main id="app-shell" data-mode="companion" data-state="idle" data-intro="starting">
@@ -117,12 +121,53 @@
           <svg class="icon"><use href="#icon-close"></use></svg>
         </button>
       </div>
-      <div id="memory-tabs" role="tablist" data-active="manage">
-        <button class="memory-tab active" type="button" data-tab="manage">记忆</button>
+      <div id="memory-tabs" role="tablist" data-active="window">
+        <button class="memory-tab active" type="button" data-tab="window">窗口</button>
+        <button class="memory-tab" type="button" data-tab="manage">记忆</button>
         <button class="memory-tab" type="button" data-tab="debug">检索</button>
         <button class="memory-tab" type="button" data-tab="import">导入</button>
       </div>
-      <section class="memory-view active" id="memory-manage-view">
+      <section class="memory-view active" id="window-memory-view">
+        <div class="window-context-head">
+          <div>
+            <div id="window-context-title">当前窗口</div>
+            <div id="window-context-meta">等待窗口载入</div>
+          </div>
+        </div>
+        <form id="window-pin-form" class="window-pin-form">
+          <input id="window-pin-input" type="text" placeholder="固定一条当前窗口事实" />
+          <button id="window-pin-add" type="submit" title="固定事实" aria-label="固定事实">
+            <svg class="icon"><use href="#icon-pin"></use></svg>
+          </button>
+        </form>
+        <div class="window-memory-stack">
+          <section class="window-context-block">
+            <div class="window-context-label">目标</div>
+            <div id="window-context-goal" class="window-context-text">暂无明确目标</div>
+          </section>
+          <section class="window-context-block">
+            <div class="window-context-label">已确认结论</div>
+            <ul id="window-context-conclusions" class="window-context-list"></ul>
+          </section>
+          <section class="window-context-block">
+            <div class="window-context-label">待办事项</div>
+            <ul id="window-context-todos" class="window-context-list"></ul>
+          </section>
+          <section class="window-context-block">
+            <div class="window-context-label">Pinned facts</div>
+            <div id="window-pinned-facts" class="window-pinned-facts"></div>
+          </section>
+          <section class="window-context-block">
+            <div class="window-context-label">窗口摘要</div>
+            <div id="window-context-summary" class="window-context-summary">暂无摘要</div>
+          </section>
+          <section class="window-context-block">
+            <div class="window-context-label">本轮上下文</div>
+            <div id="window-context-budget" class="window-context-budget"></div>
+          </section>
+        </div>
+      </section>
+      <section class="memory-view" id="memory-manage-view">
         <div class="memory-controls">
           <select id="memory-kind" aria-label="记忆类型">
             <option value="all">全部类型</option>

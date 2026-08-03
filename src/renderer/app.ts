@@ -30,6 +30,9 @@ declare global {
       archiveChatWindow: (id: number, archived?: boolean) => Promise<ChatWindowRecord | null>;
       deleteChatWindow: (id: number) => Promise<boolean>;
       getChatWindowMessages: (id: number, limit?: number) => Promise<ChatMessageSnapshot[]>;
+      pinChatWindowFact: (id: number, text: string) => Promise<ChatWindowRecord | null>;
+      unpinChatWindowFact: (id: number, factId: string) => Promise<ChatWindowRecord | null>;
+      getChatWindowContextSnapshots: (id: number, limit?: number) => Promise<ContextSnapshotRecord[]>;
       cancelExecution: () => Promise<boolean>;
       onChatStream: (callback: (data: { content: string; done: boolean }) => void) => () => void;
       onChatError: (callback: (error: string) => void) => () => void;
@@ -113,6 +116,7 @@ interface ChatWindowRecord {
   summary: string;
   mode: AthenaMode;
   working_state: string;
+  working_state_json?: string;
   archived_at?: string;
   deleted_at?: string;
   created_at: string;
@@ -120,6 +124,52 @@ interface ChatWindowRecord {
   last_active_at: string;
   messageCount?: number;
   lastMessagePreview?: string;
+}
+
+interface ChatWindowPinnedFact {
+  id: string;
+  text: string;
+  createdAt: string;
+}
+
+interface ChatWindowWorkingState {
+  lastUserMessage?: string;
+  lastAssistantMessage?: string;
+  lastUserSelection?: string;
+  currentGoal?: string;
+  goal?: string;
+  objective?: string;
+  confirmedConclusions?: string[];
+  conclusions?: string[];
+  todos?: string[];
+  pendingTodos?: string[];
+  pinnedFacts?: ChatWindowPinnedFact[];
+  messageCount?: number;
+}
+
+interface ContextSnapshotDebugItem {
+  kind: string;
+  label: string;
+  included: boolean;
+  chars: number;
+  estimatedTokens: number;
+}
+
+interface ContextSnapshotRecord {
+  id: number;
+  window_id?: number;
+  budget: {
+    maxPromptTokens?: number;
+    estimatedPromptTokens?: number;
+    promptChars?: number;
+    promptMessageCount?: number;
+  };
+  included: ContextSnapshotDebugItem[];
+  omitted: ContextSnapshotDebugItem[];
+  prompt_message_count: number;
+  prompt_chars: number;
+  estimated_prompt_tokens: number;
+  created_at: string;
 }
 
 interface MemoryUpdatePatch {
@@ -520,6 +570,16 @@ const memoryImportPreview = mustGet<HTMLButtonElement>('memory-import-preview');
 const memoryImportCommit = mustGet<HTMLButtonElement>('memory-import-commit');
 const memoryImportSummary = mustGet<HTMLElement>('memory-import-summary');
 const memoryImportList = mustGet<HTMLElement>('memory-import-list');
+const windowContextTitle = mustGet<HTMLElement>('window-context-title');
+const windowContextMeta = mustGet<HTMLElement>('window-context-meta');
+const windowPinForm = mustGet<HTMLFormElement>('window-pin-form');
+const windowPinInput = mustGet<HTMLInputElement>('window-pin-input');
+const windowContextGoal = mustGet<HTMLElement>('window-context-goal');
+const windowContextConclusions = mustGet<HTMLUListElement>('window-context-conclusions');
+const windowContextTodos = mustGet<HTMLUListElement>('window-context-todos');
+const windowPinnedFacts = mustGet<HTMLElement>('window-pinned-facts');
+const windowContextSummary = mustGet<HTMLElement>('window-context-summary');
+const windowContextBudget = mustGet<HTMLElement>('window-context-budget');
 const settingsPanel = mustGet<HTMLElement>('settings-panel');
 const btnSettingsClose = mustGet<HTMLButtonElement>('btn-settings-close');
 const settingsForm = mustGet<HTMLFormElement>('settings-form');
@@ -613,6 +673,7 @@ let currentSettingsBundle: SettingsBundle | null = null;
 let currentMode: AthenaMode = 'companion';
 let chatWindows: ChatWindowRecord[] = [];
 let currentChatWindowId: number | null = null;
+let currentChatWindowMessages: ChatMessageSnapshot[] = [];
 let activeRequestMode: AthenaMode | null = null;
 let pendingExecutionGoal = '';
 let pendingExecutionMode: AthenaMode = 'companion';
@@ -781,7 +842,8 @@ async function sendMessage(text: string): Promise<void> {
     if (requestMode !== 'execute' && currentSettingsBundle?.settings.voice.autoPlayAssistant) {
       void speakLastAssistantMessage();
     }
-    void refreshChatWindows();
+    await refreshChatWindows();
+    await refreshWindowMemoryPanel();
   }
 }
 
@@ -894,6 +956,10 @@ function init(): void {
   });
   btnMemory.addEventListener('click', () => toggleMemoryPanel());
   btnMemoryClose.addEventListener('click', () => toggleMemoryPanel(false));
+  windowPinForm.addEventListener('submit', (event) => {
+    event.preventDefault();
+    void pinCurrentWindowFact();
+  });
   memoryKind.addEventListener('change', () => loadMemoryList());
   memorySearch.addEventListener('input', debounce(() => loadMemoryList(), 180));
   memoryDebugForm.addEventListener('submit', (event) => {
@@ -904,7 +970,7 @@ function init(): void {
   memoryImportPreview.addEventListener('click', previewMemoryImport);
   memoryImportCommit.addEventListener('click', commitMemoryImport);
   document.querySelectorAll<HTMLButtonElement>('.memory-tab').forEach((tab) => {
-    tab.addEventListener('click', () => selectMemoryTab(tab.dataset.tab || 'manage'));
+    tab.addEventListener('click', () => void selectMemoryTab(tab.dataset.tab || 'window'));
   });
   btnMinimize.addEventListener('click', () => window.athenaAPI.minimize());
   btnClose.addEventListener('click', () => window.athenaAPI.close());
@@ -1316,6 +1382,7 @@ async function initializeChatWindows(): Promise<void> {
     const active = chatWindows.find(window => window.id === currentChatWindowId);
     if (active) setMode(active.mode);
     await loadCurrentChatWindowMessages();
+    await refreshWindowMemoryPanel();
   }
 }
 
@@ -1351,10 +1418,13 @@ function renderChatWindowPicker(): void {
 
 async function loadCurrentChatWindowMessages(): Promise<void> {
   if (!currentChatWindowId) {
+    currentChatWindowMessages = [];
     chatPanel.clear();
+    await refreshWindowMemoryPanel();
     return;
   }
   const messages = await window.athenaAPI.getChatWindowMessages(currentChatWindowId, 300);
+  currentChatWindowMessages = messages;
   chatPanel.renderMessages(messages);
 }
 
@@ -1371,6 +1441,7 @@ async function switchChatWindow(id: number): Promise<void> {
   if (currentSettingsBundle) currentSettingsBundle.settings.conversation.activeMode = mode;
   await loadCurrentChatWindowMessages();
   await refreshChatWindows();
+  await refreshWindowMemoryPanel();
   inputBar.focus();
 }
 
@@ -1383,6 +1454,7 @@ async function createNewChatWindow(): Promise<void> {
   setMode(created.mode);
   await refreshChatWindows();
   await loadCurrentChatWindowMessages();
+  await refreshWindowMemoryPanel();
   inputBar.focus();
 }
 
@@ -1393,6 +1465,7 @@ async function renameCurrentChatWindow(): Promise<void> {
   if (!title || !title.trim()) return;
   await window.athenaAPI.renameChatWindow(currentChatWindowId, title);
   await refreshChatWindows();
+  await refreshWindowMemoryPanel();
 }
 
 async function archiveCurrentChatWindow(): Promise<void> {
@@ -1407,6 +1480,7 @@ async function archiveCurrentChatWindow(): Promise<void> {
     await window.athenaAPI.activateChatWindow(currentChatWindowId);
     await loadCurrentChatWindowMessages();
   }
+  await refreshWindowMemoryPanel();
 }
 
 async function deleteCurrentChatWindow(): Promise<void> {
@@ -1421,6 +1495,294 @@ async function deleteCurrentChatWindow(): Promise<void> {
     await window.athenaAPI.activateChatWindow(currentChatWindowId);
     await loadCurrentChatWindowMessages();
   }
+  await refreshWindowMemoryPanel();
+}
+
+async function refreshWindowMemoryPanel(): Promise<void> {
+  const current = currentChatWindowId ? chatWindows.find(window => window.id === currentChatWindowId) : null;
+  if (!current) {
+    renderEmptyWindowMemoryPanel();
+    return;
+  }
+
+  let snapshots: ContextSnapshotRecord[] = [];
+  try {
+    snapshots = await window.athenaAPI.getChatWindowContextSnapshots(current.id, 1);
+  } catch (error) {
+    console.error('Failed to load chat window context snapshot', error);
+  }
+  renderWindowMemoryPanel(current, currentChatWindowMessages, snapshots[0]);
+}
+
+function renderEmptyWindowMemoryPanel(): void {
+  windowContextTitle.textContent = '当前窗口';
+  windowContextMeta.textContent = '没有可用聊天窗口';
+  windowContextGoal.textContent = '暂无明确目标';
+  renderTextList(windowContextConclusions, []);
+  renderTextList(windowContextTodos, []);
+  renderPinnedFacts([]);
+  windowContextSummary.textContent = '暂无摘要';
+  renderContextBudget(null, 0);
+}
+
+function renderWindowMemoryPanel(
+  windowRecord: ChatWindowRecord,
+  messages: ChatMessageSnapshot[],
+  snapshot?: ContextSnapshotRecord,
+): void {
+  const workingState = parseWindowWorkingState(windowRecord.working_state_json || windowRecord.working_state);
+  const insights = deriveWindowInsights(windowRecord, workingState, messages);
+  windowContextTitle.textContent = windowRecord.title;
+  windowContextMeta.textContent = [
+    `${windowRecord.messageCount ?? messages.length} 条消息`,
+    modeLabel(windowRecord.mode),
+    formatPanelTime(windowRecord.updated_at || windowRecord.last_active_at),
+  ].filter(Boolean).join(' · ');
+  windowContextGoal.textContent = insights.goal || '暂无明确目标';
+  renderTextList(windowContextConclusions, insights.conclusions);
+  renderTextList(windowContextTodos, insights.todos);
+  renderPinnedFacts(insights.pinnedFacts);
+  windowContextSummary.textContent = windowRecord.summary?.trim() || '暂无摘要';
+  renderContextBudget(snapshot || null, messages.length);
+}
+
+function renderTextList(container: HTMLUListElement, items: string[]): void {
+  container.replaceChildren();
+  if (items.length === 0) {
+    const empty = document.createElement('li');
+    empty.className = 'window-context-empty';
+    empty.textContent = '暂无记录';
+    container.appendChild(empty);
+    return;
+  }
+  for (const item of items.slice(0, 6)) {
+    const li = document.createElement('li');
+    li.textContent = item;
+    container.appendChild(li);
+  }
+}
+
+function renderPinnedFacts(facts: ChatWindowPinnedFact[]): void {
+  windowPinnedFacts.replaceChildren();
+  if (facts.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'window-context-empty';
+    empty.textContent = '还没有固定事实';
+    windowPinnedFacts.appendChild(empty);
+    return;
+  }
+
+  for (const fact of facts) {
+    const item = document.createElement('div');
+    item.className = 'window-pinned-fact';
+    const text = document.createElement('div');
+    text.className = 'window-pinned-fact-text';
+    text.textContent = fact.text;
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.title = '取消固定';
+    remove.setAttribute('aria-label', '取消固定');
+    remove.innerHTML = '<svg class="icon"><use href="#icon-close"></use></svg>';
+    remove.addEventListener('click', () => void unpinCurrentWindowFact(fact.id));
+    item.append(text, remove);
+    windowPinnedFacts.appendChild(item);
+  }
+}
+
+function renderContextBudget(snapshot: ContextSnapshotRecord | null, visibleMessageCount: number): void {
+  windowContextBudget.replaceChildren();
+  if (!snapshot) {
+    appendContextStat('最近消息', String(visibleMessageCount));
+    appendContextStat('上下文快照', '暂无');
+    appendContextStat('记忆', '0 项');
+    appendContextStat('预算', '暂无');
+    return;
+  }
+
+  const included = snapshot.included || [];
+  const omitted = snapshot.omitted || [];
+  const recentCount = included.filter(item => item.kind === 'recent_message').length;
+  const summaryState = included.some(item => item.kind === 'window_summary')
+    ? '已使用'
+    : omitted.some(item => item.kind === 'window_summary')
+      ? '已省略'
+      : '暂无';
+  const memoryCount = included.filter(item => (
+    item.kind === 'pinned_fact'
+    || item.kind === 'project_memory'
+    || item.kind === 'global_memory'
+  )).length;
+  const estimatedTokens = snapshot.budget?.estimatedPromptTokens ?? snapshot.estimated_prompt_tokens;
+  const maxTokens = snapshot.budget?.maxPromptTokens;
+  const chars = snapshot.budget?.promptChars ?? snapshot.prompt_chars;
+  appendContextStat('最近消息', `${recentCount}/${visibleMessageCount}`);
+  appendContextStat('摘要', summaryState);
+  appendContextStat('记忆', `${memoryCount} 项`);
+  appendContextStat('Token', maxTokens ? `${estimatedTokens}/${maxTokens}` : String(estimatedTokens));
+  appendContextStat('字符', String(chars));
+  appendContextStat('消息组', String(snapshot.budget?.promptMessageCount ?? snapshot.prompt_message_count));
+}
+
+function appendContextStat(label: string, value: string): void {
+  const item = document.createElement('div');
+  item.className = 'window-context-stat';
+  const labelEl = document.createElement('div');
+  labelEl.className = 'window-context-stat-label';
+  labelEl.textContent = label;
+  const valueEl = document.createElement('div');
+  valueEl.className = 'window-context-stat-value';
+  valueEl.textContent = value;
+  item.append(labelEl, valueEl);
+  windowContextBudget.appendChild(item);
+}
+
+async function pinCurrentWindowFact(): Promise<void> {
+  if (!currentChatWindowId) return;
+  const text = windowPinInput.value.trim();
+  if (!text) return;
+  const updated = await window.athenaAPI.pinChatWindowFact(currentChatWindowId, text);
+  windowPinInput.value = '';
+  if (updated) {
+    chatWindows = chatWindows.map(item => item.id === updated.id ? updated : item);
+    await refreshWindowMemoryPanel();
+  }
+}
+
+async function unpinCurrentWindowFact(factId: string): Promise<void> {
+  if (!currentChatWindowId) return;
+  const updated = await window.athenaAPI.unpinChatWindowFact(currentChatWindowId, factId);
+  if (updated) {
+    chatWindows = chatWindows.map(item => item.id === updated.id ? updated : item);
+    await refreshWindowMemoryPanel();
+  }
+}
+
+function parseWindowWorkingState(value: string): ChatWindowWorkingState {
+  try {
+    const parsed = JSON.parse(value || '{}');
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as ChatWindowWorkingState : {};
+  } catch {
+    return {};
+  }
+}
+
+function deriveWindowInsights(
+  windowRecord: ChatWindowRecord,
+  workingState: ChatWindowWorkingState,
+  messages: ChatMessageSnapshot[],
+): {
+  goal: string;
+  conclusions: string[];
+  todos: string[];
+  pinnedFacts: ChatWindowPinnedFact[];
+} {
+  const pinnedFacts = normalizePinnedFacts(workingState.pinnedFacts);
+  const userMessages = messages.filter(message => message.role === 'user').map(message => message.content);
+  const assistantMessages = messages.filter(message => message.role === 'assistant').map(message => message.content);
+  return {
+    goal: firstNonEmpty(
+      workingState.currentGoal,
+      workingState.goal,
+      workingState.objective,
+      extractLabeledValue([...userMessages].reverse(), ['任务', '目标']),
+      windowRecord.title !== '新聊天' ? windowRecord.title : '',
+      workingState.lastUserSelection ? `已选择 ${workingState.lastUserSelection}` : '',
+    ),
+    conclusions: uniqueTexts([
+      ...arrayStrings(workingState.confirmedConclusions),
+      ...arrayStrings(workingState.conclusions),
+      ...extractLabeledList([...assistantMessages, ...userMessages], ['已确认', '确认', '结论']),
+    ]).slice(0, 6),
+    todos: uniqueTexts([
+      ...arrayStrings(workingState.todos),
+      ...arrayStrings(workingState.pendingTodos),
+      ...extractTodoList(userMessages),
+    ]).slice(0, 8),
+    pinnedFacts,
+  };
+}
+
+function normalizePinnedFacts(value: unknown): ChatWindowPinnedFact[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item): ChatWindowPinnedFact | null => {
+      if (!item || typeof item !== 'object') return null;
+      const record = item as Record<string, unknown>;
+      const text = typeof record.text === 'string' ? record.text.trim() : '';
+      const id = typeof record.id === 'string' ? record.id.trim() : '';
+      const createdAt = typeof record.createdAt === 'string' ? record.createdAt : '';
+      return text && id ? { id, text, createdAt } : null;
+    })
+    .filter((item): item is ChatWindowPinnedFact => Boolean(item));
+}
+
+function extractLabeledValue(messages: string[], labels: string[]): string {
+  for (const message of messages) {
+    for (const line of message.split(/\r?\n/)) {
+      const match = line.match(/^(.{0,8}?)(任务|目标)[:：]\s*(.+)$/);
+      if (match && labels.includes(match[2])) return cleanPanelText(match[3], 120);
+    }
+  }
+  return '';
+}
+
+function extractLabeledList(messages: string[], labels: string[]): string[] {
+  const items: string[] = [];
+  for (const message of messages.slice(-12)) {
+    for (const line of message.split(/\r?\n/)) {
+      const trimmed = line.trim();
+      const match = trimmed.match(/^(?:[-*]\s*)?(已确认|确认|结论)[:：]\s*(.+)$/);
+      if (match && labels.includes(match[1])) items.push(cleanPanelText(match[2], 120));
+    }
+  }
+  return items.filter(Boolean);
+}
+
+function extractTodoList(messages: string[]): string[] {
+  const items: string[] = [];
+  for (const message of messages.slice(-8)) {
+    for (const line of message.split(/\r?\n/)) {
+      const trimmed = line.trim();
+      const checkbox = trimmed.match(/^[-*]\s*\[\s?\]\s*(.+)$/);
+      const numbered = trimmed.match(/^\d+[.、]\s*(.+)$/);
+      if (checkbox?.[1]) items.push(cleanPanelText(checkbox[1], 120));
+      else if (numbered?.[1]) items.push(cleanPanelText(numbered[1], 120));
+    }
+  }
+  return items.filter(Boolean);
+}
+
+function arrayStrings(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.map(item => typeof item === 'string' ? cleanPanelText(item, 120) : '').filter(Boolean)
+    : [];
+}
+
+function uniqueTexts(items: string[]): string[] {
+  const seen = new Set<string>();
+  const unique: string[] = [];
+  for (const item of items.map(text => cleanPanelText(text, 120)).filter(Boolean)) {
+    if (seen.has(item)) continue;
+    seen.add(item);
+    unique.push(item);
+  }
+  return unique;
+}
+
+function firstNonEmpty(...values: Array<string | undefined>): string {
+  return values.map(value => cleanPanelText(value || '', 140)).find(Boolean) || '';
+}
+
+function cleanPanelText(value: string, maxChars: number): string {
+  const normalized = value.replace(/\s+/g, ' ').trim();
+  return normalized.length <= maxChars ? normalized : `${normalized.slice(0, Math.max(0, maxChars - 1))}...`;
+}
+
+function formatPanelTime(value: string): string {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? ''
+    : date.toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 
 async function initializeSettings(): Promise<void> {
@@ -1497,8 +1859,10 @@ async function toggleMemoryPanel(force?: boolean): Promise<void> {
   toggleComposerTools(false);
   syncPanelState();
   if (next) {
-    await loadMemoryList();
-    memorySearch.focus({ preventScroll: true });
+    await refreshWindowMemoryPanel();
+    if (memoryTabs.dataset.active === 'manage') await loadMemoryList();
+    if (memoryTabs.dataset.active === 'manage') memorySearch.focus({ preventScroll: true });
+    else windowPinInput.focus({ preventScroll: true });
     appShell.scrollLeft = 0;
     document.documentElement.scrollLeft = 0;
     document.body.scrollLeft = 0;
@@ -2158,14 +2522,23 @@ async function clearLocalData(): Promise<void> {
   }
 }
 
-function selectMemoryTab(tabName: string): void {
+async function selectMemoryTab(tabName: string): Promise<void> {
   memoryTabs.dataset.active = tabName;
   document.querySelectorAll<HTMLButtonElement>('.memory-tab').forEach((tab) => {
     tab.classList.toggle('active', tab.dataset.tab === tabName);
   });
   document.querySelectorAll<HTMLElement>('.memory-view').forEach((view) => {
-    view.classList.toggle('active', view.id === `memory-${tabName}-view`);
+    const targetId = tabName === 'window' ? 'window-memory-view' : `memory-${tabName}-view`;
+    view.classList.toggle('active', view.id === targetId);
   });
+  if (tabName === 'window') {
+    await refreshWindowMemoryPanel();
+    windowPinInput.focus();
+  }
+  if (tabName === 'manage') {
+    await loadMemoryList();
+    memorySearch.focus();
+  }
   if (tabName === 'debug') memoryDebugQuery.focus();
   if (tabName === 'import') memoryImportPath.focus();
 }

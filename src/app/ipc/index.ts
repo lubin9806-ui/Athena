@@ -36,11 +36,14 @@ import {
   deleteChatWindow,
   debugRetrieveMemory,
   ensureDefaultChatWindow,
+  getRecentContextSnapshots,
   getChatWindowMessages,
   listMemories,
   listChatWindows,
+  pinChatWindowFact,
   previewChatRecordImport,
   renameChatWindow,
+  unpinChatWindowFact,
   updateMemory,
 } from '../../memory';
 import type { MemoryKind, MemoryListOptions, MemoryUpdatePatch } from '../../memory';
@@ -62,6 +65,9 @@ const INVOKE_CHANNELS = [
   'chatWindow:archive',
   'chatWindow:delete',
   'chatWindow:messages',
+  'chatWindow:pinFact',
+  'chatWindow:unpinFact',
+  'chatWindow:contextSnapshots',
   'execution:cancel',
   'system:info',
   'config:get',
@@ -208,6 +214,27 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     const windowId = cleanPositiveInteger(id);
     const safeLimit = typeof limit === 'number' ? Math.max(1, Math.min(500, Math.round(limit))) : 200;
     return windowId ? getChatWindowMessages(windowId, safeLimit) : [];
+  });
+
+  ipcMain.handle('chatWindow:pinFact', async (event, id: unknown, text: unknown) => {
+    if (!isTrustedSender(event)) return null;
+    const windowId = cleanPositiveInteger(id);
+    const fact = cleanString(text, 240);
+    return windowId && fact ? pinChatWindowFact(windowId, fact) : null;
+  });
+
+  ipcMain.handle('chatWindow:unpinFact', async (event, id: unknown, factId: unknown) => {
+    if (!isTrustedSender(event)) return null;
+    const windowId = cleanPositiveInteger(id);
+    const cleanFactId = cleanString(factId, 80);
+    return windowId && cleanFactId ? unpinChatWindowFact(windowId, cleanFactId) : null;
+  });
+
+  ipcMain.handle('chatWindow:contextSnapshots', async (event, id: unknown, limit: unknown) => {
+    if (!isTrustedSender(event)) return [];
+    const windowId = cleanPositiveInteger(id);
+    const safeLimit = typeof limit === 'number' ? Math.max(1, Math.min(20, Math.round(limit))) : 5;
+    return windowId ? getRecentContextSnapshots(windowId, safeLimit) : [];
   });
 
   ipcMain.handle('system:info', async (event) => {

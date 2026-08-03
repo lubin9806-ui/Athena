@@ -9,6 +9,9 @@ contextBridge.exposeInMainWorld('athenaAPI', {
   archiveChatWindow: (id: number, archived = true) => ipcRenderer.invoke('chatWindow:archive', id, archived),
   deleteChatWindow: (id: number) => ipcRenderer.invoke('chatWindow:delete', id),
   getChatWindowMessages: (id: number, limit = 200) => ipcRenderer.invoke('chatWindow:messages', id, limit),
+  pinChatWindowFact: (id: number, text: string) => ipcRenderer.invoke('chatWindow:pinFact', id, text),
+  unpinChatWindowFact: (id: number, factId: string) => ipcRenderer.invoke('chatWindow:unpinFact', id, factId),
+  getChatWindowContextSnapshots: (id: number, limit = 5) => ipcRenderer.invoke('chatWindow:contextSnapshots', id, limit),
   cancelExecution: () => ipcRenderer.invoke('execution:cancel'),
   onChatStream: (callback: (data: { content: string; done: boolean }) => void) => {
     const handler = (_: any, data: { content: string; done: boolean }) => callback(data);
