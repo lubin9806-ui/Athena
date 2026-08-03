@@ -92,6 +92,7 @@ export function buildChatPrompt(input: {
     buildSystemPrompt(style),
     buildModeContext(mode),
     input.toolContext,
+    buildChatWindowContext(input.retrievedContext),
     buildMemoryContext(input.retrievedContext),
     buildWebSearchContext(input.webSearchContext),
     buildSceneContext(now, hour, style, mode),
@@ -102,7 +103,7 @@ export function buildChatPrompt(input: {
     { role: 'system', content: systemMessage },
   ];
 
-  for (const msg of input.recentMessages.slice(-10)) {
+  for (const msg of input.recentMessages.slice(-20)) {
     chatHistory.push({
       role: msg.role === 'assistant' ? 'assistant' : 'user',
       content: msg.content,
@@ -111,6 +112,22 @@ export function buildChatPrompt(input: {
 
   chatHistory.push({ role: 'user', content: input.userMessage });
   return chatHistory;
+}
+
+function buildChatWindowContext(context: RetrievedContext): string {
+  const chatWindow = context.chatWindow;
+  if (!chatWindow) return '';
+  const sections = [
+    '## 当前聊天窗口上下文',
+    `- 窗口: ${chatWindow.title} (#${chatWindow.id})`,
+    `- 消息数: ${chatWindow.messageCount}`,
+  ];
+  if (chatWindow.summary.trim()) sections.push(`- 窗口 rolling summary:\n${chatWindow.summary.trim()}`);
+  if (chatWindow.workingStateJson.trim() && chatWindow.workingStateJson.trim() !== '{}') {
+    sections.push(`- working_state_json:\n${truncatePromptContext(chatWindow.workingStateJson, 1_200)}`);
+  }
+  sections.push('- 只把这些内容当作当前窗口上下文；不要混用其他聊天窗口的信息。');
+  return sections.join('\n');
 }
 
 function buildWebSearchContext(context?: WebSearchContext): string {
@@ -154,6 +171,11 @@ function buildWebSearchContext(context?: WebSearchContext): string {
 }
 
 function truncateWebEvidence(value: string, maxChars: number): string {
+  const normalized = value.replace(/\s+/g, ' ').trim();
+  return normalized.length <= maxChars ? normalized : `${normalized.slice(0, maxChars - 1)}…`;
+}
+
+function truncatePromptContext(value: string, maxChars: number): string {
   const normalized = value.replace(/\s+/g, ' ').trim();
   return normalized.length <= maxChars ? normalized : `${normalized.slice(0, maxChars - 1)}…`;
 }

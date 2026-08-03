@@ -27,10 +27,20 @@ export interface ProjectNote {
   last_recalled_at?: string;
 }
 
+export interface ChatWindowContext {
+  id: number;
+  title: string;
+  summary: string;
+  workingStateJson: string;
+  messageCount: number;
+  updatedAt: string;
+}
+
 export interface RetrievedContext {
   profileFacts: ProfileEntry[];
   relatedEvents: MemoryEvent[];
   projectNotes: ProjectNote[];
   recentMessages: Message[];
+  chatWindow?: ChatWindowContext;
   relevanceScore: number;
 }

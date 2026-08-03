@@ -29,10 +29,18 @@ import {
 import { globalEventBus } from '../../engine/EventBus';
 import {
   commitChatRecordImport,
+  activateChatWindow,
+  archiveChatWindow,
+  createChatWindow,
   deleteMemory,
+  deleteChatWindow,
   debugRetrieveMemory,
+  ensureDefaultChatWindow,
+  getChatWindowMessages,
   listMemories,
+  listChatWindows,
   previewChatRecordImport,
+  renameChatWindow,
   updateMemory,
 } from '../../memory';
 import type { MemoryKind, MemoryListOptions, MemoryUpdatePatch } from '../../memory';
@@ -47,6 +55,13 @@ const MAX_PATH_CHARS = 2_048;
 
 const INVOKE_CHANNELS = [
   'chat:send',
+  'chatWindow:list',
+  'chatWindow:create',
+  'chatWindow:activate',
+  'chatWindow:rename',
+  'chatWindow:archive',
+  'chatWindow:delete',
+  'chatWindow:messages',
   'execution:cancel',
   'system:info',
   'config:get',
@@ -109,7 +124,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     const settings = getAppSettings();
     const payload = cleanChatPayload(value, settings.conversation.activeMode);
     if (!payload) return null;
-    const { text: userMessage, mode, forceWebSearch } = payload;
+    const { text: userMessage, mode, forceWebSearch, chatWindowId } = payload;
 
     try {
       const response = await controller.processMessage(
@@ -123,6 +138,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
         },
         {
           forceWebSearch,
+          chatWindowId,
           onWebSearchStatus: (status: WebSearchStatus) => {
             if (!mainWindow.isDestroyed()) {
               mainWindow.webContents.send('chat:web-search-status', status);
@@ -147,6 +163,51 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
       }
       return null;
     }
+  });
+
+  ipcMain.handle('chatWindow:list', async (event, includeArchived: unknown) => {
+    if (!isTrustedSender(event)) return [];
+    const windows = listChatWindows(includeArchived === true);
+    return windows.length > 0 ? windows : [ensureDefaultChatWindow()];
+  });
+
+  ipcMain.handle('chatWindow:create', async (event, value: unknown) => {
+    if (!isTrustedSender(event)) return null;
+    return createChatWindow({
+      title: cleanString(value, 80),
+      mode: getAppSettings().conversation.activeMode,
+    });
+  });
+
+  ipcMain.handle('chatWindow:activate', async (event, id: unknown) => {
+    if (!isTrustedSender(event)) return null;
+    const windowId = cleanPositiveInteger(id);
+    return windowId ? activateChatWindow(windowId) : null;
+  });
+
+  ipcMain.handle('chatWindow:rename', async (event, id: unknown, title: unknown) => {
+    if (!isTrustedSender(event)) return null;
+    const windowId = cleanPositiveInteger(id);
+    return windowId ? renameChatWindow(windowId, cleanString(title, 80)) : null;
+  });
+
+  ipcMain.handle('chatWindow:archive', async (event, id: unknown, archived: unknown) => {
+    if (!isTrustedSender(event)) return null;
+    const windowId = cleanPositiveInteger(id);
+    return windowId ? archiveChatWindow(windowId, archived !== false) : null;
+  });
+
+  ipcMain.handle('chatWindow:delete', async (event, id: unknown) => {
+    if (!isTrustedSender(event)) return false;
+    const windowId = cleanPositiveInteger(id);
+    return windowId ? deleteChatWindow(windowId) : false;
+  });
+
+  ipcMain.handle('chatWindow:messages', async (event, id: unknown, limit: unknown) => {
+    if (!isTrustedSender(event)) return [];
+    const windowId = cleanPositiveInteger(id);
+    const safeLimit = typeof limit === 'number' ? Math.max(1, Math.min(500, Math.round(limit))) : 200;
+    return windowId ? getChatWindowMessages(windowId, safeLimit) : [];
   });
 
   ipcMain.handle('system:info', async (event) => {

@@ -1,7 +1,14 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
 contextBridge.exposeInMainWorld('athenaAPI', {
-  sendMessage: (text: string, mode: 'create' | 'companion' | 'reason' | 'execute', forceWebSearch = false) => ipcRenderer.invoke('chat:send', { text, mode, forceWebSearch }),
+  sendMessage: (text: string, mode: 'create' | 'companion' | 'reason' | 'execute', forceWebSearch = false, chatWindowId?: number) => ipcRenderer.invoke('chat:send', { text, mode, forceWebSearch, chatWindowId }),
+  listChatWindows: (includeArchived = false) => ipcRenderer.invoke('chatWindow:list', includeArchived),
+  createChatWindow: (title?: string) => ipcRenderer.invoke('chatWindow:create', title),
+  activateChatWindow: (id: number) => ipcRenderer.invoke('chatWindow:activate', id),
+  renameChatWindow: (id: number, title: string) => ipcRenderer.invoke('chatWindow:rename', id, title),
+  archiveChatWindow: (id: number, archived = true) => ipcRenderer.invoke('chatWindow:archive', id, archived),
+  deleteChatWindow: (id: number) => ipcRenderer.invoke('chatWindow:delete', id),
+  getChatWindowMessages: (id: number, limit = 200) => ipcRenderer.invoke('chatWindow:messages', id, limit),
   cancelExecution: () => ipcRenderer.invoke('execution:cancel'),
   onChatStream: (callback: (data: { content: string; done: boolean }) => void) => {
     const handler = (_: any, data: { content: string; done: boolean }) => callback(data);

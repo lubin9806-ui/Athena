@@ -85,6 +85,16 @@
       <button id="mode-execute-button" class="mode-btn" type="button" data-mode="execute" role="tab" aria-selected="false" title="用自然语言调用本机工具并执行任务" data-active="false" data-has-records="false">执行</button>
     </div>
 
+    <div id="chat-window-bar" aria-label="聊天窗口">
+      <select id="chat-window-select" aria-label="切换聊天窗口"></select>
+      <button id="chat-window-new" class="chat-window-action" type="button" title="新建聊天窗口" aria-label="新建聊天窗口">
+        <svg class="icon"><use href="#icon-plus"></use></svg>
+      </button>
+      <button id="chat-window-rename" class="chat-window-action" type="button">重命名</button>
+      <button id="chat-window-archive" class="chat-window-action" type="button">归档</button>
+      <button id="chat-window-delete" class="chat-window-action danger" type="button">删除</button>
+    </div>
+
     <section id="stage">
       <div id="presence-panel" aria-hidden="true">
         <div class="presence-mark">夏</div>

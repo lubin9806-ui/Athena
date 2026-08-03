@@ -7,7 +7,7 @@ import { ensureSufficientDiskSpace } from '../../core/runtime/DiskSpaceGuard';
 
 let db: Database.Database | null = null;
 let resolvedDbPath: string | null = null;
-export const DATABASE_SCHEMA_VERSION = 1;
+export const DATABASE_SCHEMA_VERSION = 2;
 const MIGRATION_BACKUP_RETENTION = 5;
 
 export interface MemoryStats {
@@ -143,6 +143,32 @@ function runMigrations(database: Database.Database, currentVersion: number): voi
     );
     CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at);
     CREATE INDEX IF NOT EXISTS idx_messages_role ON messages(role);
+
+    CREATE TABLE IF NOT EXISTS chat_windows (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      summary TEXT NOT NULL DEFAULT '',
+      mode TEXT NOT NULL DEFAULT 'companion' CHECK(mode IN ('create', 'companion', 'reason', 'execute')),
+      working_state TEXT NOT NULL DEFAULT '{}',
+      archived_at DATETIME,
+      deleted_at DATETIME,
+      created_at DATETIME DEFAULT (datetime('now', 'localtime')),
+      updated_at DATETIME DEFAULT (datetime('now', 'localtime')),
+      last_active_at DATETIME DEFAULT (datetime('now', 'localtime'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_chat_windows_last_active ON chat_windows(deleted_at, archived_at, last_active_at DESC);
+
+    CREATE TABLE IF NOT EXISTS chat_messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      window_id INTEGER NOT NULL REFERENCES chat_windows(id) ON DELETE CASCADE,
+      role TEXT NOT NULL CHECK(role IN ('user', 'assistant', 'system')),
+      content TEXT NOT NULL,
+      emotion TEXT,
+      mode TEXT CHECK(mode IN ('create', 'companion', 'reason', 'execute')),
+      created_at DATETIME DEFAULT (datetime('now', 'localtime'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_chat_messages_window_id ON chat_messages(window_id, id);
+    CREATE INDEX IF NOT EXISTS idx_chat_messages_window_created_at ON chat_messages(window_id, created_at);
 
     CREATE TABLE IF NOT EXISTS profile (
       id INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -26,6 +26,7 @@
     "typecheck": "tsc --noEmit",
     "test:persona": "tsc && node scripts/verify-persona-prompt.js",
     "test:modes": "tsc && node scripts/verify-conversation-modes.js",
+    "test:chat-windows": "tsc && electron scripts/verify-chat-windows.js",
     "test:theme": "tsc && node scripts/verify-theme.js",
     "test:logger": "tsc && node scripts/verify-logger-pipe.js",
     "test:security": "tsc && node scripts/verify-security-baseline.js",

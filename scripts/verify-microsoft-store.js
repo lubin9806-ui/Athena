@@ -14,6 +14,13 @@ const EXPECTED = {
   packageFamilyName: 'AthenaL.AthenaAIcompanion_gf9pv7kh6znee',
 };
 
+function expectedStorePackageVersion(sourceVersion) {
+  const explicit = process.env.ATHENA_STORE_APP_VERSION?.trim();
+  const appVersion = explicit || sourceVersion.replace(/-(?:beta|rc)\.\d+$/, '');
+  assert.match(appVersion, /^\d+\.\d+\.\d+$/, 'Store app version must resolve to x.y.z.');
+  return `${appVersion}.0`;
+}
+
 function pngDimensions(filePath) {
   const header = fs.readFileSync(filePath).subarray(0, 24);
   assert.equal(header.toString('hex', 0, 8), '89504e470d0a1a0a', `${filePath} is not PNG`);
@@ -121,8 +128,13 @@ function verifySource() {
 
   const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
   assert.equal(pkg.version, '0.9.5');
+  const storePackageVersion = expectedStorePackageVersion(pkg.version);
   assert.equal(pkg.scripts['build:store'], 'node scripts/build-microsoft-store.js --require-clean');
-  assert.equal(pkg.scripts['rebuild:sqlite:electron'], 'node node_modules/electron-builder/cli.js install-app-deps --platform win32 --arch x64');
+  assert.equal(pkg.scripts['rebuild:sqlite:electron'], 'node scripts/rebuild-sqlite-electron.js');
+  const rebuildSqliteScript = fs.readFileSync(path.join(ROOT, 'scripts', 'rebuild-sqlite-electron.js'), 'utf8');
+  assert.match(rebuildSqliteScript, /@electron['"], 'rebuild['"], 'lib['"], 'cli\.js'/);
+  assert.match(rebuildSqliteScript, /--which-module['"], 'better-sqlite3'/);
+  assert.match(rebuildSqliteScript, /electron['"], 'package\.json'/);
   const storeBuildScript = fs.readFileSync(path.join(ROOT, 'scripts', 'build-microsoft-store.js'), 'utf8');
   assert.match(storeBuildScript, /deriveStoreAppVersion\(packageMetadata\(\)\.version\)/);
   assert.match(storeBuildScript, /channel: 'private-beta'/);
@@ -154,7 +166,7 @@ function verifySource() {
     packageFamilyName: EXPECTED.packageFamilyName,
     audience: 'private',
     updatesManagedBy: 'microsoft-store',
-    storePackageVersion: '0.9.5.0',
+    storePackageVersion,
     generatedAt: new Date(0).toISOString(),
   };
   runtimeModule.setMicrosoftStoreRuntimeOverrideForTests(validRuntime);
@@ -184,10 +196,12 @@ function verifyArtifact(value) {
     assert(manifest.includes(value), `AppX manifest identity or capability is missing: ${value}`);
   }
   const runtime = JSON.parse(readArchiveEntry(artifact, 'app/resources/store/store-runtime.json'));
+  const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
+  const storePackageVersion = expectedStorePackageVersion(pkg.version);
   assert.equal(runtime.storeId, EXPECTED.storeId);
   assert.equal(runtime.audience, 'private');
   assert.equal(runtime.updatesManagedBy, 'microsoft-store');
-  assert.match(runtime.storePackageVersion, /^0\.9\.5\.0$/);
+  assert.equal(runtime.storePackageVersion, storePackageVersion);
   const manifestVersion = manifest.match(/<Identity\b[^>]*\bVersion=["']([^"']+)["']/)?.[1];
   assert.equal(manifestVersion, runtime.storePackageVersion, 'Manifest and Store runtime package versions must match.');
   const databaseCheck = spawnSync('python', [path.join(ROOT, 'scripts', 'verify-store-package-database.py'), artifact], {

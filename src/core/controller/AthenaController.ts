@@ -18,12 +18,16 @@ import {
   addMemoryEvent,
   addProfileFacts,
   addProjectNote,
+  ensureDefaultChatWindow,
+  getChatWindow,
+  getChatWindowMessages,
   closeDatabase,
   extractMemoryFromUserMessage,
   getDatabase,
   getStats,
   rebuildMemoryIndex,
   retrieveContext,
+  saveChatMessage,
   saveMessage,
 } from '../../memory';
 import { globalEventBus } from '../../engine/EventBus';
@@ -48,6 +52,7 @@ interface ProcessMessageOptions {
   onWebSearchStatus?: (status: WebSearchStatus) => void;
   onToolStatus?: (status: ToolStatusEvent) => void;
   onToolConfirm?: (request: ToolConfirmationRequest) => Promise<boolean>;
+  chatWindowId?: number;
 }
 
 export class AthenaController {
@@ -106,6 +111,9 @@ export class AthenaController {
 
     const settings = getAppSettings();
     const mode = requestedMode ?? settings.conversation.activeMode;
+    const requestedChatWindowId = options?.chatWindowId && options.chatWindowId > 0 ? options.chatWindowId : undefined;
+    const chatWindowId = (requestedChatWindowId ? getChatWindow(requestedChatWindowId)?.id : undefined)
+      ?? ensureDefaultChatWindow().id;
     const modeToolSettings = this.applyToolPermission(settings.tools, mode);
     modeToolSettings.allowExternalNetwork = settings.privacy.networkConsent.externalToolNetwork;
     logger.info(`User message received [mode=${mode}, tools=${modeToolSettings.permissionLevel}, chars=${userMessage.length}]`);
@@ -115,14 +123,14 @@ export class AthenaController {
       logger.warn(`Steam AI input blocked [category=${inputGuardrail.category}]`);
       return { content, emotion: this.emotion.analyzeResponse(content) };
     }
-    this.saveMessageIfAllowed('user', userMessage, undefined, mode);
+    const savedUser = this.saveConversationMessage('user', userMessage, undefined, mode, chatWindowId);
 
-    const localCommand = this.processLocalCommand(userMessage, mode);
+    const localCommand = this.processLocalCommand(userMessage, mode, chatWindowId);
     if (localCommand) return localCommand;
 
     if (!canRouteModelRequest(this.llm.providerName, canUseNetworkCapability('remoteModel'))) {
       const content = consentRequiredMessage('remoteModel');
-      this.saveMessageIfAllowed('assistant', content, this.emotion.analyzeResponse(content).type, mode);
+      this.saveConversationMessage('assistant', content, this.emotion.analyzeResponse(content).type, mode, chatWindowId);
       return { content, emotion: this.emotion.analyzeResponse(content) };
     }
 
@@ -176,7 +184,14 @@ export class AthenaController {
       }
     }
 
-    const retrieved = buildRetrievedContext(userMessage, settings.memory, settings.conversation.saveHistory, mode);
+    const retrieved = buildRetrievedContext(
+      userMessage,
+      settings.memory,
+      settings.conversation.saveHistory,
+      mode,
+      chatWindowId,
+      savedUser.chatMessageId,
+    );
     const response = await this.conversation.process(
       userMessage,
       retrieved.recentMessages,
@@ -195,7 +210,7 @@ export class AthenaController {
       response.emotion = this.emotion.analyzeResponse(response.content);
       logger.warn(`Steam AI output blocked [category=${outputGuardrail.category}]`);
     }
-    this.saveMessageIfAllowed('assistant', response.content, response.emotion.type, mode);
+    this.saveConversationMessage('assistant', response.content, response.emotion.type, mode, chatWindowId);
     if (response.toolExecutions?.length) {
       recordDataActivity('tool', 'execute-mode-tools', {
         mode,
@@ -289,7 +304,7 @@ export class AthenaController {
     }
   }
 
-  private processLocalCommand(userMessage: string, mode: ConversationMode): ChatResponse | null {
+  private processLocalCommand(userMessage: string, mode: ConversationMode, chatWindowId: number): ChatResponse | null {
     const reminders = this.reminder.list();
     if (/提醒列表/.test(userMessage) || /^(列出|查看|我的)提醒/.test(userMessage)) {
       const active = reminders.filter(item => item.status === 'scheduled');
@@ -297,7 +312,7 @@ export class AthenaController {
         ? '现在没有待触发的提醒。'
         : active.map(item => `- ${item.title}：${new Date(item.dueAt).toLocaleString('zh-CN')}（${item.id}）`).join('\n');
       const emotion = this.emotion.analyzeResponse(content);
-      this.saveMessageIfAllowed('assistant', content, emotion.type, mode);
+      this.saveConversationMessage('assistant', content, emotion.type, mode, chatWindowId);
       return { content, emotion };
     }
 
@@ -308,7 +323,7 @@ export class AthenaController {
       });
       const content = `好，记下了：${job.title}。我会在 ${new Date(job.dueAt).toLocaleString('zh-CN')} 提醒你。`;
       const emotion = this.emotion.analyzeResponse(content);
-      this.saveMessageIfAllowed('assistant', content, emotion.type, mode);
+      this.saveConversationMessage('assistant', content, emotion.type, mode, chatWindowId);
       this.persistExtractedMemory(userMessage);
       return { content, emotion };
     }
@@ -318,7 +333,7 @@ export class AthenaController {
         .map(item => `- ${item.label}：${item.description}`)
         .join('\n');
       const emotion = this.emotion.analyzeResponse(content);
-      this.saveMessageIfAllowed('assistant', content, emotion.type, mode);
+      this.saveConversationMessage('assistant', content, emotion.type, mode, chatWindowId);
       return { content, emotion };
     }
 
@@ -326,7 +341,7 @@ export class AthenaController {
       const run = this.workflows.cancelWorkflow();
       if (!run) return null;
       const emotion = this.emotion.analyzeResponse(run.message);
-      this.saveMessageIfAllowed('assistant', run.message, emotion.type, mode);
+      this.saveConversationMessage('assistant', run.message, emotion.type, mode, chatWindowId);
       return { content: run.message, emotion };
     }
 
@@ -334,7 +349,7 @@ export class AthenaController {
       const run = this.workflows.advanceWorkflow();
       if (!run) return null;
       const emotion = this.emotion.analyzeResponse(run.message);
-      this.saveMessageIfAllowed('assistant', run.message, emotion.type, mode);
+      this.saveConversationMessage('assistant', run.message, emotion.type, mode, chatWindowId);
       return { content: run.message, emotion };
     }
 
@@ -343,7 +358,7 @@ export class AthenaController {
       const run = this.workflows.runWorkflow(workflowId);
       if (!run) return null;
       const emotion = this.emotion.analyzeResponse(run.message);
-      this.saveMessageIfAllowed('assistant', run.message, emotion.type, mode);
+      this.saveConversationMessage('assistant', run.message, emotion.type, mode, chatWindowId);
       this.persistExtractedMemory(userMessage);
       return { content: run.message, emotion };
     }
@@ -351,9 +366,16 @@ export class AthenaController {
     return null;
   }
 
-  private saveMessageIfAllowed(role: 'user' | 'assistant', content: string, emotion?: string, mode?: ConversationMode): void {
-    if (!shouldSaveHistory()) return;
-    saveMessage(role, content, emotion, mode);
+  private saveConversationMessage(
+    role: 'user' | 'assistant',
+    content: string,
+    emotion: string | undefined,
+    mode: ConversationMode,
+    chatWindowId: number,
+  ): { chatMessageId?: number } {
+    const saved = saveChatMessage(chatWindowId, role, content, emotion, mode);
+    if (shouldSaveHistory()) saveMessage(role, content, emotion, mode);
+    return { chatMessageId: saved?.id };
   }
 }
 
@@ -362,18 +384,46 @@ function buildRetrievedContext(
   settings: MemorySettings,
   saveHistory: boolean,
   mode: ConversationMode,
+  chatWindowId?: number,
+  excludeChatMessageId?: number,
 ): RetrievedContext {
-  if (!settings.enabled) return emptyRetrievedContext();
-
   const depth = settings.retrievalDepth;
-  return retrieveContext({
+  const recentMessageCount = Math.max(10, Math.min(20, depth > 0 ? depth * 2 : 10));
+  if (!settings.enabled) {
+    const chatWindow = chatWindowId ? getChatWindow(chatWindowId) : null;
+    return {
+      ...emptyRetrievedContext(),
+      recentMessages: chatWindowId
+        ? getChatWindowMessages(chatWindowId, recentMessageCount + 1)
+          .filter(message => message.id !== excludeChatMessageId)
+          .slice(-recentMessageCount)
+        : [],
+      chatWindow: chatWindow ? {
+        id: chatWindow.id,
+        title: chatWindow.title,
+        summary: chatWindow.summary,
+        workingStateJson: chatWindow.working_state_json || chatWindow.working_state || '{}',
+        messageCount: chatWindow.messageCount ?? 0,
+        updatedAt: chatWindow.updated_at,
+      } : undefined,
+    };
+  }
+
+  const context = retrieveContext({
     query,
     maxProfileFacts: settings.retrieveProfile ? depth * 2 : 0,
     maxEvents: settings.retrieveEvents ? depth : 0,
     maxProjectNotes: settings.retrieveProjects ? depth : 0,
-    recentMessageCount: saveHistory ? Math.max(0, Math.min(20, depth * 2)) : 0,
+    recentMessageCount: chatWindowId ? recentMessageCount + 1 : (saveHistory ? recentMessageCount : 0),
     conversationMode: mode,
+    chatWindowId,
   });
+  if (excludeChatMessageId) {
+    context.recentMessages = context.recentMessages
+      .filter(message => message.id !== excludeChatMessageId)
+      .slice(-recentMessageCount);
+  }
+  return context;
 }
 
 function emptyRetrievedContext(): RetrievedContext {
@@ -382,6 +432,7 @@ function emptyRetrievedContext(): RetrievedContext {
     relatedEvents: [],
     projectNotes: [],
     recentMessages: [],
+    chatWindow: undefined,
     relevanceScore: 0,
   };
 }

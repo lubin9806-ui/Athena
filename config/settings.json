@@ -14,7 +14,7 @@
     "glassEffects": true
   },
   "conversation": {
-    "activeMode": "create",
+    "activeMode": "companion",
     "enterToSend": true,
     "streamResponses": true,
     "showTimestamps": false,

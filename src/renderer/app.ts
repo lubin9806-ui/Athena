@@ -1,7 +1,7 @@
 /** Renderer entry: Su Shixia workspace UI, chat, voice, settings, and Athena IPC wiring. */
 
 import './style.css';
-import { ChatPanel, type ChatSource, type ChatToolExecution } from './ui/ChatPanel';
+import { ChatPanel, type ChatMessageSnapshot, type ChatSource, type ChatToolExecution } from './ui/ChatPanel';
 import { InputBar } from './ui/InputBar';
 import { LiveGlass } from './ui/LiveGlass';
 import { ThemeController } from './ui/ThemeController';
@@ -10,7 +10,7 @@ import { MicrophoneRecorder } from './voice/MicrophoneRecorder';
 declare global {
   interface Window {
     athenaAPI: {
-      sendMessage: (text: string, mode: AthenaMode, forceWebSearch?: boolean) => Promise<{
+      sendMessage: (text: string, mode: AthenaMode, forceWebSearch?: boolean, chatWindowId?: number) => Promise<{
         content: string;
         emotion?: { label: string };
         webSearch?: {
@@ -23,6 +23,13 @@ declare global {
         };
         toolExecutions?: ChatToolExecution[];
       } | null>;
+      listChatWindows: (includeArchived?: boolean) => Promise<ChatWindowRecord[]>;
+      createChatWindow: (title?: string) => Promise<ChatWindowRecord | null>;
+      activateChatWindow: (id: number) => Promise<ChatWindowRecord | null>;
+      renameChatWindow: (id: number, title: string) => Promise<ChatWindowRecord | null>;
+      archiveChatWindow: (id: number, archived?: boolean) => Promise<ChatWindowRecord | null>;
+      deleteChatWindow: (id: number) => Promise<boolean>;
+      getChatWindowMessages: (id: number, limit?: number) => Promise<ChatMessageSnapshot[]>;
       cancelExecution: () => Promise<boolean>;
       onChatStream: (callback: (data: { content: string; done: boolean }) => void) => () => void;
       onChatError: (callback: (error: string) => void) => () => void;
@@ -98,6 +105,21 @@ interface MemoryListItem {
 interface MemoryListResult {
   items: MemoryListItem[];
   totals: Record<MemoryKind, number>;
+}
+
+interface ChatWindowRecord {
+  id: number;
+  title: string;
+  summary: string;
+  mode: AthenaMode;
+  working_state: string;
+  archived_at?: string;
+  deleted_at?: string;
+  created_at: string;
+  updated_at: string;
+  last_active_at: string;
+  messageCount?: number;
+  lastMessagePreview?: string;
 }
 
 interface MemoryUpdatePatch {
@@ -434,6 +456,11 @@ const themeController = new ThemeController(document.documentElement, appShell);
 const titlebar = mustGet<HTMLElement>('titlebar');
 const modeSwitch = mustGet<HTMLElement>('mode-switch');
 const modeExecuteButton = mustGet<HTMLButtonElement>('mode-execute-button');
+const chatWindowSelect = mustGet<HTMLSelectElement>('chat-window-select');
+const chatWindowNew = mustGet<HTMLButtonElement>('chat-window-new');
+const chatWindowRename = mustGet<HTMLButtonElement>('chat-window-rename');
+const chatWindowArchive = mustGet<HTMLButtonElement>('chat-window-archive');
+const chatWindowDelete = mustGet<HTMLButtonElement>('chat-window-delete');
 const stage = mustGet<HTMLElement>('stage');
 const chatPanel = new ChatPanel(mustGet<HTMLElement>('chat-container'));
 const inputForm = mustGet<HTMLFormElement>('input-form');
@@ -584,6 +611,8 @@ let currentContent = '';
 let currentImportPreview: MemoryImportPreview | null = null;
 let currentSettingsBundle: SettingsBundle | null = null;
 let currentMode: AthenaMode = 'companion';
+let chatWindows: ChatWindowRecord[] = [];
+let currentChatWindowId: number | null = null;
 let activeRequestMode: AthenaMode | null = null;
 let pendingExecutionGoal = '';
 let pendingExecutionMode: AthenaMode = 'companion';
@@ -696,6 +725,7 @@ function skipStartupIntro(): void {
 
 async function sendMessage(text: string): Promise<void> {
   if (!text || isStreaming || isVoiceInputBusy()) return;
+  if (!currentChatWindowId) await initializeChatWindows();
 
   const forceWebSearch = forceWebSearchForNextMessage;
   const requestMode = currentMode;
@@ -707,6 +737,7 @@ async function sendMessage(text: string): Promise<void> {
   else chatPanel.addMessage(text, 'user');
   setStatus(modeThinkingText(requestMode), 'working');
   isStreaming = true;
+  renderChatWindowPicker();
   setModeSwitchDisabled(true);
   inputBar.setDisabled(true);
   syncVoiceControls();
@@ -716,7 +747,7 @@ async function sendMessage(text: string): Promise<void> {
   pendingExecutionMode = requestMode;
 
   try {
-    const response = await window.athenaAPI.sendMessage(text, requestMode, forceWebSearch);
+    const response = await window.athenaAPI.sendMessage(text, requestMode, forceWebSearch, currentChatWindowId ?? undefined);
     if (response) modelConnected = true;
     if (requestMode === 'execute') {
       finishExecutionTask(response?.toolExecutions ?? [], response?.content || currentContent);
@@ -750,6 +781,7 @@ async function sendMessage(text: string): Promise<void> {
     if (requestMode !== 'execute' && currentSettingsBundle?.settings.voice.autoPlayAssistant) {
       void speakLastAssistantMessage();
     }
+    void refreshChatWindows();
   }
 }
 
@@ -777,6 +809,14 @@ function init(): void {
   voiceFeedback.dataset.visible = 'false';
   void initializeSettings();
   inputBar.onSubmit(sendMessage);
+  chatWindowSelect.addEventListener('change', () => {
+    const id = Number(chatWindowSelect.value);
+    if (Number.isInteger(id) && id > 0) void switchChatWindow(id);
+  });
+  chatWindowNew.addEventListener('click', () => void createNewChatWindow());
+  chatWindowRename.addEventListener('click', () => void renameCurrentChatWindow());
+  chatWindowArchive.addEventListener('click', () => void archiveCurrentChatWindow());
+  chatWindowDelete.addEventListener('click', () => void deleteCurrentChatWindow());
 
   document.querySelectorAll<HTMLButtonElement>('.mode-btn').forEach((button) => {
     button.addEventListener('click', () => {
@@ -1266,12 +1306,130 @@ function formatExecutionTime(value: string): string {
     : date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
 
+async function initializeChatWindows(): Promise<void> {
+  const windows = await window.athenaAPI.listChatWindows(false);
+  chatWindows = windows;
+  currentChatWindowId = windows[0]?.id ?? null;
+  renderChatWindowPicker();
+  if (currentChatWindowId) {
+    await window.athenaAPI.activateChatWindow(currentChatWindowId);
+    const active = chatWindows.find(window => window.id === currentChatWindowId);
+    if (active) setMode(active.mode);
+    await loadCurrentChatWindowMessages();
+  }
+}
+
+async function refreshChatWindows(): Promise<void> {
+  try {
+    chatWindows = await window.athenaAPI.listChatWindows(false);
+    if (!currentChatWindowId || !chatWindows.some(window => window.id === currentChatWindowId)) {
+      currentChatWindowId = chatWindows[0]?.id ?? null;
+    }
+    renderChatWindowPicker();
+  } catch (error) {
+    console.error('Failed to refresh chat windows', error);
+  }
+}
+
+function renderChatWindowPicker(): void {
+  chatWindowSelect.replaceChildren();
+  for (const windowRecord of chatWindows) {
+    const option = document.createElement('option');
+    option.value = String(windowRecord.id);
+    const count = windowRecord.messageCount ?? 0;
+    option.textContent = count > 0 ? `${windowRecord.title} (${count})` : windowRecord.title;
+    chatWindowSelect.appendChild(option);
+  }
+  if (currentChatWindowId) chatWindowSelect.value = String(currentChatWindowId);
+  const disabled = isStreaming || chatWindows.length === 0;
+  chatWindowSelect.disabled = disabled;
+  chatWindowRename.disabled = disabled || !currentChatWindowId;
+  chatWindowArchive.disabled = disabled || !currentChatWindowId;
+  chatWindowDelete.disabled = disabled || !currentChatWindowId;
+  chatWindowNew.disabled = isStreaming;
+}
+
+async function loadCurrentChatWindowMessages(): Promise<void> {
+  if (!currentChatWindowId) {
+    chatPanel.clear();
+    return;
+  }
+  const messages = await window.athenaAPI.getChatWindowMessages(currentChatWindowId, 300);
+  chatPanel.renderMessages(messages);
+}
+
+async function switchChatWindow(id: number): Promise<void> {
+  if (isStreaming || id === currentChatWindowId) return;
+  const active = await window.athenaAPI.activateChatWindow(id);
+  if (!active) {
+    await refreshChatWindows();
+    return;
+  }
+  currentChatWindowId = active.id;
+  const mode = active.mode || currentMode;
+  setMode(mode);
+  if (currentSettingsBundle) currentSettingsBundle.settings.conversation.activeMode = mode;
+  await loadCurrentChatWindowMessages();
+  await refreshChatWindows();
+  inputBar.focus();
+}
+
+async function createNewChatWindow(): Promise<void> {
+  if (isStreaming) return;
+  const title = window.prompt('新聊天窗口名称', `聊天 ${chatWindows.length + 1}`) || '';
+  const created = await window.athenaAPI.createChatWindow(title);
+  if (!created) return;
+  currentChatWindowId = created.id;
+  setMode(created.mode);
+  await refreshChatWindows();
+  await loadCurrentChatWindowMessages();
+  inputBar.focus();
+}
+
+async function renameCurrentChatWindow(): Promise<void> {
+  if (!currentChatWindowId || isStreaming) return;
+  const current = chatWindows.find(window => window.id === currentChatWindowId);
+  const title = window.prompt('重命名聊天窗口', current?.title || '');
+  if (!title || !title.trim()) return;
+  await window.athenaAPI.renameChatWindow(currentChatWindowId, title);
+  await refreshChatWindows();
+}
+
+async function archiveCurrentChatWindow(): Promise<void> {
+  if (!currentChatWindowId || isStreaming) return;
+  const current = chatWindows.find(window => window.id === currentChatWindowId);
+  if (!window.confirm(`归档“${current?.title || '当前窗口'}”？`)) return;
+  await window.athenaAPI.archiveChatWindow(currentChatWindowId, true);
+  currentChatWindowId = null;
+  chatPanel.clear();
+  await refreshChatWindows();
+  if (currentChatWindowId) {
+    await window.athenaAPI.activateChatWindow(currentChatWindowId);
+    await loadCurrentChatWindowMessages();
+  }
+}
+
+async function deleteCurrentChatWindow(): Promise<void> {
+  if (!currentChatWindowId || isStreaming) return;
+  const current = chatWindows.find(window => window.id === currentChatWindowId);
+  if (!window.confirm(`删除“${current?.title || '当前窗口'}”？窗口消息会被软删除隐藏。`)) return;
+  await window.athenaAPI.deleteChatWindow(currentChatWindowId);
+  currentChatWindowId = null;
+  chatPanel.clear();
+  await refreshChatWindows();
+  if (currentChatWindowId) {
+    await window.athenaAPI.activateChatWindow(currentChatWindowId);
+    await loadCurrentChatWindowMessages();
+  }
+}
+
 async function initializeSettings(): Promise<void> {
   try {
     const bundle = await window.athenaAPI.getSettings();
     currentSettingsBundle = bundle;
     populateSettingsForm(bundle);
     applyRuntimeSettings(bundle.settings);
+    await initializeChatWindows();
     void loadPrivacyCenter();
     if (bundle.settings.ui.startupIntro) startStartupIntro();
     else skipStartupIntro();
@@ -1294,6 +1452,10 @@ async function openFirstRunModelSetup(): Promise<void> {
 async function refreshStartupModelStatus(autoConnect: boolean): Promise<void> {
   if (!autoConnect) {
     modelConnected = null;
+    if (chatPanel.hasMessages()) {
+      setStatus('寰呭懡', 'ready');
+      return;
+    }
     chatPanel.addMessage('时夏在。模型自动连接先关着，需要聊天时再叫醒本地模型就好。', 'assistant', '待命');
     setStatus('待命', 'ready');
     return;
@@ -1303,14 +1465,26 @@ async function refreshStartupModelStatus(autoConnect: boolean): Promise<void> {
     const info = await window.athenaAPI.getSystemInfo();
     modelConnected = info.modelConnected;
     if (info.modelConnected) {
+      if (chatPanel.hasMessages()) {
+        setStatus('灏辩华', 'ready');
+        return;
+      }
       chatPanel.addMessage(`${greetingForHour(info.hour)}，时夏在。今天想先聊两句，还是把手头的事往前推一点？`, 'assistant', '温柔');
       setStatus('就绪', 'ready');
     } else {
+      if (chatPanel.hasMessages()) {
+        setStatus(`${modelProviderLabel(info.modelProvider)} 绂荤嚎`, 'offline');
+        return;
+      }
       chatPanel.addMessage(`我已经醒着，但还没连上 ${modelProviderLabel(info.modelProvider)}。请检查 ${info.modelEndpoint || '模型地址'} 和 ${info.modelName || '模型名称'}。`, 'assistant', '等待模型');
       setStatus(`${modelProviderLabel(info.modelProvider)} 离线`, 'offline');
     }
   } catch {
     modelConnected = null;
+    if (chatPanel.hasMessages()) {
+      setStatus('check failed', 'error');
+      return;
+    }
     chatPanel.addMessage('初始化状态检查失败，但窗口已经准备好了。', 'assistant', '需要检查');
     setStatus('检查失败', 'error');
   }

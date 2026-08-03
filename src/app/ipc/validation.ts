@@ -21,6 +21,7 @@ export function cleanChatPayload(value: unknown, fallbackMode: ConversationMode)
   text: string;
   mode: ConversationMode;
   forceWebSearch: boolean;
+  chatWindowId?: number;
 } | null {
   const payload = isRecord(value) ? value : null;
   const textValue = payload?.text ?? value;
@@ -29,7 +30,8 @@ export function cleanChatPayload(value: unknown, fallbackMode: ConversationMode)
   const mode = payload?.mode === 'create' || payload?.mode === 'companion' || payload?.mode === 'reason' || payload?.mode === 'execute'
     ? payload.mode
     : fallbackMode;
-  return { text, mode, forceWebSearch: payload?.forceWebSearch === true };
+  const chatWindowId = cleanPositiveInteger(payload?.chatWindowId);
+  return { text, mode, forceWebSearch: payload?.forceWebSearch === true, chatWindowId: chatWindowId || undefined };
 }
 
 export function cleanExistingFilePath(value: unknown, extensions: readonly string[], maxChars = 2_048): string | null {
@@ -46,4 +48,9 @@ export function cleanExistingFilePath(value: unknown, extensions: readonly strin
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function cleanPositiveInteger(value: unknown): number | null {
+  const parsed = typeof value === 'number' ? value : Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 }

@@ -27,6 +27,15 @@ export interface ChatToolExecution {
   durationMs: number;
 }
 
+export interface ChatMessageSnapshot {
+  id: number;
+  role: ChatRole | 'system';
+  content: string;
+  emotion?: string;
+  mode?: ChatMode;
+  created_at: string;
+}
+
 export class ChatPanel {
   private streamingMessage: HTMLDivElement | null = null;
   private lastAssistantMessage: HTMLDivElement | null = null;
@@ -51,13 +60,33 @@ export class ChatPanel {
     this.scrollToBottom();
   }
 
-  addMessage(content: string, role: ChatRole, emotion?: string): HTMLDivElement {
+  clear(): void {
+    this.container.replaceChildren();
+    this.streamingMessage = null;
+    this.lastAssistantMessage = null;
+    this.lastAssistantContent = '';
+  }
+
+  hasMessages(): boolean {
+    return this.container.querySelector('.message') !== null;
+  }
+
+  renderMessages(messages: ChatMessageSnapshot[]): void {
+    this.clear();
+    for (const message of messages) {
+      if (message.role !== 'user' && message.role !== 'assistant') continue;
+      this.addMessage(message.content, message.role, message.emotion, message.mode, message.created_at);
+    }
+    this.setActiveMode(this.activeMode);
+  }
+
+  addMessage(content: string, role: ChatRole, emotion?: string, mode: ChatMode = this.activeMode, createdAt?: string): HTMLDivElement {
     const message = document.createElement('div');
     message.className = `message ${role}`;
-    message.dataset.mode = this.activeMode;
+    message.dataset.mode = mode;
     message.dataset.rawContent = content;
     message.textContent = content;
-    if (this.showTimestamps) this.appendTimestamp(message);
+    if (this.showTimestamps) this.appendTimestamp(message, createdAt);
     this.container.appendChild(message);
 
     if (role === 'assistant') {
@@ -122,10 +151,13 @@ export class ChatPanel {
     message.appendChild(badge);
   }
 
-  private appendTimestamp(message: HTMLDivElement): void {
+  private appendTimestamp(message: HTMLDivElement, createdAt?: string): void {
     const meta = document.createElement('div');
     meta.className = 'message-time';
-    meta.textContent = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+    const timestamp = createdAt ? new Date(createdAt) : new Date();
+    meta.textContent = Number.isNaN(timestamp.getTime())
+      ? new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+      : timestamp.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
     message.appendChild(meta);
   }
 

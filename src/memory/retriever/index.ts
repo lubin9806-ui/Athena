@@ -2,7 +2,7 @@ import type { ConversationMode, MemoryEvent, ProfileEntry, ProjectNote, Retrieve
 import { searchEvents, getImportantEvents } from '../episodic';
 import { searchProfileFacts, getHighConfidenceProfile } from '../profile';
 import { searchProjectNotes, getImportantProjectNotes } from '../projects';
-import { getRecentMessages } from '../working';
+import { getChatWindow, getChatWindowMessages, getRecentMessages } from '../working';
 
 export interface RetrieveOptions {
   query: string;
@@ -11,6 +11,7 @@ export interface RetrieveOptions {
   maxProjectNotes?: number;
   recentMessageCount?: number;
   conversationMode?: ConversationMode;
+  chatWindowId?: number;
 }
 
 interface Scored<T> {
@@ -26,10 +27,14 @@ export function retrieveContext(options: RetrieveOptions): RetrievedContext {
     maxProjectNotes = 8,
     recentMessageCount = 20,
     conversationMode,
+    chatWindowId,
   } = options;
 
   const keywords = extractKeywords(query);
-  const recentMessages = getRecentMessages(recentMessageCount, conversationMode);
+  const recentMessages = chatWindowId
+    ? getChatWindowMessages(chatWindowId, recentMessageCount)
+    : getRecentMessages(recentMessageCount, conversationMode);
+  const chatWindow = chatWindowId ? getChatWindow(chatWindowId) : null;
   const profileFacts = collectProfileFacts(keywords, maxProfileFacts);
   const relatedEvents = collectEvents(keywords, maxEvents);
   const projectNotes = collectProjectNotes(keywords, maxProjectNotes);
@@ -39,6 +44,14 @@ export function retrieveContext(options: RetrieveOptions): RetrievedContext {
     relatedEvents,
     projectNotes,
     recentMessages,
+    chatWindow: chatWindow ? {
+      id: chatWindow.id,
+      title: chatWindow.title,
+      summary: chatWindow.summary,
+      workingStateJson: chatWindow.working_state_json || chatWindow.working_state || '{}',
+      messageCount: chatWindow.messageCount ?? recentMessages.length,
+      updatedAt: chatWindow.updated_at,
+    } : undefined,
     relevanceScore: calculateRelevanceScore(profileFacts, relatedEvents, projectNotes, keywords),
   };
 }
