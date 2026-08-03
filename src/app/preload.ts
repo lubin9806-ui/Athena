@@ -2,9 +2,12 @@ import { contextBridge, ipcRenderer } from 'electron';
 
 contextBridge.exposeInMainWorld('athenaAPI', {
   sendMessage: (text: string, mode: 'create' | 'companion' | 'reason' | 'execute', forceWebSearch = false, chatWindowId?: number) => ipcRenderer.invoke('chat:send', { text, mode, forceWebSearch, chatWindowId }),
-  listChatWindows: (includeArchived = false) => ipcRenderer.invoke('chatWindow:list', includeArchived),
-  createChatWindow: (title?: string) => ipcRenderer.invoke('chatWindow:create', title),
-  createTemporaryChatWindow: () => ipcRenderer.invoke('chatWindow:createTemporary'),
+  listProjects: (includeArchived = false) => ipcRenderer.invoke('project:list', includeArchived),
+  createProject: (title?: string, instructions?: string) => ipcRenderer.invoke('project:create', { title, instructions }),
+  updateProject: (id: number, patch: { title?: string; instructions?: string }) => ipcRenderer.invoke('project:update', id, patch),
+  listChatWindows: (includeArchived = false, projectId?: number) => ipcRenderer.invoke('chatWindow:list', includeArchived, projectId),
+  createChatWindow: (title?: string, projectId?: number) => ipcRenderer.invoke('chatWindow:create', title, projectId),
+  createTemporaryChatWindow: (projectId?: number) => ipcRenderer.invoke('chatWindow:createTemporary', projectId),
   activateChatWindow: (id: number) => ipcRenderer.invoke('chatWindow:activate', id),
   renameChatWindow: (id: number, title: string) => ipcRenderer.invoke('chatWindow:rename', id, title),
   archiveChatWindow: (id: number, archived = true) => ipcRenderer.invoke('chatWindow:archive', id, archived),

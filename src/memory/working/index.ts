@@ -1,5 +1,6 @@
 import { getDatabase } from '../database';
 import { deleteMemoryIndex, upsertMemoryIndex } from '../indexer';
+import { activateProject, ensureDefaultProject, getProject } from '../projects';
 import type { ChatWindow, ChatWindowMessage, ChatWindowPinnedFact, ContextSnapshotDebugItem, ContextSnapshotRecord, ConversationMode, Message, MessageRole } from '../../shared/types';
 
 export interface MessageInput {
@@ -12,6 +13,7 @@ export interface MessageInput {
 export interface ChatWindowInput {
   title?: string;
   mode?: ConversationMode;
+  projectId?: number;
   temporary?: boolean;
 }
 
@@ -55,22 +57,25 @@ export function saveMessage(role: MessageRole, content: string, emotion?: string
   };
 }
 
-export function ensureDefaultChatWindow(): ChatWindow {
-  const active = getActiveChatWindow();
+export function ensureDefaultChatWindow(projectId?: number): ChatWindow {
+  const project = resolveProject(projectId);
+  const active = getActiveChatWindow(project.id);
   if (active) return active;
-  return createChatWindow({ title: DEFAULT_CHAT_WINDOW_TITLE, mode: 'companion' });
+  return createChatWindow({ title: DEFAULT_CHAT_WINDOW_TITLE, mode: 'companion', projectId: project.id });
 }
 
 export function createChatWindow(input: ChatWindowInput = {}): ChatWindow {
   const db = getDatabase();
   const title = cleanChatWindowTitle(input.title) || DEFAULT_CHAT_WINDOW_TITLE;
   const mode = cleanChatWindowMode(input.mode) || 'companion';
+  const project = resolveProject(input.projectId);
   const temporary = input.temporary === true ? 1 : 0;
   const result = db.prepare(`
-    INSERT INTO chat_windows (title, mode, is_temporary)
-    VALUES (?, ?, ?)
-  `).run(title, mode, temporary);
-  return activateChatWindow(result.lastInsertRowid as number) || ensureDefaultChatWindow();
+    INSERT INTO chat_windows (title, mode, project_id, project_instructions_snapshot, is_temporary)
+    VALUES (?, ?, ?, ?, ?)
+  `).run(title, mode, project.id, project.instructions, temporary);
+  activateProject(project.id);
+  return activateChatWindow(result.lastInsertRowid as number) || ensureDefaultChatWindow(project.id);
 }
 
 export function createTemporaryChatWindow(input: ChatWindowInput = {}): ChatWindow {
@@ -81,16 +86,18 @@ export function createTemporaryChatWindow(input: ChatWindowInput = {}): ChatWind
   });
 }
 
-export function getActiveChatWindow(): ChatWindow | null {
+export function getActiveChatWindow(projectId?: number): ChatWindow | null {
   const db = getDatabase();
+  const projectClause = projectId && projectId > 0 ? 'AND cw.project_id = ?' : '';
+  const args = projectId && projectId > 0 ? [projectId] : [];
   const row = db.prepare(`
     SELECT ${chatWindowSelectFields()}
     ${chatWindowSelectFrom()}
-    WHERE cw.deleted_at IS NULL AND cw.archived_at IS NULL AND cw.is_temporary = 0
+    WHERE cw.deleted_at IS NULL AND cw.archived_at IS NULL AND cw.is_temporary = 0 ${projectClause}
     GROUP BY cw.id
     ORDER BY cw.last_active_at DESC, cw.id DESC
     LIMIT 1
-  `).get();
+  `).get(...args);
   return row ? rowToChatWindow(row) : null;
 }
 
@@ -106,18 +113,21 @@ export function getChatWindow(id: number): ChatWindow | null {
   return row ? rowToChatWindow(row) : null;
 }
 
-export function listChatWindows(includeArchived = false, includeTemporary = false): ChatWindow[] {
+export function listChatWindows(includeArchived = false, includeTemporary = false, projectId?: number): ChatWindow[] {
   const db = getDatabase();
   const archivedClause = includeArchived ? '' : 'AND archived_at IS NULL';
   const temporaryClause = includeTemporary ? '' : 'AND is_temporary = 0';
+  const project = projectId && projectId > 0 ? getProject(projectId) : null;
+  const projectClause = project ? 'AND cw.project_id = ?' : '';
+  const args = project ? [project.id] : [];
   const rows = db.prepare(`
     SELECT ${chatWindowSelectFields()}
     ${chatWindowSelectFrom()}
-    WHERE cw.deleted_at IS NULL ${archivedClause.replace('archived_at', 'cw.archived_at')} ${temporaryClause.replace('is_temporary', 'cw.is_temporary')}
+    WHERE cw.deleted_at IS NULL ${archivedClause.replace('archived_at', 'cw.archived_at')} ${temporaryClause.replace('is_temporary', 'cw.is_temporary')} ${projectClause}
     GROUP BY cw.id
     ORDER BY cw.archived_at IS NOT NULL ASC, cw.last_active_at DESC, cw.updated_at DESC, cw.id DESC
-  `).all() as any[];
-  if (rows.length === 0 && !includeArchived) return [ensureDefaultChatWindow()];
+  `).all(...args) as any[];
+  if (rows.length === 0 && !includeArchived) return [ensureDefaultChatWindow(project?.id)];
   return rows.map(rowToChatWindow);
 }
 
@@ -130,6 +140,7 @@ export function activateChatWindow(id: number): ChatWindow | null {
     SET last_active_at = datetime('now', 'localtime'), updated_at = datetime('now', 'localtime')
     WHERE id = ? AND deleted_at IS NULL AND archived_at IS NULL
   `).run(id);
+  if (existing.project_id) activateProject(existing.project_id);
   return getChatWindow(id);
 }
 
@@ -469,6 +480,10 @@ function rowToChatWindow(row: any): ChatWindow {
     mode: row.mode || 'companion',
     working_state: row.working_state || '{}',
     working_state_json: row.working_state || '{}',
+    project_id: row.project_id || undefined,
+    projectTitle: row.project_title || undefined,
+    projectInstructions: row.project_instructions || row.project_instructions_snapshot || undefined,
+    projectInstructionsSnapshot: row.project_instructions_snapshot || undefined,
     archived_at: row.archived_at || undefined,
     deleted_at: row.deleted_at || undefined,
     is_temporary: Boolean(row.is_temporary),
@@ -503,6 +518,10 @@ function chatWindowSelectFields(): string {
     cw.summary,
     cw.mode,
     cw.working_state,
+    cw.project_id,
+    cw.project_instructions_snapshot,
+    p.title AS project_title,
+    p.instructions AS project_instructions,
     cw.is_temporary,
     cw.archived_at,
     cw.deleted_at,
@@ -523,8 +542,14 @@ function chatWindowSelectFields(): string {
 function chatWindowSelectFrom(): string {
   return `
     FROM chat_windows cw
+    LEFT JOIN projects p ON p.id = cw.project_id
     LEFT JOIN chat_messages cm ON cm.window_id = cw.id
   `;
+}
+
+function resolveProject(projectId?: number) {
+  const project = projectId && projectId > 0 ? getProject(projectId) : null;
+  return project || ensureDefaultProject();
 }
 
 function cleanChatWindowTitle(value: unknown): string {

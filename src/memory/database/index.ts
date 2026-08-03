@@ -7,7 +7,7 @@ import { ensureSufficientDiskSpace } from '../../core/runtime/DiskSpaceGuard';
 
 let db: Database.Database | null = null;
 let resolvedDbPath: string | null = null;
-export const DATABASE_SCHEMA_VERSION = 4;
+export const DATABASE_SCHEMA_VERSION = 5;
 const MIGRATION_BACKUP_RETENTION = 5;
 
 export interface MemoryStats {
@@ -133,6 +133,19 @@ function runMigrations(database: Database.Database, currentVersion: number): voi
   if (currentVersion < 0) throw new Error(`Invalid database schema version: ${currentVersion}`);
   const migrate = database.transaction(() => {
     database.exec(`
+    CREATE TABLE IF NOT EXISTS projects (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      instructions TEXT NOT NULL DEFAULT '',
+      memory_state TEXT NOT NULL DEFAULT '{}',
+      archived_at DATETIME,
+      deleted_at DATETIME,
+      created_at DATETIME DEFAULT (datetime('now', 'localtime')),
+      updated_at DATETIME DEFAULT (datetime('now', 'localtime')),
+      last_active_at DATETIME DEFAULT (datetime('now', 'localtime'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_projects_last_active ON projects(deleted_at, archived_at, last_active_at DESC);
+
     CREATE TABLE IF NOT EXISTS messages (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       role TEXT NOT NULL CHECK(role IN ('user', 'assistant', 'system')),
@@ -150,6 +163,8 @@ function runMigrations(database: Database.Database, currentVersion: number): voi
       summary TEXT NOT NULL DEFAULT '',
       mode TEXT NOT NULL DEFAULT 'companion' CHECK(mode IN ('create', 'companion', 'reason', 'execute')),
       working_state TEXT NOT NULL DEFAULT '{}',
+      project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL,
+      project_instructions_snapshot TEXT NOT NULL DEFAULT '',
       is_temporary INTEGER NOT NULL DEFAULT 0 CHECK(is_temporary IN (0, 1)),
       archived_at DATETIME,
       deleted_at DATETIME,
@@ -159,6 +174,7 @@ function runMigrations(database: Database.Database, currentVersion: number): voi
     );
     CREATE INDEX IF NOT EXISTS idx_chat_windows_last_active ON chat_windows(deleted_at, archived_at, last_active_at DESC);
     CREATE INDEX IF NOT EXISTS idx_chat_windows_temporary ON chat_windows(is_temporary, deleted_at, archived_at);
+    CREATE INDEX IF NOT EXISTS idx_chat_windows_project ON chat_windows(project_id, deleted_at, archived_at, last_active_at DESC);
 
     CREATE TABLE IF NOT EXISTS chat_messages (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -261,10 +277,34 @@ function runMigrations(database: Database.Database, currentVersion: number): voi
     }
     database.exec('CREATE INDEX IF NOT EXISTS idx_messages_mode_created_at ON messages(mode, created_at)');
     const chatWindowColumns = database.prepare('PRAGMA table_info(chat_windows)').all() as Array<{ name: string }>;
+    database.prepare(`
+      INSERT INTO projects (title, instructions, memory_state)
+      SELECT 'General', '', '{}'
+      WHERE NOT EXISTS (
+        SELECT 1 FROM projects WHERE deleted_at IS NULL
+      )
+    `).run();
+    const defaultProject = database.prepare(`
+      SELECT id
+      FROM projects
+      WHERE deleted_at IS NULL
+      ORDER BY last_active_at DESC, id ASC
+      LIMIT 1
+    `).get() as { id: number } | undefined;
+    if (!chatWindowColumns.some(column => column.name === 'project_id')) {
+      database.exec('ALTER TABLE chat_windows ADD COLUMN project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL');
+    }
+    if (!chatWindowColumns.some(column => column.name === 'project_instructions_snapshot')) {
+      database.exec("ALTER TABLE chat_windows ADD COLUMN project_instructions_snapshot TEXT NOT NULL DEFAULT ''");
+    }
+    if (defaultProject) {
+      database.prepare('UPDATE chat_windows SET project_id = ? WHERE project_id IS NULL').run(defaultProject.id);
+    }
     if (!chatWindowColumns.some(column => column.name === 'is_temporary')) {
       database.exec("ALTER TABLE chat_windows ADD COLUMN is_temporary INTEGER NOT NULL DEFAULT 0 CHECK(is_temporary IN (0, 1))");
     }
     database.exec('CREATE INDEX IF NOT EXISTS idx_chat_windows_temporary ON chat_windows(is_temporary, deleted_at, archived_at)');
+    database.exec('CREATE INDEX IF NOT EXISTS idx_chat_windows_project ON chat_windows(project_id, deleted_at, archived_at, last_active_at DESC)');
     if (process.env.ATHENA_TEST_FAIL_MIGRATION === '1') throw new Error('Injected migration failure');
     database.pragma(`user_version = ${DATABASE_SCHEMA_VERSION}`);
   });

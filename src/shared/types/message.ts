@@ -22,6 +22,10 @@ export interface ChatWindow {
   mode: ConversationMode;
   working_state: string;
   working_state_json: string;
+  project_id?: number;
+  projectTitle?: string;
+  projectInstructions?: string;
+  projectInstructionsSnapshot?: string;
   archived_at?: string;
   deleted_at?: string;
   is_temporary?: boolean;

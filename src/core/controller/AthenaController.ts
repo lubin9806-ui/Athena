@@ -419,6 +419,10 @@ function buildRetrievedContext(
         messageCount: chatWindow.messageCount ?? 0,
         updatedAt: chatWindow.updated_at,
         isTemporary: chatWindow.is_temporary === true,
+        projectId: chatWindow.project_id,
+        projectTitle: chatWindow.projectTitle,
+        projectInstructions: chatWindow.projectInstructions,
+        projectInstructionsSnapshot: chatWindow.projectInstructionsSnapshot,
       } : undefined,
     };
   }

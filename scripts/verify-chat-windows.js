@@ -101,6 +101,92 @@ try {
   const promptTextB = promptB.map((message) => message.content).join('\n');
   assert.ok(!promptTextB.includes('我选择方案一'), 'window B prompt must not inherit window A selection');
 
+  const projectA = memory.createProject({
+    title: 'Project Alpha',
+    instructions: 'PROJECT_ALPHA_INSTRUCTIONS_ONLY',
+  });
+  const projectB = memory.createProject({
+    title: 'Project Beta',
+    instructions: 'PROJECT_BETA_INSTRUCTIONS_ONLY',
+  });
+  const projectWindowA1 = memory.createChatWindow({ title: 'Alpha One', mode: 'companion', projectId: projectA.id });
+  const projectWindowA2 = memory.createChatWindow({ title: 'Alpha Two', mode: 'companion', projectId: projectA.id });
+  const projectWindowB1 = memory.createChatWindow({ title: 'Beta One', mode: 'companion', projectId: projectB.id });
+  assert.notEqual(projectWindowA1.id, projectWindowA2.id, 'one project must support multiple chat windows');
+  assert.equal(projectWindowA1.project_id, projectA.id, 'project window A1 must belong to project A');
+  assert.equal(projectWindowA2.project_id, projectA.id, 'project window A2 must belong to project A');
+  assert.equal(projectWindowB1.project_id, projectB.id, 'project window B1 must belong to project B');
+
+  const alphaWindows = memory.listChatWindows(false, false, projectA.id).map((item) => item.id);
+  const betaWindows = memory.listChatWindows(false, false, projectB.id).map((item) => item.id);
+  assert.ok(alphaWindows.includes(projectWindowA1.id), 'project A list must include its first window');
+  assert.ok(alphaWindows.includes(projectWindowA2.id), 'project A list must include its second window');
+  assert.ok(!alphaWindows.includes(projectWindowB1.id), 'project A list must not include project B window');
+  assert.ok(betaWindows.includes(projectWindowB1.id), 'project B list must include its window');
+  assert.ok(!betaWindows.includes(projectWindowA1.id), 'project B list must not include project A windows');
+
+  const promptForProjectA1 = buildChatPrompt({
+    userMessage: 'use project rules',
+    recentMessages: [],
+    retrievedContext: memory.retrieveContext({
+      query: 'use project rules',
+      recentMessageCount: 20,
+      maxProfileFacts: 0,
+      maxEvents: 0,
+      maxProjectNotes: 0,
+      chatWindowId: projectWindowA1.id,
+    }),
+    mode: 'companion',
+  }).map((message) => message.content).join('\n');
+  const promptForProjectA2 = buildChatPrompt({
+    userMessage: 'use project rules',
+    recentMessages: [],
+    retrievedContext: memory.retrieveContext({
+      query: 'use project rules',
+      recentMessageCount: 20,
+      maxProfileFacts: 0,
+      maxEvents: 0,
+      maxProjectNotes: 0,
+      chatWindowId: projectWindowA2.id,
+    }),
+    mode: 'companion',
+  }).map((message) => message.content).join('\n');
+  const promptForProjectB1 = buildChatPrompt({
+    userMessage: 'use project rules',
+    recentMessages: [],
+    retrievedContext: memory.retrieveContext({
+      query: 'use project rules',
+      recentMessageCount: 20,
+      maxProfileFacts: 0,
+      maxEvents: 0,
+      maxProjectNotes: 0,
+      chatWindowId: projectWindowB1.id,
+    }),
+    mode: 'companion',
+  }).map((message) => message.content).join('\n');
+  assert.ok(promptForProjectA1.includes('PROJECT_ALPHA_INSTRUCTIONS_ONLY'), 'project A first window must inherit project instructions');
+  assert.ok(promptForProjectA2.includes('PROJECT_ALPHA_INSTRUCTIONS_ONLY'), 'project A second window must inherit project instructions');
+  assert.ok(!promptForProjectA1.includes('PROJECT_BETA_INSTRUCTIONS_ONLY'), 'project A prompt must not include project B instructions');
+  assert.ok(promptForProjectB1.includes('PROJECT_BETA_INSTRUCTIONS_ONLY'), 'project B window must inherit project B instructions');
+  assert.ok(!promptForProjectB1.includes('PROJECT_ALPHA_INSTRUCTIONS_ONLY'), 'project B prompt must not include project A instructions');
+
+  memory.updateProject(projectA.id, { instructions: 'PROJECT_ALPHA_UPDATED_INSTRUCTIONS_ONLY' });
+  const updatedPromptForProjectA2 = buildChatPrompt({
+    userMessage: 'use updated project rules',
+    recentMessages: [],
+    retrievedContext: memory.retrieveContext({
+      query: 'use updated project rules',
+      recentMessageCount: 20,
+      maxProfileFacts: 0,
+      maxEvents: 0,
+      maxProjectNotes: 0,
+      chatWindowId: projectWindowA2.id,
+    }),
+    mode: 'companion',
+  }).map((message) => message.content).join('\n');
+  assert.ok(updatedPromptForProjectA2.includes('PROJECT_ALPHA_UPDATED_INSTRUCTIONS_ONLY'), 'project windows must inherit updated project instructions');
+  assert.ok(!updatedPromptForProjectA2.includes('PROJECT_BETA_INSTRUCTIONS_ONLY'), 'updated project A prompt must still not include project B instructions');
+
   const longMessages = Array.from({ length: 36 }, (_, index) => ({
     id: 10_000 + index,
     role: index % 2 === 0 ? 'user' : 'assistant',

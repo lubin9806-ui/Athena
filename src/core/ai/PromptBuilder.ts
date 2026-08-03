@@ -103,6 +103,7 @@ export function buildChatPromptWithSnapshot(input: {
   const style = buildStyleProfile(input.userMessage, hour, mode);
   const systemMessage = [
     buildSystemPrompt(style),
+    buildProjectInstructionsContext(input.retrievedContext),
     buildModeContext(mode),
     input.toolContext,
     buildSceneContext(now, hour, style, mode),
@@ -118,6 +119,20 @@ export function buildChatPromptWithSnapshot(input: {
     systemContext: systemMessage,
     maxPromptTokens: input.maxPromptTokens,
   });
+}
+
+function buildProjectInstructionsContext(context: RetrievedContext): string {
+  const chatWindow = context.chatWindow;
+  const instructions = (chatWindow?.projectInstructions || chatWindow?.projectInstructionsSnapshot || '').trim();
+  if (!instructions) return '';
+  const title = chatWindow?.projectTitle || 'Project';
+  const id = chatWindow?.projectId ? ` (#${chatWindow.projectId})` : '';
+  return [
+    '## Project instructions',
+    `Project: ${title}${id}`,
+    truncatePromptContext(instructions, 2_400),
+    'Apply these instructions only to chat windows inside this Project. Do not mix instructions from other Projects.',
+  ].join('\n');
 }
 
 function buildChatWindowContext(context: RetrievedContext): string {

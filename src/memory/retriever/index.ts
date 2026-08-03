@@ -52,6 +52,10 @@ export function retrieveContext(options: RetrieveOptions): RetrievedContext {
       messageCount: chatWindow.messageCount ?? recentMessages.length,
       updatedAt: chatWindow.updated_at,
       isTemporary: chatWindow.is_temporary === true,
+      projectId: chatWindow.project_id,
+      projectTitle: chatWindow.projectTitle,
+      projectInstructions: chatWindow.projectInstructions,
+      projectInstructionsSnapshot: chatWindow.projectInstructionsSnapshot,
     } : undefined,
     relevanceScore: calculateRelevanceScore(profileFacts, relatedEvents, projectNotes, keywords),
   };

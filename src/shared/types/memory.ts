@@ -36,6 +36,10 @@ export interface ChatWindowContext {
   messageCount: number;
   updatedAt: string;
   isTemporary?: boolean;
+  projectId?: number;
+  projectTitle?: string;
+  projectInstructions?: string;
+  projectInstructionsSnapshot?: string;
 }
 
 export interface RetrievedContext {
@@ -79,4 +83,17 @@ export interface ChatWindowPinnedFact {
   id: string;
   text: string;
   createdAt: string;
+}
+
+export interface AthenaProject {
+  id: number;
+  title: string;
+  instructions: string;
+  memory_state_json: string;
+  archived_at?: string;
+  deleted_at?: string;
+  created_at: string;
+  updated_at: string;
+  last_active_at: string;
+  windowCount?: number;
 }

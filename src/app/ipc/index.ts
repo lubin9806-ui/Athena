@@ -30,6 +30,7 @@ import { globalEventBus } from '../../engine/EventBus';
 import {
   commitChatRecordImport,
   activateChatWindow,
+  createProject,
   archiveChatWindow,
   createChatWindow,
   createTemporaryChatWindow,
@@ -37,14 +38,17 @@ import {
   deleteChatWindow,
   debugRetrieveMemory,
   ensureDefaultChatWindow,
+  ensureDefaultProject,
   getRecentContextSnapshots,
   getChatWindowMessages,
+  listProjects,
   listMemories,
   listChatWindows,
   pinChatWindowFact,
   previewChatRecordImport,
   renameChatWindow,
   unpinChatWindowFact,
+  updateProject,
   updateMemory,
 } from '../../memory';
 import type { MemoryKind, MemoryListOptions, MemoryUpdatePatch } from '../../memory';
@@ -59,6 +63,9 @@ const MAX_PATH_CHARS = 2_048;
 
 const INVOKE_CHANNELS = [
   'chat:send',
+  'project:list',
+  'project:create',
+  'project:update',
   'chatWindow:list',
   'chatWindow:create',
   'chatWindow:createTemporary',
@@ -173,25 +180,55 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     }
   });
 
-  ipcMain.handle('chatWindow:list', async (event, includeArchived: unknown) => {
+  ipcMain.handle('chatWindow:list', async (event, includeArchived: unknown, projectValue?: unknown) => {
     if (!isTrustedSender(event)) return [];
-    const windows = listChatWindows(includeArchived === true);
-    return windows.length > 0 ? windows : [ensureDefaultChatWindow()];
+    const projectId = cleanPositiveInteger(projectValue);
+    const windows = listChatWindows(includeArchived === true, false, projectId || undefined);
+    return windows.length > 0 ? windows : [ensureDefaultChatWindow(projectId || undefined)];
   });
 
-  ipcMain.handle('chatWindow:create', async (event, value: unknown) => {
+  ipcMain.handle('project:list', async (event, includeArchived: unknown) => {
+    if (!isTrustedSender(event)) return [];
+    const projects = listProjects(includeArchived === true);
+    return projects.length > 0 ? projects : [ensureDefaultProject()];
+  });
+
+  ipcMain.handle('project:create', async (event, value: unknown) => {
+    if (!isTrustedSender(event)) return null;
+    const input = isRecord(value) ? value : { title: value };
+    return createProject({
+      title: cleanString(input.title, 80),
+      instructions: cleanString(input.instructions, 4_000),
+    });
+  });
+
+  ipcMain.handle('project:update', async (event, id: unknown, patch: unknown) => {
+    if (!isTrustedSender(event)) return null;
+    const projectId = cleanPositiveInteger(id);
+    if (!projectId || !isRecord(patch)) return null;
+    return updateProject(projectId, {
+      title: cleanString(patch.title, 80),
+      instructions: typeof patch.instructions === 'string'
+        ? cleanString(patch.instructions, 4_000)
+        : undefined,
+    });
+  });
+
+  ipcMain.handle('chatWindow:create', async (event, value: unknown, projectValue?: unknown) => {
     if (!isTrustedSender(event)) return null;
     return createChatWindow({
       title: cleanString(value, 80),
       mode: getAppSettings().conversation.activeMode,
+      projectId: cleanPositiveInteger(projectValue) || undefined,
     });
   });
 
-  ipcMain.handle('chatWindow:createTemporary', async (event) => {
+  ipcMain.handle('chatWindow:createTemporary', async (event, projectValue?: unknown) => {
     if (!isTrustedSender(event)) return null;
     return createTemporaryChatWindow({
       title: 'Temporary Chat',
       mode: getAppSettings().conversation.activeMode,
+      projectId: cleanPositiveInteger(projectValue) || undefined,
     });
   });
 

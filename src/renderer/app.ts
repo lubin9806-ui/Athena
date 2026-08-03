@@ -23,9 +23,12 @@ declare global {
         };
         toolExecutions?: ChatToolExecution[];
       } | null>;
-      listChatWindows: (includeArchived?: boolean) => Promise<ChatWindowRecord[]>;
-      createChatWindow: (title?: string) => Promise<ChatWindowRecord | null>;
-      createTemporaryChatWindow: () => Promise<ChatWindowRecord | null>;
+      listProjects: (includeArchived?: boolean) => Promise<AthenaProjectRecord[]>;
+      createProject: (title?: string, instructions?: string) => Promise<AthenaProjectRecord | null>;
+      updateProject: (id: number, patch: { title?: string; instructions?: string }) => Promise<AthenaProjectRecord | null>;
+      listChatWindows: (includeArchived?: boolean, projectId?: number) => Promise<ChatWindowRecord[]>;
+      createChatWindow: (title?: string, projectId?: number) => Promise<ChatWindowRecord | null>;
+      createTemporaryChatWindow: (projectId?: number) => Promise<ChatWindowRecord | null>;
       activateChatWindow: (id: number) => Promise<ChatWindowRecord | null>;
       renameChatWindow: (id: number, title: string) => Promise<ChatWindowRecord | null>;
       archiveChatWindow: (id: number, archived?: boolean) => Promise<ChatWindowRecord | null>;
@@ -118,6 +121,10 @@ interface ChatWindowRecord {
   mode: AthenaMode;
   working_state: string;
   working_state_json?: string;
+  project_id?: number;
+  projectTitle?: string;
+  projectInstructions?: string;
+  projectInstructionsSnapshot?: string;
   archived_at?: string;
   deleted_at?: string;
   is_temporary?: boolean;
@@ -126,6 +133,19 @@ interface ChatWindowRecord {
   last_active_at: string;
   messageCount?: number;
   lastMessagePreview?: string;
+}
+
+interface AthenaProjectRecord {
+  id: number;
+  title: string;
+  instructions: string;
+  memory_state_json: string;
+  archived_at?: string;
+  deleted_at?: string;
+  created_at: string;
+  updated_at: string;
+  last_active_at: string;
+  windowCount?: number;
 }
 
 interface ChatWindowPinnedFact {
@@ -508,6 +528,9 @@ const themeController = new ThemeController(document.documentElement, appShell);
 const titlebar = mustGet<HTMLElement>('titlebar');
 const modeSwitch = mustGet<HTMLElement>('mode-switch');
 const modeExecuteButton = mustGet<HTMLButtonElement>('mode-execute-button');
+const projectSelect = mustGet<HTMLSelectElement>('project-select');
+const projectNew = mustGet<HTMLButtonElement>('project-new');
+const projectInstructions = mustGet<HTMLButtonElement>('project-instructions');
 const chatWindowSelect = mustGet<HTMLSelectElement>('chat-window-select');
 const chatWindowNew = mustGet<HTMLButtonElement>('chat-window-new');
 const chatWindowTemporary = mustGet<HTMLButtonElement>('chat-window-temporary');
@@ -675,6 +698,8 @@ let currentContent = '';
 let currentImportPreview: MemoryImportPreview | null = null;
 let currentSettingsBundle: SettingsBundle | null = null;
 let currentMode: AthenaMode = 'companion';
+let projects: AthenaProjectRecord[] = [];
+let currentProjectId: number | null = null;
 let chatWindows: ChatWindowRecord[] = [];
 let currentChatWindowId: number | null = null;
 let currentChatWindowMessages: ChatMessageSnapshot[] = [];
@@ -875,6 +900,12 @@ function init(): void {
   voiceFeedback.dataset.visible = 'false';
   void initializeSettings();
   inputBar.onSubmit(sendMessage);
+  projectSelect.addEventListener('change', () => {
+    const id = Number(projectSelect.value);
+    if (Number.isInteger(id) && id > 0) void switchProject(id);
+  });
+  projectNew.addEventListener('click', () => void createNewProject());
+  projectInstructions.addEventListener('click', () => void editCurrentProjectInstructions());
   chatWindowSelect.addEventListener('change', () => {
     const id = Number(chatWindowSelect.value);
     if (Number.isInteger(id) && id > 0) void switchChatWindow(id);
@@ -1378,7 +1409,8 @@ function formatExecutionTime(value: string): string {
 }
 
 async function initializeChatWindows(): Promise<void> {
-  const windows = await window.athenaAPI.listChatWindows(false);
+  await initializeProjects();
+  const windows = await window.athenaAPI.listChatWindows(false, currentProjectId ?? undefined);
   chatWindows = windows;
   currentChatWindowId = windows[0]?.id ?? null;
   renderChatWindowPicker();
@@ -1391,9 +1423,32 @@ async function initializeChatWindows(): Promise<void> {
   }
 }
 
+async function initializeProjects(): Promise<void> {
+  const loaded = await window.athenaAPI.listProjects(false);
+  projects = loaded;
+  currentProjectId = currentProjectId && loaded.some(project => project.id === currentProjectId)
+    ? currentProjectId
+    : loaded[0]?.id ?? null;
+  renderProjectPicker();
+}
+
+async function refreshProjects(): Promise<void> {
+  try {
+    const loaded = await window.athenaAPI.listProjects(false);
+    projects = loaded;
+    if (!currentProjectId || !loaded.some(project => project.id === currentProjectId)) {
+      currentProjectId = loaded[0]?.id ?? null;
+    }
+    renderProjectPicker();
+  } catch (error) {
+    console.error('Failed to refresh projects', error);
+  }
+}
+
 async function refreshChatWindows(): Promise<void> {
   try {
-    const persistentWindows = await window.athenaAPI.listChatWindows(false);
+    if (!currentProjectId) await refreshProjects();
+    const persistentWindows = await window.athenaAPI.listChatWindows(false, currentProjectId ?? undefined);
     chatWindows = await mergeCurrentTemporaryWindow(persistentWindows);
     if (!currentChatWindowId || !chatWindows.some(window => window.id === currentChatWindowId)) {
       currentChatWindowId = chatWindows[0]?.id ?? null;
@@ -1418,8 +1473,31 @@ function getCurrentChatWindow(): ChatWindowRecord | undefined {
     : undefined;
 }
 
+function getCurrentProject(): AthenaProjectRecord | undefined {
+  return currentProjectId
+    ? projects.find(project => project.id === currentProjectId)
+    : undefined;
+}
+
+function renderProjectPicker(): void {
+  projectSelect.replaceChildren();
+  for (const project of projects) {
+    const option = document.createElement('option');
+    option.value = String(project.id);
+    const count = project.windowCount ?? 0;
+    option.textContent = count > 0 ? `${project.title} (${count})` : project.title;
+    projectSelect.appendChild(option);
+  }
+  if (currentProjectId) projectSelect.value = String(currentProjectId);
+  const disabled = isStreaming || projects.length === 0;
+  projectSelect.disabled = disabled;
+  projectInstructions.disabled = disabled || !currentProjectId;
+  projectNew.disabled = isStreaming;
+}
+
 function renderChatWindowPicker(): void {
   const current = getCurrentChatWindow();
+  renderProjectPicker();
   const temporary = current?.is_temporary === true;
   appShell.dataset.temporaryChat = String(temporary);
   temporaryChatBadge.hidden = !temporary;
@@ -1456,6 +1534,27 @@ async function loadCurrentChatWindowMessages(): Promise<void> {
   chatPanel.renderMessages(messages);
 }
 
+async function switchProject(id: number): Promise<void> {
+  if (isStreaming || id === currentProjectId) return;
+  const target = projects.find(project => project.id === id);
+  if (!target) {
+    await refreshProjects();
+    return;
+  }
+  currentProjectId = target.id;
+  currentChatWindowId = null;
+  chatPanel.clear();
+  await refreshChatWindows();
+  if (currentChatWindowId) {
+    await window.athenaAPI.activateChatWindow(currentChatWindowId);
+    const active = chatWindows.find(window => window.id === currentChatWindowId);
+    if (active) setMode(active.mode || currentMode);
+    await loadCurrentChatWindowMessages();
+  }
+  await refreshWindowMemoryPanel();
+  inputBar.focus();
+}
+
 async function switchChatWindow(id: number): Promise<void> {
   if (isStreaming || id === currentChatWindowId) return;
   const active = await window.athenaAPI.activateChatWindow(id);
@@ -1476,7 +1575,7 @@ async function switchChatWindow(id: number): Promise<void> {
 async function createNewChatWindow(): Promise<void> {
   if (isStreaming) return;
   const title = window.prompt('新聊天窗口名称', `聊天 ${chatWindows.length + 1}`) || '';
-  const created = await window.athenaAPI.createChatWindow(title);
+  const created = await window.athenaAPI.createChatWindow(title, currentProjectId ?? undefined);
   if (!created) return;
   currentChatWindowId = created.id;
   setMode(created.mode);
@@ -1488,7 +1587,7 @@ async function createNewChatWindow(): Promise<void> {
 
 async function createTemporaryChatWindow(): Promise<void> {
   if (isStreaming) return;
-  const created = await window.athenaAPI.createTemporaryChatWindow();
+  const created = await window.athenaAPI.createTemporaryChatWindow(currentProjectId ?? undefined);
   if (!created) return;
   currentChatWindowId = created.id;
   setMode(created.mode);
@@ -1497,6 +1596,43 @@ async function createTemporaryChatWindow(): Promise<void> {
   await loadCurrentChatWindowMessages();
   await refreshWindowMemoryPanel();
   inputBar.focus();
+}
+
+async function createNewProject(): Promise<void> {
+  if (isStreaming) return;
+  const title = window.prompt('Project name', `Project ${projects.length + 1}`) || '';
+  if (!title.trim()) return;
+  const instructions = window.prompt('Project instructions', '') || '';
+  const created = await window.athenaAPI.createProject(title, instructions);
+  if (!created) return;
+  currentProjectId = created.id;
+  currentChatWindowId = null;
+  chatPanel.clear();
+  await refreshProjects();
+  await refreshChatWindows();
+  if (currentChatWindowId) {
+    await window.athenaAPI.activateChatWindow(currentChatWindowId);
+    await loadCurrentChatWindowMessages();
+  }
+  await refreshWindowMemoryPanel();
+  inputBar.focus();
+}
+
+async function editCurrentProjectInstructions(): Promise<void> {
+  if (isStreaming || !currentProjectId) return;
+  const current = getCurrentProject();
+  if (!current) return;
+  const next = window.prompt('Project instructions', current.instructions || '');
+  if (next === null) return;
+  const updated = await window.athenaAPI.updateProject(currentProjectId, {
+    title: current.title,
+    instructions: next,
+  });
+  if (!updated) return;
+  projects = projects.map(project => project.id === updated.id ? updated : project);
+  await refreshProjects();
+  await refreshChatWindows();
+  await refreshWindowMemoryPanel();
 }
 
 async function renameCurrentChatWindow(): Promise<void> {
@@ -1579,6 +1715,7 @@ function renderWindowMemoryPanel(
   const insights = deriveWindowInsights(windowRecord, workingState, messages);
   windowContextTitle.textContent = windowRecord.title;
   windowContextMeta.textContent = [
+    windowRecord.projectTitle ? `Project: ${windowRecord.projectTitle}` : '',
     windowRecord.is_temporary ? 'Temporary Chat - no long-term memory' : '',
     `${windowRecord.messageCount ?? messages.length} 条消息`,
     modeLabel(windowRecord.mode),
