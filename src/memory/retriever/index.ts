@@ -51,6 +51,7 @@ export function retrieveContext(options: RetrieveOptions): RetrievedContext {
       workingStateJson: chatWindow.working_state_json || chatWindow.working_state || '{}',
       messageCount: chatWindow.messageCount ?? recentMessages.length,
       updatedAt: chatWindow.updated_at,
+      isTemporary: chatWindow.is_temporary === true,
     } : undefined,
     relevanceScore: calculateRelevanceScore(profileFacts, relatedEvents, projectNotes, keywords),
   };

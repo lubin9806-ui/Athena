@@ -12,6 +12,7 @@ export interface MessageInput {
 export interface ChatWindowInput {
   title?: string;
   mode?: ConversationMode;
+  temporary?: boolean;
 }
 
 export interface ContextSnapshotInput {
@@ -64,11 +65,20 @@ export function createChatWindow(input: ChatWindowInput = {}): ChatWindow {
   const db = getDatabase();
   const title = cleanChatWindowTitle(input.title) || DEFAULT_CHAT_WINDOW_TITLE;
   const mode = cleanChatWindowMode(input.mode) || 'companion';
+  const temporary = input.temporary === true ? 1 : 0;
   const result = db.prepare(`
-    INSERT INTO chat_windows (title, mode)
-    VALUES (?, ?)
-  `).run(title, mode);
+    INSERT INTO chat_windows (title, mode, is_temporary)
+    VALUES (?, ?, ?)
+  `).run(title, mode, temporary);
   return activateChatWindow(result.lastInsertRowid as number) || ensureDefaultChatWindow();
+}
+
+export function createTemporaryChatWindow(input: ChatWindowInput = {}): ChatWindow {
+  return createChatWindow({
+    ...input,
+    title: cleanChatWindowTitle(input.title) || 'Temporary Chat',
+    temporary: true,
+  });
 }
 
 export function getActiveChatWindow(): ChatWindow | null {
@@ -76,7 +86,7 @@ export function getActiveChatWindow(): ChatWindow | null {
   const row = db.prepare(`
     SELECT ${chatWindowSelectFields()}
     ${chatWindowSelectFrom()}
-    WHERE cw.deleted_at IS NULL AND cw.archived_at IS NULL
+    WHERE cw.deleted_at IS NULL AND cw.archived_at IS NULL AND cw.is_temporary = 0
     GROUP BY cw.id
     ORDER BY cw.last_active_at DESC, cw.id DESC
     LIMIT 1
@@ -96,13 +106,14 @@ export function getChatWindow(id: number): ChatWindow | null {
   return row ? rowToChatWindow(row) : null;
 }
 
-export function listChatWindows(includeArchived = false): ChatWindow[] {
+export function listChatWindows(includeArchived = false, includeTemporary = false): ChatWindow[] {
   const db = getDatabase();
   const archivedClause = includeArchived ? '' : 'AND archived_at IS NULL';
+  const temporaryClause = includeTemporary ? '' : 'AND is_temporary = 0';
   const rows = db.prepare(`
     SELECT ${chatWindowSelectFields()}
     ${chatWindowSelectFrom()}
-    WHERE cw.deleted_at IS NULL ${archivedClause.replace('archived_at', 'cw.archived_at')}
+    WHERE cw.deleted_at IS NULL ${archivedClause.replace('archived_at', 'cw.archived_at')} ${temporaryClause.replace('is_temporary', 'cw.is_temporary')}
     GROUP BY cw.id
     ORDER BY cw.archived_at IS NOT NULL ASC, cw.last_active_at DESC, cw.updated_at DESC, cw.id DESC
   `).all() as any[];
@@ -147,6 +158,14 @@ export function archiveChatWindow(id: number, archived = true): ChatWindow | nul
 
 export function deleteChatWindow(id: number): boolean {
   const db = getDatabase();
+  const existing = getChatWindow(id);
+  if (existing?.is_temporary) {
+    const result = db.transaction(() => {
+      db.prepare('DELETE FROM context_snapshots WHERE window_id = ?').run(id);
+      return db.prepare('DELETE FROM chat_windows WHERE id = ? AND is_temporary = 1').run(id);
+    })();
+    return result.changes > 0;
+  }
   const result = db.prepare(`
     UPDATE chat_windows
     SET deleted_at = COALESCE(deleted_at, datetime('now', 'localtime')),
@@ -154,6 +173,19 @@ export function deleteChatWindow(id: number): boolean {
     WHERE id = ? AND deleted_at IS NULL
   `).run(id);
   return result.changes > 0;
+}
+
+export function cleanupTemporaryChatWindows(): number {
+  const db = getDatabase();
+  const rows = db.prepare('SELECT id FROM chat_windows WHERE is_temporary = 1').all() as Array<{ id: number }>;
+  if (rows.length === 0) return 0;
+  const ids = rows.map(row => row.id);
+  const placeholders = ids.map(() => '?').join(', ');
+  db.transaction(() => {
+    db.prepare(`DELETE FROM context_snapshots WHERE window_id IN (${placeholders})`).run(...ids);
+    db.prepare(`DELETE FROM chat_windows WHERE id IN (${placeholders})`).run(...ids);
+  })();
+  return ids.length;
 }
 
 export function pinChatWindowFact(windowId: number, text: string): ChatWindow | null {
@@ -439,6 +471,7 @@ function rowToChatWindow(row: any): ChatWindow {
     working_state_json: row.working_state || '{}',
     archived_at: row.archived_at || undefined,
     deleted_at: row.deleted_at || undefined,
+    is_temporary: Boolean(row.is_temporary),
     created_at: row.created_at,
     updated_at: row.updated_at,
     last_active_at: row.last_active_at,
@@ -470,6 +503,7 @@ function chatWindowSelectFields(): string {
     cw.summary,
     cw.mode,
     cw.working_state,
+    cw.is_temporary,
     cw.archived_at,
     cw.deleted_at,
     cw.created_at,

@@ -32,6 +32,7 @@ import {
   activateChatWindow,
   archiveChatWindow,
   createChatWindow,
+  createTemporaryChatWindow,
   deleteMemory,
   deleteChatWindow,
   debugRetrieveMemory,
@@ -60,6 +61,7 @@ const INVOKE_CHANNELS = [
   'chat:send',
   'chatWindow:list',
   'chatWindow:create',
+  'chatWindow:createTemporary',
   'chatWindow:activate',
   'chatWindow:rename',
   'chatWindow:archive',
@@ -181,6 +183,14 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     if (!isTrustedSender(event)) return null;
     return createChatWindow({
       title: cleanString(value, 80),
+      mode: getAppSettings().conversation.activeMode,
+    });
+  });
+
+  ipcMain.handle('chatWindow:createTemporary', async (event) => {
+    if (!isTrustedSender(event)) return null;
+    return createTemporaryChatWindow({
+      title: 'Temporary Chat',
       mode: getAppSettings().conversation.activeMode,
     });
   });

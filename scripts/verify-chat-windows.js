@@ -148,6 +148,59 @@ try {
   assert.ok(savedSnapshot.id > 0, 'context snapshot should be saved for debugging');
   assert.equal(memory.getRecentContextSnapshots(windowA.id, 1)[0].id, savedSnapshot.id, 'latest context snapshot should be queryable');
 
+  const db = memory.getDatabase();
+  const globalMessagesBeforeTemporary = db.prepare('SELECT COUNT(*) AS c FROM messages').get().c;
+  const temporarySecret = 'TEMP-ONLY-SECRET-ATHENA-7429';
+  const temporary = memory.createTemporaryChatWindow({ title: 'Temporary Scratch', mode: 'companion' });
+  assert.equal(temporary.is_temporary, true, 'temporary chat window must be marked explicitly');
+  assert.ok(!memory.listChatWindows(false).some((item) => item.id === temporary.id), 'temporary windows must not enter the default long-term window list');
+  const tempUser = memory.saveChatMessage(temporary.id, 'user', `remember in temp only ${temporarySecret}`, undefined, 'companion');
+  memory.saveChatMessage(temporary.id, 'assistant', `temp reply can still see ${temporarySecret}`, 'calm', 'companion');
+  const temporaryMessages = memory.getChatWindowMessages(temporary.id, 20).map((message) => message.content);
+  assert.deepEqual(temporaryMessages, [
+    `remember in temp only ${temporarySecret}`,
+    `temp reply can still see ${temporarySecret}`,
+  ], 'temporary window should keep continuity inside the active window');
+  const globalMessagesAfterTemporary = db.prepare('SELECT COUNT(*) AS c FROM messages').get().c;
+  assert.equal(globalMessagesAfterTemporary, globalMessagesBeforeTemporary, 'temporary chat messages must not be copied into global message history');
+  assert.ok(!memory.getRecentMessages(50).some((message) => message.content.includes(temporarySecret)), 'global recent history must not include temporary chat content');
+
+  const contextAfterTemporary = memory.retrieveContext({
+    query: temporarySecret,
+    recentMessageCount: 20,
+    maxProfileFacts: 0,
+    maxEvents: 0,
+    maxProjectNotes: 0,
+    chatWindowId: windowB.id,
+  });
+  const promptAfterTemporary = buildChatPrompt({
+    userMessage: 'Can you cite the temporary secret?',
+    recentMessages: contextAfterTemporary.recentMessages,
+    retrievedContext: contextAfterTemporary,
+    mode: 'companion',
+  });
+  assert.ok(
+    !promptAfterTemporary.map((message) => message.content).join('\n').includes(temporarySecret),
+    'ordinary windows must not receive temporary chat content in their prompt',
+  );
+
+  const tempSnapshot = memory.saveContextSnapshot({
+    windowId: temporary.id,
+    userMessageId: tempUser.id,
+    mode: 'companion',
+    budget: managed.snapshot.budget,
+    included: managed.snapshot.included,
+    omitted: managed.snapshot.omitted,
+    promptMessageCount: managed.snapshot.budget.promptMessageCount,
+    promptChars: managed.snapshot.budget.promptChars,
+    estimatedPromptTokens: managed.snapshot.budget.estimatedPromptTokens,
+  });
+  assert.ok(tempSnapshot.id > 0, 'temporary context snapshot should be available while the window is open');
+  assert.equal(memory.deleteChatWindow(temporary.id), true, 'closing a temporary window should succeed');
+  assert.equal(memory.getChatWindow(temporary.id), null, 'closed temporary window must not be queryable');
+  assert.equal(db.prepare('SELECT COUNT(*) AS c FROM chat_messages WHERE window_id = ?').get(temporary.id).c, 0, 'temporary chat messages should be cleared on close');
+  assert.equal(db.prepare('SELECT COUNT(*) AS c FROM context_snapshots WHERE window_id = ?').get(temporary.id).c, 0, 'temporary context snapshots should be cleared on close');
+
   const renamed = memory.renameChatWindow(windowA.id, 'Renamed A');
   assert.equal(renamed.title, 'Renamed A');
 

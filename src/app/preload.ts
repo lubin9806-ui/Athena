@@ -4,6 +4,7 @@ contextBridge.exposeInMainWorld('athenaAPI', {
   sendMessage: (text: string, mode: 'create' | 'companion' | 'reason' | 'execute', forceWebSearch = false, chatWindowId?: number) => ipcRenderer.invoke('chat:send', { text, mode, forceWebSearch, chatWindowId }),
   listChatWindows: (includeArchived = false) => ipcRenderer.invoke('chatWindow:list', includeArchived),
   createChatWindow: (title?: string) => ipcRenderer.invoke('chatWindow:create', title),
+  createTemporaryChatWindow: () => ipcRenderer.invoke('chatWindow:createTemporary'),
   activateChatWindow: (id: number) => ipcRenderer.invoke('chatWindow:activate', id),
   renameChatWindow: (id: number, title: string) => ipcRenderer.invoke('chatWindow:rename', id, title),
   archiveChatWindow: (id: number, archived = true) => ipcRenderer.invoke('chatWindow:archive', id, archived),

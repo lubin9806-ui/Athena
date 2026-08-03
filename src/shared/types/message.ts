@@ -24,6 +24,7 @@ export interface ChatWindow {
   working_state_json: string;
   archived_at?: string;
   deleted_at?: string;
+  is_temporary?: boolean;
   created_at: string;
   updated_at: string;
   last_active_at: string;

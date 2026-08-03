@@ -25,6 +25,7 @@ declare global {
       } | null>;
       listChatWindows: (includeArchived?: boolean) => Promise<ChatWindowRecord[]>;
       createChatWindow: (title?: string) => Promise<ChatWindowRecord | null>;
+      createTemporaryChatWindow: () => Promise<ChatWindowRecord | null>;
       activateChatWindow: (id: number) => Promise<ChatWindowRecord | null>;
       renameChatWindow: (id: number, title: string) => Promise<ChatWindowRecord | null>;
       archiveChatWindow: (id: number, archived?: boolean) => Promise<ChatWindowRecord | null>;
@@ -119,6 +120,7 @@ interface ChatWindowRecord {
   working_state_json?: string;
   archived_at?: string;
   deleted_at?: string;
+  is_temporary?: boolean;
   created_at: string;
   updated_at: string;
   last_active_at: string;
@@ -508,9 +510,11 @@ const modeSwitch = mustGet<HTMLElement>('mode-switch');
 const modeExecuteButton = mustGet<HTMLButtonElement>('mode-execute-button');
 const chatWindowSelect = mustGet<HTMLSelectElement>('chat-window-select');
 const chatWindowNew = mustGet<HTMLButtonElement>('chat-window-new');
+const chatWindowTemporary = mustGet<HTMLButtonElement>('chat-window-temporary');
 const chatWindowRename = mustGet<HTMLButtonElement>('chat-window-rename');
 const chatWindowArchive = mustGet<HTMLButtonElement>('chat-window-archive');
 const chatWindowDelete = mustGet<HTMLButtonElement>('chat-window-delete');
+const temporaryChatBadge = mustGet<HTMLElement>('temporary-chat-badge');
 const stage = mustGet<HTMLElement>('stage');
 const chatPanel = new ChatPanel(mustGet<HTMLElement>('chat-container'));
 const inputForm = mustGet<HTMLFormElement>('input-form');
@@ -876,6 +880,7 @@ function init(): void {
     if (Number.isInteger(id) && id > 0) void switchChatWindow(id);
   });
   chatWindowNew.addEventListener('click', () => void createNewChatWindow());
+  chatWindowTemporary.addEventListener('click', () => void createTemporaryChatWindow());
   chatWindowRename.addEventListener('click', () => void renameCurrentChatWindow());
   chatWindowArchive.addEventListener('click', () => void archiveCurrentChatWindow());
   chatWindowDelete.addEventListener('click', () => void deleteCurrentChatWindow());
@@ -1388,7 +1393,8 @@ async function initializeChatWindows(): Promise<void> {
 
 async function refreshChatWindows(): Promise<void> {
   try {
-    chatWindows = await window.athenaAPI.listChatWindows(false);
+    const persistentWindows = await window.athenaAPI.listChatWindows(false);
+    chatWindows = await mergeCurrentTemporaryWindow(persistentWindows);
     if (!currentChatWindowId || !chatWindows.some(window => window.id === currentChatWindowId)) {
       currentChatWindowId = chatWindows[0]?.id ?? null;
     }
@@ -1398,22 +1404,44 @@ async function refreshChatWindows(): Promise<void> {
   }
 }
 
+async function mergeCurrentTemporaryWindow(persistentWindows: ChatWindowRecord[]): Promise<ChatWindowRecord[]> {
+  const current = getCurrentChatWindow();
+  if (current?.is_temporary !== true || !currentChatWindowId) return persistentWindows;
+  const refreshed = await window.athenaAPI.activateChatWindow(currentChatWindowId);
+  if (!refreshed?.is_temporary) return persistentWindows;
+  return [refreshed, ...persistentWindows.filter(window => window.id !== refreshed.id)];
+}
+
+function getCurrentChatWindow(): ChatWindowRecord | undefined {
+  return currentChatWindowId
+    ? chatWindows.find(window => window.id === currentChatWindowId)
+    : undefined;
+}
+
 function renderChatWindowPicker(): void {
+  const current = getCurrentChatWindow();
+  const temporary = current?.is_temporary === true;
+  appShell.dataset.temporaryChat = String(temporary);
+  temporaryChatBadge.hidden = !temporary;
+  temporaryChatBadge.textContent = temporary ? 'Temporary Chat - no long-term memory' : '';
   chatWindowSelect.replaceChildren();
   for (const windowRecord of chatWindows) {
     const option = document.createElement('option');
     option.value = String(windowRecord.id);
     const count = windowRecord.messageCount ?? 0;
-    option.textContent = count > 0 ? `${windowRecord.title} (${count})` : windowRecord.title;
+    const title = windowRecord.is_temporary ? `[Temporary] ${windowRecord.title}` : windowRecord.title;
+    option.textContent = count > 0 ? `${title} (${count})` : title;
     chatWindowSelect.appendChild(option);
   }
   if (currentChatWindowId) chatWindowSelect.value = String(currentChatWindowId);
   const disabled = isStreaming || chatWindows.length === 0;
   chatWindowSelect.disabled = disabled;
   chatWindowRename.disabled = disabled || !currentChatWindowId;
-  chatWindowArchive.disabled = disabled || !currentChatWindowId;
+  chatWindowArchive.disabled = disabled || !currentChatWindowId || temporary;
   chatWindowDelete.disabled = disabled || !currentChatWindowId;
   chatWindowNew.disabled = isStreaming;
+  chatWindowTemporary.disabled = isStreaming;
+  chatWindowDelete.textContent = temporary ? 'Close' : '删除';
 }
 
 async function loadCurrentChatWindowMessages(): Promise<void> {
@@ -1458,6 +1486,19 @@ async function createNewChatWindow(): Promise<void> {
   inputBar.focus();
 }
 
+async function createTemporaryChatWindow(): Promise<void> {
+  if (isStreaming) return;
+  const created = await window.athenaAPI.createTemporaryChatWindow();
+  if (!created) return;
+  currentChatWindowId = created.id;
+  setMode(created.mode);
+  chatWindows = [created, ...chatWindows.filter(window => window.id !== created.id)];
+  renderChatWindowPicker();
+  await loadCurrentChatWindowMessages();
+  await refreshWindowMemoryPanel();
+  inputBar.focus();
+}
+
 async function renameCurrentChatWindow(): Promise<void> {
   if (!currentChatWindowId || isStreaming) return;
   const current = chatWindows.find(window => window.id === currentChatWindowId);
@@ -1485,8 +1526,12 @@ async function archiveCurrentChatWindow(): Promise<void> {
 
 async function deleteCurrentChatWindow(): Promise<void> {
   if (!currentChatWindowId || isStreaming) return;
-  const current = chatWindows.find(window => window.id === currentChatWindowId);
-  if (!window.confirm(`删除“${current?.title || '当前窗口'}”？窗口消息会被软删除隐藏。`)) return;
+  const current = getCurrentChatWindow();
+  const temporary = current?.is_temporary === true;
+  const confirmMessage = temporary
+    ? 'Close this temporary chat? Its messages and context snapshots will be cleared.'
+    : `删除“${current?.title || '当前窗口'}”？窗口消息会被软删除隐藏。`;
+  if (!window.confirm(confirmMessage)) return;
   await window.athenaAPI.deleteChatWindow(currentChatWindowId);
   currentChatWindowId = null;
   chatPanel.clear();
@@ -1499,7 +1544,7 @@ async function deleteCurrentChatWindow(): Promise<void> {
 }
 
 async function refreshWindowMemoryPanel(): Promise<void> {
-  const current = currentChatWindowId ? chatWindows.find(window => window.id === currentChatWindowId) : null;
+  const current = getCurrentChatWindow();
   if (!current) {
     renderEmptyWindowMemoryPanel();
     return;
@@ -1534,6 +1579,7 @@ function renderWindowMemoryPanel(
   const insights = deriveWindowInsights(windowRecord, workingState, messages);
   windowContextTitle.textContent = windowRecord.title;
   windowContextMeta.textContent = [
+    windowRecord.is_temporary ? 'Temporary Chat - no long-term memory' : '',
     `${windowRecord.messageCount ?? messages.length} 条消息`,
     modeLabel(windowRecord.mode),
     formatPanelTime(windowRecord.updated_at || windowRecord.last_active_at),

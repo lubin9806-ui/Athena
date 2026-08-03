@@ -35,6 +35,7 @@ export interface ChatWindowContext {
   workingStateJson: string;
   messageCount: number;
   updatedAt: string;
+  isTemporary?: boolean;
 }
 
 export interface RetrievedContext {

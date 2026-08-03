@@ -18,6 +18,7 @@ import {
   addMemoryEvent,
   addProfileFacts,
   addProjectNote,
+  cleanupTemporaryChatWindows,
   ensureDefaultChatWindow,
   getChatWindow,
   getChatWindowMessages,
@@ -87,6 +88,10 @@ export class AthenaController {
   private async runInitialize(): Promise<void> {
     logger.info('Initializing Athena...');
     getDatabase();
+    const temporaryWindowsDeleted = cleanupTemporaryChatWindows();
+    if (temporaryWindowsDeleted > 0) {
+      logger.info(`Cleaned up ${temporaryWindowsDeleted} temporary chat windows.`);
+    }
     const retention = applyDataRetention();
     if (retention.messagesDeleted > 0 || retention.activityDeleted > 0) {
       logger.info(`Data retention applied: messages=${retention.messagesDeleted}, activity=${retention.activityDeleted}`);
@@ -112,8 +117,11 @@ export class AthenaController {
     const settings = getAppSettings();
     const mode = requestedMode ?? settings.conversation.activeMode;
     const requestedChatWindowId = options?.chatWindowId && options.chatWindowId > 0 ? options.chatWindowId : undefined;
-    const chatWindowId = (requestedChatWindowId ? getChatWindow(requestedChatWindowId)?.id : undefined)
-      ?? ensureDefaultChatWindow().id;
+    const chatWindow = (requestedChatWindowId ? getChatWindow(requestedChatWindowId) : null)
+      ?? ensureDefaultChatWindow();
+    const chatWindowId = chatWindow.id;
+    const isTemporaryChat = chatWindow.is_temporary === true;
+    const effectiveSaveHistory = settings.conversation.saveHistory && !isTemporaryChat;
     const modeToolSettings = this.applyToolPermission(settings.tools, mode);
     modeToolSettings.allowExternalNetwork = settings.privacy.networkConsent.externalToolNetwork;
     logger.info(`User message received [mode=${mode}, tools=${modeToolSettings.permissionLevel}, chars=${userMessage.length}]`);
@@ -187,10 +195,11 @@ export class AthenaController {
     const retrieved = buildRetrievedContext(
       userMessage,
       settings.memory,
-      settings.conversation.saveHistory,
+      effectiveSaveHistory,
       mode,
       chatWindowId,
       savedUser.chatMessageId,
+      isTemporaryChat,
     );
     const response = await this.conversation.process(
       userMessage,
@@ -223,7 +232,7 @@ export class AthenaController {
         })),
       });
     }
-    if (settings.conversation.saveHistory) this.persistExtractedMemory(userMessage);
+    if (effectiveSaveHistory) this.persistExtractedMemory(userMessage);
 
     logger.info(`Athena response completed [chars=${response.content.length}]`);
     return response;
@@ -306,6 +315,7 @@ export class AthenaController {
   }
 
   private processLocalCommand(userMessage: string, mode: ConversationMode, chatWindowId: number): ChatResponse | null {
+    const isTemporaryChat = getChatWindow(chatWindowId)?.is_temporary === true;
     const reminders = this.reminder.list();
     if (/提醒列表/.test(userMessage) || /^(列出|查看|我的)提醒/.test(userMessage)) {
       const active = reminders.filter(item => item.status === 'scheduled');
@@ -325,7 +335,7 @@ export class AthenaController {
       const content = `好，记下了：${job.title}。我会在 ${new Date(job.dueAt).toLocaleString('zh-CN')} 提醒你。`;
       const emotion = this.emotion.analyzeResponse(content);
       this.saveConversationMessage('assistant', content, emotion.type, mode, chatWindowId);
-      this.persistExtractedMemory(userMessage);
+      if (!isTemporaryChat) this.persistExtractedMemory(userMessage);
       return { content, emotion };
     }
 
@@ -360,7 +370,7 @@ export class AthenaController {
       if (!run) return null;
       const emotion = this.emotion.analyzeResponse(run.message);
       this.saveConversationMessage('assistant', run.message, emotion.type, mode, chatWindowId);
-      this.persistExtractedMemory(userMessage);
+      if (!isTemporaryChat) this.persistExtractedMemory(userMessage);
       return { content: run.message, emotion };
     }
 
@@ -375,7 +385,8 @@ export class AthenaController {
     chatWindowId: number,
   ): { chatMessageId?: number } {
     const saved = saveChatMessage(chatWindowId, role, content, emotion, mode);
-    if (shouldSaveHistory()) saveMessage(role, content, emotion, mode);
+    const isTemporaryChat = getChatWindow(chatWindowId)?.is_temporary === true;
+    if (!isTemporaryChat && shouldSaveHistory()) saveMessage(role, content, emotion, mode);
     return { chatMessageId: saved?.id };
   }
 }
@@ -387,10 +398,11 @@ function buildRetrievedContext(
   mode: ConversationMode,
   chatWindowId?: number,
   excludeChatMessageId?: number,
+  temporaryChat = false,
 ): RetrievedContext {
   const depth = settings.retrievalDepth;
   const recentMessageCount = Math.max(10, Math.min(20, depth > 0 ? depth * 2 : 10));
-  if (!settings.enabled) {
+  if (!settings.enabled || temporaryChat) {
     const chatWindow = chatWindowId ? getChatWindow(chatWindowId) : null;
     return {
       ...emptyRetrievedContext(),
@@ -406,6 +418,7 @@ function buildRetrievedContext(
         workingStateJson: chatWindow.working_state_json || chatWindow.working_state || '{}',
         messageCount: chatWindow.messageCount ?? 0,
         updatedAt: chatWindow.updated_at,
+        isTemporary: chatWindow.is_temporary === true,
       } : undefined,
     };
   }
