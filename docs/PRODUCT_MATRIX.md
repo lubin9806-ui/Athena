@@ -26,8 +26,8 @@
 | Create / Companion / Reason | 已实现 | GA | GA | GA | API 支撑 | 三个平台保持语义一致 |
 | Execute 电脑操作 | 已实现，高风险 | Beta，默认 Off | Beta，最高仅 files；Full/终端/HTTP Excluded | Excluded | Excluded | Steam 运行时在设置、枚举和直接执行层强制裁剪 |
 | Ollama 本地推理 | 已实现 | GA | Partial；用户另装 Ollama/模型 | Excluded | Excluded | Steam Depot 不捆绑模型或用户 Ollama 目录，需 clean-machine 验证 onboarding |
-| 云端模型推理 | Cloud 本地 fixture 已实现；生产 Blocked | 可选后续 | 可选后续 | GA | GA | 真实 provider/条款/区域未选择；本地 fixture 不联网、不收费 |
-| DeepSeek/fallback | 仅配置 | Excluded，直至真实实现 | Excluded | Planned | Planned | 不得把配置项写成能力 |
+| 远程/BYOK 模型推理 | OpenAI、DeepSeek、Athena Cloud、自定义 OpenAI-compatible 客户端已实现；Cloud 生产仍 Blocked | Beta，可选且显式同意 | Excluded，直至单独审核 | Planned | GA | Key 使用 Windows 加密存储；不得把本地适配器写成 Athena Cloud 已上线 |
+| DeepSeek | 客户端与真实 API 最小测试已通过 | Beta，用户自填地址、模型与 Key | Excluded，直至单独审核 | Planned | Planned | 不预填服务地址或模型；无静默 fallback，生产仍需条款、计费与持续回归 |
 | SQLite 本地聊天历史 | 已实现 | GA | GA | Excluded | N/A | 需保留/导出/清除和加密决策 |
 | 画像/事件/项目长期记忆 | 已实现 | GA | GA | GA（同步视图） | GA（加密服务） | Mobile 不直连 SQLite |
 | 记忆管理与 JSON 导入 | 已实现 | GA | GA | Partial | API | 导入内容需明确本地/云去向 |

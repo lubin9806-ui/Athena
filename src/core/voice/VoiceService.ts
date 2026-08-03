@@ -29,7 +29,13 @@ export type VoiceFailureCode =
 export interface VoiceCapabilities {
   architecture: 'desktop-local-1.0';
   stt: { mode: 'local'; ready: boolean; runtimePath: string; modelPath: string; reason?: string };
-  tts: { mode: 'local'; ready: boolean; provider: 'windows-sapi'; reason?: string };
+  tts: {
+    mode: 'local';
+    ready: boolean;
+    provider: 'windows-sapi';
+    voices: Array<{ name: string; culture: string }>;
+    reason?: string;
+  };
   onlineStt: { available: false; consentGate: 'onlineSpeechToText' };
   onlineTts: { available: false; consentGate: 'onlineTextToSpeech' };
   runtimeDownloadsAllowed: false;
@@ -47,9 +53,14 @@ export class VoiceService {
     const modelPath = resolveWhisperModelPath();
     const pythonReady = await commandAvailable(python, ['--version']);
     const modelReady = isWhisperModelDirectory(modelPath);
-    const sapiReady = process.platform === 'win32'
+    const sapiScriptsReady = process.platform === 'win32'
       && fs.existsSync(path.join(SCRIPT_ROOT, 'tts-local.ps1'))
-      && fs.existsSync(path.join(SCRIPT_ROOT, 'play_audio_local.ps1'));
+      && fs.existsSync(path.join(SCRIPT_ROOT, 'play_audio_local.ps1'))
+      && fs.existsSync(path.join(SCRIPT_ROOT, 'tts-capabilities.ps1'));
+    const voices = sapiScriptsReady ? await inspectWindowsVoices() : [];
+    const selectedVoice = (process.env.ATHENA_TTS_VOICE ?? getAppSettings().voice.ttsVoice).trim();
+    const selectedVoiceReady = !selectedVoice || voices.some(voice => voice.name === selectedVoice);
+    const sapiReady = sapiScriptsReady && voices.length > 0 && selectedVoiceReady;
     return {
       architecture: 'desktop-local-1.0',
       stt: {
@@ -67,7 +78,14 @@ export class VoiceService {
         mode: 'local',
         ready: sapiReady,
         provider: 'windows-sapi',
-        reason: sapiReady ? undefined : '当前系统不支持 Windows SAPI 本地朗读。',
+        voices,
+        reason: sapiReady
+          ? undefined
+          : !sapiScriptsReady
+            ? '本地朗读组件缺失。'
+            : voices.length === 0
+              ? 'Windows 没有已启用的系统声音。'
+              : `设置的系统声音不存在：${selectedVoice}`,
       },
       onlineStt: { available: false, consentGate: 'onlineSpeechToText' },
       onlineTts: { available: false, consentGate: 'onlineTextToSpeech' },
@@ -176,12 +194,40 @@ function commandAvailable(command: string, args: string[]): Promise<boolean> {
   return runProcess(command, args, 5_000).then(result => result.code === 0);
 }
 
+async function inspectWindowsVoices(): Promise<Array<{ name: string; culture: string }>> {
+  const result = await runProcess('powershell.exe', [
+    '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File',
+    path.join(SCRIPT_ROOT, 'tts-capabilities.ps1'),
+  ], 10_000);
+  if (result.code !== 0) return [];
+  try {
+    const parsed = JSON.parse(result.stdout.trim()) as { voices?: unknown };
+    if (!Array.isArray(parsed.voices)) return [];
+    return parsed.voices.flatMap((voice) => {
+      if (!voice || typeof voice !== 'object') return [];
+      const record = voice as Record<string, unknown>;
+      const name = typeof record.name === 'string' ? record.name.trim() : '';
+      const culture = typeof record.culture === 'string' ? record.culture.trim() : '';
+      return name ? [{ name, culture }] : [];
+    });
+  } catch {
+    return [];
+  }
+}
+
 function runProcess(command: string, args: string[], timeoutMs: number): Promise<ProcessResult> {
   return new Promise((resolve) => {
     const child = spawn(command, args, {
       cwd: SCRIPT_ROOT,
       windowsHide: true,
-      env: { ...process.env, PYTHONIOENCODING: 'utf-8', PYTHONUTF8: '1', HF_HUB_OFFLINE: '1', TRANSFORMERS_OFFLINE: '1' },
+      env: {
+        ...process.env,
+        PYTHONIOENCODING: 'utf-8',
+        PYTHONDONTWRITEBYTECODE: '1',
+        PYTHONUTF8: '1',
+        HF_HUB_OFFLINE: '1',
+        TRANSFORMERS_OFFLINE: '1',
+      },
     });
     let stdout = '';
     let stderr = '';

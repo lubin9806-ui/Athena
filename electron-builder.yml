@@ -29,14 +29,8 @@ extraResources:
       - "!backups/**"
       - "!migrations/**"
       - "!seeds/**"
-  - from: stt_whisper.py
-    to: voice/stt_whisper.py
-  - from: tts-local.ps1
-    to: voice/tts-local.ps1
-  - from: play_audio_local.ps1
-    to: voice/play_audio_local.ps1
-  - from: requirements-voice.txt
-    to: voice/requirements-voice.txt
+  - from: resources/voice-runtime
+    to: voice
 win:
   target: nsis
   icon: resources/su-shixia.ico

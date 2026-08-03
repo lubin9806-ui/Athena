@@ -1,6 +1,6 @@
 # Athena Desktop 1.0 语音架构决策
 
-> 决策日期：2026-07-16；状态：窗口 05 冻结。
+> 决策日期：2026-07-16；交付验证更新：2026-07-22。
 
 ## 固定方案
 
@@ -9,7 +9,9 @@
 - 播放：Windows `System.Media.SoundPlayer` 本地播放 Athena 生成的 WAV，不依赖 Python。
 - 在线 STT/TTS：当前没有 provider、设置或入口，不进入 Desktop/Steam 1.0 宣传。未来签约适配器必须分别复用窗口 03 的 `onlineSpeechToText` / `onlineTextToSpeech` 同意门，禁止隐式 fallback。
 
-精确 Python 运行依赖锁在 `requirements-voice.txt`：`faster-whisper==1.2.1`、`av==17.1.0`、`numpy==2.4.6`。正式包还必须记录 Python sidecar、wheel 与 Whisper 模型的 SHA-256/许可；当前仓库未包含这些二进制 payload，因此缺少时功能会禁用而不是下载。
+顶层依赖约束记录在 `requirements-voice.txt`，完整可重复依赖闭包锁在 `requirements-voice.lock.txt`。`npm.cmd run prepare:voice-runtime` 从 Python 官方来源生成 CPython 3.11.9 Windows x64 sidecar，并从固定提交生成 `Systran/faster-whisper-tiny` 本地模型。输出位于被 Git 忽略的 `resources/voice-runtime`，每个交付文件记录在 `voice-runtime-manifest.json` 中并使用 SHA-256 验证。
+
+正式打包不会联网生成运行时。`scripts/build-desktop.js` 在调用 `electron-builder` 前执行 `scripts/verify-voice-runtime.js`；运行时缺失、文件大小变化、哈希不一致或 Python 导入失败都会中止打包。`electron-builder.yml` 只把验证通过的生成目录复制到安装包的 `resources/voice`。
 
 ## 故障行为
 
@@ -23,4 +25,9 @@
 | 磁盘不足 | 写入前保留至少 32 MB，返回可释放空间的提示 |
 | Windows 声音缺失 | TTS 就绪检查失败或 SAPI 返回可理解错误，不切换 Edge TTS |
 
-验证：`npm.cmd run test:window05:reliability` 覆盖无 Python、无模型、禁止联网/下载、本地 SAPI 输出、磁盘不足与资源上限；打包资源路径由 `electron-builder.yml` 固定。
+验证：
+
+- `npm.cmd run test:voice-runtime`：逐文件哈希、受管 Python 导入和 SAPI WAV 输出。
+- `npm.cmd run test:voice:e2e`：SAPI 中文合成后由内置 Whisper 离线转写。
+- `npm.cmd run smoke:electron`：Electron UI、IPC 和麦克风权限边界。
+- 临时目录静默安装验证：确认安装后的 `resources/voice/python`、`resources/voice/models/whisper-tiny` 和 `Athena.exe --smoke-test`，完成后卸载并删除测试目录。

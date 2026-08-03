@@ -13,6 +13,12 @@ npm.cmd run dev
 
 This builds the renderer, compiles the Electron main process, and starts the current desktop runtime from `dist/app/main.js`.
 
+## Model providers
+
+The first launch opens model setup. Users can keep the default local Ollama path, install Ollama from the official download page or an explicitly bundled installer, and pull the selected model after confirmation. They can also choose OpenAI, DeepSeek, Athena Cloud, or a custom OpenAI-compatible endpoint.
+
+Remote providers are opt-in. Their API keys are encrypted with Electron `safeStorage` under the current Windows user profile and are never returned to the renderer after saving. Remote inference is blocked in the main process until the user explicitly enables the separate remote-model network consent. Provider failures do not silently switch to another service.
+
 ## Web search
 
 Web search is enabled by default. Athena automatically searches for time-sensitive requests such as latest news, current prices, weather, scores, or current office holders. Use the `+` menu beside the composer to force web search for the next message. Search behavior, source count, deep-read page count, and secondary search can be changed under **Settings → Web search**.
@@ -42,6 +48,8 @@ npm.cmd run test:web-search:live
 npm.cmd run test:web-search:e2e
 npm.cmd run test:tools
 npm.cmd run test:tools:live
+npm.cmd run test:model-providers
+npm.cmd run test:privacy
 npm.cmd run smoke:electron
 npm.cmd run db:stats
 ```

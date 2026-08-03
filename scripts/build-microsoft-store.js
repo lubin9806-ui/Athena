@@ -23,12 +23,7 @@ function main() {
   if (product.externalPayments !== false || product.updatesManagedBy !== 'microsoft-store') {
     fail('store-policy-drift', 'Store SKU must exclude external payments and use Microsoft Store updates.');
   }
-  const betaNumber = packageMetadata().version.match(/-(?:beta|rc)\.(\d+)$/)?.[1] || '1';
-  const storeBuildNumber = process.env.ATHENA_STORE_BUILD_NUMBER?.trim() || betaNumber;
-  if (!/^\d+$/.test(storeBuildNumber) || Number(storeBuildNumber) < 1 || Number(storeBuildNumber) > 65535) {
-    fail('build-number-invalid', 'ATHENA_STORE_BUILD_NUMBER must be an integer from 1 through 65535.');
-  }
-  const storeAppVersion = `0.9.${storeBuildNumber}`;
+  const storeAppVersion = deriveStoreAppVersion(packageMetadata().version);
   const storePackageVersion = `${storeAppVersion}.0`;
   const requireClean = process.argv.includes('--require-clean') || Boolean(process.env.CI);
   const state = sourceState();
@@ -40,6 +35,8 @@ function main() {
   process.argv = originalArgv;
   writeJson(path.join(ROOT, '.build', 'build-info.json'), {
     ...buildInfo,
+    version: storeAppVersion,
+    channel: 'private-beta',
     product: product.productName,
     skuId: product.skuId,
     storeId: product.storeId,
@@ -80,6 +77,17 @@ function main() {
   });
   console.log(`ATHENA_STORE_BUILD_OK storeId=${product.storeId} identity=${product.identityName} audience=${product.audience} packageVersion=${storePackageVersion}`);
   console.log('ATHENA_STORE_NOT_SUBMITTED Partner Center upload and certification remain external actions.');
+}
+
+function deriveStoreAppVersion(sourceVersion) {
+  const explicit = process.env.ATHENA_STORE_APP_VERSION?.trim();
+  const value = explicit || sourceVersion.replace(/-(?:beta|rc)\.\d+$/, '');
+  if (!/^\d+\.\d+\.\d+$/.test(value)) fail('version-invalid', 'Store app version must resolve to x.y.z.');
+  const parts = value.split('.').map(Number);
+  if (parts.some(part => !Number.isInteger(part) || part < 0 || part > 65535)) {
+    fail('version-out-of-range', 'Each Store app version component must be 0 through 65535.');
+  }
+  return value;
 }
 
 main();

@@ -5,6 +5,8 @@ export type AnimationLevel = 'low' | 'balanced' | 'high';
 export type ThemeMode = 'day' | 'night' | 'system';
 export type SttEngine = 'local_whisper';
 export type ConversationMode = 'create' | 'companion' | 'reason' | 'execute';
+export type ModelProvider = 'ollama' | 'openai' | 'deepseek' | 'athena-cloud' | 'custom';
+export type RemoteModelProvider = Exclude<ModelProvider, 'ollama'>;
 
 import type { WebSearchSettings } from './search';
 import type { ToolModePermissions, ToolSettings } from './tools';
@@ -74,6 +76,7 @@ export interface DataSettings {
 }
 
 export interface NetworkConsentSettings {
+  remoteModel: boolean;
   webSearch: boolean;
   onlineSpeechToText: boolean;
   onlineTextToSpeech: boolean;
@@ -102,8 +105,17 @@ export interface AppSettings {
   ui: UiSettings;
 }
 
+export interface RemoteModelSettings {
+  baseUrl: string;
+  model: string;
+  temperature: number;
+  maxTokens: number;
+  numCtx: number;
+}
+
 export interface ModelSettings {
-  provider: string;
+  provider: ModelProvider;
+  setupComplete: boolean;
   ollama: {
     baseUrl: string;
     model: string;
@@ -111,12 +123,7 @@ export interface ModelSettings {
     maxTokens: number;
     numCtx: number;
   };
-  deepseek: {
-    apiKey: string;
-    model: string;
-    temperature: number;
-    maxTokens: number;
-  };
+  remote: Record<RemoteModelProvider, RemoteModelSettings>;
   fallback: {
     enabled: boolean;
     timeoutMs: number;
@@ -147,8 +154,9 @@ export interface SettingsPatch {
     };
     ui?: Partial<UiSettings>;
   };
-  model?: Omit<Partial<ModelSettings>, 'ollama' | 'fallback'> & {
+  model?: Omit<Partial<ModelSettings>, 'ollama' | 'remote' | 'fallback'> & {
     ollama?: Partial<ModelSettings['ollama']>;
+    remote?: Partial<Record<RemoteModelProvider, Partial<RemoteModelSettings>>>;
     fallback?: Partial<ModelSettings['fallback']>;
   };
 }

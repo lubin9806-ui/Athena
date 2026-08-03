@@ -14,7 +14,7 @@
     "glassEffects": true
   },
   "conversation": {
-    "activeMode": "execute",
+    "activeMode": "create",
     "enterToSend": true,
     "streamResponses": true,
     "showTimestamps": false,
@@ -65,7 +65,7 @@
     "ttsEnabled": true,
     "autoPlayAssistant": true,
     "sttEngine": "local_whisper",
-    "ttsVoice": "zh-CN-XiaoxiaoNeural",
+    "ttsVoice": "",
     "silenceAutoStop": true
   },
   "data": {
@@ -76,6 +76,7 @@
   },
   "privacy": {
     "networkConsent": {
+      "remoteModel": true,
       "webSearch": false,
       "onlineSpeechToText": false,
       "onlineTextToSpeech": false,

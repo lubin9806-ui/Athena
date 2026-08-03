@@ -8,6 +8,7 @@ asar: true
 artifactName: "Athena-AI-companion-${version}-${arch}.${ext}"
 files:
   - dist/**/*
+  - "!dist/renderer/steam/**/*"
   - resources/**/*
   - "!resources/OllamaSetup.exe"
   - config/**/*
@@ -19,6 +20,11 @@ files:
   - "!skills/**/*"
   - assets/**/*
   - "!assets/steam/**/*"
+  - "!node_modules/steamworks.js/dist/linux64/**/*"
+  - "!node_modules/steamworks.js/dist/osx/**/*"
+  - "!node_modules/steamworks.js/dist/darwin/**/*"
+  - "!node_modules/better-sqlite3/src/**/*"
+  - "!node_modules/better-sqlite3/deps/**/*"
   - "!**/*.map"
   - "!**/*.d.ts"
 extraResources:
@@ -48,7 +54,7 @@ extraResources:
 win:
   target: appx
   icon: resources/su-shixia.ico
-  signAndEditExecutable: true
+  signAndEditExecutable: false
   signExecutable: false
   requestedExecutionLevel: asInvoker
 appx:

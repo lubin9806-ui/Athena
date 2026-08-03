@@ -6,8 +6,8 @@
 
 | 数据类别 | 保存位置 | 是否离开设备 | 保留/清除 |
 |---|---|---|---|
-| 聊天消息 | SQLite `messages`、`memory_index` | 默认本地 Ollama 端点；联网搜索同意后查询词会发往第三方搜索 | `saveHistory=false` 后不再保存；`historyRetentionDays` 自动清理；一键清除删除 |
-| 长期记忆 | SQLite `profile`、`events`、`project_notes`、`memory_index` | 不自动上传；仅作为本地模型上下文 | 历史关闭后停止自动提取；记忆面板或一键清除删除 |
+| 聊天消息 | SQLite `messages`、`memory_index` | Ollama 默认只发往本机；选择远程 Provider 并同意后，请求和相关上下文会发往配置的 API 地址 | `saveHistory=false` 后不再保存；`historyRetentionDays` 自动清理；一键清除删除 |
+| 长期记忆 | SQLite `profile`、`events`、`project_notes`、`memory_index` | 不自动上传；远程模型同意开启后，当前请求所需的相关记忆可能随上下文发送 | 历史关闭后停止自动提取；记忆面板或一键清除删除 |
 | 设置与个性化 | `config/settings.json`、`config/model.json` | 不自动上传 | 用户修改或删除配置目录；导出包含脱敏副本 |
 | 搜索查询 | SQLite `data_activity_records` 的最小活动记录 | 同意后发往 Sogou/Bing/DuckDuckGo 和结果网页 | 历史关闭时不记录；历史保留期自动清理；一键清除删除 |
 | 语音文件 | `%TEMP%\athena\voice` 或 `ATHENA_VOICE_TEMP_DIR` | Desktop 当前 Whisper STT 与 Windows SAPI TTS 均在本机处理 | 录音转写后删除；WAV TTS 缓存按小时清理；一键清除删除 |
@@ -21,12 +21,13 @@
 
 | 能力 | 发送内容 | 目的地 | 同意键 |
 |---|---|---|---|
+| 远程模型服务 | 当前请求、系统提示、相关对话、检索到的记忆上下文和工具规划内容 | 用户明确选择并配置的 OpenAI、DeepSeek、Athena Cloud 或自定义 API 地址 | `privacy.networkConsent.remoteModel` |
 | 联网搜索和网页深读 | 搜索词、结果 URL、网页请求元数据 | Sogou、Bing、DuckDuckGo、结果网页域名 | `privacy.networkConsent.webSearch` |
 | 在线语音识别 | 当前没有 provider/入口 | 不发送 | 未来适配器必须复用 `privacy.networkConsent.onlineSpeechToText`，不能从本地失败静默回退 |
 | 在线语音合成 | 当前没有 provider/入口 | 不发送 | 未来适配器必须复用 `privacy.networkConsent.onlineTextToSpeech`，不能从本地失败静默回退 |
 | 执行模式外部网络工具 | 用户确认的 HTTP/TCP 目标、请求头和正文 | 用户指定的外部网络地址 | `privacy.networkConsent.externalToolNetwork` |
 
-未同意时，主进程会拒绝相应能力；不是只在 UI 隐藏。
+未同意时，主进程会拒绝相应能力；不是只在 UI 隐藏。API Key 使用 Electron `safeStorage` 绑定当前 Windows 用户加密保存，不写入 `config/model.json`、源码或安装包，也不会回显到渲染进程。
 
 ## 静态保护决策
 

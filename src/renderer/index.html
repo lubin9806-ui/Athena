@@ -409,17 +409,72 @@
           </div>
         </details>
 
-        <details class="settings-section">
+        <details id="model-settings-section" class="settings-section">
           <summary class="settings-heading">模型</summary>
           <div class="settings-section-body">
-            <label class="settings-field">
-              <span>Ollama 地址</span>
-              <input id="setting-ollama-url" type="text" />
+            <div id="model-first-run-choice" class="model-first-run-choice" hidden>
+              <strong>选择模型运行方式</strong>
+              <div class="model-path-options">
+                <button type="button" data-model-path="local">
+                  <span>本机 Ollama</span>
+                  <small>模型下载到这台电脑并在本机运行，不需要 API Key。</small>
+                </button>
+                <button type="button" data-model-path="api">
+                  <span>开放 API 平台</span>
+                  <small>使用云端模型；自行选择平台并填写地址、Key 和模型。</small>
+                </button>
+              </div>
+            </div>
+            <label class="settings-field settings-field-full">
+              <span>模型来源</span>
+              <select id="setting-model-provider">
+                <option value="choose-api" disabled>请选择 API 平台</option>
+                <option value="ollama">Ollama · 本机运行</option>
+                <option value="openai">OpenAI · 用户自带 API Key</option>
+                <option value="deepseek">DeepSeek · 用户自带 API Key</option>
+                <option value="athena-cloud">Athena Cloud · 独立服务</option>
+                <option value="custom">自定义 OpenAI-compatible API</option>
+              </select>
             </label>
-            <label class="settings-field">
-              <span>模型</span>
-              <input id="setting-ollama-model" type="text" />
-            </label>
+            <div id="model-ollama-fields" class="model-provider-fields">
+              <label class="settings-field">
+                <span>Ollama 地址</span>
+                <input id="setting-ollama-url" type="text" />
+              </label>
+              <label class="settings-field">
+                <span>本地模型</span>
+                <input id="setting-ollama-model" type="text" />
+              </label>
+              <div class="model-actions">
+                <button id="model-install-ollama" class="settings-panel-link" type="button">安装 Ollama</button>
+                <button id="model-pull-ollama" class="settings-panel-link" type="button">下载当前模型</button>
+              </div>
+            </div>
+            <div id="model-remote-fields" class="model-provider-fields" hidden>
+              <label class="settings-field">
+                <span>API 地址</span>
+                <input id="setting-remote-url" type="url" spellcheck="false" />
+              </label>
+              <label class="settings-field">
+                <span>模型</span>
+                <input id="setting-remote-model" type="text" list="remote-model-options" spellcheck="false" placeholder="填写模型名或读取列表" />
+                <datalist id="remote-model-options"></datalist>
+              </label>
+              <label class="settings-field settings-field-full">
+                <span>API Key</span>
+                <input id="setting-model-api-key" type="password" autocomplete="new-password" placeholder="已保存的密钥不会回显" />
+              </label>
+              <label class="settings-toggle settings-field-full">
+                <input id="setting-consent-remote-model" type="checkbox" />
+                <span>同意将当前请求、相关对话和记忆上下文发送给所选 Provider</span>
+              </label>
+              <div class="model-actions">
+                <button id="model-save-api-key" class="settings-panel-link" type="button">安全保存 Key</button>
+                <button id="model-load-options" class="settings-panel-link" type="button">读取模型列表</button>
+                <button id="model-clear-api-key" class="settings-panel-link settings-panel-danger" type="button">清除 Key</button>
+              </div>
+              <div id="model-credential-status" class="settings-note" role="status">尚未检查凭据</div>
+            </div>
             <label class="settings-field">
               <span>温度</span>
               <input id="setting-temperature" type="number" min="0" max="2" step="0.05" />
@@ -432,7 +487,11 @@
               <span>上下文窗口</span>
               <input id="setting-num-ctx" type="number" min="1024" max="32768" step="512" />
             </label>
-            <div class="settings-note">模型参数保存后，重启 Athena 才会应用到当前连接。</div>
+            <div class="model-actions">
+              <button id="model-test-connection" class="settings-panel-link" type="button">测试连接</button>
+            </div>
+            <div id="model-connection-status" class="settings-note" role="status">请选择模型来源并测试连接。</div>
+            <div class="settings-note settings-note-warning">远程模型会把当前请求所需的对话、记忆上下文和工具规划内容发送给所选 Provider。Athena 不会在 Provider 失败时隐式切换到另一家服务。</div>
           </div>
         </details>
 
@@ -489,11 +548,12 @@
               <input id="setting-silence-auto-stop" type="checkbox" />
               <span>检测到停顿后自动识别</span>
             </label>
-            <div class="settings-note">Desktop 1.0 固定使用本地 Whisper 识别和 Windows SAPI 朗读。不会静默联网，也不会在运行时下载模型。</div>
             <div id="voice-capability-status" class="settings-note" role="status">正在检查本地语音组件…</div>
+            <button id="voice-capability-refresh" class="settings-panel-link" type="button">重新检测语音组件</button>
             <label class="settings-field">
               <span>Windows 已安装声音（留空使用系统默认）</span>
-              <input id="setting-tts-voice" type="text" placeholder="系统默认" />
+              <input id="setting-tts-voice" type="text" list="setting-tts-voice-options" placeholder="系统默认" />
+              <datalist id="setting-tts-voice-options"></datalist>
             </label>
           </div>
         </details>

@@ -29,9 +29,18 @@ declare global {
       onWebSearchStatus: (callback: (status: WebSearchStatus) => void) => () => void;
       onToolStatus: (callback: (status: ToolStatusEvent) => void) => () => void;
       onReminderDue: (callback: (job: { title: string; dueAt: string }) => void) => () => void;
-      getSystemInfo: () => Promise<{ ollamaConnected: boolean; hour: number; ollamaModel: string; ollamaEndpoint: string }>;
+      getSystemInfo: () => Promise<{ modelConnected: boolean; modelProvider: ModelProvider; modelName: string; modelEndpoint: string; ollamaConnected: boolean; hour: number; ollamaModel: string; ollamaEndpoint: string }>;
       getSettings: () => Promise<SettingsBundle>;
       saveSettings: (patch: SettingsPatch) => Promise<SettingsBundle>;
+      getModelCredentialStatus: (provider: RemoteModelProvider) => Promise<ModelCredentialStatus | null>;
+      setModelCredential: (provider: RemoteModelProvider, apiKey: string) => Promise<ModelCredentialStatus | null>;
+      clearModelCredential: (provider: RemoteModelProvider) => Promise<ModelCredentialStatus | null>;
+      listModelOptions: () => Promise<{ provider: ModelProvider; models: string[] } | null>;
+      testModelConnection: () => Promise<ModelConnectionStatus | null>;
+      getOllamaSetupStatus: () => Promise<OllamaSetupStatus | null>;
+      openOllamaDownload: () => Promise<boolean>;
+      installBundledOllama: () => Promise<{ started: boolean; error?: string }>;
+      pullOllamaModel: (model: string) => Promise<{ started: boolean; error?: string }>;
       listMemories: (options: MemoryListOptions) => Promise<MemoryListResult>;
       deleteMemory: (kind: MemoryKind, id: number) => Promise<boolean>;
       updateMemory: (kind: MemoryKind, id: number, patch: MemoryUpdatePatch) => Promise<boolean>;
@@ -60,6 +69,8 @@ type AthenaMode = 'create' | 'companion' | 'reason' | 'execute';
 type VoiceInputState = 'idle' | 'requesting' | 'recording' | 'transcribing' | 'error';
 type AppStatusState = 'ready' | 'working' | 'offline' | 'error';
 type ToolPermissionLevel = 'off' | 'read' | 'files' | 'full';
+type ModelProvider = 'ollama' | 'openai' | 'deepseek' | 'athena-cloud' | 'custom';
+type RemoteModelProvider = Exclude<ModelProvider, 'ollama'>;
 
 const MAX_RECORDING_MS = 60_000;
 const ATHENA_MODES: readonly AthenaMode[] = ['create', 'companion', 'reason', 'execute'];
@@ -138,7 +149,13 @@ interface VoiceResult {
 interface VoiceCapabilities {
   architecture: 'desktop-local-1.0';
   stt: { mode: 'local'; ready: boolean; reason?: string };
-  tts: { mode: 'local'; ready: boolean; provider: 'windows-sapi'; reason?: string };
+  tts: {
+    mode: 'local';
+    ready: boolean;
+    provider: 'windows-sapi';
+    voices: Array<{ name: string; culture: string }>;
+    reason?: string;
+  };
   runtimeDownloadsAllowed: false;
 }
 
@@ -274,6 +291,7 @@ interface DataSettings {
 }
 
 interface NetworkConsentSettings {
+  remoteModel: boolean;
   webSearch: boolean;
   onlineSpeechToText: boolean;
   onlineTextToSpeech: boolean;
@@ -303,7 +321,8 @@ interface AppSettings {
 }
 
 interface ModelSettings {
-  provider: string;
+  provider: ModelProvider;
+  setupComplete: boolean;
   ollama: {
     baseUrl: string;
     model: string;
@@ -311,12 +330,13 @@ interface ModelSettings {
     maxTokens: number;
     numCtx: number;
   };
-  deepseek: {
-    apiKey: string;
+  remote: Record<RemoteModelProvider, {
+    baseUrl: string;
     model: string;
     temperature: number;
     maxTokens: number;
-  };
+    numCtx: number;
+  }>;
   fallback: {
     enabled: boolean;
     timeoutMs: number;
@@ -347,10 +367,31 @@ interface SettingsPatch {
     };
     ui?: Partial<UiSettings>;
   };
-  model?: Omit<Partial<ModelSettings>, 'ollama' | 'fallback'> & {
+  model?: Omit<Partial<ModelSettings>, 'ollama' | 'remote' | 'fallback'> & {
     ollama?: Partial<ModelSettings['ollama']>;
+    remote?: Partial<Record<RemoteModelProvider, Partial<ModelSettings['remote'][RemoteModelProvider]>>>;
     fallback?: Partial<ModelSettings['fallback']>;
   };
+}
+
+interface ModelCredentialStatus {
+  provider: RemoteModelProvider;
+  configured: boolean;
+  source: 'environment' | 'windows-safe-storage' | 'none';
+  encryptionAvailable: boolean;
+}
+
+interface ModelConnectionStatus {
+  connected: boolean;
+  provider: ModelProvider;
+  model: string;
+  endpoint: string;
+}
+
+interface OllamaSetupStatus {
+  installed: boolean;
+  bundledInstallerAvailable: boolean;
+  executablePath: string;
 }
 
 interface DataMapItem {
@@ -486,8 +527,26 @@ const settingCompactMode = mustGet<HTMLInputElement>('setting-compact-mode');
 const settingGlassEffects = mustGet<HTMLInputElement>('setting-glass-effects');
 const settingAnimationLevel = mustGet<HTMLSelectElement>('setting-animation-level');
 const settingTheme = mustGet<HTMLSelectElement>('setting-theme');
+const modelSettingsSection = mustGet<HTMLDetailsElement>('model-settings-section');
+const modelFirstRunChoice = mustGet<HTMLElement>('model-first-run-choice');
+const settingModelProvider = mustGet<HTMLSelectElement>('setting-model-provider');
+const modelOllamaFields = mustGet<HTMLElement>('model-ollama-fields');
+const modelRemoteFields = mustGet<HTMLElement>('model-remote-fields');
 const settingOllamaUrl = mustGet<HTMLInputElement>('setting-ollama-url');
 const settingOllamaModel = mustGet<HTMLInputElement>('setting-ollama-model');
+const settingRemoteUrl = mustGet<HTMLInputElement>('setting-remote-url');
+const settingRemoteModel = mustGet<HTMLInputElement>('setting-remote-model');
+const remoteModelOptions = mustGet<HTMLDataListElement>('remote-model-options');
+const settingModelApiKey = mustGet<HTMLInputElement>('setting-model-api-key');
+const settingConsentRemoteModel = mustGet<HTMLInputElement>('setting-consent-remote-model');
+const modelSaveApiKey = mustGet<HTMLButtonElement>('model-save-api-key');
+const modelLoadOptions = mustGet<HTMLButtonElement>('model-load-options');
+const modelClearApiKey = mustGet<HTMLButtonElement>('model-clear-api-key');
+const modelCredentialStatus = mustGet<HTMLElement>('model-credential-status');
+const modelTestConnection = mustGet<HTMLButtonElement>('model-test-connection');
+const modelConnectionStatus = mustGet<HTMLElement>('model-connection-status');
+const modelInstallOllama = mustGet<HTMLButtonElement>('model-install-ollama');
+const modelPullOllama = mustGet<HTMLButtonElement>('model-pull-ollama');
 const settingTemperature = mustGet<HTMLInputElement>('setting-temperature');
 const settingMaxTokens = mustGet<HTMLInputElement>('setting-max-tokens');
 const settingNumCtx = mustGet<HTMLInputElement>('setting-num-ctx');
@@ -503,7 +562,9 @@ const settingTtsEnabled = mustGet<HTMLInputElement>('setting-tts-enabled');
 const settingAutoPlayAssistant = mustGet<HTMLInputElement>('setting-auto-play-assistant');
 const settingSilenceAutoStop = mustGet<HTMLInputElement>('setting-silence-auto-stop');
 const settingTtsVoice = mustGet<HTMLInputElement>('setting-tts-voice');
+const settingTtsVoiceOptions = mustGet<HTMLDataListElement>('setting-tts-voice-options');
 const voiceCapabilityStatus = mustGet<HTMLElement>('voice-capability-status');
+const voiceCapabilityRefresh = mustGet<HTMLButtonElement>('voice-capability-refresh');
 const settingConfirmDelete = mustGet<HTMLInputElement>('setting-confirm-delete');
 const settingHistoryRetention = mustGet<HTMLInputElement>('setting-history-retention');
 const settingVoiceCacheRetention = mustGet<HTMLInputElement>('setting-voice-cache-retention');
@@ -544,7 +605,8 @@ let currentMicrophoneLabel = '默认麦克风';
 let voiceOperationId = 0;
 let autoStopRequested = false;
 let isVoiceOutputBusy = false;
-let ollamaConnected: boolean | null = null;
+let modelConnected: boolean | null = null;
+let currentVoiceCapabilities: VoiceCapabilities | null = null;
 let forceWebSearchForNextMessage = false;
 
 const microphoneRecorder = new MicrophoneRecorder({
@@ -655,7 +717,7 @@ async function sendMessage(text: string): Promise<void> {
 
   try {
     const response = await window.athenaAPI.sendMessage(text, requestMode, forceWebSearch);
-    if (response) ollamaConnected = true;
+    if (response) modelConnected = true;
     if (requestMode === 'execute') {
       finishExecutionTask(response?.toolExecutions ?? [], response?.content || currentContent);
     } else {
@@ -744,6 +806,26 @@ function init(): void {
     event.preventDefault();
     saveSettingsForm();
   });
+  settingModelProvider.addEventListener('change', () => {
+    populateSelectedModelProvider();
+    void refreshModelCredentialStatus();
+  });
+  modelFirstRunChoice.querySelectorAll<HTMLButtonElement>('[data-model-path]').forEach(button => {
+    button.addEventListener('click', () => {
+      const path = button.dataset.modelPath;
+      settingModelProvider.value = path === 'local' ? 'ollama' : 'choose-api';
+      populateSelectedModelProvider();
+      void refreshModelCredentialStatus();
+      if (path === 'local') settingOllamaModel.focus();
+      else settingModelProvider.focus();
+    });
+  });
+  modelSaveApiKey.addEventListener('click', () => void saveModelCredential());
+  modelLoadOptions.addEventListener('click', () => void loadAvailableModels());
+  modelClearApiKey.addEventListener('click', () => void clearModelCredential());
+  modelTestConnection.addEventListener('click', () => void testModelConnection());
+  modelInstallOllama.addEventListener('click', () => void beginOllamaInstall());
+  modelPullOllama.addEventListener('click', () => void beginOllamaModelPull());
   privacyExport.addEventListener('click', () => {
     void exportPrivacyData();
   });
@@ -795,6 +877,7 @@ function init(): void {
     toggleComposerTools(false);
     void speakLastAssistantMessage();
   });
+  voiceCapabilityRefresh.addEventListener('click', () => void refreshVoiceCapabilities());
   window.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && (voiceInputState === 'recording' || voiceInputState === 'requesting')) {
       event.preventDefault();
@@ -843,11 +926,11 @@ function init(): void {
   });
 
   window.athenaAPI.onChatError((error) => {
-    ollamaConnected = false;
+    modelConnected = false;
     isStreaming = false;
     inputBar.setDisabled(false);
     syncVoiceControls();
-    setStatus('Ollama 离线', 'offline');
+    setStatus('模型离线', 'offline');
     if (activeRequestMode === 'execute') failActiveExecutionTask(error);
     else chatPanel.addMessage(`我暂时连不上本地模型：${error}`, 'assistant', '离线');
   });
@@ -1193,15 +1276,24 @@ async function initializeSettings(): Promise<void> {
     if (bundle.settings.ui.startupIntro) startStartupIntro();
     else skipStartupIntro();
     void refreshStartupModelStatus(bundle.settings.general.autoConnectModel);
+    if (!bundle.model.setupComplete) window.setTimeout(() => void openFirstRunModelSetup(), 260);
   } catch {
     startStartupIntro();
     void refreshStartupModelStatus(true);
   }
 }
 
+async function openFirstRunModelSetup(): Promise<void> {
+  await toggleSettingsPanel(true);
+  modelSettingsSection.open = true;
+  modelSettingsSection.scrollIntoView({ block: 'start' });
+  const firstChoice = modelFirstRunChoice.querySelector<HTMLButtonElement>('[data-model-path]');
+  firstChoice?.focus({ preventScroll: true });
+}
+
 async function refreshStartupModelStatus(autoConnect: boolean): Promise<void> {
   if (!autoConnect) {
-    ollamaConnected = null;
+    modelConnected = null;
     chatPanel.addMessage('时夏在。模型自动连接先关着，需要聊天时再叫醒本地模型就好。', 'assistant', '待命');
     setStatus('待命', 'ready');
     return;
@@ -1209,16 +1301,16 @@ async function refreshStartupModelStatus(autoConnect: boolean): Promise<void> {
 
   try {
     const info = await window.athenaAPI.getSystemInfo();
-    ollamaConnected = info.ollamaConnected;
-    if (info.ollamaConnected) {
+    modelConnected = info.modelConnected;
+    if (info.modelConnected) {
       chatPanel.addMessage(`${greetingForHour(info.hour)}，时夏在。今天想先聊两句，还是把手头的事往前推一点？`, 'assistant', '温柔');
       setStatus('就绪', 'ready');
     } else {
-      chatPanel.addMessage(`我已经醒着，但还没连上 Ollama。请确认 ${info.ollamaEndpoint} 正在运行，并且本地有 ${info.ollamaModel}。`, 'assistant', '等待模型');
-      setStatus('Ollama 离线', 'offline');
+      chatPanel.addMessage(`我已经醒着，但还没连上 ${modelProviderLabel(info.modelProvider)}。请检查 ${info.modelEndpoint || '模型地址'} 和 ${info.modelName || '模型名称'}。`, 'assistant', '等待模型');
+      setStatus(`${modelProviderLabel(info.modelProvider)} 离线`, 'offline');
     }
   } catch {
-    ollamaConnected = null;
+    modelConnected = null;
     chatPanel.addMessage('初始化状态检查失败，但窗口已经准备好了。', 'assistant', '需要检查');
     setStatus('检查失败', 'error');
   }
@@ -1292,6 +1384,197 @@ async function loadSettingsPanel(): Promise<void> {
   }
 }
 
+function selectedModelProvider(): ModelProvider | null {
+  const value = settingModelProvider.value;
+  if (value === 'ollama' || value === 'openai' || value === 'deepseek' || value === 'athena-cloud' || value === 'custom') return value;
+  return null;
+}
+
+function selectedRemoteModelProvider(): RemoteModelProvider | null {
+  const provider = selectedModelProvider();
+  return provider && provider !== 'ollama' ? provider : null;
+}
+
+function populateSelectedModelProvider(): void {
+  const provider = selectedModelProvider();
+  const remoteProvider = selectedRemoteModelProvider();
+  modelOllamaFields.hidden = provider !== 'ollama';
+  modelRemoteFields.hidden = !remoteProvider;
+  remoteModelOptions.replaceChildren();
+  if (!provider) {
+    modelConnectionStatus.textContent = '请选择 OpenAI、DeepSeek、Athena Cloud 或其他 API。';
+    return;
+  }
+  if (!currentSettingsBundle) return;
+  const selected = provider === 'ollama'
+    ? currentSettingsBundle.model.ollama
+    : currentSettingsBundle.model.remote[remoteProvider!];
+  if (remoteProvider) {
+    settingRemoteUrl.value = selected.baseUrl;
+    settingRemoteModel.value = selected.model;
+  }
+  settingTemperature.value = String(selected.temperature);
+  settingMaxTokens.value = String(selected.maxTokens);
+  settingNumCtx.value = String(selected.numCtx);
+  modelConnectionStatus.textContent = provider === 'ollama'
+    ? '安装 Ollama 后，可把所选模型下载到本机。'
+    : `${modelProviderLabel(provider)} 使用你填写的 API 地址、模型名和凭据。`;
+}
+
+async function refreshModelCredentialStatus(): Promise<void> {
+  const provider = selectedRemoteModelProvider();
+  if (!provider) {
+    modelCredentialStatus.textContent = selectedModelProvider() === 'ollama' ? '本机 Ollama 不需要 API Key。' : '选择 API 平台后填写凭据。';
+    return;
+  }
+  const status = await window.athenaAPI.getModelCredentialStatus(provider);
+  if (!status) {
+    modelCredentialStatus.textContent = '无法读取凭据状态。';
+    return;
+  }
+  modelCredentialStatus.textContent = status.configured
+    ? `API Key 已配置（${status.source === 'environment' ? '临时环境变量' : 'Windows 加密存储'}）。`
+    : status.encryptionAvailable
+      ? '尚未保存 API Key。'
+      : 'Windows 安全凭据加密不可用，Key 不会保存。';
+}
+
+async function saveModelCredential(): Promise<void> {
+  const provider = selectedRemoteModelProvider();
+  if (!provider) {
+    modelCredentialStatus.textContent = '请先选择 API 平台。';
+    return;
+  }
+  const apiKey = settingModelApiKey.value.trim();
+  if (!apiKey) {
+    modelCredentialStatus.textContent = '请输入 API Key。';
+    return;
+  }
+  try {
+    const status = await window.athenaAPI.setModelCredential(provider, apiKey);
+    settingModelApiKey.value = '';
+    modelCredentialStatus.textContent = status?.configured ? 'API Key 已安全保存，不会回显。' : 'API Key 保存失败。';
+    if (status?.configured) {
+      await saveModelConfiguration(false);
+      if (settingConsentRemoteModel.checked) await loadAvailableModels();
+    }
+  } catch (error) {
+    modelCredentialStatus.textContent = `保存失败：${error instanceof Error ? error.message : String(error)}`;
+  }
+}
+
+async function loadAvailableModels(): Promise<void> {
+  const provider = selectedModelProvider();
+  if (!provider) {
+    modelConnectionStatus.textContent = '请先选择 API 平台。';
+    return;
+  }
+  modelConnectionStatus.textContent = provider === 'ollama' ? '正在读取本机模型...' : '正在读取可用模型...';
+  try {
+    await saveModelConfiguration(false);
+    const result = await window.athenaAPI.listModelOptions();
+    const models = result?.models ?? [];
+    remoteModelOptions.replaceChildren(...models.map(model => {
+      const option = document.createElement('option');
+      option.value = model;
+      return option;
+    }));
+    if (models.length === 1) settingRemoteModel.value = models[0];
+    modelConnectionStatus.textContent = models.length > 0
+      ? `已读取 ${models.length} 个模型，可输入或从列表选择。`
+      : '接口可访问，但没有返回可选模型；你仍可以手动填写模型名。';
+  } catch (error) {
+    modelConnectionStatus.textContent = `读取模型失败：${error instanceof Error ? error.message : String(error)}`;
+  }
+}
+
+async function clearModelCredential(): Promise<void> {
+  const provider = selectedRemoteModelProvider();
+  if (!provider || !window.confirm(`清除 ${modelProviderLabel(provider)} 的本机 API Key？`)) return;
+  await window.athenaAPI.clearModelCredential(provider);
+  settingModelApiKey.value = '';
+  await refreshModelCredentialStatus();
+}
+
+function modelPatchFromForm(setupComplete: boolean): SettingsPatch['model'] {
+  const provider = selectedModelProvider();
+  if (!provider) throw new Error('请先选择 API 平台。');
+  const generation = {
+    temperature: Number(settingTemperature.value),
+    maxTokens: Number(settingMaxTokens.value),
+    numCtx: Number(settingNumCtx.value),
+  };
+  if (provider === 'ollama') {
+    return {
+      provider,
+      setupComplete,
+      ollama: { baseUrl: settingOllamaUrl.value, model: settingOllamaModel.value, ...generation },
+    };
+  }
+  return {
+    provider,
+    setupComplete,
+    remote: {
+      [provider]: { baseUrl: settingRemoteUrl.value, model: settingRemoteModel.value, ...generation },
+    },
+  };
+}
+
+async function saveModelConfiguration(setupComplete = true): Promise<SettingsBundle> {
+  const bundle = await window.athenaAPI.saveSettings({
+    settings: {
+      privacy: {
+        networkConsent: { remoteModel: settingConsentRemoteModel.checked },
+      },
+    },
+    model: modelPatchFromForm(setupComplete),
+  });
+  currentSettingsBundle = bundle;
+  populateSettingsForm(bundle);
+  return bundle;
+}
+
+async function testModelConnection(): Promise<void> {
+  modelConnectionStatus.textContent = '正在保存配置并测试连接...';
+  try {
+    await saveModelConfiguration(true);
+    const status = await window.athenaAPI.testModelConnection();
+    modelConnectionStatus.textContent = status?.connected
+      ? `${modelProviderLabel(status.provider)} 已连接：${status.model}`
+      : `${status ? modelProviderLabel(status.provider) : '模型'} 连接失败，请检查地址、模型和凭据。`;
+  } catch (error) {
+    modelConnectionStatus.textContent = `连接测试失败：${error instanceof Error ? error.message : String(error)}`;
+  }
+}
+
+async function beginOllamaInstall(): Promise<void> {
+  const status = await window.athenaAPI.getOllamaSetupStatus();
+  if (status?.installed) {
+    modelConnectionStatus.textContent = `已检测到 Ollama：${status.executablePath}`;
+    return;
+  }
+  if (status?.bundledInstallerAvailable) {
+    const result = await window.athenaAPI.installBundledOllama();
+    modelConnectionStatus.textContent = result.started ? 'Ollama 安装器已启动。' : result.error || '已取消安装。';
+    return;
+  }
+  await window.athenaAPI.openOllamaDownload();
+  modelConnectionStatus.textContent = '已打开 Ollama 官方下载页。安装完成后返回测试连接。';
+}
+
+async function beginOllamaModelPull(): Promise<void> {
+  const result = await window.athenaAPI.pullOllamaModel(settingOllamaModel.value);
+  modelConnectionStatus.textContent = result.started ? 'Ollama 模型下载已启动。' : result.error || '已取消下载。';
+}
+
+function modelProviderLabel(provider: string): string {
+  if (provider === 'openai') return 'OpenAI';
+  if (provider === 'deepseek') return 'DeepSeek';
+  if (provider === 'athena-cloud') return 'Athena Cloud';
+  if (provider === 'custom') return '自定义 API';
+  return 'Ollama';
+}
+
 async function saveExecutionSettings(): Promise<void> {
   setExecutionSettingsFeedback('保存中...');
   const previous = currentSettingsBundle?.settings.tools.modePermissions.execute ?? 'off';
@@ -1358,11 +1641,12 @@ function populateSettingsForm(bundle: SettingsBundle): void {
   settingGlassEffects.checked = appearance.glassEffects;
   settingAnimationLevel.value = appearance.animationLevel;
   settingTheme.value = appearance.theme;
+  settingModelProvider.value = bundle.model.provider;
+  modelFirstRunChoice.hidden = bundle.model.setupComplete;
   settingOllamaUrl.value = bundle.model.ollama.baseUrl;
   settingOllamaModel.value = bundle.model.ollama.model;
-  settingTemperature.value = String(bundle.model.ollama.temperature);
-  settingMaxTokens.value = String(bundle.model.ollama.maxTokens);
-  settingNumCtx.value = String(bundle.model.ollama.numCtx);
+  populateSelectedModelProvider();
+  void refreshModelCredentialStatus();
   settingMemoryEnabled.checked = memory.enabled;
   settingMemoryAutoExtract.checked = memory.autoExtract;
   settingMemoryProfile.checked = memory.retrieveProfile;
@@ -1380,6 +1664,7 @@ function populateSettingsForm(bundle: SettingsBundle): void {
   settingVoiceCacheRetention.value = String(data.voiceCacheRetentionHours);
   settingExportFormat.value = data.exportFormat;
   settingConsentWebSearch.checked = privacy.networkConsent.webSearch;
+  settingConsentRemoteModel.checked = privacy.networkConsent.remoteModel;
   settingConsentExternalToolNetwork.checked = privacy.networkConsent.externalToolNetwork;
   applySkuRuntimeProfile(bundle.sku);
   void refreshVoiceCapabilities();
@@ -1404,6 +1689,7 @@ function applySkuRuntimeProfile(sku: SettingsBundle['sku']): void {
     settingWebSearchSecondary,
     settingWebSearchMaxPages,
     settingConsentWebSearch,
+    settingConsentRemoteModel,
     settingConsentExternalToolNetwork,
   ]) {
     control.disabled = steam;
@@ -1417,23 +1703,39 @@ function applySkuRuntimeProfile(sku: SettingsBundle['sku']): void {
 }
 
 async function refreshVoiceCapabilities(): Promise<void> {
+  voiceCapabilityRefresh.disabled = true;
+  voiceCapabilityStatus.textContent = '正在检查本地语音组件…';
   try {
     const capabilities = await window.athenaAPI.getVoiceCapabilities();
     if (!capabilities) throw new Error('语音状态不可用');
+    currentVoiceCapabilities = capabilities;
     const stt = capabilities.stt.ready ? '本地识别已就绪' : `本地识别未就绪：${capabilities.stt.reason || '组件缺失'}`;
     const tts = capabilities.tts.ready ? '本地朗读已就绪' : `本地朗读未就绪：${capabilities.tts.reason || '系统不支持'}`;
     voiceCapabilityStatus.textContent = `${stt}；${tts}。`;
+    settingTtsVoiceOptions.replaceChildren(...capabilities.tts.voices.map((voice) => {
+      const option = document.createElement('option');
+      option.value = voice.name;
+      option.label = voice.culture;
+      return option;
+    }));
     settingSttEnabled.disabled = !capabilities.stt.ready;
     settingTtsEnabled.disabled = !capabilities.tts.ready;
     settingAutoPlayAssistant.disabled = !capabilities.tts.ready;
+    syncVoiceControls();
   } catch {
+    currentVoiceCapabilities = null;
     voiceCapabilityStatus.textContent = '无法检查本地语音组件；语音功能保持关闭更安全。';
+    settingSttEnabled.checked = false;
+    settingSttEnabled.disabled = true;
+    syncVoiceControls();
+  } finally {
+    voiceCapabilityRefresh.disabled = false;
   }
 }
 
 async function saveSettingsForm(): Promise<void> {
   setSettingsFeedback('保存中...');
-  const previousModel = currentSettingsBundle?.model.ollama;
+  const previousModel = currentSettingsBundle ? JSON.stringify(currentSettingsBundle.model) : '';
   const previousPermission = currentSettingsBundle?.settings.tools.modePermissions.execute ?? 'off';
   const nextPermission = settingToolPermissionExecute.value as ToolPermissionLevel;
   if (permissionRank(nextPermission) > permissionRank(previousPermission)) {
@@ -1522,6 +1824,7 @@ async function saveSettingsForm(): Promise<void> {
         privacy: {
           firstRunPrivacySeenAt: currentSettingsBundle?.settings.privacy.firstRunPrivacySeenAt || new Date().toISOString(),
           networkConsent: {
+            remoteModel: settingConsentRemoteModel.checked,
             webSearch: settingConsentWebSearch.checked,
             onlineSpeechToText: currentSettingsBundle?.settings.privacy.networkConsent.onlineSpeechToText ?? false,
             onlineTextToSpeech: currentSettingsBundle?.settings.privacy.networkConsent.onlineTextToSpeech ?? false,
@@ -1529,30 +1832,15 @@ async function saveSettingsForm(): Promise<void> {
           },
         },
       },
-      model: {
-        ollama: {
-          baseUrl: settingOllamaUrl.value,
-          model: settingOllamaModel.value,
-          temperature: Number(settingTemperature.value),
-          maxTokens: Number(settingMaxTokens.value),
-          numCtx: Number(settingNumCtx.value),
-        },
-      },
+      model: modelPatchFromForm(true),
     });
 
     currentSettingsBundle = bundle;
     populateSettingsForm(bundle);
     applyRuntimeSettings(bundle.settings);
     await loadPrivacyCenter();
-    const modelChanged = previousModel
-      && (
-        previousModel.baseUrl !== bundle.model.ollama.baseUrl
-        || previousModel.model !== bundle.model.ollama.model
-        || previousModel.temperature !== bundle.model.ollama.temperature
-        || previousModel.maxTokens !== bundle.model.ollama.maxTokens
-        || previousModel.numCtx !== bundle.model.ollama.numCtx
-      );
-    setSettingsFeedback(modelChanged ? '已保存。个性化下一轮生效，模型参数重启后生效。' : '已保存。个性化下一轮对话生效。', 'success');
+    const modelChanged = Boolean(previousModel && previousModel !== JSON.stringify(bundle.model));
+    setSettingsFeedback(modelChanged ? '已保存。模型连接已切换并立即生效。' : '已保存。个性化下一轮对话生效。', 'success');
   } catch (error) {
     setSettingsFeedback(`保存失败：${error instanceof Error ? error.message : String(error)}`, 'error');
   }
@@ -1960,8 +2248,10 @@ function isVoiceInputBusy(): boolean {
 function syncVoiceControls(): void {
   const busy = isVoiceInputBusy();
   const voice = currentSettingsBundle?.settings.voice;
-  const sttEnabled = voice?.sttEnabled ?? true;
-  const ttsEnabled = voice?.ttsEnabled ?? true;
+  const sttReady = currentVoiceCapabilities?.stt.ready === true;
+  const ttsReady = currentVoiceCapabilities?.tts.ready !== false;
+  const sttEnabled = (voice?.sttEnabled ?? false) && sttReady;
+  const ttsEnabled = (voice?.ttsEnabled ?? true) && ttsReady;
   voiceSttBtn.disabled = isStreaming
     || !sttEnabled
     || isVoiceOutputBusy
@@ -2016,7 +2306,7 @@ function showVoiceFeedback(
 
 function restoreIdleStatus(): void {
   if (isStreaming || isVoiceInputBusy() || isVoiceOutputBusy) return;
-  if (ollamaConnected === false) setStatus('Ollama 离线', 'offline');
+  if (modelConnected === false) setStatus('模型离线', 'offline');
   else setStatus('就绪', 'ready');
 }
 
@@ -2027,6 +2317,11 @@ async function toggleMicrophoneRecording(): Promise<void> {
   }
 
   if (isStreaming || isVoiceInputBusy() || isVoiceOutputBusy) return;
+  if (currentVoiceCapabilities?.stt.ready !== true) {
+    showVoiceFeedback('本地语音识别组件未安装，无法录音转写。');
+    setStatus('语音识别未就绪', 'offline');
+    return;
+  }
 
   stopCurrentAudio();
   if (voiceErrorResetTimer) window.clearTimeout(voiceErrorResetTimer);
@@ -2254,6 +2549,11 @@ function describeVoiceError(error: unknown): string {
 
 async function transcribeAudioFile(): Promise<void> {
   if (isStreaming || isVoiceInputBusy() || isVoiceOutputBusy) return;
+  if (currentVoiceCapabilities?.stt.ready !== true) {
+    showVoiceFeedback('本地语音识别组件未安装，无法转写音频。');
+    setStatus('语音识别未就绪', 'offline');
+    return;
+  }
 
   try {
     const sourcePath = await window.athenaAPI.chooseAudioFile();

@@ -84,7 +84,7 @@
 | 项目 | 最终证据 | 剩余边界 |
 |---|---|---|
 | 数据地图与应用内入口 | `docs/PRIVACY_AND_DATA.md`；设置抽屉“隐私与数据中心”展示数据地图、联网能力、静态保护决策、导出和清除 | 公开稳定 URL 的隐私政策/EULA 仍是发布清单 Go/No-Go 门 |
-| 逐类联网同意 | `privacy.networkConsent.webSearch/onlineSpeechToText/onlineTextToSpeech/externalToolNetwork` 默认 false；主进程拒绝未同意的搜索、在线 STT/TTS 和外部 HTTP/TCP 工具 | Cloud、Steam、Mobile、遥测未实现，因此不新增对应同意 |
+| 逐类联网同意 | `privacy.networkConsent.remoteModel/webSearch/onlineSpeechToText/onlineTextToSpeech/externalToolNetwork` 默认 false；主进程拒绝未同意的远程模型、搜索、在线 STT/TTS 和外部 HTTP/TCP 工具 | Athena Cloud 生产、Steam、Mobile、遥测未实现；本地 Provider 适配器不等于对应产品已发布 |
 | 数据生命周期 | 历史关闭后不保存聊天、不记录活动且停止长期记忆自动提取；保留期清理消息和活动记录；语音缓存按小时清理 | 迁移备份保留用于恢复，后续发布窗口需定义备份保留策略 |
 | 数据权利 | `privacy:export` 输出 JSON/Markdown；`privacy:clearLocalData` 清空聊天、记忆、索引、活动记录和语音缓存 | 账号删除/云端数据权利不适用当前 Desktop 本机范围 |
 | SQLite 静态保护 | 威胁评估结论为 `plaintext-sqlite-with-compensating-controls`；迁移前备份和失败恢复落在 `src/memory/database/index.ts` | 未加密；Desktop Beta 前需重新评估 DPAPI/SQLCipher |

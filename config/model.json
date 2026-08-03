@@ -1,5 +1,6 @@
 {
   "provider": "ollama",
+  "setupComplete": true,
   "ollama": {
     "baseUrl": "http://127.0.0.1:11434",
     "model": "qwen2.5:14b",
@@ -7,11 +8,35 @@
     "maxTokens": 2048,
     "numCtx": 4096
   },
-  "deepseek": {
-    "apiKey": "",
-    "model": "deepseek-chat",
-    "temperature": 0.7,
-    "maxTokens": 4096
+  "remote": {
+    "openai": {
+      "baseUrl": "",
+      "model": "",
+      "temperature": 0.7,
+      "maxTokens": 2048,
+      "numCtx": 32768
+    },
+    "deepseek": {
+      "baseUrl": "https://api.deepseek.com/anthropic",
+      "model": "",
+      "temperature": 0.7,
+      "maxTokens": 2048,
+      "numCtx": 32768
+    },
+    "athena-cloud": {
+      "baseUrl": "",
+      "model": "",
+      "temperature": 0.7,
+      "maxTokens": 2048,
+      "numCtx": 32768
+    },
+    "custom": {
+      "baseUrl": "https://api.deepseek.com/anthropic",
+      "model": "",
+      "temperature": 0.7,
+      "maxTokens": 2048,
+      "numCtx": 32768
+    }
   },
   "fallback": {
     "enabled": false,

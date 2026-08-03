@@ -10,6 +10,7 @@ import type {
   GeneralSettings,
   InitiativeLevel,
   MemorySettings,
+  ModelProvider,
   ModelSettings,
   AppearanceSettings,
   ConversationSettings,
@@ -94,7 +95,7 @@ const DEFAULT_SETTINGS: AppSettings = {
     minImportanceForAutoExtract: 5,
   },
   voice: {
-    sttEnabled: true,
+    sttEnabled: false,
     ttsEnabled: true,
     autoPlayAssistant: false,
     sttEngine: 'local_whisper',
@@ -109,6 +110,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   },
   privacy: {
     networkConsent: {
+      remoteModel: false,
       webSearch: false,
       onlineSpeechToText: false,
       onlineTextToSpeech: false,
@@ -123,6 +125,7 @@ const DEFAULT_SETTINGS: AppSettings = {
 
 const DEFAULT_MODEL: ModelSettings = {
   provider: 'ollama',
+  setupComplete: false,
   ollama: {
     baseUrl: 'http://127.0.0.1:11434',
     model: 'qwen2.5:14b',
@@ -130,11 +133,35 @@ const DEFAULT_MODEL: ModelSettings = {
     maxTokens: 2048,
     numCtx: 4096,
   },
-  deepseek: {
-    apiKey: '',
-    model: 'deepseek-chat',
-    temperature: 0.7,
-    maxTokens: 4096,
+  remote: {
+    openai: {
+      baseUrl: '',
+      model: '',
+      temperature: 0.7,
+      maxTokens: 2048,
+      numCtx: 32768,
+    },
+    deepseek: {
+      baseUrl: '',
+      model: '',
+      temperature: 0.7,
+      maxTokens: 2048,
+      numCtx: 32768,
+    },
+    'athena-cloud': {
+      baseUrl: '',
+      model: '',
+      temperature: 0.7,
+      maxTokens: 2048,
+      numCtx: 32768,
+    },
+    custom: {
+      baseUrl: '',
+      model: '',
+      temperature: 0.7,
+      maxTokens: 2048,
+      numCtx: 32768,
+    },
   },
   fallback: {
     enabled: false,
@@ -151,6 +178,7 @@ const STT_ENGINES = new Set<SttEngine>(['local_whisper']);
 const CONVERSATION_MODES = new Set<ConversationMode>(['create', 'companion', 'reason', 'execute']);
 const WEB_SEARCH_MODES = new Set<WebSearchMode>(['auto', 'manual']);
 const TOOL_PERMISSION_LEVELS = new Set<ToolPermissionLevel>(['off', 'read', 'files', 'full']);
+const MODEL_PROVIDERS = new Set<ModelProvider>(['ollama', 'openai', 'deepseek', 'athena-cloud', 'custom']);
 const TOOL_PERMISSION_RANK: Record<ToolPermissionLevel, number> = { off: 0, read: 1, files: 2, full: 3 };
 
 export function getSettingsBundle(): SettingsBundle {
@@ -180,6 +208,10 @@ export function getPersonalizationSettings(): PersonalizationSettings {
 
 export function getAppSettings(): AppSettings {
   return loadAppSettings();
+}
+
+export function getModelSettings(): ModelSettings {
+  return loadModelSettings();
 }
 
 export function resolveToolSettingsForMode(settings: ToolSettings, mode: ConversationMode): ToolSettings {
@@ -298,6 +330,12 @@ function mergeModelSettings(current: ModelSettings, patch?: SettingsPatch['model
     ollama: {
       ...current.ollama,
       ...patch.ollama,
+    },
+    remote: {
+      openai: { ...current.remote.openai, ...patch.remote?.openai },
+      deepseek: { ...current.remote.deepseek, ...patch.remote?.deepseek },
+      'athena-cloud': { ...current.remote['athena-cloud'], ...patch.remote?.['athena-cloud'] },
+      custom: { ...current.remote.custom, ...patch.remote?.custom },
     },
     fallback: {
       ...current.fallback,
@@ -454,6 +492,8 @@ function sanitizeMemory(value: unknown): MemorySettings {
 
 function sanitizeVoice(value: unknown): VoiceSettings {
   const source = isRecord(value) ? value : {};
+  const configuredVoice = cleanString(source.ttsVoice, 120, DEFAULT_SETTINGS.voice.ttsVoice);
+  const ttsVoice = /Neural$/i.test(configuredVoice) ? '' : configuredVoice;
   return {
     sttEnabled: cleanBoolean(source.sttEnabled, DEFAULT_SETTINGS.voice.sttEnabled),
     ttsEnabled: cleanBoolean(source.ttsEnabled, DEFAULT_SETTINGS.voice.ttsEnabled),
@@ -461,7 +501,7 @@ function sanitizeVoice(value: unknown): VoiceSettings {
     // Window 05 deliberately removes the old implicit online fallback. Legacy
     // auto/speech_recognition/whisper values migrate to the only 1.0 engine.
     sttEngine: cleanEnum(source.sttEngine, STT_ENGINES, DEFAULT_SETTINGS.voice.sttEngine),
-    ttsVoice: cleanString(source.ttsVoice, 120, DEFAULT_SETTINGS.voice.ttsVoice),
+    ttsVoice,
     silenceAutoStop: cleanBoolean(source.silenceAutoStop, DEFAULT_SETTINGS.voice.silenceAutoStop),
   };
 }
@@ -484,6 +524,7 @@ function sanitizePrivacy(value: unknown): PrivacySettings {
     : undefined;
   return {
     networkConsent: {
+      remoteModel: cleanBoolean(consent.remoteModel, DEFAULT_SETTINGS.privacy.networkConsent.remoteModel),
       webSearch: cleanBoolean(consent.webSearch, DEFAULT_SETTINGS.privacy.networkConsent.webSearch),
       onlineSpeechToText: cleanBoolean(consent.onlineSpeechToText, DEFAULT_SETTINGS.privacy.networkConsent.onlineSpeechToText),
       onlineTextToSpeech: cleanBoolean(consent.onlineTextToSpeech, DEFAULT_SETTINGS.privacy.networkConsent.onlineTextToSpeech),
@@ -504,9 +545,11 @@ function sanitizeUi(value: unknown): UiSettings {
 function sanitizeModelSettings(value: unknown): ModelSettings {
   const source = isRecord(value) ? value : {};
   const ollama = isRecord(source.ollama) ? source.ollama : {};
+  const remote = isRecord(source.remote) ? source.remote : {};
   const fallback = isRecord(source.fallback) ? source.fallback : {};
   return {
-    provider: cleanString(source.provider, 40, DEFAULT_MODEL.provider),
+    provider: cleanEnum(source.provider, MODEL_PROVIDERS, DEFAULT_MODEL.provider),
+    setupComplete: cleanBoolean(source.setupComplete, DEFAULT_MODEL.setupComplete),
     ollama: {
       baseUrl: cleanString(ollama.baseUrl, 200, DEFAULT_MODEL.ollama.baseUrl).replace(/\/$/, ''),
       model: cleanString(ollama.model, 120, DEFAULT_MODEL.ollama.model),
@@ -514,7 +557,12 @@ function sanitizeModelSettings(value: unknown): ModelSettings {
       maxTokens: clampInteger(ollama.maxTokens, 128, 8192, DEFAULT_MODEL.ollama.maxTokens),
       numCtx: clampInteger(ollama.numCtx, 1024, 32768, DEFAULT_MODEL.ollama.numCtx),
     },
-    deepseek: sanitizeDeepseek(source.deepseek),
+    remote: {
+      openai: sanitizeRemoteModelSettings(remote.openai, DEFAULT_MODEL.remote.openai),
+      deepseek: sanitizeRemoteModelSettings(remote.deepseek, DEFAULT_MODEL.remote.deepseek),
+      'athena-cloud': sanitizeRemoteModelSettings(remote['athena-cloud'], DEFAULT_MODEL.remote['athena-cloud']),
+      custom: sanitizeRemoteModelSettings(remote.custom, DEFAULT_MODEL.remote.custom),
+    },
     fallback: {
       enabled: cleanBoolean(fallback.enabled, DEFAULT_MODEL.fallback.enabled),
       timeoutMs: clampInteger(fallback.timeoutMs, 5000, 120000, DEFAULT_MODEL.fallback.timeoutMs),
@@ -522,14 +570,28 @@ function sanitizeModelSettings(value: unknown): ModelSettings {
   };
 }
 
-function sanitizeDeepseek(value: unknown): ModelSettings['deepseek'] {
+function sanitizeRemoteModelSettings(value: unknown, fallback: ModelSettings['remote']['openai']): ModelSettings['remote']['openai'] {
   const source = isRecord(value) ? value : {};
   return {
-    apiKey: cleanString(source.apiKey, 500, DEFAULT_MODEL.deepseek.apiKey),
-    model: cleanString(source.model, 120, DEFAULT_MODEL.deepseek.model),
-    temperature: clampNumber(source.temperature, 0, 2, DEFAULT_MODEL.deepseek.temperature),
-    maxTokens: clampInteger(source.maxTokens, 128, 32768, DEFAULT_MODEL.deepseek.maxTokens),
+    baseUrl: sanitizeRemoteBaseUrl(source.baseUrl, fallback.baseUrl),
+    model: cleanString(source.model, 160, fallback.model),
+    temperature: clampNumber(source.temperature, 0, 2, fallback.temperature),
+    maxTokens: clampInteger(source.maxTokens, 128, 32768, fallback.maxTokens),
+    numCtx: clampInteger(source.numCtx, 1024, 1048576, fallback.numCtx),
   };
+}
+
+function sanitizeRemoteBaseUrl(value: unknown, fallback: string): string {
+  const cleaned = cleanString(value, 500, fallback).replace(/\/$/, '');
+  if (!cleaned) return '';
+  try {
+    const parsed = new URL(cleaned);
+    return parsed.protocol === 'https:' || (parsed.protocol === 'http:' && ['localhost', '127.0.0.1', '::1'].includes(parsed.hostname))
+      ? cleaned
+      : fallback;
+  } catch {
+    return fallback;
+  }
 }
 
 function configPath(fileName: string): string {

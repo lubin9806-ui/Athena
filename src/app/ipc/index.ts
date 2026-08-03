@@ -5,6 +5,7 @@ import { AthenaController } from '../../core/controller/AthenaController';
 import { getAppSettings, getSettingsBundle, saveSettingsBundle } from '../../core/config/SettingsStore';
 import {
   applyDataRetention,
+  canUseNetworkCapability,
   cleanupVoiceCache,
   clearAllLocalData,
   exportAllData,
@@ -12,6 +13,19 @@ import {
   recordDataActivity,
 } from '../../core/privacy/PrivacyDataService';
 import { VoiceService } from '../../core/voice/VoiceService';
+import { LLMClient } from '../../core/ai/Client';
+import { canRouteModelRequest } from '../../core/ai/ModelNetworkPolicy';
+import {
+  clearModelCredential,
+  getModelCredentialStatus,
+  setModelCredential,
+} from '../../core/ai/CredentialStore';
+import {
+  getOllamaSetupStatus,
+  installBundledOllama,
+  openOllamaDownload,
+  pullOllamaModel,
+} from '../../core/ai/OllamaSetupService';
 import { globalEventBus } from '../../engine/EventBus';
 import {
   commitChatRecordImport,
@@ -22,7 +36,7 @@ import {
   updateMemory,
 } from '../../memory';
 import type { MemoryKind, MemoryListOptions, MemoryUpdatePatch } from '../../memory';
-import type { SettingsBundle, SettingsPatch, ToolConfirmationRequest, ToolStatusEvent, WebSearchStatus } from '../../shared/types';
+import type { RemoteModelProvider, SettingsBundle, SettingsPatch, ToolConfirmationRequest, ToolStatusEvent, WebSearchStatus } from '../../shared/types';
 import { armMicrophoneGrant, revokeMicrophoneGrant } from '../security/PermissionGate';
 import { applyDesktopSettings, showReminderNotification } from '../DesktopSettings';
 import { cleanChatPayload, cleanExistingFilePath, isTrustedIpcSender } from './validation';
@@ -37,6 +51,15 @@ const INVOKE_CHANNELS = [
   'system:info',
   'config:get',
   'config:set',
+  'model:credentialStatus',
+  'model:setCredential',
+  'model:clearCredential',
+  'model:listOptions',
+  'model:testConnection',
+  'model:ollamaStatus',
+  'model:openOllamaDownload',
+  'model:installBundledOllama',
+  'model:pullOllamaModel',
   'memory:list',
   'memory:delete',
   'memory:update',
@@ -144,6 +167,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
   ipcMain.handle('config:set', async (event, patch: unknown) => {
     if (!isTrustedSender(event)) return null;
     const bundle = saveSettingsBundle(cleanSettingsPatch(patch));
+    controller.reloadModel();
     const desktop = applyDesktopSettings(bundle.settings.general);
     controller.applyToolPermission(bundle.settings.tools, bundle.settings.conversation.activeMode);
     const retention = applyDataRetention();
@@ -157,6 +181,78 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
       desktop,
     });
     return toRendererSettingsBundle(bundle);
+  });
+
+  ipcMain.handle('model:credentialStatus', async (event, value: unknown) => {
+    if (!isTrustedSender(event)) return null;
+    const provider = cleanRemoteModelProvider(value);
+    return provider ? getModelCredentialStatus(provider) : null;
+  });
+
+  ipcMain.handle('model:setCredential', async (event, providerValue: unknown, apiKeyValue: unknown) => {
+    if (!isTrustedSender(event)) return null;
+    const provider = cleanRemoteModelProvider(providerValue);
+    const apiKey = typeof apiKeyValue === 'string' ? apiKeyValue : '';
+    if (!provider) return null;
+    const status = setModelCredential(provider, apiKey);
+    controller.reloadModel();
+    return status;
+  });
+
+  ipcMain.handle('model:clearCredential', async (event, value: unknown) => {
+    if (!isTrustedSender(event)) return null;
+    const provider = cleanRemoteModelProvider(value);
+    if (!provider) return null;
+    const status = clearModelCredential(provider);
+    controller.reloadModel();
+    return status;
+  });
+
+  ipcMain.handle('model:testConnection', async (event) => {
+    if (!isTrustedSender(event)) return null;
+    const client = new LLMClient();
+    if (!canRouteModelRequest(client.providerName, canUseNetworkCapability('remoteModel'))) {
+      throw new Error('请先明确同意将请求发送给所选远程模型服务。');
+    }
+    const connected = await client.checkConnection();
+    return {
+      connected,
+      provider: client.providerName,
+      model: client.modelName,
+      endpoint: client.endpoint,
+    };
+  });
+
+  ipcMain.handle('model:listOptions', async (event) => {
+    if (!isTrustedSender(event)) return null;
+    const client = new LLMClient();
+    if (!canRouteModelRequest(client.providerName, canUseNetworkCapability('remoteModel'))) {
+      throw new Error('请先明确同意将请求发送给所选远程模型服务。');
+    }
+    return {
+      provider: client.providerName,
+      models: await client.listModels(),
+    };
+  });
+
+  ipcMain.handle('model:ollamaStatus', async (event) => {
+    if (!isTrustedSender(event)) return null;
+    return getOllamaSetupStatus();
+  });
+
+  ipcMain.handle('model:openOllamaDownload', async (event) => {
+    if (!isTrustedSender(event)) return false;
+    return openOllamaDownload();
+  });
+
+  ipcMain.handle('model:installBundledOllama', async (event) => {
+    if (!isTrustedSender(event)) return { started: false, error: 'IPC sender rejected.' };
+    return installBundledOllama(mainWindow);
+  });
+
+  ipcMain.handle('model:pullOllamaModel', async (event, model: unknown) => {
+    if (!isTrustedSender(event)) return { started: false, error: 'IPC sender rejected.' };
+    return pullOllamaModel(mainWindow, typeof model === 'string' ? model : '');
   });
 
   ipcMain.handle('memory:list', async (event, options: unknown) => {
@@ -374,14 +470,21 @@ function toRendererSettingsBundle(bundle: SettingsBundle): SettingsBundle {
     model: {
       ...bundle.model,
       ollama: { ...bundle.model.ollama },
-      deepseek: {
-        ...bundle.model.deepseek,
-        // The renderer does not edit this credential, so it never needs the plaintext value.
-        apiKey: '',
+      remote: {
+        openai: { ...bundle.model.remote.openai },
+        deepseek: { ...bundle.model.remote.deepseek },
+        'athena-cloud': { ...bundle.model.remote['athena-cloud'] },
+        custom: { ...bundle.model.remote.custom },
       },
       fallback: { ...bundle.model.fallback },
     },
   };
+}
+
+function cleanRemoteModelProvider(value: unknown): RemoteModelProvider | null {
+  return value === 'openai' || value === 'deepseek' || value === 'athena-cloud' || value === 'custom'
+    ? value
+    : null;
 }
 
 function cleanOptionalNumber(value: unknown, min: number, max: number): number | undefined {

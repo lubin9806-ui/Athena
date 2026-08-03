@@ -57,6 +57,10 @@ let smokeReadyLogged = false;
 
 if (smokeUserDataPath) {
   app.setPath('userData', smokeUserDataPath);
+  process.env.ATHENA_CONFIG_DIR ||= path.join(smokeUserDataPath, 'config');
+  process.env.ATHENA_DB_DIR ||= path.join(smokeUserDataPath, 'database');
+  process.env.ATHENA_DIAGNOSTICS_DIR ||= path.join(smokeUserDataPath, 'diagnostics');
+  process.env.ATHENA_VOICE_TEMP_DIR ||= path.join(smokeUserDataPath, 'voice');
   process.once('exit', () => {
     try {
       fs.rmSync(smokeUserDataPath, { recursive: true, force: true });
@@ -217,6 +221,10 @@ function createWindow(): void {
              const composerMoreButton = document.getElementById('composer-more-btn');
              const toolAccessHint = document.getElementById('tool-access-hint');
              const executeToolPermission = document.getElementById('setting-tool-permission-execute');
+             const firstRunModelChoice = document.getElementById('model-first-run-choice');
+             const modelProviderSelect = document.getElementById('setting-model-provider');
+             const modelOllamaFields = document.getElementById('model-ollama-fields');
+             const modelRemoteFields = document.getElementById('model-remote-fields');
              const uiReady = Boolean(
                appShell &&
                document.getElementById('chat-container') &&
@@ -232,6 +240,13 @@ function createWindow(): void {
                composerMoreButton &&
                toolAccessHint &&
                executeToolPermission instanceof HTMLSelectElement &&
+               firstRunModelChoice &&
+               modelProviderSelect instanceof HTMLSelectElement &&
+               modelOllamaFields &&
+               modelRemoteFields &&
+               document.getElementById('setting-remote-url') &&
+               document.getElementById('setting-remote-model') &&
+               document.getElementById('model-load-options') &&
                document.getElementById('setting-web-search-enabled') &&
                document.getElementById('setting-web-search-deep-read') &&
                document.getElementById('setting-web-search-secondary') &&
@@ -257,6 +272,7 @@ function createWindow(): void {
               && typeof api.onWebSearchStatus === 'function'
               && typeof api.requestMicrophoneAccess === 'function'
               && typeof api.getVoiceCapabilities === 'function'
+              && typeof api.listModelOptions === 'function'
              );
              if (!uiReady) return false;
 
@@ -280,12 +296,34 @@ function createWindow(): void {
              if (!rippleReactive) return false;
 
              const originalSettings = await api.getSettings();
-             const credentialRedacted = originalSettings.model.deepseek.apiKey === '';
+             const firstRunPaths = Array.from(firstRunModelChoice.querySelectorAll('[data-model-path]'))
+               .map(button => button.getAttribute('data-model-path'));
+             const remoteProviders = ['openai', 'deepseek', 'athena-cloud', 'custom'];
+             const modelProviderTruthful = originalSettings.model.provider === 'ollama'
+               && originalSettings.model.setupComplete === false
+               && remoteProviders.every(provider => {
+                 const config = originalSettings.model.remote[provider];
+                 return config && config.baseUrl === '' && config.model === '';
+               });
+             const firstRunModelChoicesReady = ['local', 'api'].every(path => firstRunPaths.includes(path))
+               && Boolean(modelProviderSelect.querySelector('option[value="choose-api"]'));
+             const localPathButton = firstRunModelChoice.querySelector('[data-model-path="local"]');
+             const apiPathButton = firstRunModelChoice.querySelector('[data-model-path="api"]');
+             if (!(localPathButton instanceof HTMLButtonElement) || !(apiPathButton instanceof HTMLButtonElement)) return false;
+             apiPathButton.click();
+             const apiPathRequiresChoice = modelProviderSelect.value === 'choose-api'
+               && modelOllamaFields.hidden
+               && modelRemoteFields.hidden;
+             localPathButton.click();
+             const localPathReactive = modelProviderSelect.value === 'ollama'
+               && !modelOllamaFields.hidden
+               && modelRemoteFields.hidden;
+             const firstRunPathReactive = apiPathRequiresChoice && localPathReactive;
              const toolPermissionControlsReady = executeToolPermission.value === originalSettings.settings.tools.modePermissions.execute
                && originalSettings.settings.tools.modePermissions.create === 'off'
                && originalSettings.settings.tools.modePermissions.companion === 'off'
                && originalSettings.settings.tools.modePermissions.reason === 'off';
-             if (!credentialRedacted || !toolPermissionControlsReady) return false;
+             if (!modelProviderTruthful || !firstRunModelChoicesReady || !firstRunPathReactive || !toolPermissionControlsReady) return false;
              await new Promise(resolve => setTimeout(resolve, 90));
              composerMoreButton.click();
              const webSearchNeedsConsent = webSearchButton.disabled && /同意/.test(webSearchButton.title || '');
@@ -346,14 +384,16 @@ function createWindow(): void {
                 toolHintReactive,
                 toolHintRestored,
                 toolPermissionControlsReady,
-                credentialRedacted,
+                modelProviderTruthful,
+                firstRunModelChoicesReady,
+                firstRunPathReactive,
                 webSearchForceReactive,
                webSearchForceRestored,
              }));
              if (!panelReactive || memoryPanel.dataset.open !== 'false' || !executionModeReactive || !executionWorkspaceReactive || !executionPermissionReactive || !executionModeRestored) return false;
 
              const ipcProbe = await api.transcribeRecording(new Uint8Array());
-            if (!ipcProbe || ipcProbe.ok !== false || !/empty/i.test(ipcProbe.error || '')) return false;
+            if (!ipcProbe || ipcProbe.ok !== false || !/(empty|disabled)/i.test(ipcProbe.error || '')) return false;
             const playbackProbe = await api.playAudioFile('');
             if (!playbackProbe || playbackProbe.ok !== false) return false;
             if (!${isVoiceSmokeTest ? 'true' : 'false'}) return true;

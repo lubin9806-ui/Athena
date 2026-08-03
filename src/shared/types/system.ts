@@ -2,6 +2,11 @@ export interface SystemInfo {
   time: string;
   hour: number;
   platform: string;
+  modelConnected: boolean;
+  modelProvider: string;
+  modelName: string;
+  modelEndpoint: string;
+  /** Backward-compatible aliases for the original renderer. */
   ollamaConnected: boolean;
   ollamaModel: string;
   ollamaEndpoint: string;

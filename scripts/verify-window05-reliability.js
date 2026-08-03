@@ -88,7 +88,13 @@ async function main() {
   console.log(`ATHENA_WINDOW05_RELIABILITY_OK longMessages=1500 heapGrowth=${heapGrowth} lockWaitMs=${lockWaitMs}`);
 }
 
-main().finally(() => {
+function cleanup(exitCode) {
   try { closeDatabase(); } catch {}
   fs.rmSync(scratch, { recursive: true, force: true });
-}).catch(error => { console.error(error); process.exitCode = 1; });
+  try { require('electron').app.exit(exitCode); }
+  catch { process.exitCode = exitCode; }
+}
+
+main()
+  .then(() => cleanup(0))
+  .catch(error => { console.error(error); cleanup(1); });

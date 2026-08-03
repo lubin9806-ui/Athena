@@ -85,6 +85,7 @@ export function resolveVoiceRootCandidates(): string[] {
   return [
     process.env.ATHENA_VOICE_SCRIPT_DIR,
     packagedResources ? path.join(packagedResources, 'voice') : undefined,
+    path.join(projectRoot, 'resources', 'voice-runtime'),
     projectRoot,
     process.cwd(),
   ].filter((candidate): candidate is string => Boolean(candidate));

@@ -47,7 +47,9 @@ function writeVoiceCache(name, ageHours) {
 (async () => {
   try {
     let bundle = getSettingsBundle();
+    assert.strictEqual(bundle.settings.privacy.networkConsent.remoteModel, false);
     assert.strictEqual(bundle.settings.privacy.networkConsent.webSearch, false);
+    assert.strictEqual(canUseNetworkCapability('remoteModel'), false);
     assert.strictEqual(canUseNetworkCapability('webSearch'), false);
 
     bundle = saveSettingsBundle({
@@ -57,6 +59,7 @@ function writeVoiceCache(name, ageHours) {
         data: { historyRetentionDays: 7, voiceCacheRetentionHours: 1, exportFormat: 'json' },
         privacy: {
           networkConsent: {
+            remoteModel: true,
             webSearch: true,
             onlineSpeechToText: true,
             onlineTextToSpeech: true,
@@ -66,6 +69,7 @@ function writeVoiceCache(name, ageHours) {
       },
     });
     assert.strictEqual(bundle.settings.conversation.saveHistory, false);
+    assert.strictEqual(canUseNetworkCapability('remoteModel'), true);
     assert.strictEqual(canUseNetworkCapability('webSearch'), true);
 
     const db = getDatabase();

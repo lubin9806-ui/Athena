@@ -54,6 +54,7 @@ Desktop.ini
 # not commit multi-GB developer-machine artifacts.
 models/
 resources/OllamaSetup.exe
+resources/voice-runtime/
 
 # Root-level voice and download probes retained under legacy/root-artifacts.
 test*.mp3

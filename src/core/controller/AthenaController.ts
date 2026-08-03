@@ -1,4 +1,5 @@
 import { LLMClient } from '../ai/Client';
+import { canRouteModelRequest } from '../ai/ModelNetworkPolicy';
 import { Conversation } from '../ai/Conversation';
 import { EmotionEngine } from '../ai/Emotion';
 import { getAppSettings, resolveToolSettingsForMode, shouldSaveHistory } from '../config/SettingsStore';
@@ -119,6 +120,12 @@ export class AthenaController {
     const localCommand = this.processLocalCommand(userMessage, mode);
     if (localCommand) return localCommand;
 
+    if (!canRouteModelRequest(this.llm.providerName, canUseNetworkCapability('remoteModel'))) {
+      const content = consentRequiredMessage('remoteModel');
+      this.saveMessageIfAllowed('assistant', content, this.emotion.analyzeResponse(content).type, mode);
+      return { content, emotion: this.emotion.analyzeResponse(content) };
+    }
+
     const webPlan = this.webSearch.plan({
       message: userMessage,
       force: options?.forceWebSearch,
@@ -208,17 +215,29 @@ export class AthenaController {
 
   async getSystemInfo(): Promise<SystemInfo> {
     const stats = getStats();
-    const ollamaConnected = await this.llm.checkConnection();
+    const modelConnected = await this.llm.checkConnection();
     const now = new Date();
     return {
       time: now.toLocaleString('zh-CN'),
       hour: now.getHours(),
       platform: process.platform,
-      ollamaConnected,
+      modelConnected,
+      modelProvider: this.llm.providerName,
+      modelName: this.llm.modelName,
+      modelEndpoint: this.llm.endpoint,
+      ollamaConnected: modelConnected,
       ollamaModel: this.llm.modelName,
       ollamaEndpoint: this.llm.endpoint,
       memoryStats: stats,
     };
+  }
+
+  reloadModel(): void {
+    this.conversation.shutdown();
+    this.llm = new LLMClient();
+    this.conversation = new Conversation(this.llm);
+    const settings = getAppSettings();
+    this.applyToolPermission(settings.tools, settings.conversation.activeMode);
   }
 
   applyToolPermission(settings: ToolSettings, mode: ConversationMode): ToolSettings {

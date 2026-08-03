@@ -88,6 +88,7 @@ export function canUseNetworkCapability(capability: keyof NetworkConsentSettings
 
 export function consentRequiredMessage(capability: keyof NetworkConsentSettings): string {
   const labels: Record<keyof NetworkConsentSettings, string> = {
+    remoteModel: '远程模型服务',
     webSearch: '联网搜索',
     onlineSpeechToText: '在线语音识别',
     onlineTextToSpeech: '在线语音合成',
@@ -230,7 +231,7 @@ function buildDataMap(settings: AppSettings): DataMapItem[] {
       label: '聊天消息',
       stored: settings.conversation.saveHistory ? '开启历史时保存 user/assistant 消息、模式、情绪和时间' : '历史已关闭，不保存新聊天消息',
       locations: [database],
-      leavesDevice: '本地 Ollama 推理请求发往配置的模型端点；默认 127.0.0.1。联网搜索开启时，查询词会发往搜索提供方。',
+      leavesDevice: 'Ollama 默认只发往 127.0.0.1。选择远程 Provider 并明确同意后，请求、相关对话和记忆上下文会发往用户配置的 API 地址。联网搜索另需独立同意。',
       retention: settings.data.historyRetentionDays > 0 ? `${settings.data.historyRetentionDays} 天后自动清理` : '无限期保留，直到用户清除',
       controls: ['保存聊天历史开关', '历史保留天数', '完整导出', '一键清除'],
     },
@@ -239,7 +240,7 @@ function buildDataMap(settings: AppSettings): DataMapItem[] {
       label: '长期记忆',
       stored: '画像、事件、项目笔记与检索索引保存在 SQLite',
       locations: [database],
-      leavesDevice: '不会自动上传；会作为本地模型上下文参与回复。历史关闭后停止自动提取。',
+      leavesDevice: '不会自动上传；会作为模型上下文参与回复。选择远程 Provider 并明确同意后，相关记忆可能随当前请求发送。历史关闭后停止自动提取。',
       retention: '不随聊天保留期自动删除；用户可在记忆面板或一键清除中删除',
       controls: ['启用记忆检索', '自动提取记忆', '记忆管理面板', '完整导出', '一键清除'],
     },
@@ -303,6 +304,14 @@ function buildDataMap(settings: AppSettings): DataMapItem[] {
 function buildNetworkCapabilityNotices(consent: NetworkConsentSettings): NetworkCapabilityNotice[] {
   return [
     {
+      id: 'remoteModel',
+      label: '远程模型服务',
+      sends: '当前请求、系统提示、相关对话、检索到的记忆上下文和工具规划内容',
+      destinations: '用户明确选择并配置的 OpenAI、DeepSeek、Athena Cloud 或自定义 API 地址',
+      defaultState: 'off-until-consent',
+      consented: consent.remoteModel,
+    },
+    {
       id: 'webSearch',
       label: '联网搜索和网页深读',
       sends: '搜索词、搜索结果 URL 和网页请求元数据',
@@ -359,13 +368,7 @@ function redactSettingsBundle(): Record<string, unknown> {
   const bundle = getSettingsBundle();
   return {
     settings: bundle.settings,
-    model: {
-      ...bundle.model,
-      deepseek: {
-        ...bundle.model.deepseek,
-        apiKey: bundle.model.deepseek.apiKey ? '[REDACTED]' : '',
-      },
-    },
+    model: bundle.model,
   };
 }
 

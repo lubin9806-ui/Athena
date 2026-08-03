@@ -37,7 +37,7 @@ Athena 当前是一个**可运行的 Windows Desktop 0.9 Private Beta 候选工�
 | 模块 | 当前状态 | 审计结论 |
 |---|---|---|
 | Electron 桌面主链路 | 已实现 | 单实例、托盘、预加载桥、IPC 发送者校验、窗口烟测存在；仅验证 Windows |
-| 本地模型 | 已实现 | Ollama + `qwen2.5:14b` 是唯一真实推理路径；DeepSeek/fallback 仅有配置，没有客户端实现 |
+| 模型路由 | 已实现，生产边界不同 | Ollama + `qwen2.5:14b` 为默认本地路径；OpenAI、DeepSeek、Athena Cloud 和自定义 OpenAI-compatible Provider 客户端已实现。远程模型需用户自带 Key、独立联网同意且不静默 fallback；Athena Cloud 生产仍 Blocked |
 | 四种对话模式 | 已实现 | Create、Companion、Reason、Execute 有真实提示词、UI 与工具隔离 |
 | 人格与样式 | 已实现 | PromptBuilder、Personality、StyleEngine 和回归测试覆盖核心身份链 |
 | 长期记忆 | 已实现 | SQLite 消息、画像、事件、项目、索引、检索、编辑、删除和聊天记录导入可用 |

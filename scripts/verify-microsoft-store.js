@@ -110,7 +110,7 @@ function verifySource() {
   for (const [key, value] of Object.entries(EXPECTED)) assert.equal(product[key], value, `Store identity drifted: ${key}`);
 
   const builder = fs.readFileSync(path.join(ROOT, 'electron-builder.store.yml'), 'utf8');
-  for (const value of [EXPECTED.identityName, EXPECTED.publisher, EXPECTED.publisherDisplayName, 'target: appx', 'setBuildNumber: false', '!skills/**/*', '!config/settings.json', '!config/steam.json', 'runFullTrust', 'internetClient', 'microphone']) {
+  for (const value of [EXPECTED.identityName, EXPECTED.publisher, EXPECTED.publisherDisplayName, 'target: appx', 'signAndEditExecutable: false', 'setBuildNumber: false', '!skills/**/*', '!config/settings.json', '!config/steam.json', '!assets/steam/**/*', '!node_modules/steamworks.js/dist/linux64/**/*', '!node_modules/steamworks.js/dist/osx/**/*', '!node_modules/better-sqlite3/src/**/*', '!node_modules/better-sqlite3/deps/**/*', 'runFullTrust', 'internetClient', 'microphone']) {
     assert(builder.includes(value), `Store builder configuration is missing: ${value}`);
   }
   assert(!builder.includes('.build/update-config.json'), 'Store package must not contain Desktop Direct update configuration.');
@@ -120,9 +120,12 @@ function verifySource() {
   assert(!/(?:G:\\Athena|d:\\vs\\vs\.6|QWEATHER_KEY\s*=\s*['"][a-f0-9]{24,}['"]|require\(['"]puppeteer['"]\))/i.test(legacyActions), 'Legacy actions contain developer paths, a hard-coded credential, or a missing dependency.');
 
   const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
+  assert.equal(pkg.version, '0.9.5');
   assert.equal(pkg.scripts['build:store'], 'node scripts/build-microsoft-store.js --require-clean');
   assert.equal(pkg.scripts['rebuild:sqlite:electron'], 'node node_modules/electron-builder/cli.js install-app-deps --platform win32 --arch x64');
   const storeBuildScript = fs.readFileSync(path.join(ROOT, 'scripts', 'build-microsoft-store.js'), 'utf8');
+  assert.match(storeBuildScript, /deriveStoreAppVersion\(packageMetadata\(\)\.version\)/);
+  assert.match(storeBuildScript, /channel: 'private-beta'/);
   assert.match(storeBuildScript, /run\('sqlite-electron-abi', node, \[electronBuilderCli, 'install-app-deps', '--platform', 'win32', '--arch', 'x64'\]\)/);
   const main = fs.readFileSync(path.join(ROOT, 'src', 'app', 'main.ts'), 'utf8');
   assert.match(main, /!isMicrosoftStoreBuild\) initializeDesktopUpdater/);
@@ -151,7 +154,7 @@ function verifySource() {
     packageFamilyName: EXPECTED.packageFamilyName,
     audience: 'private',
     updatesManagedBy: 'microsoft-store',
-    storePackageVersion: '0.9.1.0',
+    storePackageVersion: '0.9.5.0',
     generatedAt: new Date(0).toISOString(),
   };
   runtimeModule.setMicrosoftStoreRuntimeOverrideForTests(validRuntime);
@@ -184,7 +187,7 @@ function verifyArtifact(value) {
   assert.equal(runtime.storeId, EXPECTED.storeId);
   assert.equal(runtime.audience, 'private');
   assert.equal(runtime.updatesManagedBy, 'microsoft-store');
-  assert.match(runtime.storePackageVersion, /^0\.9\.(?:[1-9]\d{0,4})\.0$/);
+  assert.match(runtime.storePackageVersion, /^0\.9\.5\.0$/);
   const manifestVersion = manifest.match(/<Identity\b[^>]*\bVersion=["']([^"']+)["']/)?.[1];
   assert.equal(manifestVersion, runtime.storePackageVersion, 'Manifest and Store runtime package versions must match.');
   const databaseCheck = spawnSync('python', [path.join(ROOT, 'scripts', 'verify-store-package-database.py'), artifact], {
