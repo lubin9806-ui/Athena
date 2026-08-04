@@ -754,6 +754,7 @@ const motionSystem = new MotionSystem(appShell, inputForm);
 const TEMPORARY_CHAT_LABEL = '临时聊天';
 const TEMPORARY_CHAT_BADGE = '临时聊天：只在本窗口保留，关闭后清除';
 const TEMPORARY_CHAT_META = '临时聊天：不写入长期记忆';
+const NEW_CHAT_TITLE = '新对话';
 
 let isStreaming = false;
 let currentContent = '';
@@ -911,6 +912,7 @@ async function sendMessage(text: string): Promise<void> {
   if (!text || isStreaming || isVoiceInputBusy()) return;
   if (!currentChatWindowId) await initializeChatWindows();
 
+  const titleUpdate = autoTitleCurrentChatWindow(text);
   const forceWebSearch = forceWebSearchForNextMessage;
   const requestMode = currentMode;
   forceWebSearchForNextMessage = false;
@@ -956,6 +958,7 @@ async function sendMessage(text: string): Promise<void> {
     if (requestMode === 'execute') failActiveExecutionTask(message);
     else chatPanel.addMessage(`出错了：${message}`, 'assistant', '需要检查');
   } finally {
+    await titleUpdate;
     pendingExecutionGoal = '';
     activeRequestMode = null;
     isStreaming = false;
@@ -1754,15 +1757,47 @@ async function switchChatWindow(id: number): Promise<void> {
 
 async function createNewChatWindow(): Promise<void> {
   if (isStreaming) return;
-  const title = window.prompt('新聊天窗口名称', `聊天 ${chatWindows.length + 1}`) || '';
-  const created = await window.athenaAPI.createChatWindow(title, currentProjectId ?? undefined);
+  const created = await window.athenaAPI.createChatWindow(NEW_CHAT_TITLE, currentProjectId ?? undefined);
   if (!created) return;
   currentChatWindowId = created.id;
   setMode(created.mode);
+  currentChatWindowMessages = [];
+  chatPanel.clear();
+  chatWindows = [created, ...chatWindows.filter(window => window.id !== created.id)];
+  renderChatWindowPicker();
+  await refreshProjects();
   await refreshChatWindows();
   await loadCurrentChatWindowMessages();
   await refreshWindowMemoryPanel();
   inputBar.focus();
+}
+
+async function autoTitleCurrentChatWindow(text: string): Promise<void> {
+  const chatWindowId = currentChatWindowId;
+  const current = getCurrentChatWindow();
+  if (!chatWindowId || !current || current.is_temporary || (current.messageCount ?? 0) > 0 || !isDefaultChatTitle(current.title)) return;
+
+  const title = titleFromFirstMessage(text);
+  if (!title || title === current.title) return;
+  try {
+    const updated = await window.athenaAPI.renameChatWindow(chatWindowId, title);
+    if (!updated || currentChatWindowId !== chatWindowId) return;
+    chatWindows = chatWindows.map(item => item.id === updated.id ? updated : item);
+    renderChatWindowPicker();
+  } catch (error) {
+    console.error('Failed to title new chat window', error);
+  }
+}
+
+function isDefaultChatTitle(title: string): boolean {
+  return title === NEW_CHAT_TITLE || title === '新聊天' || /^聊天\s+\d+$/.test(title);
+}
+
+function titleFromFirstMessage(text: string): string {
+  const normalized = text.replace(/\s+/g, ' ').trim();
+  if (!normalized) return NEW_CHAT_TITLE;
+  const characters = Array.from(normalized);
+  return characters.length > 32 ? `${characters.slice(0, 32).join('')}…` : normalized;
 }
 
 async function createTemporaryChatWindow(): Promise<void> {
@@ -1832,6 +1867,7 @@ async function archiveCurrentChatWindow(): Promise<void> {
   await window.athenaAPI.archiveChatWindow(currentChatWindowId, true);
   currentChatWindowId = null;
   chatPanel.clear();
+  await refreshProjects();
   await refreshChatWindows();
   if (currentChatWindowId) {
     await window.athenaAPI.activateChatWindow(currentChatWindowId);
@@ -1851,6 +1887,7 @@ async function deleteCurrentChatWindow(): Promise<void> {
   await window.athenaAPI.deleteChatWindow(currentChatWindowId);
   currentChatWindowId = null;
   chatPanel.clear();
+  await refreshProjects();
   await refreshChatWindows();
   if (currentChatWindowId) {
     await window.athenaAPI.activateChatWindow(currentChatWindowId);

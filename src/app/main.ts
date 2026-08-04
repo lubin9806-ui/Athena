@@ -250,6 +250,7 @@ function createWindow(): void {
              const memoryPanel = document.getElementById('memory-panel');
              const executionButton = document.getElementById('mode-execute-button');
              const executionPanel = document.getElementById('execution-panel');
+             const chatWindowNew = document.getElementById('chat-window-new');
              const chatWindowTemporary = document.getElementById('chat-window-temporary');
              const chatWindowBadge = document.getElementById('temporary-chat-badge');
              const chatWindowArchive = document.getElementById('chat-window-archive');
@@ -287,6 +288,7 @@ function createWindow(): void {
                memoryPanel &&
                executionButton &&
                executionPanel &&
+               chatWindowNew instanceof HTMLButtonElement &&
                chatWindowTemporary instanceof HTMLButtonElement &&
                chatWindowBadge &&
                chatWindowArchive instanceof HTMLButtonElement &&
@@ -454,6 +456,51 @@ function createWindow(): void {
              const toolHintRestored = toolAccessHint.dataset.level === originalSettings.settings.tools.modePermissions[originalMode];
              if (!modeReactive || !modePersisted || !modeRestored || !toolHintReactive || !toolHintRestored) return false;
 
+             const previousChatWindowId = Number(chatWindowSelect.value);
+             let promptCalledForNewChat = false;
+             const originalPrompt = window.prompt;
+             window.prompt = () => {
+               promptCalledForNewChat = true;
+               return null;
+             };
+             chatWindowNew.click();
+             let newChatImmediateReactive = false;
+             let createdChatWindowId = 0;
+             try {
+               for (let attempt = 0; attempt < 30; attempt += 1) {
+                 await new Promise(resolve => setTimeout(resolve, 100));
+                 createdChatWindowId = Number(chatWindowSelect.value);
+                 const projectId = Number(document.getElementById('project-select')?.value);
+                 const listedWindows = await api.listChatWindows(false, projectId);
+                 newChatImmediateReactive = !promptCalledForNewChat
+                   && Number.isInteger(createdChatWindowId)
+                   && createdChatWindowId > 0
+                   && createdChatWindowId !== previousChatWindowId
+                   && listedWindows.some(windowRecord => windowRecord.id === previousChatWindowId)
+                   && listedWindows.some(windowRecord => windowRecord.id === createdChatWindowId)
+                   && /新对话/.test(chatWindowSelect.selectedOptions[0]?.textContent || '');
+                 if (newChatImmediateReactive) break;
+               }
+             } finally {
+               window.prompt = originalPrompt;
+             }
+             if (!newChatImmediateReactive) return false;
+             inputBox.value = '提醒列表';
+             inputForm.requestSubmit();
+             let newChatAutoTitleReactive = false;
+             for (let attempt = 0; attempt < 40; attempt += 1) {
+               await new Promise(resolve => setTimeout(resolve, 100));
+               newChatAutoTitleReactive = /提醒列表/.test(chatWindowSelect.selectedOptions[0]?.textContent || '');
+               if (newChatAutoTitleReactive) break;
+             }
+             if (!newChatAutoTitleReactive) return false;
+             const previousChatButton = document.querySelector('[data-chat-window-id="' + previousChatWindowId + '"]');
+             if (previousChatButton instanceof HTMLButtonElement) previousChatButton.click();
+             for (let attempt = 0; attempt < 20 && Number(chatWindowSelect.value) !== previousChatWindowId; attempt += 1) {
+               await new Promise(resolve => setTimeout(resolve, 50));
+             }
+             await api.deleteChatWindow(createdChatWindowId);
+
              chatWindowTemporary.click();
              let temporaryChatReactive = false;
              for (let attempt = 0; attempt < 30; attempt += 1) {
@@ -518,6 +565,8 @@ function createWindow(): void {
                 modelProviderTruthful,
                 firstRunModelChoicesReady,
                 firstRunPathReactive,
+                newChatImmediateReactive,
+                newChatAutoTitleReactive,
                 temporaryChatReactive,
                 toolCatalogReactive,
                 webSearchForceReactive,

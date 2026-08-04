@@ -8,11 +8,20 @@ process.env.ATHENA_DB_DIR = tempDir;
 process.env.ATHENA_DB_FILENAME = 'chat-windows-test.db';
 
 const root = path.resolve(__dirname, '..');
+const rendererSource = fs.readFileSync(path.join(root, 'src', 'renderer', 'app.ts'), 'utf8');
 const memory = require(path.join(root, 'dist/memory/index.js'));
 const { buildChatPrompt, buildChatPromptWithSnapshot } = require(path.join(root, 'dist/core/ai/PromptBuilder.js'));
 
 let exitCode = 0;
 try {
+  const createNewChatStart = rendererSource.indexOf('async function createNewChatWindow()');
+  const createNewChatEnd = rendererSource.indexOf('async function autoTitleCurrentChatWindow', createNewChatStart);
+  const createNewChatSource = rendererSource.slice(createNewChatStart, createNewChatEnd);
+  assert.ok(createNewChatStart >= 0 && createNewChatEnd > createNewChatStart, 'renderer must expose the immediate new-chat flow');
+  assert.doesNotMatch(createNewChatSource, /window\.prompt/, 'new chat must not interrupt creation with a naming prompt');
+  assert.match(createNewChatSource, /createChatWindow\(NEW_CHAT_TITLE/, 'new chat must immediately create a persistent sibling window');
+  assert.match(rendererSource, /autoTitleCurrentChatWindow\(text\)/, 'the first message should title a newly created chat');
+
   const first = memory.ensureDefaultChatWindow();
   assert.ok(first.id > 0, 'default chat window should be created');
 
