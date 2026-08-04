@@ -693,6 +693,10 @@ const settingsFeedback = mustGet<HTMLElement>('settings-feedback');
 
 const liveGlass = new LiveGlass([titlebar, modeSwitch, inputForm]);
 
+const TEMPORARY_CHAT_LABEL = '临时聊天';
+const TEMPORARY_CHAT_BADGE = '临时聊天：只在本窗口保留，关闭后清除';
+const TEMPORARY_CHAT_META = '临时聊天：不写入长期记忆';
+
 let isStreaming = false;
 let currentContent = '';
 let currentImportPreview: MemoryImportPreview | null = null;
@@ -1501,13 +1505,13 @@ function renderChatWindowPicker(): void {
   const temporary = current?.is_temporary === true;
   appShell.dataset.temporaryChat = String(temporary);
   temporaryChatBadge.hidden = !temporary;
-  temporaryChatBadge.textContent = temporary ? 'Temporary Chat - no long-term memory' : '';
+  temporaryChatBadge.textContent = temporary ? TEMPORARY_CHAT_BADGE : '';
   chatWindowSelect.replaceChildren();
   for (const windowRecord of chatWindows) {
     const option = document.createElement('option');
     option.value = String(windowRecord.id);
     const count = windowRecord.messageCount ?? 0;
-    const title = windowRecord.is_temporary ? `[Temporary] ${windowRecord.title}` : windowRecord.title;
+    const title = windowRecord.is_temporary ? `[${TEMPORARY_CHAT_LABEL}] ${windowRecord.title}` : windowRecord.title;
     option.textContent = count > 0 ? `${title} (${count})` : title;
     chatWindowSelect.appendChild(option);
   }
@@ -1519,7 +1523,7 @@ function renderChatWindowPicker(): void {
   chatWindowDelete.disabled = disabled || !currentChatWindowId;
   chatWindowNew.disabled = isStreaming;
   chatWindowTemporary.disabled = isStreaming;
-  chatWindowDelete.textContent = temporary ? 'Close' : '删除';
+  chatWindowDelete.textContent = temporary ? '关闭' : '删除';
 }
 
 async function loadCurrentChatWindowMessages(): Promise<void> {
@@ -1665,7 +1669,7 @@ async function deleteCurrentChatWindow(): Promise<void> {
   const current = getCurrentChatWindow();
   const temporary = current?.is_temporary === true;
   const confirmMessage = temporary
-    ? 'Close this temporary chat? Its messages and context snapshots will be cleared.'
+    ? '关闭这个临时聊天？它的消息和上下文快照会被清除。'
     : `删除“${current?.title || '当前窗口'}”？窗口消息会被软删除隐藏。`;
   if (!window.confirm(confirmMessage)) return;
   await window.athenaAPI.deleteChatWindow(currentChatWindowId);
@@ -1716,7 +1720,7 @@ function renderWindowMemoryPanel(
   windowContextTitle.textContent = windowRecord.title;
   windowContextMeta.textContent = [
     windowRecord.projectTitle ? `Project: ${windowRecord.projectTitle}` : '',
-    windowRecord.is_temporary ? 'Temporary Chat - no long-term memory' : '',
+    windowRecord.is_temporary ? TEMPORARY_CHAT_META : '',
     `${windowRecord.messageCount ?? messages.length} 条消息`,
     modeLabel(windowRecord.mode),
     formatPanelTime(windowRecord.updated_at || windowRecord.last_active_at),

@@ -239,6 +239,11 @@ function createWindow(): void {
              const memoryPanel = document.getElementById('memory-panel');
              const executionButton = document.getElementById('mode-execute-button');
              const executionPanel = document.getElementById('execution-panel');
+             const chatWindowTemporary = document.getElementById('chat-window-temporary');
+             const chatWindowBadge = document.getElementById('temporary-chat-badge');
+             const chatWindowArchive = document.getElementById('chat-window-archive');
+             const chatWindowDelete = document.getElementById('chat-window-delete');
+             const chatWindowSelect = document.getElementById('chat-window-select');
              const webSearchButton = document.getElementById('web-search-btn');
              const composerMoreButton = document.getElementById('composer-more-btn');
              const toolAccessHint = document.getElementById('tool-access-hint');
@@ -258,6 +263,11 @@ function createWindow(): void {
                memoryPanel &&
                executionButton &&
                executionPanel &&
+               chatWindowTemporary instanceof HTMLButtonElement &&
+               chatWindowBadge &&
+               chatWindowArchive instanceof HTMLButtonElement &&
+               chatWindowDelete instanceof HTMLButtonElement &&
+               chatWindowSelect instanceof HTMLSelectElement &&
                webSearchButton &&
                composerMoreButton &&
                toolAccessHint &&
@@ -378,6 +388,21 @@ function createWindow(): void {
              const toolHintRestored = toolAccessHint.dataset.level === originalSettings.settings.tools.modePermissions[originalMode];
              if (!modeReactive || !modePersisted || !modeRestored || !toolHintReactive || !toolHintRestored) return false;
 
+             chatWindowTemporary.click();
+             let temporaryChatReactive = false;
+             for (let attempt = 0; attempt < 30; attempt += 1) {
+               await new Promise(resolve => setTimeout(resolve, 100));
+               temporaryChatReactive = appShell.dataset.temporaryChat === 'true'
+                 && chatWindowBadge.hidden === false
+                 && /临时聊天/.test(chatWindowBadge.textContent || '')
+                 && /关闭后清除/.test(chatWindowBadge.textContent || '')
+                 && chatWindowArchive.disabled === true
+                 && chatWindowDelete.textContent.trim() === '关闭'
+                 && /临时聊天/.test(chatWindowSelect.selectedOptions[0]?.textContent || '');
+               if (temporaryChatReactive) break;
+             }
+             if (!temporaryChatReactive) return false;
+
              memoryButton.click();
              await new Promise(resolve => setTimeout(resolve, 90));
              const panelReactive = memoryPanel.dataset.open === 'true';
@@ -409,6 +434,7 @@ function createWindow(): void {
                 modelProviderTruthful,
                 firstRunModelChoicesReady,
                 firstRunPathReactive,
+                temporaryChatReactive,
                 webSearchForceReactive,
                webSearchForceRestored,
              }));

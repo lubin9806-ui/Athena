@@ -427,12 +427,13 @@ summary:focus-visible {
 #chat-window-bar {
   position: relative;
   z-index: 6;
-  width: min(820px, calc(100vw - 24px));
-  height: 34px;
-  display: grid;
-  grid-template-columns: minmax(120px, 0.75fr) 30px auto minmax(150px, 1fr) 30px auto auto auto auto auto;
+  width: min(900px, calc(100vw - 24px));
+  min-height: 34px;
+  display: flex;
+  flex-wrap: wrap;
   gap: 5px;
   align-items: center;
+  justify-content: center;
   align-self: center;
   margin: 5px 0 4px;
 }
@@ -452,6 +453,18 @@ summary:focus-visible {
   min-width: 0;
   padding: 0 9px;
   color: var(--text-muted);
+}
+
+#project-select {
+  flex: 1 1 132px;
+}
+
+#chat-window-select {
+  flex: 1.4 1 168px;
+}
+
+.chat-window-action {
+  flex: 0 0 auto;
 }
 
 .chat-window-action {
@@ -477,7 +490,8 @@ summary:focus-visible {
 
 #temporary-chat-badge {
   height: 30px;
-  max-width: 178px;
+  max-width: 238px;
+  flex: 0 1 238px;
   display: inline-grid;
   place-items: center;
   padding: 0 9px;

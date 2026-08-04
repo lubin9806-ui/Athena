@@ -17,7 +17,7 @@
       "numCtx": 32768
     },
     "deepseek": {
-      "baseUrl": "https://api.deepseek.com/anthropic",
+      "baseUrl": "https://api.deepseek.com",
       "model": "",
       "temperature": 0.7,
       "maxTokens": 2048,
@@ -31,7 +31,7 @@
       "numCtx": 32768
     },
     "custom": {
-      "baseUrl": "https://api.deepseek.com/anthropic",
+      "baseUrl": "https://api.deepseek.com",
       "model": "",
       "temperature": 0.7,
       "maxTokens": 2048,
