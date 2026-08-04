@@ -47,3 +47,19 @@ export interface ToolConfirmationRequest {
   explanation: string;
   inputPreview: string;
 }
+
+export interface ToolCatalogItem {
+  name: string;
+  label: string;
+  minimumLevel: Exclude<ToolPermissionLevel, 'off'>;
+  signature: string;
+  description: string;
+  available: boolean;
+  blockedReason?: 'permission' | 'sku';
+}
+
+export interface ToolCatalog {
+  mode: 'create' | 'companion' | 'reason' | 'execute';
+  permissionLevel: ToolPermissionLevel;
+  tools: ToolCatalogItem[];
+}

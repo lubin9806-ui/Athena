@@ -1,6 +1,6 @@
 /** Athena 主进程入口 */
 
-import { app, BrowserWindow, dialog, Tray, Menu, nativeImage, screen, shell, WebContents } from 'electron';
+import { app, BrowserWindow, dialog, Tray, Menu, nativeImage, shell, WebContents } from 'electron';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
@@ -27,6 +27,7 @@ const steamPlatform = initializeSteamPlatform();
 const isSteamBuild = steamPlatform.state.sku === 'steam';
 const isMicrosoftStoreBuild = isMicrosoftStoreSku();
 const isVoiceSmokeTest = isSmokeTest && process.env.ATHENA_SMOKE_VOICE === '1';
+const isModelSmokeTest = isSmokeTest && process.env.ATHENA_SMOKE_MODEL === '1';
 const smokeScreenshotPath = process.env.ATHENA_SMOKE_SCREENSHOT?.trim();
 const smokeCaptureRipple = isSmokeTest && process.env.ATHENA_SMOKE_CAPTURE_RIPPLE === '1';
 const smokeTheme = process.env.ATHENA_SMOKE_THEME === 'night'
@@ -36,8 +37,12 @@ const smokeTheme = process.env.ATHENA_SMOKE_THEME === 'night'
     : null;
 const smokePanel = process.env.ATHENA_SMOKE_PANEL === 'settings'
   ? 'settings'
+  : process.env.ATHENA_SMOKE_PANEL === 'model'
+    ? 'model'
   : process.env.ATHENA_SMOKE_PANEL === 'memory'
     ? 'memory'
+    : process.env.ATHENA_SMOKE_PANEL === 'tools'
+      ? 'tools'
     : process.env.ATHENA_SMOKE_PANEL === 'execution'
       ? 'execution'
       : null;
@@ -48,8 +53,8 @@ const smokeMode = process.env.ATHENA_SMOKE_MODE === 'create'
     : process.env.ATHENA_SMOKE_MODE === 'companion'
       ? 'companion'
       : null;
-const smokeWindowWidth = smokeDimension(process.env.ATHENA_SMOKE_WIDTH, 480, 360, 3840);
-const smokeWindowHeight = smokeDimension(process.env.ATHENA_SMOKE_HEIGHT, 700, 500, 2160);
+const smokeWindowWidth = smokeDimension(process.env.ATHENA_SMOKE_WIDTH, 1180, 680, 3840);
+const smokeWindowHeight = smokeDimension(process.env.ATHENA_SMOKE_HEIGHT, 760, 560, 2160);
 const smokeUserDataPath = isSmokeTest
   ? path.join(os.tmpdir(), 'athena-smoke', String(process.pid))
   : null;
@@ -169,10 +174,10 @@ async function confirmExternalOpen(window: BrowserWindow, value: string): Promis
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
-    width: isSmokeTest ? smokeWindowWidth : 480,
-    height: isSmokeTest ? smokeWindowHeight : 700,
-    minWidth: 360,
-    minHeight: 500,
+    width: isSmokeTest ? smokeWindowWidth : 1180,
+    height: isSmokeTest ? smokeWindowHeight : 760,
+    minWidth: 680,
+    minHeight: 560,
     frame: false,
     resizable: true,
     icon: path.join(__dirname, '../../resources/su-shixia-icon.png'),
@@ -246,6 +251,10 @@ function createWindow(): void {
              const chatWindowSelect = document.getElementById('chat-window-select');
              const webSearchButton = document.getElementById('web-search-btn');
              const composerMoreButton = document.getElementById('composer-more-btn');
+             const availableToolsButton = document.getElementById('available-tools-btn');
+             const toolsPanel = document.getElementById('tools-panel');
+             const toolsPanelList = document.getElementById('tools-panel-list');
+             const toolsClose = document.getElementById('btn-tools-close');
              const toolAccessHint = document.getElementById('tool-access-hint');
              const executeToolPermission = document.getElementById('setting-tool-permission-execute');
              const firstRunModelChoice = document.getElementById('model-first-run-choice');
@@ -270,6 +279,10 @@ function createWindow(): void {
                chatWindowSelect instanceof HTMLSelectElement &&
                webSearchButton &&
                composerMoreButton &&
+               availableToolsButton instanceof HTMLButtonElement &&
+               toolsPanel &&
+               toolsPanelList &&
+               toolsClose instanceof HTMLButtonElement &&
                toolAccessHint &&
                executeToolPermission instanceof HTMLSelectElement &&
                firstRunModelChoice &&
@@ -301,6 +314,7 @@ function createWindow(): void {
               && typeof api.exportPrivacyData === 'function'
               && typeof api.clearLocalData === 'function'
               && typeof api.cancelExecution === 'function'
+              && typeof api.getToolCatalog === 'function'
               && typeof api.onWebSearchStatus === 'function'
               && typeof api.requestMicrophoneAccess === 'function'
               && typeof api.getVoiceCapabilities === 'function'
@@ -403,6 +417,21 @@ function createWindow(): void {
              }
              if (!temporaryChatReactive) return false;
 
+             composerMoreButton.click();
+             availableToolsButton.click();
+             let toolCatalogReactive = false;
+             for (let attempt = 0; attempt < 20; attempt += 1) {
+               await new Promise(resolve => setTimeout(resolve, 50));
+               const catalog = await api.getToolCatalog(originalMode);
+               toolCatalogReactive = toolsPanel.dataset.open === 'true'
+                 && Array.isArray(catalog?.tools)
+                 && catalog.tools.length >= 20
+                 && toolsPanelList.querySelectorAll('.tool-catalog-item').length === catalog.tools.length;
+               if (toolCatalogReactive) break;
+             }
+             toolsClose.click();
+             if (!toolCatalogReactive || toolsPanel.dataset.open !== 'false') return false;
+
              memoryButton.click();
              await new Promise(resolve => setTimeout(resolve, 90));
              const panelReactive = memoryPanel.dataset.open === 'true';
@@ -435,6 +464,7 @@ function createWindow(): void {
                 firstRunModelChoicesReady,
                 firstRunPathReactive,
                 temporaryChatReactive,
+                toolCatalogReactive,
                 webSearchForceReactive,
                webSearchForceRestored,
              }));
@@ -444,6 +474,24 @@ function createWindow(): void {
             if (!ipcProbe || ipcProbe.ok !== false || !/(empty|disabled)/i.test(ipcProbe.error || '')) return false;
             const playbackProbe = await api.playAudioFile('');
             if (!playbackProbe || playbackProbe.ok !== false) return false;
+            if (${isModelSmokeTest ? 'true' : 'false'}) {
+              const modelTestButton = document.getElementById('model-test-connection');
+              const chatDiagnostic = document.getElementById('model-diagnostic-chat');
+              if (!(modelTestButton instanceof HTMLButtonElement) || !chatDiagnostic) return false;
+              modelTestButton.click();
+              let modelDiagnosticReactive = false;
+              for (let attempt = 0; attempt < 1200; attempt += 1) {
+                await new Promise(resolve => setTimeout(resolve, 100));
+                const row = chatDiagnostic.closest('.model-diagnostic-row');
+                const state = row?.getAttribute('data-state');
+                if (state === 'success' || state === 'error') {
+                  modelDiagnosticReactive = state === 'success';
+                  console.log('ATHENA_SMOKE_MODEL_STATE', JSON.stringify({ state, text: chatDiagnostic.textContent }));
+                  break;
+                }
+              }
+              if (!modelDiagnosticReactive) return false;
+            }
             if (!${isVoiceSmokeTest ? 'true' : 'false'}) return true;
 
             const voiceSmokeFail = (stage, detail = {}) => {
@@ -501,6 +549,20 @@ function createWindow(): void {
           mainWindow.showInactive();
           await new Promise(resolve => setTimeout(resolve, 180));
         }
+        if (!smokePanel) {
+          await mainWindow.webContents.executeJavaScript(`
+            (() => {
+              const shell = document.getElementById('app-shell');
+              if (shell) shell.dataset.sidebar = 'open';
+              for (const id of ['btn-memory-close', 'btn-settings-close', 'btn-tools-close']) {
+                const button = document.getElementById(id);
+                if (button instanceof HTMLButtonElement) button.click();
+              }
+              return true;
+            })()
+          `);
+          await new Promise(resolve => setTimeout(resolve, 220));
+        }
         if (smokeTheme) {
           const themeApplied = await mainWindow.webContents.executeJavaScript(`
             (() => {
@@ -516,8 +578,22 @@ function createWindow(): void {
           await new Promise(resolve => setTimeout(resolve, 160));
         }
         if (smokePanel) {
-          const smokePanelButtonId = smokePanel === 'settings' ? 'btn-settings' : smokePanel === 'memory' ? 'btn-memory' : 'mode-execute-button';
-          const smokePanelId = smokePanel === 'settings' ? 'settings-panel' : smokePanel === 'memory' ? 'memory-panel' : 'execution-panel';
+          const smokePanelButtonId = smokePanel === 'settings'
+            ? 'btn-settings'
+            : smokePanel === 'model'
+              ? 'model-status-button'
+            : smokePanel === 'memory'
+              ? 'btn-memory'
+              : smokePanel === 'tools'
+                ? 'available-tools-btn'
+                : 'mode-execute-button';
+          const smokePanelId = smokePanel === 'settings' || smokePanel === 'model'
+            ? 'settings-panel'
+            : smokePanel === 'memory'
+              ? 'memory-panel'
+              : smokePanel === 'tools'
+                ? 'tools-panel'
+                : 'execution-panel';
           const panelOpened = await mainWindow.webContents.executeJavaScript(`
             (() => {
               const button = document.getElementById(${JSON.stringify(smokePanelButtonId)});
@@ -577,6 +653,20 @@ function createWindow(): void {
           await new Promise(resolve => setTimeout(resolve, 420));
         }
         fs.mkdirSync(path.dirname(smokeScreenshotPath), { recursive: true });
+        const layoutState = await mainWindow.webContents.executeJavaScript(`
+          (() => {
+            const shell = document.getElementById('app-shell');
+            const ids = ['titlebar', 'chat-window-bar', 'mode-switch', 'stage', 'input-form', 'memory-panel', 'settings-panel', 'tools-panel'];
+            const rects = Object.fromEntries(ids.map(id => {
+              const element = document.getElementById(id);
+              if (!element) return [id, null];
+              const rect = element.getBoundingClientRect();
+              return [id, { x: Math.round(rect.x), y: Math.round(rect.y), width: Math.round(rect.width), height: Math.round(rect.height), display: getComputedStyle(element).display }];
+            }));
+            return { sidebar: shell?.dataset.sidebar, mode: shell?.dataset.mode, rects };
+          })()
+        `);
+        console.log('ATHENA_SMOKE_LAYOUT_STATE', JSON.stringify(layoutState));
         const screenshot = await mainWindow.webContents.capturePage();
         fs.writeFileSync(smokeScreenshotPath, screenshot.toPNG());
         console.log(`ATHENA_SMOKE_SCREENSHOT ${smokeScreenshotPath}`);
@@ -599,11 +689,7 @@ function createWindow(): void {
 
   registerIpcHandlers(mainWindow);
 
-  // 窗口位置：右下角
-  const display = screen.getPrimaryDisplay();
-  const { width: sw, height: sh } = display.workAreaSize;
-  const [ww, wh] = mainWindow.getSize();
-  mainWindow.setPosition(sw - ww - 20, sh - wh - 60);
+  mainWindow.center();
 
   mainWindow.on('minimize', () => mainWindow?.hide());
   mainWindow.on('close', (event) => {

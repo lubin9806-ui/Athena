@@ -16,6 +16,7 @@ import type {
   ToolSettings,
   ToolStatusEvent,
   ToolConfirmationRequest,
+  ToolCatalogItem,
   WebSearchContext,
   WebSearchSummary,
   ContextSnapshotRecord,
@@ -47,6 +48,10 @@ export class Conversation {
 
   cancelCurrentExecution(): number {
     return this.tools.cancelCurrent();
+  }
+
+  getToolCatalog(settings: ToolSettings): ToolCatalogItem[] {
+    return this.tools.getCatalog(settings);
   }
 
   async process(

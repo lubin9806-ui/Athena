@@ -96,7 +96,10 @@ export class LLMClient {
 
   async checkConnection(): Promise<boolean> {
     try {
-      if (this.provider === 'ollama') return Boolean((await this.fetchFromOllama('/api/tags'))?.ok);
+      if (this.provider === 'ollama') {
+        const models = await this.listModels();
+        return Boolean(this.model) && models.some(model => model === this.model || model === `${this.model}:latest`);
+      }
       if (!this.baseUrl || !this.model) return false;
       const response = await this.fetchFromRemote('/models');
       return response.ok;

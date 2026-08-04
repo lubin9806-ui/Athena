@@ -78,6 +78,7 @@ const INVOKE_CHANNELS = [
   'chatWindow:unpinFact',
   'chatWindow:contextSnapshots',
   'execution:cancel',
+  'tools:catalog',
   'system:info',
   'config:get',
   'config:set',
@@ -294,6 +295,14 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     return controller.cancelCurrentExecution() > 0;
   });
 
+  ipcMain.handle('tools:catalog', async (event, value: unknown) => {
+    if (!isTrustedSender(event)) return null;
+    const mode = value === 'create' || value === 'companion' || value === 'reason' || value === 'execute'
+      ? value
+      : undefined;
+    return controller.getToolCatalog(mode);
+  });
+
   ipcMain.handle('config:get', async (event) => {
     if (!isTrustedSender(event)) return null;
     return toRendererSettingsBundle(getSettingsBundle());
@@ -349,9 +358,38 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     if (!canRouteModelRequest(client.providerName, canUseNetworkCapability('remoteModel'))) {
       throw new Error('请先明确同意将请求发送给所选远程模型服务。');
     }
-    const connected = await client.checkConnection();
+    const startedAt = Date.now();
+    let serviceReachable = false;
+    let modelAvailable = false;
+    let chatSucceeded = false;
+    let error = '';
+    try {
+      serviceReachable = await client.checkConnection();
+      if (serviceReachable) {
+        const models = await client.listModels();
+        modelAvailable = client.providerName === 'ollama'
+          ? models.some(model => model === client.modelName || model === `${client.modelName}:latest`)
+          : Boolean(client.modelName);
+      }
+      if (serviceReachable && modelAvailable) {
+        const reply = await client.chat(
+          [{ role: 'user', content: 'Reply with OK only.' }],
+          undefined,
+          'reason',
+          { maxTokens: 16, temperature: 0.1 },
+        );
+        chatSucceeded = reply.trim().length > 0;
+      }
+    } catch (caught) {
+      error = caught instanceof Error ? caught.message : String(caught);
+    }
     return {
-      connected,
+      connected: serviceReachable && modelAvailable && chatSucceeded,
+      serviceReachable,
+      modelAvailable,
+      chatSucceeded,
+      durationMs: Date.now() - startedAt,
+      error,
       provider: client.providerName,
       model: client.modelName,
       endpoint: client.endpoint,

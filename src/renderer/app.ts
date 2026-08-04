@@ -38,12 +38,13 @@ declare global {
       unpinChatWindowFact: (id: number, factId: string) => Promise<ChatWindowRecord | null>;
       getChatWindowContextSnapshots: (id: number, limit?: number) => Promise<ContextSnapshotRecord[]>;
       cancelExecution: () => Promise<boolean>;
+      getToolCatalog: (mode?: AthenaMode) => Promise<ToolCatalog | null>;
       onChatStream: (callback: (data: { content: string; done: boolean }) => void) => () => void;
       onChatError: (callback: (error: string) => void) => () => void;
       onWebSearchStatus: (callback: (status: WebSearchStatus) => void) => () => void;
       onToolStatus: (callback: (status: ToolStatusEvent) => void) => () => void;
       onReminderDue: (callback: (job: { title: string; dueAt: string }) => void) => () => void;
-      getSystemInfo: () => Promise<{ modelConnected: boolean; modelProvider: ModelProvider; modelName: string; modelEndpoint: string; ollamaConnected: boolean; hour: number; ollamaModel: string; ollamaEndpoint: string }>;
+      getSystemInfo: () => Promise<{ modelConnected: boolean; modelProvider: ModelProvider; modelName: string; modelEndpoint: string; ollamaConnected: boolean; hour: number; ollamaModel: string; ollamaEndpoint: string } | null>;
       getSettings: () => Promise<SettingsBundle>;
       saveSettings: (patch: SettingsPatch) => Promise<SettingsBundle>;
       getModelCredentialStatus: (provider: RemoteModelProvider) => Promise<ModelCredentialStatus | null>;
@@ -85,6 +86,22 @@ type AppStatusState = 'ready' | 'working' | 'offline' | 'error';
 type ToolPermissionLevel = 'off' | 'read' | 'files' | 'full';
 type ModelProvider = 'ollama' | 'openai' | 'deepseek' | 'athena-cloud' | 'custom';
 type RemoteModelProvider = Exclude<ModelProvider, 'ollama'>;
+
+interface ToolCatalogItem {
+  name: string;
+  label: string;
+  minimumLevel: Exclude<ToolPermissionLevel, 'off'>;
+  signature: string;
+  description: string;
+  available: boolean;
+  blockedReason?: 'permission' | 'sku';
+}
+
+interface ToolCatalog {
+  mode: AthenaMode;
+  permissionLevel: ToolPermissionLevel;
+  tools: ToolCatalogItem[];
+}
 
 const MAX_RECORDING_MS = 60_000;
 const ATHENA_MODES: readonly AthenaMode[] = ['create', 'companion', 'reason', 'execute'];
@@ -477,6 +494,11 @@ interface ModelCredentialStatus {
 
 interface ModelConnectionStatus {
   connected: boolean;
+  serviceReachable?: boolean;
+  modelAvailable?: boolean;
+  chatSucceeded?: boolean;
+  durationMs?: number;
+  error?: string;
   provider: ModelProvider;
   model: string;
   endpoint: string;
@@ -526,12 +548,16 @@ interface PrivacyCenterState {
 const appShell = mustGet<HTMLElement>('app-shell');
 const themeController = new ThemeController(document.documentElement, appShell);
 const titlebar = mustGet<HTMLElement>('titlebar');
+const btnSidebar = mustGet<HTMLButtonElement>('btn-sidebar');
+const activeChatTitle = mustGet<HTMLElement>('active-chat-title');
+const activeProjectTitle = mustGet<HTMLElement>('active-project-title');
 const modeSwitch = mustGet<HTMLElement>('mode-switch');
 const modeExecuteButton = mustGet<HTMLButtonElement>('mode-execute-button');
 const projectSelect = mustGet<HTMLSelectElement>('project-select');
 const projectNew = mustGet<HTMLButtonElement>('project-new');
 const projectInstructions = mustGet<HTMLButtonElement>('project-instructions');
 const chatWindowSelect = mustGet<HTMLSelectElement>('chat-window-select');
+const chatWindowList = mustGet<HTMLElement>('chat-window-list');
 const chatWindowNew = mustGet<HTMLButtonElement>('chat-window-new');
 const chatWindowTemporary = mustGet<HTMLButtonElement>('chat-window-temporary');
 const chatWindowRename = mustGet<HTMLButtonElement>('chat-window-rename');
@@ -550,6 +576,7 @@ const inputBar = new InputBar(
 
 const statusDot = mustGet<HTMLElement>('status-dot');
 const statusText = mustGet<HTMLElement>('status-text');
+const modelStatusButton = mustGet<HTMLButtonElement>('model-status-button');
 const btnSettings = mustGet<HTMLButtonElement>('btn-settings');
 const btnMemory = mustGet<HTMLButtonElement>('btn-memory');
 const btnMinimize = mustGet<HTMLButtonElement>('btn-minimize');
@@ -562,10 +589,16 @@ const voiceFeedback = mustGet<HTMLElement>('voice-feedback');
 const composerMoreBtn = mustGet<HTMLButtonElement>('composer-more-btn');
 const composerSecondaryTools = mustGet<HTMLElement>('composer-secondary-tools');
 const webSearchBtn = mustGet<HTMLButtonElement>('web-search-btn');
+const availableToolsBtn = mustGet<HTMLButtonElement>('available-tools-btn');
 const webSearchLabel = mustGet<HTMLElement>('web-search-label');
 const modeHint = mustGet<HTMLElement>('mode-hint');
 const toolAccessHint = mustGet<HTMLElement>('tool-access-hint');
 const panelScrim = mustGet<HTMLElement>('panel-scrim');
+const toolsPanel = mustGet<HTMLElement>('tools-panel');
+const btnToolsClose = mustGet<HTMLButtonElement>('btn-tools-close');
+const toolsPanelSummary = mustGet<HTMLElement>('tools-panel-summary');
+const toolsPanelFilter = mustGet<HTMLElement>('tools-panel-filter');
+const toolsPanelList = mustGet<HTMLElement>('tools-panel-list');
 const executionPanel = mustGet<HTMLElement>('execution-panel');
 const executionCurrentCard = mustGet<HTMLElement>('execution-current-card');
 const executionStateLabel = mustGet<HTMLElement>('execution-state-label');
@@ -659,6 +692,10 @@ const modelClearApiKey = mustGet<HTMLButtonElement>('model-clear-api-key');
 const modelCredentialStatus = mustGet<HTMLElement>('model-credential-status');
 const modelTestConnection = mustGet<HTMLButtonElement>('model-test-connection');
 const modelConnectionStatus = mustGet<HTMLElement>('model-connection-status');
+const modelDiagnostics = mustGet<HTMLElement>('model-diagnostics');
+const modelDiagnosticService = mustGet<HTMLElement>('model-diagnostic-service');
+const modelDiagnosticModel = mustGet<HTMLElement>('model-diagnostic-model');
+const modelDiagnosticChat = mustGet<HTMLElement>('model-diagnostic-chat');
 const modelInstallOllama = mustGet<HTMLButtonElement>('model-install-ollama');
 const modelPullOllama = mustGet<HTMLButtonElement>('model-pull-ollama');
 const settingTemperature = mustGet<HTMLInputElement>('setting-temperature');
@@ -731,6 +768,9 @@ let isVoiceOutputBusy = false;
 let modelConnected: boolean | null = null;
 let currentVoiceCapabilities: VoiceCapabilities | null = null;
 let forceWebSearchForNextMessage = false;
+let currentToolCatalog: ToolCatalog | null = null;
+let toolCatalogFilter: 'all' | 'available' | 'locked' = 'all';
+let lastModelConnectionStatus: ModelConnectionStatus | null = null;
 
 const microphoneRecorder = new MicrophoneRecorder({
   onVolume: updateMicrophoneMeter,
@@ -758,6 +798,7 @@ function setMode(mode: AthenaMode): void {
     button.tabIndex = active ? 0 : -1;
   });
   syncToolAccessHint();
+  if (toolsPanel.dataset.open === 'true') void loadToolCatalog();
 }
 
 function setModeSwitchDisabled(disabled: boolean): void {
@@ -900,6 +941,7 @@ function init(): void {
   themeController.apply('system');
   setMode('companion');
   renderExecutionCenter();
+  appShell.dataset.sidebar = 'open';
   inputForm.dataset.voiceState = 'idle';
   voiceFeedback.dataset.visible = 'false';
   void initializeSettings();
@@ -912,6 +954,11 @@ function init(): void {
   projectInstructions.addEventListener('click', () => void editCurrentProjectInstructions());
   chatWindowSelect.addEventListener('change', () => {
     const id = Number(chatWindowSelect.value);
+    if (Number.isInteger(id) && id > 0) void switchChatWindow(id);
+  });
+  chatWindowList.addEventListener('click', (event) => {
+    const target = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('[data-chat-window-id]') : null;
+    const id = Number(target?.dataset.chatWindowId);
     if (Number.isInteger(id) && id > 0) void switchChatWindow(id);
   });
   chatWindowNew.addEventListener('click', () => void createNewChatWindow());
@@ -939,10 +986,27 @@ function init(): void {
     void selectMode('execute');
   });
   btnSettings.addEventListener('click', () => toggleSettingsPanel());
+  modelStatusButton.addEventListener('click', () => void openModelSettings());
   btnSettingsClose.addEventListener('click', () => toggleSettingsPanel(false));
   panelScrim.addEventListener('click', () => {
     void toggleMemoryPanel(false);
     void toggleSettingsPanel(false);
+    void toggleToolsPanel(false);
+  });
+  btnSidebar.addEventListener('click', () => toggleSidebar());
+  availableToolsBtn.addEventListener('click', () => void toggleToolsPanel(true));
+  btnToolsClose.addEventListener('click', () => void toggleToolsPanel(false));
+  toolsPanelFilter.addEventListener('click', (event) => {
+    const button = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('[data-tool-filter]') : null;
+    const filter = button?.dataset.toolFilter;
+    if (filter !== 'all' && filter !== 'available' && filter !== 'locked') return;
+    toolCatalogFilter = filter;
+    toolsPanelFilter.querySelectorAll<HTMLButtonElement>('[data-tool-filter]').forEach(item => {
+      const active = item.dataset.toolFilter === filter;
+      item.classList.toggle('active', active);
+      item.setAttribute('aria-selected', String(active));
+    });
+    if (currentToolCatalog) renderToolCatalog(currentToolCatalog);
   });
   settingsForm.addEventListener('submit', (event) => {
     event.preventDefault();
@@ -1030,10 +1094,11 @@ function init(): void {
       void cancelMicrophoneRecording();
       return;
     }
-    if (event.key === 'Escape' && (memoryPanel.dataset.open === 'true' || settingsPanel.dataset.open === 'true')) {
+    if (event.key === 'Escape' && (memoryPanel.dataset.open === 'true' || settingsPanel.dataset.open === 'true' || toolsPanel.dataset.open === 'true')) {
       event.preventDefault();
       void toggleMemoryPanel(false);
       void toggleSettingsPanel(false);
+      void toggleToolsPanel(false);
       return;
     }
     if (event.key === 'Escape' && composerSecondaryTools.dataset.open === 'true') {
@@ -1507,6 +1572,7 @@ function renderChatWindowPicker(): void {
   temporaryChatBadge.hidden = !temporary;
   temporaryChatBadge.textContent = temporary ? TEMPORARY_CHAT_BADGE : '';
   chatWindowSelect.replaceChildren();
+  chatWindowList.replaceChildren();
   for (const windowRecord of chatWindows) {
     const option = document.createElement('option');
     option.value = String(windowRecord.id);
@@ -1514,6 +1580,24 @@ function renderChatWindowPicker(): void {
     const title = windowRecord.is_temporary ? `[${TEMPORARY_CHAT_LABEL}] ${windowRecord.title}` : windowRecord.title;
     option.textContent = count > 0 ? `${title} (${count})` : title;
     chatWindowSelect.appendChild(option);
+
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.className = 'chat-window-list-item';
+    item.dataset.chatWindowId = String(windowRecord.id);
+    item.dataset.active = String(windowRecord.id === currentChatWindowId);
+    item.setAttribute('role', 'option');
+    item.setAttribute('aria-selected', String(windowRecord.id === currentChatWindowId));
+    item.disabled = isStreaming;
+
+    const label = document.createElement('span');
+    label.className = 'chat-window-list-title';
+    label.textContent = windowRecord.is_temporary ? `${TEMPORARY_CHAT_LABEL} · ${windowRecord.title}` : windowRecord.title;
+    const meta = document.createElement('span');
+    meta.className = 'chat-window-list-meta';
+    meta.textContent = count > 0 ? `${count} 条` : '空对话';
+    item.append(label, meta);
+    chatWindowList.appendChild(item);
   }
   if (currentChatWindowId) chatWindowSelect.value = String(currentChatWindowId);
   const disabled = isStreaming || chatWindows.length === 0;
@@ -1524,6 +1608,8 @@ function renderChatWindowPicker(): void {
   chatWindowNew.disabled = isStreaming;
   chatWindowTemporary.disabled = isStreaming;
   chatWindowDelete.textContent = temporary ? '关闭' : '删除';
+  activeChatTitle.textContent = current?.title || '新对话';
+  activeProjectTitle.textContent = current?.projectTitle || getCurrentProject()?.title || 'General Project';
 }
 
 async function loadCurrentChatWindowMessages(): Promise<void> {
@@ -1802,6 +1888,26 @@ function renderContextBudget(snapshot: ContextSnapshotRecord | null, visibleMess
   const estimatedTokens = snapshot.budget?.estimatedPromptTokens ?? snapshot.estimated_prompt_tokens;
   const maxTokens = snapshot.budget?.maxPromptTokens;
   const chars = snapshot.budget?.promptChars ?? snapshot.prompt_chars;
+  if (maxTokens) {
+    const usage = Math.max(0, Math.min(100, Math.round((Number(estimatedTokens) / Number(maxTokens)) * 100)));
+    const meter = document.createElement('div');
+    meter.className = 'window-context-meter';
+    meter.dataset.level = usage >= 85 ? 'high' : usage >= 65 ? 'medium' : 'normal';
+    const meterHeading = document.createElement('div');
+    meterHeading.className = 'window-context-meter-heading';
+    const meterLabel = document.createElement('span');
+    meterLabel.textContent = '上下文使用';
+    const meterValue = document.createElement('strong');
+    meterValue.textContent = `${estimatedTokens} / ${maxTokens} tokens · ${usage}%`;
+    meterHeading.append(meterLabel, meterValue);
+    const track = document.createElement('div');
+    track.className = 'window-context-meter-track';
+    const fill = document.createElement('span');
+    fill.style.width = `${usage}%`;
+    track.appendChild(fill);
+    meter.append(meterHeading, track);
+    windowContextBudget.appendChild(meter);
+  }
   appendContextStat('最近消息', `${recentCount}/${visibleMessageCount}`);
   appendContextStat('摘要', summaryState);
   appendContextStat('记忆', `${memoryCount} 项`);
@@ -1991,18 +2097,25 @@ async function initializeSettings(): Promise<void> {
 }
 
 async function openFirstRunModelSetup(): Promise<void> {
-  await toggleSettingsPanel(true);
-  modelSettingsSection.open = true;
-  modelSettingsSection.scrollIntoView({ block: 'start' });
+  await openModelSettings();
   const firstChoice = modelFirstRunChoice.querySelector<HTMLButtonElement>('[data-model-path]');
   firstChoice?.focus({ preventScroll: true });
+}
+
+async function openModelSettings(): Promise<void> {
+  await toggleSettingsPanel(true);
+  modelSettingsSection.open = true;
+  settingsForm.scrollTo({ top: Math.max(0, modelSettingsSection.offsetTop - 12), behavior: 'smooth' });
+  appShell.scrollLeft = 0;
+  document.documentElement.scrollLeft = 0;
+  document.body.scrollLeft = 0;
 }
 
 async function refreshStartupModelStatus(autoConnect: boolean): Promise<void> {
   if (!autoConnect) {
     modelConnected = null;
     if (chatPanel.hasMessages()) {
-      setStatus('寰呭懡', 'ready');
+      setStatus('待命', 'ready');
       return;
     }
     chatPanel.addMessage('时夏在。模型自动连接先关着，需要聊天时再叫醒本地模型就好。', 'assistant', '待命');
@@ -2011,38 +2124,47 @@ async function refreshStartupModelStatus(autoConnect: boolean): Promise<void> {
   }
 
   try {
-    const info = await window.athenaAPI.getSystemInfo();
+    let info: Awaited<ReturnType<typeof window.athenaAPI.getSystemInfo>> = null;
+    for (let attempt = 0; attempt < 3 && !info; attempt += 1) {
+      if (attempt > 0) await new Promise(resolve => window.setTimeout(resolve, 320 * attempt));
+      info = await window.athenaAPI.getSystemInfo();
+    }
+    if (!info) throw new Error('主进程没有返回模型状态');
     modelConnected = info.modelConnected;
     if (info.modelConnected) {
       if (chatPanel.hasMessages()) {
-        setStatus('灏辩华', 'ready');
+        setStatus(`${modelProviderLabel(info.modelProvider)} · ${info.modelName} · 已连接`, 'ready');
         return;
       }
       chatPanel.addMessage(`${greetingForHour(info.hour)}，时夏在。今天想先聊两句，还是把手头的事往前推一点？`, 'assistant', '温柔');
-      setStatus('就绪', 'ready');
+      setStatus(`${modelProviderLabel(info.modelProvider)} · ${info.modelName} · 已连接`, 'ready');
     } else {
       if (chatPanel.hasMessages()) {
-        setStatus(`${modelProviderLabel(info.modelProvider)} 绂荤嚎`, 'offline');
+        setStatus(`${modelProviderLabel(info.modelProvider)} · 模型不可用`, 'offline');
         return;
       }
       chatPanel.addMessage(`我已经醒着，但还没连上 ${modelProviderLabel(info.modelProvider)}。请检查 ${info.modelEndpoint || '模型地址'} 和 ${info.modelName || '模型名称'}。`, 'assistant', '等待模型');
-      setStatus(`${modelProviderLabel(info.modelProvider)} 离线`, 'offline');
+      setStatus(`${modelProviderLabel(info.modelProvider)} · 模型不可用`, 'offline');
     }
-  } catch {
+  } catch (error) {
+    console.error('Failed to read startup model status', error);
     modelConnected = null;
     if (chatPanel.hasMessages()) {
-      setStatus('check failed', 'error');
+      setStatus('模型状态未知', 'error');
       return;
     }
-    chatPanel.addMessage('初始化状态检查失败，但窗口已经准备好了。', 'assistant', '需要检查');
-    setStatus('检查失败', 'error');
+    chatPanel.addMessage('窗口已经准备好了，但模型状态暂时无法读取。请打开模型设置查看诊断结果。', 'assistant', '需要检查');
+    setStatus('模型状态未知', 'error');
   }
 }
 
 async function toggleMemoryPanel(force?: boolean): Promise<void> {
   const next = force ?? memoryPanel.dataset.open !== 'true';
   memoryPanel.dataset.open = String(next);
-  if (next) settingsPanel.dataset.open = 'false';
+  if (next) {
+    settingsPanel.dataset.open = 'false';
+    toolsPanel.dataset.open = 'false';
+  }
   toggleComposerTools(false);
   syncPanelState();
   if (next) {
@@ -2061,6 +2183,7 @@ async function toggleSettingsPanel(force?: boolean): Promise<void> {
   settingsPanel.dataset.open = String(next);
   if (next) {
     memoryPanel.dataset.open = 'false';
+    toolsPanel.dataset.open = 'false';
     toggleComposerTools(false);
     syncPanelState();
     await loadSettingsPanel();
@@ -2073,14 +2196,85 @@ async function toggleSettingsPanel(force?: boolean): Promise<void> {
   if (!next) syncPanelState();
 }
 
+async function toggleToolsPanel(force?: boolean): Promise<void> {
+  const next = force ?? toolsPanel.dataset.open !== 'true';
+  toolsPanel.dataset.open = String(next);
+  if (next) {
+    memoryPanel.dataset.open = 'false';
+    settingsPanel.dataset.open = 'false';
+    toggleComposerTools(false);
+  }
+  syncPanelState();
+  if (next) await loadToolCatalog();
+}
+
+function toggleSidebar(force?: boolean): void {
+  const next = force ?? appShell.dataset.sidebar !== 'open';
+  appShell.dataset.sidebar = next ? 'open' : 'closed';
+  btnSidebar.setAttribute('aria-expanded', String(next));
+}
+
+async function loadToolCatalog(): Promise<void> {
+  toolsPanelSummary.textContent = '正在读取工具权限...';
+  toolsPanelList.replaceChildren();
+  try {
+    const catalog = await window.athenaAPI.getToolCatalog(currentMode);
+    if (!catalog) throw new Error('主进程未返回工具目录');
+    renderToolCatalog(catalog);
+  } catch (error) {
+    toolsPanelSummary.textContent = `读取失败：${error instanceof Error ? error.message : String(error)}`;
+  }
+}
+
+function renderToolCatalog(catalog: ToolCatalog): void {
+  currentToolCatalog = catalog;
+  const available = catalog.tools.filter(tool => tool.available).length;
+  toolsPanelSummary.textContent = `${modeLabel(catalog.mode)}模式 · ${toolPermissionShortLabel(catalog.permissionLevel)} · ${available}/${catalog.tools.length} 个可调用`;
+  toolsPanelList.replaceChildren();
+
+  const visibleTools = catalog.tools.filter(tool => (
+    toolCatalogFilter === 'all'
+    || (toolCatalogFilter === 'available' && tool.available)
+    || (toolCatalogFilter === 'locked' && !tool.available)
+  ));
+  for (const tool of visibleTools) {
+    const card = document.createElement('article');
+    card.className = 'tool-catalog-item';
+    card.dataset.available = String(tool.available);
+
+    const heading = document.createElement('div');
+    heading.className = 'tool-catalog-heading';
+    const label = document.createElement('strong');
+    label.textContent = tool.label;
+    const state = document.createElement('span');
+    state.textContent = tool.available ? '可调用' : tool.blockedReason === 'sku' ? '当前版本不可用' : `需要${toolPermissionShortLabel(tool.minimumLevel)}`;
+    heading.append(label, state);
+
+    const signature = document.createElement('code');
+    signature.textContent = tool.signature;
+    const description = document.createElement('p');
+    description.textContent = tool.description;
+    card.append(heading, signature, description);
+    toolsPanelList.appendChild(card);
+  }
+  if (visibleTools.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'tool-catalog-empty';
+    empty.textContent = toolCatalogFilter === 'available' ? '当前模式没有可调用工具' : '没有符合条件的工具';
+    toolsPanelList.appendChild(empty);
+  }
+}
+
 function syncPanelState(): void {
   const memoryOpen = memoryPanel.dataset.open === 'true';
   const settingsOpen = settingsPanel.dataset.open === 'true';
-  const anyOpen = memoryOpen || settingsOpen;
+  const toolsOpen = toolsPanel.dataset.open === 'true';
+  const anyOpen = memoryOpen || settingsOpen || toolsOpen;
   panelScrim.dataset.visible = String(anyOpen);
   panelScrim.setAttribute('aria-hidden', String(!anyOpen));
   memoryPanel.setAttribute('aria-hidden', String(!memoryOpen));
   settingsPanel.setAttribute('aria-hidden', String(!settingsOpen));
+  toolsPanel.setAttribute('aria-hidden', String(!toolsOpen));
   btnMemory.setAttribute('aria-expanded', String(memoryOpen));
   btnSettings.setAttribute('aria-expanded', String(settingsOpen));
 }
@@ -2144,6 +2338,8 @@ function populateSelectedModelProvider(): void {
   modelConnectionStatus.textContent = provider === 'ollama'
     ? '安装 Ollama 后，可把所选模型下载到本机。'
     : `${modelProviderLabel(provider)} 使用你填写的 API 地址、模型名和凭据。`;
+  if (lastModelConnectionStatus?.provider === provider) renderModelDiagnostics(lastModelConnectionStatus);
+  else resetModelDiagnostics();
 }
 
 async function refreshModelCredentialStatus(): Promise<void> {
@@ -2260,16 +2456,49 @@ async function saveModelConfiguration(setupComplete = true): Promise<SettingsBun
 }
 
 async function testModelConnection(): Promise<void> {
-  modelConnectionStatus.textContent = '正在保存配置并测试连接...';
+  modelConnectionStatus.textContent = '正在保存配置并测试真实聊天请求...';
+  setModelDiagnostic(modelDiagnosticService, 'pending', '检测中');
+  setModelDiagnostic(modelDiagnosticModel, 'idle', '等待服务');
+  setModelDiagnostic(modelDiagnosticChat, 'idle', '等待模型');
   try {
     await saveModelConfiguration(true);
     const status = await window.athenaAPI.testModelConnection();
-    modelConnectionStatus.textContent = status?.connected
-      ? `${modelProviderLabel(status.provider)} 已连接：${status.model}`
-      : `${status ? modelProviderLabel(status.provider) : '模型'} 连接失败，请检查地址、模型和凭据。`;
+    if (!status) throw new Error('主进程没有返回诊断结果');
+    lastModelConnectionStatus = status;
+    renderModelDiagnostics(status);
+    modelConnected = status.connected;
+    setStatus(status.connected ? `${modelProviderLabel(status.provider)} · ${status.model} · 已连接` : `${modelProviderLabel(status.provider)} · 模型不可用`, status.connected ? 'ready' : 'offline');
   } catch (error) {
     modelConnectionStatus.textContent = `连接测试失败：${error instanceof Error ? error.message : String(error)}`;
+    modelConnectionStatus.dataset.kind = 'error';
+    setModelDiagnostic(modelDiagnosticService, 'error', '测试中断');
+    setModelDiagnostic(modelDiagnosticModel, 'idle', '未完成');
+    setModelDiagnostic(modelDiagnosticChat, 'idle', '未完成');
   }
+}
+
+function renderModelDiagnostics(status: ModelConnectionStatus): void {
+  setModelDiagnostic(modelDiagnosticService, status.serviceReachable ? 'success' : 'error', status.serviceReachable ? '已连接' : '不可达');
+  setModelDiagnostic(modelDiagnosticModel, status.modelAvailable ? 'success' : 'error', status.modelAvailable ? '已安装' : '不可用');
+  setModelDiagnostic(modelDiagnosticChat, status.chatSucceeded ? 'success' : 'error', status.chatSucceeded ? '请求成功' : '请求失败');
+  const elapsed = typeof status.durationMs === 'number' ? ` · ${(status.durationMs / 1000).toFixed(1)} 秒` : '';
+  modelConnectionStatus.textContent = status.connected
+    ? `${modelProviderLabel(status.provider)} · ${status.model} 已通过真实聊天测试${elapsed}`
+    : `${modelProviderLabel(status.provider)} 测试失败${status.error ? `：${status.error}` : '，请检查地址、模型和凭据。'}`;
+  modelConnectionStatus.dataset.kind = status.connected ? 'success' : 'error';
+}
+
+function resetModelDiagnostics(): void {
+  modelConnectionStatus.dataset.kind = '';
+  setModelDiagnostic(modelDiagnosticService, 'idle', '待测试');
+  setModelDiagnostic(modelDiagnosticModel, 'idle', '待测试');
+  setModelDiagnostic(modelDiagnosticChat, 'idle', '待测试');
+}
+
+function setModelDiagnostic(target: HTMLElement, state: 'idle' | 'pending' | 'success' | 'error', text: string): void {
+  target.textContent = text;
+  const row = target.closest<HTMLElement>('.model-diagnostic-row');
+  if (row) row.dataset.state = state;
 }
 
 async function beginOllamaInstall(): Promise<void> {

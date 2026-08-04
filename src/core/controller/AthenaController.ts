@@ -44,6 +44,7 @@ import type {
   ToolConfirmationRequest,
   WebSearchContext,
   WebSearchStatus,
+  ToolCatalog,
 } from '../../shared/types';
 
 const logger = createLogger('AthenaController');
@@ -270,6 +271,17 @@ export class AthenaController {
     resolved.allowExternalNetwork = canUseNetworkCapability('externalToolNetwork');
     this.conversation.setToolPermissionLevel(resolved.permissionLevel);
     return resolved;
+  }
+
+  getToolCatalog(requestedMode?: ConversationMode): ToolCatalog {
+    const settings = getAppSettings();
+    const mode = requestedMode ?? settings.conversation.activeMode;
+    const resolved = resolveToolSettingsForMode(settings.tools, mode);
+    return {
+      mode,
+      permissionLevel: resolved.permissionLevel,
+      tools: this.conversation.getToolCatalog(resolved),
+    };
   }
 
   cancelCurrentExecution(): number {

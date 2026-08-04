@@ -51,19 +51,37 @@
       <path d="M12 17v5" />
       <path d="M7 3h10l-2 7 4 4v3H5v-3l4-4-2-7Z" />
     </symbol>
+    <symbol id="icon-sidebar" viewBox="0 0 24 24">
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <path d="M9 4v16" />
+    </symbol>
+    <symbol id="icon-tools" viewBox="0 0 24 24">
+      <path d="M14.7 6.3a4 4 0 0 0-5 5L4 17v3h3l5.7-5.7a4 4 0 0 0 5-5l-2.4 2.4-3-3 2.4-2.4Z" />
+    </symbol>
+    <symbol id="icon-chat" viewBox="0 0 24 24">
+      <path d="M5 5h14v11H9l-4 3V5Z" />
+    </symbol>
   </svg>
 
   <main id="app-shell" data-mode="companion" data-state="idle" data-intro="starting">
     <header id="titlebar">
       <div id="titlebar-title">
+        <button id="btn-sidebar" class="icon-button" type="button" title="显示或隐藏对话列表" aria-label="显示或隐藏对话列表" aria-expanded="true">
+          <svg class="icon"><use href="#icon-sidebar"></use></svg>
+        </button>
         <span class="avatar-mark" aria-hidden="true">夏</span>
         <span class="brand-stack">
           <span class="brand-name">苏时夏</span>
-          <span class="brand-subtitle">
+          <button id="model-status-button" class="brand-subtitle" type="button" title="打开模型设置">
             <span class="status-dot" id="status-dot"></span>
             <span id="status-text">正在连接</span>
-          </span>
+          </button>
         </span>
+      </div>
+
+      <div id="titlebar-context">
+        <span id="active-chat-title">新对话</span>
+        <span id="active-project-title">General Project</span>
       </div>
 
       <div id="titlebar-right">
@@ -90,20 +108,31 @@
     </div>
 
     <div id="chat-window-bar" aria-label="聊天窗口">
-      <select id="project-select" aria-label="按 Project 查看聊天窗口"></select>
-      <button id="project-new" class="chat-window-action" type="button" title="新建 Project" aria-label="新建 Project">
-        <svg class="icon"><use href="#icon-plus"></use></svg>
-      </button>
-      <button id="project-instructions" class="chat-window-action" type="button">Instructions</button>
-      <select id="chat-window-select" aria-label="切换聊天窗口"></select>
       <button id="chat-window-new" class="chat-window-action" type="button" title="新建聊天窗口" aria-label="新建聊天窗口">
         <svg class="icon"><use href="#icon-plus"></use></svg>
+        <span>新对话</span>
       </button>
-      <button id="chat-window-temporary" class="chat-window-action" type="button" title="临时聊天：不写入长期记忆，关闭后清除" aria-label="新建临时聊天">临时</button>
+      <button id="chat-window-temporary" class="chat-window-action" type="button" title="临时聊天：不写入长期记忆，关闭后清除" aria-label="新建临时聊天">
+        <svg class="icon"><use href="#icon-chat"></use></svg>
+        <span>临时聊天</span>
+      </button>
       <span id="temporary-chat-badge" hidden>临时聊天</span>
-      <button id="chat-window-rename" class="chat-window-action" type="button">重命名</button>
-      <button id="chat-window-archive" class="chat-window-action" type="button">归档</button>
-      <button id="chat-window-delete" class="chat-window-action danger" type="button">删除</button>
+      <div class="sidebar-section-heading">
+        <span>Project</span>
+        <button id="project-new" class="sidebar-heading-action" type="button" title="新建 Project" aria-label="新建 Project">
+          <svg class="icon"><use href="#icon-plus"></use></svg>
+        </button>
+      </div>
+      <select id="project-select" aria-label="按 Project 查看聊天窗口"></select>
+      <button id="project-instructions" class="chat-window-action sidebar-wide-action" type="button">编辑 Project 指令</button>
+      <div class="sidebar-section-heading"><span>对话</span></div>
+      <select id="chat-window-select" class="visually-hidden-select" aria-label="切换聊天窗口"></select>
+      <div id="chat-window-list" role="listbox" aria-label="对话列表"></div>
+      <div id="chat-window-actions">
+        <button id="chat-window-rename" class="chat-window-action" type="button">重命名</button>
+        <button id="chat-window-archive" class="chat-window-action" type="button">归档</button>
+        <button id="chat-window-delete" class="chat-window-action danger" type="button">删除</button>
+      </div>
     </div>
 
     <section id="stage">
@@ -161,7 +190,7 @@
             <ul id="window-context-todos" class="window-context-list"></ul>
           </section>
           <section class="window-context-block">
-            <div class="window-context-label">Pinned facts</div>
+            <div class="window-context-label">固定事实</div>
             <div id="window-pinned-facts" class="window-pinned-facts"></div>
           </section>
           <section class="window-context-block">
@@ -169,7 +198,7 @@
             <div id="window-context-summary" class="window-context-summary">暂无摘要</div>
           </section>
           <section class="window-context-block">
-            <div class="window-context-label">本轮上下文</div>
+            <div class="window-context-label">上下文使用</div>
             <div id="window-context-budget" class="window-context-budget"></div>
           </section>
         </div>
@@ -208,6 +237,26 @@
         <div id="memory-import-summary"></div>
         <div id="memory-import-list"></div>
       </section>
+    </aside>
+
+    <aside id="tools-panel" class="side-panel" aria-label="可调用工具" aria-hidden="true" data-open="false">
+      <div class="side-panel-head">
+        <div>
+          <div class="panel-eyebrow">TOOLS</div>
+          <div id="tools-panel-title">可调用工具</div>
+          <div id="tools-panel-subtitle">按当前模式与权限实时计算</div>
+        </div>
+        <button id="btn-tools-close" class="icon-button" type="button" title="关闭" aria-label="关闭">
+          <svg class="icon"><use href="#icon-close"></use></svg>
+        </button>
+      </div>
+      <div id="tools-panel-summary" role="status">正在读取工具权限...</div>
+      <div id="tools-panel-filter" role="tablist" aria-label="筛选工具">
+        <button type="button" data-tool-filter="all" class="active" role="tab" aria-selected="true">全部</button>
+        <button type="button" data-tool-filter="available" role="tab" aria-selected="false">可用</button>
+        <button type="button" data-tool-filter="locked" role="tab" aria-selected="false">未授权</button>
+      </div>
+      <div id="tools-panel-list"></div>
     </aside>
 
     <section id="execution-panel" class="execution-workspace" aria-label="执行工作区">
@@ -553,6 +602,20 @@
               <button id="model-test-connection" class="settings-panel-link" type="button">测试连接</button>
             </div>
             <div id="model-connection-status" class="settings-note" role="status">请选择模型来源并测试连接。</div>
+            <div id="model-diagnostics" aria-label="模型连接诊断">
+              <div class="model-diagnostic-row" data-state="idle">
+                <span>服务可达</span>
+                <strong id="model-diagnostic-service">待测试</strong>
+              </div>
+              <div class="model-diagnostic-row" data-state="idle">
+                <span>模型可用</span>
+                <strong id="model-diagnostic-model">待测试</strong>
+              </div>
+              <div class="model-diagnostic-row" data-state="idle">
+                <span>聊天请求</span>
+                <strong id="model-diagnostic-chat">待测试</strong>
+              </div>
+            </div>
             <div class="settings-note settings-note-warning">远程模型会把当前请求所需的对话、记忆上下文和工具规划内容发送给所选 Provider。Athena 不会在 Provider 失败时隐式切换到另一家服务。</div>
           </div>
         </details>
@@ -671,6 +734,10 @@
     <form id="input-form" autocomplete="off">
       <div id="voice-feedback" role="status" aria-live="polite"></div>
       <div id="composer-secondary-tools" data-open="false">
+        <button id="available-tools-btn" class="secondary-tool" type="button" title="查看当前可调用的电脑工具" aria-label="查看可调用工具">
+          <svg class="icon"><use href="#icon-tools"></use></svg>
+          <span>可调用工具</span>
+        </button>
         <button id="web-search-btn" class="secondary-tool" type="button" title="强制下一条消息联网搜索" aria-label="强制下一条消息联网搜索" aria-pressed="false">
           <svg class="icon"><use href="#icon-globe"></use></svg>
           <span id="web-search-label">本轮联网搜索</span>

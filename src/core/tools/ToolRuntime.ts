@@ -9,6 +9,7 @@ import {
 import type {
   ConversationMode,
   ToolExecutionRecord,
+  ToolCatalogItem,
   ToolConfirmationRequest,
   ToolPermissionLevel,
   ToolSettings,
@@ -95,6 +96,10 @@ export class ToolRuntime {
       cancelled += 1;
     }
     return cancelled;
+  }
+
+  getCatalog(settings: ToolSettings): ToolCatalogItem[] {
+    return this.computer.getCatalog(settings);
   }
 
   async process(input: ToolRuntimeInput): Promise<ToolRuntimeResult> {

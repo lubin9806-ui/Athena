@@ -17,6 +17,7 @@ contextBridge.exposeInMainWorld('athenaAPI', {
   unpinChatWindowFact: (id: number, factId: string) => ipcRenderer.invoke('chatWindow:unpinFact', id, factId),
   getChatWindowContextSnapshots: (id: number, limit = 5) => ipcRenderer.invoke('chatWindow:contextSnapshots', id, limit),
   cancelExecution: () => ipcRenderer.invoke('execution:cancel'),
+  getToolCatalog: (mode?: 'create' | 'companion' | 'reason' | 'execute') => ipcRenderer.invoke('tools:catalog', mode),
   onChatStream: (callback: (data: { content: string; done: boolean }) => void) => {
     const handler = (_: any, data: { content: string; done: boolean }) => callback(data);
     ipcRenderer.on('chat:stream', handler);

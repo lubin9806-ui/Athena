@@ -4,7 +4,7 @@ import * as net from 'net';
 import { execFile, spawn, type ChildProcessWithoutNullStreams } from 'child_process';
 import { resolveProjectRoot } from '../runtime/Paths';
 import { isSteamToolAllowed } from '../steam/SteamSkuPolicy';
-import type { ToolExecutionStatus, ToolPermissionLevel, ToolSettings } from '../../shared/types';
+import type { ToolCatalogItem, ToolExecutionStatus, ToolPermissionLevel, ToolSettings } from '../../shared/types';
 
 const MAX_READ_BYTES = 256 * 1024;
 const MAX_WRITE_CHARS = 2_000_000;
@@ -232,6 +232,22 @@ export class ComputerToolService {
       PERMISSION_RANK[settings.permissionLevel] >= PERMISSION_RANK[tool.minimumLevel]
       && isSteamToolAllowed(tool.name, tool.minimumLevel)
     ));
+  }
+
+  getCatalog(settings: ToolSettings): ToolCatalogItem[] {
+    return TOOL_DEFINITIONS.map((tool) => {
+      const skuAllowed = isSteamToolAllowed(tool.name, tool.minimumLevel);
+      const permissionAllowed = PERMISSION_RANK[settings.permissionLevel] >= PERMISSION_RANK[tool.minimumLevel];
+      return {
+        ...tool,
+        available: skuAllowed && permissionAllowed,
+        ...(!skuAllowed
+          ? { blockedReason: 'sku' as const }
+          : !permissionAllowed
+            ? { blockedReason: 'permission' as const }
+            : {}),
+      };
+    });
   }
 
   async execute(name: string, args: Record<string, unknown>, settings: ToolSettings): Promise<ComputerToolResult> {
