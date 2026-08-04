@@ -1,3 +1,5 @@
+import type { LiquidGlassMotion } from './LiquidGlassRenderer';
+
 export class LiveGlass {
   private frame = 0;
   private pointerX = window.innerWidth * 0.5;
@@ -6,6 +8,8 @@ export class LiveGlass {
   private targetPointerY = this.pointerY;
   private lastFrameAt = performance.now();
   private voiceLevel = 0;
+  private velocityX = 0;
+  private velocityY = 0;
   private settingsReducedMotion = false;
   private idleTimer: number | undefined;
   private idlePhase = 0;
@@ -15,9 +19,11 @@ export class LiveGlass {
     private readonly surfaces: HTMLElement[],
     private readonly shell?: HTMLElement,
     private readonly lifeCore?: HTMLElement,
+    private readonly rippleSurfaces: HTMLElement[] = surfaces,
+    private readonly onMotion?: (motion: LiquidGlassMotion) => void,
   ) {
     window.addEventListener('pointermove', this.handlePointerMove, { passive: true });
-    for (const surface of surfaces) surface.addEventListener('pointerdown', this.handlePointerDown);
+    for (const surface of this.rippleSurfaces) surface.addEventListener('pointerdown', this.handlePointerDown);
     this.applyMaterialPosition();
     this.scheduleIdleShift();
   }
@@ -27,6 +33,9 @@ export class LiveGlass {
     for (const surface of this.surfaces) {
       surface.style.setProperty('--glass-energy', this.voiceLevel.toFixed(3));
     }
+    this.shell?.style.setProperty('--glass-energy', this.voiceLevel.toFixed(3));
+    this.lifeCore?.style.setProperty('--glass-energy', this.voiceLevel.toFixed(3));
+    this.applyMaterialPosition();
   }
 
   setMotionReduced(reduced: boolean): void {
@@ -41,13 +50,15 @@ export class LiveGlass {
     this.frame = 0;
     this.pointerX = this.targetPointerX;
     this.pointerY = this.targetPointerY;
+    this.velocityX = 0;
+    this.velocityY = 0;
     this.applyMaterialPosition();
   }
 
   dispose(): void {
     cancelAnimationFrame(this.frame);
     window.removeEventListener('pointermove', this.handlePointerMove);
-    for (const surface of this.surfaces) surface.removeEventListener('pointerdown', this.handlePointerDown);
+    for (const surface of this.rippleSurfaces) surface.removeEventListener('pointerdown', this.handlePointerDown);
   }
 
   private readonly handlePointerMove = (event: PointerEvent): void => {
@@ -60,17 +71,20 @@ export class LiveGlass {
     if (this.isMotionReduced()) return;
     const surface = event.currentTarget;
     if (!(surface instanceof HTMLElement)) return;
-    const rect = surface.getBoundingClientRect();
-    surface.querySelector('.liquid-ripple')?.remove();
-    const ripple = document.createElement('span');
-    ripple.className = 'liquid-ripple';
-    ripple.style.setProperty('--ripple-x', `${event.clientX - rect.left}px`);
-    ripple.style.setProperty('--ripple-y', `${event.clientY - rect.top}px`);
-    surface.appendChild(ripple);
-    ripple.addEventListener('animationend', (animationEvent) => {
-      if (animationEvent.pseudoElement === '::before') ripple.remove();
+    this.targetPointerX = event.clientX;
+    this.targetPointerY = event.clientY;
+    surface.dataset.liquidPressed = 'true';
+    this.onMotion?.({
+      pointerX: event.clientX,
+      pointerY: event.clientY,
+      velocityX: this.velocityX,
+      velocityY: this.velocityY,
+      energy: Math.max(this.voiceLevel, 0.34),
     });
-    window.setTimeout(() => ripple.remove(), 520);
+    window.setTimeout(() => {
+      surface.dataset.liquidPressed = 'false';
+      this.applyMaterialPosition();
+    }, 180);
   };
 
   private readonly update = (now: number): void => {
@@ -82,15 +96,25 @@ export class LiveGlass {
       this.targetPointerY - this.pointerY,
     );
     const ease = this.isMotionReduced() ? 1 : 1 - Math.exp(-deltaSeconds * 15);
+    const previousX = this.pointerX;
+    const previousY = this.pointerY;
     this.pointerX += (this.targetPointerX - this.pointerX) * ease;
     this.pointerY += (this.targetPointerY - this.pointerY) * ease;
+    const targetVelocityX = Math.max(-1, Math.min(1, (this.pointerX - previousX) / deltaSeconds / 1_100));
+    const targetVelocityY = Math.max(-1, Math.min(1, (this.pointerY - previousY) / deltaSeconds / 1_100));
+    const velocityEase = this.isMotionReduced() ? 1 : 1 - Math.exp(-deltaSeconds * 10);
+    this.velocityX += (targetVelocityX - this.velocityX) * velocityEase;
+    this.velocityY += (targetVelocityY - this.velocityY) * velocityEase;
     this.applyMaterialPosition();
 
-    if (!this.isMotionReduced() && distance > 0.28) {
+    const velocity = Math.hypot(this.velocityX, this.velocityY);
+    if (!this.isMotionReduced() && (distance > 0.28 || velocity > 0.008)) {
       this.frame = requestAnimationFrame(this.update);
     } else {
       this.pointerX = this.targetPointerX;
       this.pointerY = this.targetPointerY;
+      this.velocityX = 0;
+      this.velocityY = 0;
       this.applyMaterialPosition();
     }
   };
@@ -98,8 +122,12 @@ export class LiveGlass {
   private applyMaterialPosition(): void {
     const viewportX = Math.max(0, Math.min(1, this.pointerX / Math.max(1, window.innerWidth)));
     const viewportY = Math.max(0, Math.min(1, this.pointerY / Math.max(1, window.innerHeight)));
+    const velocity = Math.min(1, Math.hypot(this.velocityX, this.velocityY));
     this.shell?.style.setProperty('--scene-x', `${(viewportX * 100).toFixed(2)}%`);
     this.shell?.style.setProperty('--scene-y', `${(viewportY * 100).toFixed(2)}%`);
+    this.shell?.style.setProperty('--scene-velocity-x', this.velocityX.toFixed(3));
+    this.shell?.style.setProperty('--scene-velocity-y', this.velocityY.toFixed(3));
+    this.shell?.style.setProperty('--scene-velocity', velocity.toFixed(3));
 
     if (this.lifeCore) {
       const coreRect = this.lifeCore.getBoundingClientRect();
@@ -112,6 +140,10 @@ export class LiveGlass {
       this.lifeCore.style.setProperty('--core-proximity', proximity.toFixed(3));
       this.lifeCore.style.setProperty('--core-pointer-x', localX.toFixed(3));
       this.lifeCore.style.setProperty('--core-pointer-y', localY.toFixed(3));
+      this.lifeCore.style.setProperty('--core-velocity-x', this.velocityX.toFixed(3));
+      this.lifeCore.style.setProperty('--core-velocity-y', this.velocityY.toFixed(3));
+      this.lifeCore.style.setProperty('--core-velocity', velocity.toFixed(3));
+      this.lifeCore.dataset.attentive = String(proximity > 0.08);
     }
 
     for (const surface of this.surfaces) {
@@ -120,6 +152,7 @@ export class LiveGlass {
       const x = Math.max(-0.2, Math.min(1.2, (this.pointerX - rect.left) / rect.width));
       const y = Math.max(-0.5, Math.min(1.5, (this.pointerY - rect.top) / rect.height));
       const depth = Math.max(0, 1 - Math.min(1, Math.hypot(x - 0.5, y - 0.5) * 0.82));
+      const pressure = Math.min(1, velocity * 0.78 + this.voiceLevel * 0.72 + depth * 0.08);
       surface.style.setProperty('--glass-x', `${(x * 100).toFixed(2)}%`);
       surface.style.setProperty('--glass-y', `${(y * 100).toFixed(2)}%`);
       surface.style.setProperty('--glass-inverse-x', `${((1 - x) * 100).toFixed(2)}%`);
@@ -128,7 +161,21 @@ export class LiveGlass {
       surface.style.setProperty('--glass-depth', depth.toFixed(3));
       surface.style.setProperty('--glass-shift-x', `${((x - 0.5) * 4.8).toFixed(2)}px`);
       surface.style.setProperty('--glass-shift-y', `${((y - 0.5) * 2.8).toFixed(2)}px`);
+      surface.style.setProperty('--glass-velocity-x', this.velocityX.toFixed(3));
+      surface.style.setProperty('--glass-velocity-y', this.velocityY.toFixed(3));
+      surface.style.setProperty('--glass-velocity', velocity.toFixed(3));
+      surface.style.setProperty('--glass-pressure', pressure.toFixed(3));
+      surface.style.setProperty('--glass-caustic-x', `${(50 + this.velocityX * 22).toFixed(2)}%`);
+      surface.style.setProperty('--glass-caustic-y', `${(50 + this.velocityY * 18).toFixed(2)}%`);
     }
+
+    this.onMotion?.({
+      pointerX: this.pointerX,
+      pointerY: this.pointerY,
+      velocityX: this.velocityX,
+      velocityY: this.velocityY,
+      energy: this.voiceLevel,
+    });
   }
 
   private isMotionReduced(): boolean {

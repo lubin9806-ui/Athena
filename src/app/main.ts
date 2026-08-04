@@ -241,6 +241,8 @@ function createWindow(): void {
              const stage = document.getElementById('stage');
              const titlebar = document.getElementById('titlebar');
              const lifeCore = document.getElementById('life-core');
+             const inputForm = document.getElementById('input-form');
+             const spaceNavigation = document.getElementById('space-navigation');
              const spaceSwitch = document.getElementById('mode-switch');
              const workModeSwitch = document.getElementById('work-mode-switch');
              const memoryButton = document.getElementById('btn-memory');
@@ -271,10 +273,11 @@ function createWindow(): void {
               const uiReady = Boolean(
                appShell &&
                document.getElementById('chat-container') &&
-               document.getElementById('input-form') &&
+               inputForm &&
                stage &&
                titlebar &&
                lifeCore &&
+               spaceNavigation &&
                spaceSwitch &&
                workModeSwitch &&
                spaceSwitch.querySelectorAll('.space-btn').length === 2 &&
@@ -340,6 +343,7 @@ function createWindow(): void {
               visiblePresenceAction.click();
               const presenceQuickActionReactive = inputBox.value === presencePrompt && presencePrompt.length > 0;
               inputBox.value = '';
+              inputBox.dispatchEvent(new Event('input', { bubbles: true }));
               if (!presenceQuickActionReactive) return false;
 
              const stageRect = stage.getBoundingClientRect();
@@ -350,16 +354,42 @@ function createWindow(): void {
              }));
              await new Promise(resolve => setTimeout(resolve, 80));
              const glassReactive = Boolean(titlebar.style.getPropertyValue('--glass-x'));
-             if (!glassReactive) return false;
+             const liquidVelocityReactive = Boolean(titlebar.style.getPropertyValue('--glass-pressure'))
+               && Boolean(lifeCore.style.getPropertyValue('--core-velocity'));
+             let liquidShaderReactive = false;
+             for (let attempt = 0; attempt < 40; attempt += 1) {
+               liquidShaderReactive = spaceSwitch.dataset.liquidRenderer === 'webgl'
+                 && workModeSwitch.dataset.liquidRenderer === 'webgl'
+                 && inputForm.dataset.liquidRenderer === 'webgl';
+               if (liquidShaderReactive) break;
+               await new Promise(resolve => setTimeout(resolve, 50));
+             }
+             if (!glassReactive || !liquidVelocityReactive || !liquidShaderReactive) return false;
 
-             const titlebarRect = titlebar.getBoundingClientRect();
-             titlebar.dispatchEvent(new PointerEvent('pointerdown', {
+             const liquidFrameBefore = Number(spaceSwitch.dataset.liquidFrame || '0');
+             stage.dispatchEvent(new PointerEvent('pointermove', {
                bubbles: true,
-               clientX: titlebarRect.left + titlebarRect.width * 0.6,
-               clientY: titlebarRect.top + titlebarRect.height * 0.5,
+               clientX: stageRect.left + 18,
+               clientY: stageRect.bottom - 18,
              }));
-             const rippleReactive = Boolean(titlebar.querySelector('.liquid-ripple'));
-             if (!rippleReactive) return false;
+             let liquidFrameAfter = liquidFrameBefore;
+             for (let attempt = 0; attempt < 20; attempt += 1) {
+               await new Promise(resolve => setTimeout(resolve, 25));
+               liquidFrameAfter = Number(spaceSwitch.dataset.liquidFrame || '0');
+               if (liquidFrameAfter > liquidFrameBefore) break;
+             }
+             const liquidMotionReactive = liquidFrameAfter > liquidFrameBefore;
+             console.log('ATHENA_SMOKE_LIQUID_FRAME', JSON.stringify({ liquidFrameBefore, liquidFrameAfter, liquidMotionReactive }));
+             if (!liquidMotionReactive) return false;
+
+             const switchRect = spaceSwitch.getBoundingClientRect();
+             spaceSwitch.dispatchEvent(new PointerEvent('pointerdown', {
+               bubbles: true,
+               clientX: switchRect.left + switchRect.width * 0.6,
+               clientY: switchRect.top + switchRect.height * 0.5,
+             }));
+             const liquidPressReactive = spaceSwitch.dataset.liquidPressed === 'true';
+             if (!liquidPressReactive) return false;
 
              const originalSettings = await api.getSettings();
              const firstRunPaths = Array.from(firstRunModelChoice.querySelectorAll('[data-model-path]'))
@@ -475,7 +505,10 @@ function createWindow(): void {
                executionPermissionReactive,
                executionModeRestored,
                glassReactive,
-               rippleReactive,
+               liquidVelocityReactive,
+               liquidShaderReactive,
+               liquidMotionReactive,
+               liquidPressReactive,
                 modeReactive,
                 modePersisted,
                 modeRestored,

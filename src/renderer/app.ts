@@ -4,6 +4,7 @@ import './style.css';
 import { ChatPanel, type ChatMessageSnapshot, type ChatSource, type ChatToolExecution } from './ui/ChatPanel';
 import { InputBar } from './ui/InputBar';
 import { LiveGlass } from './ui/LiveGlass';
+import { LiquidGlassRenderer } from './ui/LiquidGlassRenderer';
 import { MotionSystem, type AthenaSpace } from './ui/MotionSystem';
 import { SelectControlManager } from './ui/SelectControl';
 import { ThemeController } from './ui/ThemeController';
@@ -562,6 +563,7 @@ const activeProjectTitle = mustGet<HTMLElement>('active-project-title');
 const modeSwitch = mustGet<HTMLElement>('mode-switch');
 const workModeSwitch = mustGet<HTMLElement>('work-mode-switch');
 const lifeCore = mustGet<HTMLElement>('life-core');
+const chatWindowBar = mustGet<HTMLElement>('chat-window-bar');
 const modeExecuteButton = mustGet<HTMLButtonElement>('mode-execute-button');
 const projectSelect = mustGet<HTMLSelectElement>('project-select');
 const projectNew = mustGet<HTMLButtonElement>('project-new');
@@ -739,7 +741,14 @@ const privacyExport = mustGet<HTMLButtonElement>('privacy-export');
 const privacyClear = mustGet<HTMLButtonElement>('privacy-clear');
 const settingsFeedback = mustGet<HTMLElement>('settings-feedback');
 
-const liveGlass = new LiveGlass([titlebar, modeSwitch, workModeSwitch, inputForm], appShell, lifeCore);
+const liquidGlassRenderer = new LiquidGlassRenderer([modeSwitch, workModeSwitch, inputForm], appShell);
+const liveGlass = new LiveGlass(
+  [titlebar, modeSwitch, workModeSwitch, chatWindowBar, inputForm, memoryPanel, settingsPanel, toolsPanel],
+  appShell,
+  lifeCore,
+  [modeSwitch, workModeSwitch, inputForm],
+  motion => liquidGlassRenderer.update(motion),
+);
 const motionSystem = new MotionSystem(appShell, inputForm);
 
 const TEMPORARY_CHAT_LABEL = '临时聊天';
@@ -1078,10 +1087,12 @@ function init(): void {
   settingAnimationLevel.addEventListener('change', () => {
     appShell.dataset.animation = settingAnimationLevel.value;
     liveGlass.setMotionReduced(settingAnimationLevel.value === 'low');
+    liquidGlassRenderer.setMotionReduced(settingAnimationLevel.value === 'low');
     motionSystem.setMotionReduced(settingAnimationLevel.value === 'low');
   });
   settingGlassEffects.addEventListener('change', () => {
     appShell.dataset.glass = String(settingGlassEffects.checked);
+    liquidGlassRenderer.setEnabled(settingGlassEffects.checked);
   });
   settingModelProvider.addEventListener('change', () => {
     populateSelectedModelProvider();
@@ -1188,6 +1199,7 @@ function init(): void {
     void microphoneRecorder.cancel();
     currentAudio?.pause();
     liveGlass.dispose();
+    liquidGlassRenderer.dispose();
     motionSystem.dispose();
     selectControls.dispose();
     themeController.dispose();
@@ -2365,7 +2377,9 @@ function toggleComposerTools(force?: boolean): void {
 
 function resizeInputBox(): void {
   inputBox.style.height = 'auto';
-  inputBox.style.height = `${Math.min(inputBox.scrollHeight, 116)}px`;
+  const inputHeight = Math.min(inputBox.scrollHeight, 116);
+  inputBox.style.height = `${inputHeight}px`;
+  inputForm.style.setProperty('--composer-height', `${inputHeight + 34}px`);
 }
 
 async function loadSettingsPanel(): Promise<void> {
@@ -2915,6 +2929,8 @@ function applyRuntimeSettings(settings: AppSettings): void {
   appShell.dataset.glass = String(settings.appearance.glassEffects);
   themeController.apply(settings.appearance.theme);
   liveGlass.setMotionReduced(settings.appearance.animationLevel === 'low');
+  liquidGlassRenderer.setMotionReduced(settings.appearance.animationLevel === 'low');
+  liquidGlassRenderer.setEnabled(settings.appearance.glassEffects);
   motionSystem.setMotionReduced(settings.appearance.animationLevel === 'low');
   chatPanel.setShowTimestamps(settings.conversation.showTimestamps);
   syncToolAccessHint();

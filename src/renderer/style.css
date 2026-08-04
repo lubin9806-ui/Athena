@@ -4166,6 +4166,10 @@ html[data-theme="night"] body {
   transform: none;
 }
 
+#input-box:placeholder-shown {
+  height: 38px !important;
+}
+
 #send-btn {
   border: 0;
   border-radius: 12px;
@@ -6432,4 +6436,525 @@ html[data-theme="night"] body {
 #app-shell[data-animation="low"][data-space-moving="true"] #stage,
 #app-shell[data-animation="low"] .message[data-entry="new"] .message-segment[data-fresh="true"] {
   animation: none;
+}
+
+/* Liquid Life refinement: shared navigation and velocity-aware optical response. */
+#space-navigation {
+  position: relative;
+  z-index: 4;
+  grid-column: 2;
+  grid-row: 2;
+  align-self: center;
+  justify-self: center;
+  width: fit-content;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transition: transform var(--space-transition-duration) cubic-bezier(0.2, 0.82, 0.18, 1);
+}
+
+#mode-switch,
+#app-shell:is([data-theme="day"], [data-theme="night"]) #mode-switch {
+  grid-column: auto;
+  grid-row: auto;
+  align-self: auto;
+  justify-self: auto;
+  flex: 0 0 356px;
+  margin: 0;
+  background:
+    radial-gradient(circle at var(--glass-x, 50%) var(--glass-y, 30%), rgba(255, 255, 255, calc(0.28 + var(--glass-pressure, 0) * 0.22)), transparent 42%),
+    radial-gradient(circle at var(--glass-inverse-x, 50%) var(--glass-inverse-y, 70%), color-mix(in srgb, var(--accent-secondary) 8%, transparent), transparent 54%),
+    color-mix(in srgb, var(--glass-surface) 86%, transparent);
+}
+
+#mode-switch::before,
+#app-shell:is([data-theme="day"], [data-theme="night"]) #mode-switch::before {
+  z-index: 1;
+}
+
+#mode-switch::after {
+  content: "";
+  position: absolute;
+  inset: -46% -18%;
+  z-index: 0;
+  display: block;
+  pointer-events: none;
+  background: linear-gradient(104deg, transparent 34%, rgba(255, 255, 255, 0.56) 48%, rgba(103, 133, 113, 0.08) 54%, transparent 68%);
+  opacity: calc(0.045 + var(--glass-pressure, 0) * 0.18);
+  transform: translate3d(calc(var(--glass-velocity-x, 0) * 22px), calc(var(--glass-velocity-y, 0) * 12px), 0) rotate(calc(var(--glass-velocity-x, 0) * 4deg));
+  transition: opacity 180ms ease;
+}
+
+.space-btn {
+  z-index: 2;
+}
+
+#work-mode-switch {
+  grid-column: auto;
+  grid-row: auto;
+  align-self: auto;
+  justify-self: auto;
+  width: 214px;
+  flex: 0 0 214px;
+  margin: 0;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at var(--glass-x, 44%) var(--glass-y, 30%), rgba(255, 255, 255, calc(0.18 + var(--glass-pressure, 0) * 0.2)), transparent 48%),
+    color-mix(in srgb, var(--glass-surface) 72%, transparent);
+  transition:
+    width var(--space-transition-duration) cubic-bezier(0.2, 0.82, 0.18, 1),
+    flex-basis var(--space-transition-duration) cubic-bezier(0.2, 0.82, 0.18, 1),
+    padding var(--space-transition-duration) cubic-bezier(0.2, 0.82, 0.18, 1),
+    border-color 220ms ease,
+    opacity 220ms ease,
+    transform var(--space-transition-duration) cubic-bezier(0.2, 0.82, 0.18, 1);
+}
+
+#work-mode-switch::after {
+  content: "";
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: var(--glass-caustic-x, 50%);
+  width: 18px;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.24), transparent);
+  opacity: calc(0.04 + var(--glass-pressure, 0) * 0.2);
+  transform: translateX(-50%) skewX(calc(var(--glass-velocity-x, 0) * -12deg));
+}
+
+#work-mode-switch[aria-hidden="true"] {
+  width: 0;
+  flex-basis: 0;
+  margin-left: -12px;
+  padding-inline: 0;
+  border-color: transparent;
+  opacity: 0;
+  transform: translateX(-14px) scale(0.96);
+}
+
+.life-core {
+  --core-velocity-x: 0;
+  --core-velocity-y: 0;
+  --core-velocity: 0;
+}
+
+.life-core-field {
+  border-radius: 43% 57% 61% 39%;
+  background:
+    radial-gradient(circle at calc(46% + var(--core-pointer-x) * 8%) calc(38% + var(--core-pointer-y) * 8%), rgba(255, 255, 255, calc(0.46 + var(--core-proximity) * 0.34)), transparent 27%),
+    linear-gradient(calc(145deg + var(--core-velocity-x) * 8deg), rgba(255, 255, 255, 0.21), rgba(104, 145, 120, 0.065) 48%, rgba(137, 92, 113, 0.055));
+  transform:
+    translate3d(calc((var(--core-pointer-x) + var(--core-velocity-x)) * 1.5px), calc((var(--core-pointer-y) + var(--core-velocity-y)) * 1.5px), 0)
+    scaleX(calc(1 + var(--core-velocity) * 0.09))
+    scaleY(calc(1 - var(--core-velocity) * 0.035));
+}
+
+.life-core-ring {
+  background: conic-gradient(from calc(22deg + var(--core-velocity-x) * 12deg), transparent 0 31deg, rgba(43, 93, 61, 0.88) 38deg 182deg, rgba(255, 255, 255, 0.82) 207deg 270deg, transparent 289deg 360deg);
+  transform:
+    translate3d(calc((var(--core-pointer-x) + var(--core-velocity-x) * 1.6) * 2px), calc((var(--core-pointer-y) + var(--core-velocity-y) * 1.6) * 2px), 0)
+    rotate(calc(var(--core-pointer-x) * 7deg + var(--core-velocity-x) * 10deg))
+    scaleX(calc(1 + var(--core-velocity) * 0.08));
+}
+
+.life-core-ring::before {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-radius: 46% 54% 58% 42%;
+  background: conic-gradient(from 206deg, transparent 0 42deg, rgba(140, 102, 120, 0.34) 48deg 104deg, rgba(255, 255, 255, 0.48) 118deg 148deg, transparent 158deg 360deg);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 1.4px), #000 calc(100% - 1px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 1.4px), #000 calc(100% - 1px));
+  transform: rotate(calc(var(--core-pointer-y) * -8deg - var(--core-velocity-y) * 12deg));
+}
+
+.life-core[data-attentive="true"] .life-core-focus {
+  box-shadow: 0 0 calc(9px + var(--core-proximity) * 11px) rgba(255, 255, 255, 0.76);
+}
+
+#app-shell::before {
+  transform: translate3d(calc(var(--scene-velocity-x, 0) * -9px), calc(var(--scene-velocity-y, 0) * -6px), 0) scale(calc(1 + var(--scene-velocity, 0) * 0.006));
+}
+
+#titlebar,
+#chat-window-bar,
+.side-panel {
+  background-position: var(--glass-caustic-x, 50%) var(--glass-caustic-y, 50%), center;
+}
+
+#app-shell:is([data-theme="day"], [data-theme="night"]) #chat-window-bar {
+  background:
+    radial-gradient(circle at var(--glass-x, 42%) var(--glass-y, 20%), rgba(255, 255, 255, calc(0.16 + var(--glass-pressure, 0) * 0.16)), transparent 45%),
+    radial-gradient(circle at var(--glass-inverse-x, 58%) var(--glass-inverse-y, 80%), color-mix(in srgb, var(--accent-secondary) 6%, transparent), transparent 58%),
+    color-mix(in srgb, var(--sidebar-bg) 84%, transparent);
+}
+
+#input-form,
+#app-shell:is([data-theme="day"], [data-theme="night"]) #input-form {
+  isolation: isolate;
+  background:
+    radial-gradient(circle at var(--glass-x, 35%) var(--glass-y, 18%), rgba(255, 255, 255, calc(0.22 + var(--glass-depth, 0.5) * 0.2 + var(--glass-pressure, 0) * 0.16)), transparent 40%),
+    radial-gradient(circle at var(--glass-inverse-x, 65%) var(--glass-inverse-y, 82%), color-mix(in srgb, var(--accent-secondary) calc(4% + var(--glass-pressure, 0) * 7%), transparent), transparent 56%),
+    linear-gradient(var(--glass-angle, 122deg), rgba(255, 255, 255, 0.13), transparent 36%, rgba(72, 104, 82, 0.045)),
+    color-mix(in srgb, var(--composer-bg) 90%, transparent);
+}
+
+#input-form::after {
+  content: "";
+  position: absolute;
+  inset: -80% -18%;
+  z-index: 0;
+  display: block;
+  pointer-events: none;
+  background: linear-gradient(103deg, transparent 39%, rgba(255, 255, 255, 0.38) 48%, rgba(82, 117, 94, 0.07) 53%, transparent 64%);
+  opacity: calc(0.025 + var(--glass-pressure, 0) * 0.2 + var(--glass-energy, 0) * 0.12);
+  transform: translate3d(calc(var(--glass-velocity-x, 0) * 32px), calc(var(--glass-velocity-y, 0) * 15px), 0) skewX(calc(var(--glass-velocity-x, 0) * -7deg));
+  transition: opacity 180ms ease;
+}
+
+#input-form > * {
+  z-index: 1;
+}
+
+.side-panel,
+#app-shell:is([data-theme="day"], [data-theme="night"]) .side-panel {
+  background:
+    radial-gradient(circle at var(--glass-x, var(--scene-x, 45%)) var(--glass-y, 8%), rgba(255, 255, 255, calc(0.2 + var(--glass-pressure, 0) * 0.12)), transparent 38%),
+    radial-gradient(circle at var(--glass-inverse-x, 65%) var(--glass-inverse-y, 84%), color-mix(in srgb, var(--accent-secondary) 5%, transparent), transparent 56%),
+    color-mix(in srgb, var(--panel-bg) 96%, transparent);
+}
+
+@media (max-width: 980px) {
+  #space-navigation {
+    gap: 10px;
+  }
+
+  #mode-switch,
+  #app-shell:is([data-theme="day"], [data-theme="night"]) #mode-switch {
+    width: 310px;
+    flex-basis: 310px;
+    margin: 0;
+  }
+
+  #work-mode-switch {
+    width: 188px;
+    flex-basis: 188px;
+    margin: 0;
+  }
+
+  #work-mode-switch[aria-hidden="true"] {
+    width: 0;
+    flex-basis: 0;
+    margin-left: -10px;
+  }
+}
+
+@media (max-width: 560px) {
+  #space-navigation {
+    align-self: start;
+    height: 82px;
+    flex-direction: column;
+    gap: 6px;
+    padding-top: 7px;
+  }
+
+  #mode-switch,
+  #app-shell:is([data-theme="day"], [data-theme="night"]) #mode-switch {
+    width: min(300px, calc(100vw - 28px));
+    flex-basis: 42px;
+  }
+
+  #work-mode-switch {
+    width: 188px;
+    flex: 0 0 30px;
+  }
+
+  #work-mode-switch[aria-hidden="true"] {
+    height: 0;
+    flex-basis: 0;
+    margin-top: -6px;
+    padding-block: 0;
+  }
+
+  #app-shell[data-space="work"] #stage {
+    padding-top: 46px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #space-navigation,
+  #work-mode-switch,
+  #mode-switch::after,
+  #input-form::after {
+    transition-duration: 1ms !important;
+  }
+
+  #mode-switch::after,
+  #work-mode-switch::after,
+  #input-form::after {
+    display: none;
+  }
+}
+
+#app-shell[data-animation="low"] #space-navigation,
+#app-shell[data-animation="low"] #work-mode-switch,
+#app-shell[data-animation="low"] #mode-switch::after,
+#app-shell[data-animation="low"] #input-form::after {
+  transition-duration: 1ms !important;
+}
+
+#app-shell[data-animation="low"] #mode-switch::after,
+#app-shell[data-animation="low"] #work-mode-switch::after,
+#app-shell[data-animation="low"] #input-form::after {
+  display: none;
+}
+
+/* iOS 26 material pass: lensing is local; the workspace itself stays still. */
+#app-shell:is([data-theme="day"], [data-theme="night"]) {
+  --shell-bg: #d9dcda;
+  --sidebar-bg: rgba(235, 237, 235, 0.66);
+  --composer-bg: rgba(239, 241, 239, 0.38);
+  --message-user-bg: rgba(242, 244, 242, 0.38);
+  --panel-bg: rgba(231, 234, 231, 0.9);
+  --border: rgba(61, 68, 63, 0.1);
+  --border-strong: rgba(255, 255, 255, 0.42);
+  --glass-edge-spectrum: rgba(255, 255, 255, 0.3);
+  --glass-edge-light: rgba(255, 255, 255, 0.42);
+  --glass-shadow-spectrum: rgba(42, 48, 44, 0.1);
+  background-color: var(--shell-bg);
+  background-image:
+    linear-gradient(rgba(232, 234, 232, 0.2), rgba(232, 234, 232, 0.2)),
+    var(--daylight-texture);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+}
+
+#app-shell[data-theme="night"] {
+  --shell-bg: #202320;
+  --sidebar-bg: rgba(35, 39, 36, 0.72);
+  --composer-bg: rgba(38, 42, 39, 0.48);
+  --message-user-bg: rgba(45, 50, 46, 0.5);
+  --panel-bg: rgba(31, 35, 32, 0.92);
+  --border: rgba(240, 243, 240, 0.09);
+  --border-strong: rgba(255, 255, 255, 0.14);
+  --glass-edge-spectrum: rgba(255, 255, 255, 0.16);
+  --glass-edge-light: rgba(255, 255, 255, 0.17);
+  --glass-shadow-spectrum: rgba(0, 0, 0, 0.24);
+  background-image:
+    linear-gradient(rgba(27, 31, 28, 0.9), rgba(27, 31, 28, 0.9)),
+    var(--daylight-texture);
+  background-blend-mode: multiply, normal;
+}
+
+#app-shell::before,
+#app-shell::after,
+#stage::before,
+#stage::after,
+#mode-switch::after,
+#work-mode-switch::after,
+#input-form::after {
+  display: none !important;
+}
+
+#stage,
+#app-shell[data-space="work"] #stage {
+  background: transparent;
+}
+
+#titlebar,
+#app-shell:is([data-theme="day"], [data-theme="night"]) #titlebar {
+  border-bottom-color: color-mix(in srgb, var(--border) 82%, transparent);
+  background: color-mix(in srgb, var(--sidebar-bg) 58%, transparent);
+  box-shadow: none;
+  -webkit-backdrop-filter: blur(18px) saturate(104%);
+  backdrop-filter: blur(18px) saturate(104%);
+}
+
+.liquid-glass-canvas {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.liquid-glass-canvas[hidden] {
+  display: none;
+}
+
+[data-liquid-pressed="true"] .liquid-glass-canvas {
+  filter: brightness(1.025);
+}
+
+#mode-switch,
+#app-shell:is([data-theme="day"], [data-theme="night"]) #mode-switch,
+#work-mode-switch,
+#input-form,
+#app-shell:is([data-theme="day"], [data-theme="night"]) #input-form {
+  isolation: isolate;
+  background: rgba(240, 242, 240, 0.22);
+  border-color: var(--glass-edge-spectrum);
+  box-shadow:
+    0 10px 28px var(--glass-shadow-spectrum),
+    inset 0 1px var(--glass-edge-light),
+    inset 0 -1px rgba(60, 68, 62, 0.045);
+  -webkit-backdrop-filter: blur(8px) saturate(108%);
+  backdrop-filter: blur(8px) saturate(108%);
+}
+
+#mode-switch > :not(.liquid-glass-canvas),
+#work-mode-switch > :not(.liquid-glass-canvas),
+#input-form > :not(.liquid-glass-canvas) {
+  position: relative;
+  z-index: 2;
+}
+
+#mode-switch::before,
+#app-shell:is([data-theme="day"], [data-theme="night"]) #mode-switch::before {
+  z-index: 1;
+  border-color: rgba(255, 255, 255, 0.28);
+  background: rgba(250, 251, 250, 0.24);
+  box-shadow:
+    0 3px 9px rgba(46, 52, 48, 0.075),
+    inset 0 1px rgba(255, 255, 255, 0.5);
+}
+
+#work-mode-switch .mode-btn.active {
+  background: rgba(250, 251, 250, 0.2);
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.32);
+}
+
+#input-form,
+#app-shell:is([data-theme="day"], [data-theme="night"]) #input-form {
+  align-self: end;
+  height: var(--composer-height, 72px);
+  min-height: 0;
+  max-height: 154px;
+  border-radius: 25px;
+  box-shadow:
+    0 16px 38px rgba(42, 48, 44, 0.11),
+    inset 0 1px rgba(255, 255, 255, 0.54),
+    inset 0 -1px rgba(61, 68, 63, 0.04);
+}
+
+#input-form:focus-within,
+#app-shell:is([data-theme="day"], [data-theme="night"]) #input-form:focus-within {
+  border-color: rgba(255, 255, 255, 0.54);
+  box-shadow:
+    0 18px 42px rgba(42, 48, 44, 0.125),
+    inset 0 1px rgba(255, 255, 255, 0.62);
+  transform: none;
+}
+
+#chat-window-bar,
+#app-shell:is([data-theme="day"], [data-theme="night"]) #chat-window-bar {
+  border-right-color: color-mix(in srgb, var(--border) 86%, transparent);
+  background: color-mix(in srgb, var(--sidebar-bg) 82%, transparent);
+  box-shadow: inset -1px 0 rgba(255, 255, 255, 0.18);
+  -webkit-backdrop-filter: blur(22px) saturate(104%);
+  backdrop-filter: blur(22px) saturate(104%);
+}
+
+#app-shell[data-space="companion"][data-sidebar="open"] #chat-window-bar:is(:hover, :focus-within) {
+  box-shadow:
+    10px 0 28px rgba(42, 48, 44, 0.09),
+    inset -1px 0 rgba(255, 255, 255, 0.22);
+}
+
+#chat-window-new,
+.presence-action,
+.message.user {
+  background: rgba(244, 246, 244, 0.34);
+  border-color: rgba(255, 255, 255, 0.42);
+  box-shadow:
+    0 7px 18px rgba(44, 50, 46, 0.07),
+    inset 0 1px rgba(255, 255, 255, 0.48);
+  -webkit-backdrop-filter: blur(12px) saturate(106%);
+  backdrop-filter: blur(12px) saturate(106%);
+}
+
+.message.assistant {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.side-panel,
+#app-shell:is([data-theme="day"], [data-theme="night"]) .side-panel {
+  border-left-color: color-mix(in srgb, var(--border) 84%, transparent);
+  background: color-mix(in srgb, var(--panel-bg) 94%, transparent);
+  box-shadow:
+    -14px 0 38px rgba(41, 47, 43, 0.1),
+    inset 1px 0 rgba(255, 255, 255, 0.22);
+  -webkit-backdrop-filter: blur(24px) saturate(104%);
+  backdrop-filter: blur(24px) saturate(104%);
+}
+
+.settings-section,
+.memory-item,
+.debug-item,
+.import-candidate,
+.message-tool-card,
+.message-source-card {
+  border-color: color-mix(in srgb, var(--border) 78%, transparent);
+  background: rgba(250, 251, 250, 0.18);
+  box-shadow: none;
+}
+
+.life-core {
+  filter: none !important;
+}
+
+.life-core-field,
+.life-core-ring {
+  background: rgba(246, 249, 247, 0.3);
+  border: 1px solid rgba(59, 92, 70, 0.38);
+  box-shadow: none;
+  -webkit-backdrop-filter: blur(5px) saturate(105%);
+  backdrop-filter: blur(5px) saturate(105%);
+  -webkit-mask: none;
+  mask: none;
+}
+
+.life-core-field {
+  inset: 6px 9px 5px 5px;
+  border-radius: 56% 44% 52% 48%;
+  transform: translate3d(calc(var(--core-pointer-x) * 1px), calc(var(--core-pointer-y) * 1px), 0);
+}
+
+.life-core-ring {
+  inset: 7px 4px 4px 10px;
+  border-color: rgba(255, 255, 255, 0.64);
+  border-radius: 44% 56% 47% 53%;
+  transform: translate3d(calc(var(--core-pointer-x) * 1.2px), calc(var(--core-pointer-y) * 1.2px), 0);
+}
+
+.life-core-ring::before,
+.life-core-focus,
+.presence-signal {
+  display: none;
+}
+
+#app-shell[data-glass="false"] #mode-switch,
+#app-shell[data-glass="false"] #work-mode-switch,
+#app-shell[data-glass="false"] #input-form,
+#app-shell[data-glass="false"] #chat-window-bar,
+#app-shell[data-glass="false"] .message.user,
+#app-shell[data-glass="false"] .side-panel,
+#app-shell[data-glass="false"] .presence-action {
+  background: var(--surface-raised);
+  box-shadow: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .liquid-glass-canvas {
+    transition: none !important;
+  }
 }

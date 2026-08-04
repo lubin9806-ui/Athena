@@ -103,15 +103,17 @@
       </div>
     </header>
 
-    <div id="mode-switch" role="tablist" aria-label="空间">
-      <button class="space-btn active" type="button" data-space="companion" role="tab" aria-selected="true" title="进入长期陪伴空间">陪伴</button>
-      <button class="space-btn" type="button" data-space="work" role="tab" aria-selected="false" title="进入工作创作空间">创作</button>
-    </div>
+    <div id="space-navigation">
+      <div id="mode-switch" role="tablist" aria-label="空间">
+        <button class="space-btn active" type="button" data-space="companion" role="tab" aria-selected="true" title="进入长期陪伴空间">陪伴</button>
+        <button class="space-btn" type="button" data-space="work" role="tab" aria-selected="false" title="进入工作创作空间">创作</button>
+      </div>
 
-    <div id="work-mode-switch" role="tablist" aria-label="创作方式" aria-hidden="true">
-      <button class="mode-btn active" type="button" data-mode="create" role="tab" aria-selected="true" title="发散创意并收束成可执行成果">创作</button>
-      <button class="mode-btn" type="button" data-mode="reason" role="tab" aria-selected="false" title="核验事实、假设、边界与结论">推理</button>
-      <button id="mode-execute-button" class="mode-btn" type="button" data-mode="execute" role="tab" aria-selected="false" title="用自然语言调用本机工具并执行任务" data-active="false" data-has-records="false">执行</button>
+      <div id="work-mode-switch" role="tablist" aria-label="创作方式" aria-hidden="true">
+        <button class="mode-btn active" type="button" data-mode="create" role="tab" aria-selected="true" title="发散创意并收束成可执行成果">创作</button>
+        <button class="mode-btn" type="button" data-mode="reason" role="tab" aria-selected="false" title="核验事实、假设、边界与结论">推理</button>
+        <button id="mode-execute-button" class="mode-btn" type="button" data-mode="execute" role="tab" aria-selected="false" title="用自然语言调用本机工具并执行任务" data-active="false" data-has-records="false">执行</button>
+      </div>
     </div>
 
     <div id="chat-window-bar" aria-label="聊天窗口">
