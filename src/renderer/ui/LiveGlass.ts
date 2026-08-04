@@ -7,12 +7,19 @@ export class LiveGlass {
   private lastFrameAt = performance.now();
   private voiceLevel = 0;
   private settingsReducedMotion = false;
+  private idleTimer: number | undefined;
+  private idlePhase = 0;
   private readonly reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 
-  constructor(private readonly surfaces: HTMLElement[]) {
+  constructor(
+    private readonly surfaces: HTMLElement[],
+    private readonly shell?: HTMLElement,
+    private readonly lifeCore?: HTMLElement,
+  ) {
     window.addEventListener('pointermove', this.handlePointerMove, { passive: true });
     for (const surface of surfaces) surface.addEventListener('pointerdown', this.handlePointerDown);
     this.applyMaterialPosition();
+    this.scheduleIdleShift();
   }
 
   setVoiceLevel(level: number): void {
@@ -24,8 +31,13 @@ export class LiveGlass {
 
   setMotionReduced(reduced: boolean): void {
     this.settingsReducedMotion = reduced;
-    if (!reduced) return;
+    window.clearTimeout(this.idleTimer);
+    if (!reduced) {
+      this.scheduleIdleShift();
+      return;
+    }
     cancelAnimationFrame(this.frame);
+    window.clearTimeout(this.idleTimer);
     this.frame = 0;
     this.pointerX = this.targetPointerX;
     this.pointerY = this.targetPointerY;
@@ -84,6 +96,24 @@ export class LiveGlass {
   };
 
   private applyMaterialPosition(): void {
+    const viewportX = Math.max(0, Math.min(1, this.pointerX / Math.max(1, window.innerWidth)));
+    const viewportY = Math.max(0, Math.min(1, this.pointerY / Math.max(1, window.innerHeight)));
+    this.shell?.style.setProperty('--scene-x', `${(viewportX * 100).toFixed(2)}%`);
+    this.shell?.style.setProperty('--scene-y', `${(viewportY * 100).toFixed(2)}%`);
+
+    if (this.lifeCore) {
+      const coreRect = this.lifeCore.getBoundingClientRect();
+      const coreX = coreRect.left + coreRect.width * 0.5;
+      const coreY = coreRect.top + coreRect.height * 0.5;
+      const distance = Math.hypot(this.pointerX - coreX, this.pointerY - coreY);
+      const proximity = Math.max(0, 1 - distance / 120);
+      const localX = Math.max(-1, Math.min(1, (this.pointerX - coreX) / 120));
+      const localY = Math.max(-1, Math.min(1, (this.pointerY - coreY) / 120));
+      this.lifeCore.style.setProperty('--core-proximity', proximity.toFixed(3));
+      this.lifeCore.style.setProperty('--core-pointer-x', localX.toFixed(3));
+      this.lifeCore.style.setProperty('--core-pointer-y', localY.toFixed(3));
+    }
+
     for (const surface of this.surfaces) {
       const rect = surface.getBoundingClientRect();
       if (!rect.width || !rect.height) continue;
@@ -103,5 +133,17 @@ export class LiveGlass {
 
   private isMotionReduced(): boolean {
     return this.settingsReducedMotion || this.reducedMotion.matches;
+  }
+
+  private scheduleIdleShift(): void {
+    if (this.isMotionReduced() || !this.lifeCore) return;
+    const delay = 4_600 + Math.random() * 7_200;
+    this.idleTimer = window.setTimeout(() => {
+      this.idlePhase += 1;
+      this.lifeCore?.style.setProperty('--core-idle-x', `${((this.idlePhase % 3) - 1) * 0.7}px`);
+      this.lifeCore?.style.setProperty('--core-idle-y', `${((this.idlePhase % 2) * 2 - 1) * 0.45}px`);
+      if (this.lifeCore) this.lifeCore.dataset.idleShift = String(this.idlePhase % 3);
+      this.scheduleIdleShift();
+    }, delay);
   }
 }

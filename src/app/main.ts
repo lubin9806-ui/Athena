@@ -30,6 +30,7 @@ const isVoiceSmokeTest = isSmokeTest && process.env.ATHENA_SMOKE_VOICE === '1';
 const isModelSmokeTest = isSmokeTest && process.env.ATHENA_SMOKE_MODEL === '1';
 const smokeScreenshotPath = process.env.ATHENA_SMOKE_SCREENSHOT?.trim();
 const smokeCaptureRipple = isSmokeTest && process.env.ATHENA_SMOKE_CAPTURE_RIPPLE === '1';
+const smokeSelectId = isSmokeTest ? process.env.ATHENA_SMOKE_SELECT?.trim() || null : null;
 const smokeTheme = process.env.ATHENA_SMOKE_THEME === 'night'
   ? 'night'
   : process.env.ATHENA_SMOKE_THEME === 'day'
@@ -239,6 +240,9 @@ function createWindow(): void {
              const appShell = document.getElementById('app-shell');
              const stage = document.getElementById('stage');
              const titlebar = document.getElementById('titlebar');
+             const lifeCore = document.getElementById('life-core');
+             const spaceSwitch = document.getElementById('mode-switch');
+             const workModeSwitch = document.getElementById('work-mode-switch');
              const memoryButton = document.getElementById('btn-memory');
              const memoryClose = document.getElementById('btn-memory-close');
              const memoryPanel = document.getElementById('memory-panel');
@@ -258,15 +262,23 @@ function createWindow(): void {
              const toolAccessHint = document.getElementById('tool-access-hint');
              const executeToolPermission = document.getElementById('setting-tool-permission-execute');
              const firstRunModelChoice = document.getElementById('model-first-run-choice');
-             const modelProviderSelect = document.getElementById('setting-model-provider');
-             const modelOllamaFields = document.getElementById('model-ollama-fields');
-             const modelRemoteFields = document.getElementById('model-remote-fields');
-             const uiReady = Boolean(
+              const modelProviderSelect = document.getElementById('setting-model-provider');
+              const modelOllamaFields = document.getElementById('model-ollama-fields');
+              const modelRemoteFields = document.getElementById('model-remote-fields');
+              const inputBox = document.getElementById('input-box');
+              const visiblePresenceAction = Array.from(document.querySelectorAll('.presence-action'))
+                .find(button => getComputedStyle(button).display !== 'none');
+              const uiReady = Boolean(
                appShell &&
                document.getElementById('chat-container') &&
                document.getElementById('input-form') &&
                stage &&
                titlebar &&
+               lifeCore &&
+               spaceSwitch &&
+               workModeSwitch &&
+               spaceSwitch.querySelectorAll('.space-btn').length === 2 &&
+               workModeSwitch.querySelectorAll('.mode-btn').length === 3 &&
                memoryButton &&
                memoryClose &&
                memoryPanel &&
@@ -286,9 +298,11 @@ function createWindow(): void {
                toolAccessHint &&
                executeToolPermission instanceof HTMLSelectElement &&
                firstRunModelChoice &&
-               modelProviderSelect instanceof HTMLSelectElement &&
-               modelOllamaFields &&
-               modelRemoteFields &&
+                modelProviderSelect instanceof HTMLSelectElement &&
+                modelOllamaFields &&
+                modelRemoteFields &&
+                inputBox instanceof HTMLTextAreaElement &&
+                visiblePresenceAction instanceof HTMLButtonElement &&
                document.getElementById('setting-remote-url') &&
                document.getElementById('setting-remote-model') &&
                document.getElementById('model-load-options') &&
@@ -319,8 +333,14 @@ function createWindow(): void {
               && typeof api.requestMicrophoneAccess === 'function'
               && typeof api.getVoiceCapabilities === 'function'
               && typeof api.listModelOptions === 'function'
-             );
-             if (!uiReady) return false;
+              );
+              if (!uiReady) return false;
+
+              const presencePrompt = visiblePresenceAction.dataset.prompt || '';
+              visiblePresenceAction.click();
+              const presenceQuickActionReactive = inputBox.value === presencePrompt && presencePrompt.length > 0;
+              inputBox.value = '';
+              if (!presenceQuickActionReactive) return false;
 
              const stageRect = stage.getBoundingClientRect();
              stage.dispatchEvent(new PointerEvent('pointermove', {
@@ -388,7 +408,9 @@ function createWindow(): void {
              const originalMode = originalSettings.settings.conversation.activeMode;
              const probeMode = originalMode === 'reason' ? 'create' : 'reason';
              const probeButton = document.querySelector('.mode-btn[data-mode="' + probeMode + '"]');
-             const originalButton = document.querySelector('.mode-btn[data-mode="' + originalMode + '"]');
+             const originalButton = originalMode === 'companion'
+               ? document.querySelector('.space-btn[data-space="companion"]')
+               : document.querySelector('.mode-btn[data-mode="' + originalMode + '"]');
              if (!(probeButton instanceof HTMLButtonElement) || !(originalButton instanceof HTMLButtonElement)) return false;
              probeButton.click();
              await new Promise(resolve => setTimeout(resolve, 90));
@@ -466,8 +488,9 @@ function createWindow(): void {
                 temporaryChatReactive,
                 toolCatalogReactive,
                 webSearchForceReactive,
-               webSearchForceRestored,
-             }));
+                webSearchForceRestored,
+                presenceQuickActionReactive,
+              }));
              if (!panelReactive || memoryPanel.dataset.open !== 'false' || !executionModeReactive || !executionWorkspaceReactive || !executionPermissionReactive || !executionModeRestored) return false;
 
              const ipcProbe = await api.transcribeRecording(new Uint8Array());
@@ -624,7 +647,9 @@ function createWindow(): void {
         if (smokeMode) {
           const modeApplied = await mainWindow.webContents.executeJavaScript(`
             (() => {
-              const button = document.querySelector('.mode-btn[data-mode="${smokeMode}"]');
+              const button = ${JSON.stringify(smokeMode)} === 'companion'
+                ? document.querySelector('.space-btn[data-space="companion"]')
+                : document.querySelector('.mode-btn[data-mode="${smokeMode}"]');
               if (!(button instanceof HTMLButtonElement)) return false;
               button.click();
               return document.getElementById('app-shell')?.dataset.mode === ${JSON.stringify(smokeMode)};
@@ -632,6 +657,26 @@ function createWindow(): void {
           `);
           if (!modeApplied) throw new Error('Smoke mode could not be applied');
           await new Promise(resolve => setTimeout(resolve, 220));
+        }
+        if (smokeSelectId) {
+          const selectOpened = await mainWindow.webContents.executeJavaScript(`
+            (async () => {
+              const select = document.getElementById(${JSON.stringify(smokeSelectId)});
+              const trigger = select?.nextElementSibling;
+              if (!(select instanceof HTMLSelectElement) || !(trigger instanceof HTMLButtonElement)) return false;
+              document.querySelectorAll('.settings-section').forEach(section => {
+                if (section instanceof HTMLDetailsElement) section.open = section.contains(select);
+              });
+              await new Promise(resolve => setTimeout(resolve, 320));
+              trigger.scrollIntoView({ block: 'center' });
+              await new Promise(resolve => setTimeout(resolve, 180));
+              trigger.click();
+              return trigger.dataset.open === 'true'
+                && document.querySelector('.athena-select-menu')?.getAttribute('aria-hidden') === 'false';
+            })()
+          `);
+          if (!selectOpened) throw new Error(`Smoke select could not be opened: ${smokeSelectId}`);
+          await new Promise(resolve => setTimeout(resolve, 260));
         }
         if (smokeCaptureRipple) {
           await new Promise(resolve => setTimeout(resolve, 420));

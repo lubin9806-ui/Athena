@@ -75,17 +75,29 @@ export class ChatPanel {
     this.clear();
     for (const message of messages) {
       if (message.role !== 'user' && message.role !== 'assistant') continue;
-      this.addMessage(message.content, message.role, message.emotion, message.mode, message.created_at);
+      this.addMessage(message.content, message.role, message.emotion, message.mode, message.created_at, false);
     }
     this.setActiveMode(this.activeMode);
   }
 
-  addMessage(content: string, role: ChatRole, emotion?: string, mode: ChatMode = this.activeMode, createdAt?: string): HTMLDivElement {
+  addMessage(
+    content: string,
+    role: ChatRole,
+    emotion?: string,
+    mode: ChatMode = this.activeMode,
+    createdAt?: string,
+    animate = true,
+  ): HTMLDivElement {
     const message = document.createElement('div');
     message.className = `message ${role}`;
     message.dataset.mode = mode;
+    message.dataset.entry = animate ? 'new' : 'history';
     message.dataset.rawContent = content;
-    message.textContent = content;
+    const contentNode = document.createElement('div');
+    contentNode.className = 'message-content';
+    if (role === 'assistant') this.renderAssistantSegments(contentNode, content, animate);
+    else contentNode.textContent = content;
+    message.appendChild(contentNode);
     if (this.showTimestamps) this.appendTimestamp(message, createdAt);
     this.container.appendChild(message);
 
@@ -104,7 +116,8 @@ export class ChatPanel {
       this.streamingMessage = this.addMessage('', 'assistant');
     }
 
-    this.streamingMessage.replaceChildren(document.createTextNode(content));
+    const contentNode = this.streamingMessage.querySelector<HTMLElement>('.message-content');
+    if (contentNode) this.renderAssistantSegments(contentNode, content, true);
     this.streamingMessage.dataset.rawContent = content;
     if (this.showTimestamps) this.appendTimestamp(this.streamingMessage);
     this.lastAssistantMessage = this.streamingMessage;
@@ -152,6 +165,7 @@ export class ChatPanel {
   }
 
   private appendTimestamp(message: HTMLDivElement, createdAt?: string): void {
+    message.querySelector('.message-time')?.remove();
     const meta = document.createElement('div');
     meta.className = 'message-time';
     const timestamp = createdAt ? new Date(createdAt) : new Date();
@@ -159,6 +173,24 @@ export class ChatPanel {
       ? new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
       : timestamp.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
     message.appendChild(meta);
+  }
+
+  private renderAssistantSegments(container: HTMLElement, content: string, animate: boolean): void {
+    const segments = content.split(/\n{2,}/);
+    const existing = Array.from(container.querySelectorAll<HTMLElement>('.message-segment'));
+
+    for (let index = 0; index < segments.length; index += 1) {
+      let segment = existing[index];
+      if (!segment) {
+        segment = document.createElement('span');
+        segment.className = 'message-segment';
+        if (animate) segment.dataset.fresh = 'true';
+        container.appendChild(segment);
+      }
+      segment.textContent = segments[index];
+    }
+
+    for (let index = segments.length; index < existing.length; index += 1) existing[index].remove();
   }
 
   private appendSources(message: HTMLDivElement, sources: ChatSource[], research?: ChatResearchMeta): void {

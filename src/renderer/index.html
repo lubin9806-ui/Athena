@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; media-src 'self' data: blob:; connect-src 'none'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'" />
   <link rel="icon" href="data:," />
-  <title>苏时夏 · Athena</title>
+  <title>Athena</title>
 </head>
 <body>
   <svg class="icon-sprite" aria-hidden="true">
@@ -69,9 +69,12 @@
         <button id="btn-sidebar" class="icon-button" type="button" title="显示或隐藏对话列表" aria-label="显示或隐藏对话列表" aria-expanded="true">
           <svg class="icon"><use href="#icon-sidebar"></use></svg>
         </button>
-        <span class="avatar-mark" aria-hidden="true">夏</span>
+        <span id="life-core" class="life-core life-core-title" aria-hidden="true">
+          <span class="life-core-field"></span>
+          <span class="life-core-ring"></span>
+          <span class="life-core-focus"></span>
+        </span>
         <span class="brand-stack">
-          <span class="brand-name">苏时夏</span>
           <button id="model-status-button" class="brand-subtitle" type="button" title="打开模型设置">
             <span class="status-dot" id="status-dot"></span>
             <span id="status-text">正在连接</span>
@@ -100,9 +103,13 @@
       </div>
     </header>
 
-    <div id="mode-switch" role="tablist" aria-label="对话模式">
-      <button class="mode-btn" type="button" data-mode="create" role="tab" aria-selected="false" title="发散创意并收束成可执行成果">创作</button>
-      <button class="mode-btn active" type="button" data-mode="companion" role="tab" aria-selected="true" title="保持自然、连续、有回应感的交流">陪伴</button>
+    <div id="mode-switch" role="tablist" aria-label="空间">
+      <button class="space-btn active" type="button" data-space="companion" role="tab" aria-selected="true" title="进入长期陪伴空间">陪伴</button>
+      <button class="space-btn" type="button" data-space="work" role="tab" aria-selected="false" title="进入工作创作空间">创作</button>
+    </div>
+
+    <div id="work-mode-switch" role="tablist" aria-label="创作方式" aria-hidden="true">
+      <button class="mode-btn active" type="button" data-mode="create" role="tab" aria-selected="true" title="发散创意并收束成可执行成果">创作</button>
       <button class="mode-btn" type="button" data-mode="reason" role="tab" aria-selected="false" title="核验事实、假设、边界与结论">推理</button>
       <button id="mode-execute-button" class="mode-btn" type="button" data-mode="execute" role="tab" aria-selected="false" title="用自然语言调用本机工具并执行任务" data-active="false" data-has-records="false">执行</button>
     </div>
@@ -136,10 +143,21 @@
     </div>
 
     <section id="stage">
-      <div id="presence-panel" aria-hidden="true">
-        <div class="presence-mark">夏</div>
+      <div id="presence-panel">
+        <div class="presence-signal" aria-hidden="true"><span></span></div>
         <div class="presence-title">今天想先做什么？</div>
         <div class="presence-copy">聊两句，或者把手头的事往前推一点。</div>
+        <div id="presence-actions" aria-label="快速开始">
+          <button class="presence-action" type="button" data-prompt-mode="create" data-prompt="帮我搭一个创作框架">搭一个创作框架</button>
+          <button class="presence-action" type="button" data-prompt-mode="create" data-prompt="把这个想法扩写成三个方向">扩写三个方向</button>
+          <button class="presence-action" type="button" data-prompt-mode="create" data-prompt="帮我写一版可以继续修改的初稿">开始一版初稿</button>
+          <button class="presence-action" type="button" data-prompt-mode="companion" data-prompt="陪我聊聊今天发生的事">聊聊今天</button>
+          <button class="presence-action" type="button" data-prompt-mode="companion" data-prompt="帮我整理一下现在的心情">整理一下心情</button>
+          <button class="presence-action" type="button" data-prompt-mode="companion" data-prompt="我们继续上次没有说完的话题">继续上次的话题</button>
+          <button class="presence-action" type="button" data-prompt-mode="reason" data-prompt="帮我把这个问题拆成关键假设">拆解关键假设</button>
+          <button class="presence-action" type="button" data-prompt-mode="reason" data-prompt="比较这两个方案的收益、风险和边界">比较两个方案</button>
+          <button class="presence-action" type="button" data-prompt-mode="reason" data-prompt="检查我的推理里有没有遗漏或矛盾">检查遗漏与矛盾</button>
+        </div>
       </div>
       <section id="chat-container" aria-label="聊天记录"></section>
     </section>

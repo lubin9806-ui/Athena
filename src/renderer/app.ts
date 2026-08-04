@@ -4,6 +4,8 @@ import './style.css';
 import { ChatPanel, type ChatMessageSnapshot, type ChatSource, type ChatToolExecution } from './ui/ChatPanel';
 import { InputBar } from './ui/InputBar';
 import { LiveGlass } from './ui/LiveGlass';
+import { MotionSystem, type AthenaSpace } from './ui/MotionSystem';
+import { SelectControlManager } from './ui/SelectControl';
 import { ThemeController } from './ui/ThemeController';
 import { MicrophoneRecorder } from './voice/MicrophoneRecorder';
 
@@ -104,7 +106,7 @@ interface ToolCatalog {
 }
 
 const MAX_RECORDING_MS = 60_000;
-const ATHENA_MODES: readonly AthenaMode[] = ['create', 'companion', 'reason', 'execute'];
+const WORK_MODES: readonly AthenaMode[] = ['create', 'reason', 'execute'];
 const MIN_RECORDING_MS = 350;
 const VOICE_ACTIVITY_THRESHOLD = 0.008;
 const VOICE_MIN_SIGNAL_LEVEL = 0.001;
@@ -460,6 +462,11 @@ interface SettingsBundle {
   sku: 'desktop-direct' | 'steam' | 'microsoft-store';
 }
 
+const REMOTE_PROVIDER_BASE_URLS: Partial<Record<RemoteModelProvider, string>> = {
+  openai: 'https://api.openai.com/v1',
+  deepseek: 'https://api.deepseek.com',
+};
+
 interface SettingsPatch {
   settings?: Omit<Partial<AppSettings>, 'general' | 'appearance' | 'conversation' | 'tools' | 'webSearch' | 'personalization' | 'memory' | 'voice' | 'data' | 'privacy' | 'ui'> & {
     general?: Partial<GeneralSettings>;
@@ -547,11 +554,14 @@ interface PrivacyCenterState {
 
 const appShell = mustGet<HTMLElement>('app-shell');
 const themeController = new ThemeController(document.documentElement, appShell);
+const selectControls = new SelectControlManager(appShell);
 const titlebar = mustGet<HTMLElement>('titlebar');
 const btnSidebar = mustGet<HTMLButtonElement>('btn-sidebar');
 const activeChatTitle = mustGet<HTMLElement>('active-chat-title');
 const activeProjectTitle = mustGet<HTMLElement>('active-project-title');
 const modeSwitch = mustGet<HTMLElement>('mode-switch');
+const workModeSwitch = mustGet<HTMLElement>('work-mode-switch');
+const lifeCore = mustGet<HTMLElement>('life-core');
 const modeExecuteButton = mustGet<HTMLButtonElement>('mode-execute-button');
 const projectSelect = mustGet<HTMLSelectElement>('project-select');
 const projectNew = mustGet<HTMLButtonElement>('project-new');
@@ -565,6 +575,7 @@ const chatWindowArchive = mustGet<HTMLButtonElement>('chat-window-archive');
 const chatWindowDelete = mustGet<HTMLButtonElement>('chat-window-delete');
 const temporaryChatBadge = mustGet<HTMLElement>('temporary-chat-badge');
 const stage = mustGet<HTMLElement>('stage');
+const presenceActions = mustGet<HTMLElement>('presence-actions');
 const chatPanel = new ChatPanel(mustGet<HTMLElement>('chat-container'));
 const inputForm = mustGet<HTMLFormElement>('input-form');
 const inputBox = mustGet<HTMLTextAreaElement>('input-box');
@@ -728,7 +739,8 @@ const privacyExport = mustGet<HTMLButtonElement>('privacy-export');
 const privacyClear = mustGet<HTMLButtonElement>('privacy-clear');
 const settingsFeedback = mustGet<HTMLElement>('settings-feedback');
 
-const liveGlass = new LiveGlass([titlebar, modeSwitch, inputForm]);
+const liveGlass = new LiveGlass([titlebar, modeSwitch, workModeSwitch, inputForm], appShell, lifeCore);
+const motionSystem = new MotionSystem(appShell, inputForm);
 
 const TEMPORARY_CHAT_LABEL = '临时聊天';
 const TEMPORARY_CHAT_BADGE = '临时聊天：只在本窗口保留，关闭后清除';
@@ -739,6 +751,7 @@ let currentContent = '';
 let currentImportPreview: MemoryImportPreview | null = null;
 let currentSettingsBundle: SettingsBundle | null = null;
 let currentMode: AthenaMode = 'companion';
+let currentWorkMode: AthenaMode = 'create';
 let projects: AthenaProjectRecord[] = [];
 let currentProjectId: number | null = null;
 let chatWindows: ChatWindowRecord[] = [];
@@ -784,8 +797,13 @@ function setStatus(text: string, state: AppStatusState): void {
 }
 
 function setMode(mode: AthenaMode): void {
+  const previousSpace = spaceForMode(currentMode);
+  const nextSpace = spaceForMode(mode);
+  motionSystem.beginSpaceTransition(previousSpace, nextSpace);
   currentMode = mode;
+  if (mode !== 'companion') currentWorkMode = mode;
   appShell.dataset.mode = mode;
+  appShell.dataset.space = nextSpace;
   chatPanel.setActiveMode(mode);
   stage.setAttribute('aria-hidden', String(mode === 'execute'));
   executionPanel.setAttribute('aria-hidden', String(mode !== 'execute'));
@@ -797,12 +815,19 @@ function setMode(mode: AthenaMode): void {
     button.setAttribute('aria-selected', String(active));
     button.tabIndex = active ? 0 : -1;
   });
+  document.querySelectorAll<HTMLButtonElement>('.space-btn').forEach((button) => {
+    const active = button.dataset.space === nextSpace;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-selected', String(active));
+    button.tabIndex = active ? 0 : -1;
+  });
+  workModeSwitch.setAttribute('aria-hidden', String(nextSpace !== 'work'));
   syncToolAccessHint();
   if (toolsPanel.dataset.open === 'true') void loadToolCatalog();
 }
 
 function setModeSwitchDisabled(disabled: boolean): void {
-  document.querySelectorAll<HTMLButtonElement>('.mode-btn').forEach((button) => {
+  document.querySelectorAll<HTMLButtonElement>('.mode-btn, .space-btn').forEach((button) => {
     button.disabled = disabled;
   });
 }
@@ -810,17 +835,32 @@ function setModeSwitchDisabled(disabled: boolean): void {
 function handleModeSwitchKeydown(event: KeyboardEvent): void {
   if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
   event.preventDefault();
+  const spaces: readonly AthenaSpace[] = ['companion', 'work'];
+  const currentSpace = spaceForMode(currentMode);
+  const currentIndex = spaces.indexOf(currentSpace);
+  const nextIndex = event.key === 'Home' ? 0 : event.key === 'End' ? 1 : 1 - currentIndex;
+  const nextSpace = spaces[nextIndex];
+  const nextButton = modeSwitch.querySelector<HTMLButtonElement>(`.space-btn[data-space="${nextSpace}"]`);
+  nextButton?.focus({ preventScroll: true });
+  void selectMode(nextSpace === 'companion' ? 'companion' : currentWorkMode);
+}
 
-  const currentIndex = Math.max(0, ATHENA_MODES.indexOf(currentMode));
+function handleWorkModeSwitchKeydown(event: KeyboardEvent): void {
+  if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+  event.preventDefault();
+  const currentIndex = Math.max(0, WORK_MODES.indexOf(currentMode));
   const nextIndex = event.key === 'Home'
     ? 0
     : event.key === 'End'
-      ? ATHENA_MODES.length - 1
-      : (currentIndex + (event.key === 'ArrowRight' ? 1 : -1) + ATHENA_MODES.length) % ATHENA_MODES.length;
-  const nextMode = ATHENA_MODES[nextIndex];
-  const nextButton = modeSwitch.querySelector<HTMLButtonElement>(`.mode-btn[data-mode="${nextMode}"]`);
-  nextButton?.focus({ preventScroll: true });
+      ? WORK_MODES.length - 1
+      : (currentIndex + (event.key === 'ArrowRight' ? 1 : -1) + WORK_MODES.length) % WORK_MODES.length;
+  const nextMode = WORK_MODES[nextIndex];
+  workModeSwitch.querySelector<HTMLButtonElement>(`.mode-btn[data-mode="${nextMode}"]`)?.focus({ preventScroll: true });
   void selectMode(nextMode);
+}
+
+function spaceForMode(mode: AthenaMode): AthenaSpace {
+  return mode === 'companion' ? 'companion' : 'work';
 }
 
 async function selectMode(mode: AthenaMode): Promise<void> {
@@ -869,7 +909,10 @@ async function sendMessage(text: string): Promise<void> {
   resizeInputBox();
   activeRequestMode = requestMode;
   if (requestMode === 'execute') beginExecutionRequest(text);
-  else chatPanel.addMessage(text, 'user');
+  else {
+    const userMessage = chatPanel.addMessage(text, 'user');
+    motionSystem.animateSentMessage(userMessage, text);
+  }
   setStatus(modeThinkingText(requestMode), 'working');
   isStreaming = true;
   renderChatWindowPicker();
@@ -939,9 +982,10 @@ function handleInputKeydown(event: KeyboardEvent): void {
 
 function init(): void {
   themeController.apply('system');
+  selectControls.enhance();
   setMode('companion');
   renderExecutionCenter();
-  appShell.dataset.sidebar = 'open';
+  appShell.dataset.sidebar = window.innerWidth <= 860 ? 'closed' : 'open';
   inputForm.dataset.voiceState = 'idle';
   voiceFeedback.dataset.visible = 'false';
   void initializeSettings();
@@ -966,6 +1010,15 @@ function init(): void {
   chatWindowRename.addEventListener('click', () => void renameCurrentChatWindow());
   chatWindowArchive.addEventListener('click', () => void archiveCurrentChatWindow());
   chatWindowDelete.addEventListener('click', () => void deleteCurrentChatWindow());
+  presenceActions.addEventListener('click', (event) => {
+    const button = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('.presence-action') : null;
+    const prompt = button?.dataset.prompt?.trim();
+    if (!prompt) return;
+    inputBox.value = prompt;
+    resizeInputBox();
+    inputBox.focus({ preventScroll: true });
+    inputBox.setSelectionRange(prompt.length, prompt.length);
+  });
 
   document.querySelectorAll<HTMLButtonElement>('.mode-btn').forEach((button) => {
     button.addEventListener('click', () => {
@@ -973,7 +1026,14 @@ function init(): void {
       if (nextMode) void selectMode(nextMode);
     });
   });
+  document.querySelectorAll<HTMLButtonElement>('.space-btn').forEach((button) => {
+    button.addEventListener('click', () => {
+      const nextSpace = button.dataset.space as AthenaSpace | undefined;
+      if (nextSpace) void selectMode(nextSpace === 'companion' ? 'companion' : currentWorkMode);
+    });
+  });
   modeSwitch.addEventListener('keydown', handleModeSwitchKeydown);
+  workModeSwitch.addEventListener('keydown', handleWorkModeSwitchKeydown);
 
   executionStop.addEventListener('click', cancelActiveExecution);
   executionClear.addEventListener('click', clearExecutionHistory);
@@ -1012,14 +1072,30 @@ function init(): void {
     event.preventDefault();
     saveSettingsForm();
   });
+  settingTheme.addEventListener('change', () => {
+    themeController.apply(settingTheme.value as ThemeMode, true);
+  });
+  settingAnimationLevel.addEventListener('change', () => {
+    appShell.dataset.animation = settingAnimationLevel.value;
+    liveGlass.setMotionReduced(settingAnimationLevel.value === 'low');
+    motionSystem.setMotionReduced(settingAnimationLevel.value === 'low');
+  });
+  settingGlassEffects.addEventListener('change', () => {
+    appShell.dataset.glass = String(settingGlassEffects.checked);
+  });
   settingModelProvider.addEventListener('change', () => {
     populateSelectedModelProvider();
     void refreshModelCredentialStatus();
+  });
+  settingRemoteUrl.addEventListener('blur', () => {
+    const provider = selectedRemoteModelProvider();
+    if (provider) settingRemoteUrl.value = normalizeRemoteBaseUrl(provider, settingRemoteUrl.value);
   });
   modelFirstRunChoice.querySelectorAll<HTMLButtonElement>('[data-model-path]').forEach(button => {
     button.addEventListener('click', () => {
       const path = button.dataset.modelPath;
       settingModelProvider.value = path === 'local' ? 'ollama' : 'choose-api';
+      selectControls.sync();
       populateSelectedModelProvider();
       void refreshModelCredentialStatus();
       if (path === 'local') settingOllamaModel.focus();
@@ -1112,6 +1188,8 @@ function init(): void {
     void microphoneRecorder.cancel();
     currentAudio?.pause();
     liveGlass.dispose();
+    motionSystem.dispose();
+    selectControls.dispose();
     themeController.dispose();
   });
   document.addEventListener('visibilitychange', () => {
@@ -2329,7 +2407,8 @@ function populateSelectedModelProvider(): void {
     ? currentSettingsBundle.model.ollama
     : currentSettingsBundle.model.remote[remoteProvider!];
   if (remoteProvider) {
-    settingRemoteUrl.value = selected.baseUrl;
+    settingRemoteUrl.value = normalizeRemoteBaseUrl(remoteProvider, selected.baseUrl || REMOTE_PROVIDER_BASE_URLS[remoteProvider] || '');
+    settingRemoteUrl.placeholder = REMOTE_PROVIDER_BASE_URLS[remoteProvider] || 'https://host.example/v1';
     settingRemoteModel.value = selected.model;
   }
   settingTemperature.value = String(selected.temperature);
@@ -2436,9 +2515,35 @@ function modelPatchFromForm(setupComplete: boolean): SettingsPatch['model'] {
     provider,
     setupComplete,
     remote: {
-      [provider]: { baseUrl: settingRemoteUrl.value, model: settingRemoteModel.value, ...generation },
+      [provider]: { baseUrl: normalizeRemoteBaseUrl(provider, settingRemoteUrl.value), model: settingRemoteModel.value, ...generation },
     },
   };
+}
+
+function normalizeRemoteBaseUrl(provider: RemoteModelProvider, value: string): string {
+  const trimmed = value.trim().replace(/\/+$/, '');
+  if (!trimmed) return REMOTE_PROVIDER_BASE_URLS[provider] || '';
+  try {
+    const parsed = new URL(trimmed);
+    parsed.hash = '';
+    parsed.search = '';
+    parsed.pathname = parsed.pathname.replace(/\/+$/, '');
+    const host = parsed.hostname.toLowerCase();
+    const pathname = parsed.pathname.toLowerCase();
+    if (provider === 'openai' && host === 'api.openai.com') {
+      parsed.pathname = '/v1';
+      return parsed.toString().replace(/\/$/, '');
+    }
+    if (provider === 'deepseek' && host === 'api.deepseek.com') {
+      parsed.pathname = pathname === '/v1' || pathname === '/anthropic' || pathname === '/beta' ? '' : parsed.pathname;
+      return parsed.toString().replace(/\/$/, '');
+    }
+    if (pathname.endsWith('/models')) parsed.pathname = parsed.pathname.slice(0, -'/models'.length) || '';
+    if (pathname.endsWith('/chat/completions')) parsed.pathname = parsed.pathname.slice(0, -'/chat/completions'.length) || '';
+    return parsed.toString().replace(/\/$/, '');
+  } catch {
+    return trimmed;
+  }
 }
 
 async function saveModelConfiguration(setupComplete = true): Promise<SettingsBundle> {
@@ -2537,6 +2642,7 @@ async function saveExecutionSettings(): Promise<void> {
     const approved = window.confirm(`${toolPermissionShortLabel(next)}会扩大 Athena 对本机的访问范围。高危文件、命令、程序和外网操作仍会逐次确认。是否明确升权？`);
     if (!approved) {
       settingToolPermissionExecute.value = previous;
+      selectControls.sync();
       setExecutionSettingsFeedback('已取消升权，现有权限保持不变。');
       return;
     }
@@ -2621,6 +2727,7 @@ function populateSettingsForm(bundle: SettingsBundle): void {
   settingConsentRemoteModel.checked = privacy.networkConsent.remoteModel;
   settingConsentExternalToolNetwork.checked = privacy.networkConsent.externalToolNetwork;
   applySkuRuntimeProfile(bundle.sku);
+  selectControls.sync();
   void refreshVoiceCapabilities();
 }
 
@@ -2696,6 +2803,7 @@ async function saveSettingsForm(): Promise<void> {
     const approved = window.confirm(`${toolPermissionShortLabel(nextPermission)}会扩大 Athena 对本机的访问范围。高危操作仍会逐次确认。是否明确升权？`);
     if (!approved) {
       settingToolPermissionExecute.value = previousPermission;
+      selectControls.sync();
       setSettingsFeedback('已取消升权，其他设置尚未保存。');
       return;
     }
@@ -2807,6 +2915,7 @@ function applyRuntimeSettings(settings: AppSettings): void {
   appShell.dataset.glass = String(settings.appearance.glassEffects);
   themeController.apply(settings.appearance.theme);
   liveGlass.setMotionReduced(settings.appearance.animationLevel === 'low');
+  motionSystem.setMotionReduced(settings.appearance.animationLevel === 'low');
   chatPanel.setShowTimestamps(settings.conversation.showTimestamps);
   syncToolAccessHint();
   syncVoiceControls();
