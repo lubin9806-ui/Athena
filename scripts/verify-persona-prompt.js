@@ -3,6 +3,8 @@ const os = require('os');
 const path = require('path');
 
 const root = path.resolve(__dirname, '..');
+const testConfigDir = fs.mkdtempSync(path.join(os.tmpdir(), 'athena-persona-config-test-'));
+process.env.ATHENA_CONFIG_DIR = testConfigDir;
 const { buildChatPrompt, buildSystemPrompt } = require(path.join(root, 'dist/core/ai/PromptBuilder.js'));
 const { getPersonaEditorState, importPersonaCardFromFile, resolvePersonaCard, savePersonaCard } = require(path.join(root, 'dist/core/ai/Personality.js'));
 
@@ -84,6 +86,47 @@ assert(fs.existsSync(path.join(tempPersonaDir, 'imported-card.persona.json')), '
 assert(imported.card.displayName === 'Imported Persona', 'persona import must map loose name fields');
 assert(imported.card.identity.includes('plain JSON'), 'persona import must map loose identity fields');
 assert(imported.card.prompt.traits.includes('adaptable'), 'persona import must map loose traits');
+
+const nestedImportPath = path.join(tempPersonaDir, 'nested-character-card.json');
+fs.writeFileSync(nestedImportPath, `\uFEFF${JSON.stringify({
+  spec: 'chara_card_v2',
+  data: {
+    char_name: 'Nested Persona',
+    description: 'Nested card description.',
+    personality: 'curious\nwarm',
+    scenario: 'A desktop companion imported from a nested character card.',
+    first_mes: 'Hello from a nested card.',
+    mes_example: '<START>\nuser: hi\nchar: hello',
+    system_prompt: 'Speak naturally.',
+    tags: ['nested', 'character-card'],
+  },
+}, null, 2)}`, 'utf8');
+const nested = importPersonaCardFromFile('nested-card', nestedImportPath);
+assert(nested.card.displayName === 'Nested Persona', 'persona import must map nested char_name fields');
+assert(nested.card.identity.includes('Nested card description'), 'persona import must map nested description fields');
+assert(nested.card.prompt.traits.includes('curious'), 'persona import must split nested personality text');
+assert(nested.card.prompt.selfIntroductionExample === 'Hello from a nested card.', 'persona import must map first_mes');
+
+const adultFixturePath = path.join(root, 'docs/persona-import-fixtures/18plus-companion-character-card.json');
+const adultFixture = importPersonaCardFromFile('adult-fixture-card', adultFixturePath);
+assert(adultFixture.card.displayName === 'Mira Vale', 'persona import must map the 18+ fixture name');
+assert(adultFixture.card.identity.includes('adult local desktop companion'), 'persona import must map the 18+ fixture identity');
+assert(adultFixture.card.relationshipFrame.includes('18+ mode'), 'persona import must map the 18+ fixture scenario');
+assert(adultFixture.card.prompt.traits.includes('consent-aware'), 'persona import must split the 18+ fixture personality text');
+
+const genericImportPath = path.join(tempPersonaDir, 'unknown-format.json');
+fs.writeFileSync(genericImportPath, JSON.stringify({
+  bundle: {
+    blocks: [
+      { label: 'headline', content: 'Unknown Format Persona' },
+      { label: 'core', content: 'This file uses arbitrary keys but still contains a usable adult companion persona description.' },
+      { label: 'voice', content: 'Warm, direct, playful, and clear.' },
+    ],
+  },
+}, null, 2));
+const generic = importPersonaCardFromFile('generic-card', genericImportPath);
+assert(generic.card.displayName === 'unknown-format', 'generic persona import must fall back to the file name');
+assert(generic.card.identity.includes('adult companion persona'), 'generic persona import must collect arbitrary string content');
 delete process.env.ATHENA_PERSONA_DIR;
 
 const privateCardPath = path.join(root, 'personality', 'private', 'default.persona.json');

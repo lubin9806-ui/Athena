@@ -378,7 +378,7 @@ function loadLocalPersonaCard(profileId: string): ResolvedPersonaCard | null {
 
 function readPersonaFile(filePath: string): PersonaCard | null {
   try {
-    return sanitizePersonaCard(JSON.parse(fs.readFileSync(filePath, 'utf8')));
+    return sanitizePersonaCard(JSON.parse(readJsonTextFile(filePath)));
   } catch {
     return null;
   }
@@ -387,17 +387,83 @@ function readPersonaFile(filePath: string): PersonaCard | null {
 function readImportedPersonaFile(filePath: string, fallback: PersonaCard, requestedId: string): PersonaCard {
   let parsed: unknown;
   try {
-    parsed = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    parsed = JSON.parse(readJsonTextFile(filePath));
   } catch (error) {
     throw new Error(`Persona JSON could not be read: ${error instanceof Error ? error.message : String(error)}`);
   }
 
-  const strictCard = sanitizePersonaCard(parsed);
+  const source = selectPersonaJsonSource(parsed);
+  const strictCard = sanitizePersonaCard(source);
   if (strictCard) return strictCard;
 
-  const looseCard = coerceLoosePersonaCard(parsed, fallback, requestedId);
+  const looseCard = coerceLoosePersonaCard(source, fallback, requestedId);
   if (looseCard) return looseCard;
-  throw new Error('Persona JSON must be a persona card or contain at least a name, identity, traits, speakingStyle, relationship, or prompt object.');
+
+  const genericCard = coerceGenericPersonaCard(parsed, fallback, requestedId, filePath);
+  if (genericCard) return genericCard;
+  throw new Error('Persona JSON does not contain any importable text fields.');
+}
+
+function readJsonTextFile(filePath: string): string {
+  const buffer = fs.readFileSync(filePath);
+  if (buffer.length >= 2 && buffer[0] === 0xff && buffer[1] === 0xfe) {
+    return buffer.subarray(2).toString('utf16le').replace(/^\uFEFF/, '');
+  }
+  if (buffer.length >= 2 && buffer[0] === 0xfe && buffer[1] === 0xff) {
+    const swapped = Buffer.allocUnsafe(buffer.length - 2);
+    for (let index = 2; index + 1 < buffer.length; index += 2) {
+      swapped[index - 2] = buffer[index + 1];
+      swapped[index - 1] = buffer[index];
+    }
+    return swapped.toString('utf16le').replace(/^\uFEFF/, '');
+  }
+  return buffer.toString('utf8').replace(/^\uFEFF/, '');
+}
+
+function selectPersonaJsonSource(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.find(item => isLikelyPersonaRecord(item)) || findLikelyPersonaRecord(value) || value[0];
+  }
+  if (!isRecord(value)) return value;
+  for (const key of ['data', 'character', 'persona', 'card', 'profile']) {
+    const nested = value[key];
+    if (isLikelyPersonaRecord(nested)) return nested;
+  }
+  return findLikelyPersonaRecord(value) || value;
+}
+
+function findLikelyPersonaRecord(value: unknown, depth = 0): Record<string, unknown> | null {
+  if (depth > 5 || !value || typeof value !== 'object') return null;
+  if (isLikelyPersonaRecord(value)) return value;
+  const children = Array.isArray(value) ? value : Object.values(value);
+  for (const child of children) {
+    const found = findLikelyPersonaRecord(child, depth + 1);
+    if (found) return found;
+  }
+  return null;
+}
+
+function isLikelyPersonaRecord(value: unknown): value is Record<string, unknown> {
+  if (!isRecord(value)) return false;
+  return [
+    'schemaVersion',
+    'displayName',
+    'name',
+    'char_name',
+    'characterName',
+    'personaName',
+    'identity',
+    'description',
+    'char_persona',
+    'personality',
+    'scenario',
+    'first_mes',
+    'firstMessage',
+    'mes_example',
+    'speakingStyle',
+    'relationship',
+    'prompt',
+  ].some(key => key in value);
 }
 
 function sanitizePersonaCard(value: unknown): PersonaCard | null {
@@ -449,17 +515,27 @@ function sanitizePersonaCard(value: unknown): PersonaCard | null {
 function coerceLoosePersonaCard(value: unknown, fallback: PersonaCard, requestedId: string): PersonaCard | null {
   if (!isRecord(value)) return null;
   const prompt = isRecord(value.prompt) ? value.prompt : {};
-  const name = firstString(value.displayName, value.name, value.characterName, value.personaName, prompt.displayName);
-  const nickname = firstString(value.nickname, value.alias, value.shortName, prompt.nickname);
-  const identity = firstString(value.identity, value.background, value.bio, value.description, value.persona, prompt.identity);
-  const relationshipFrame = firstString(value.relationshipFrame, value.relationship, value.relationships, value.userRelationship, prompt.relationshipFrame);
-  const traits = firstStringArray(value.traits, value.personality, value.personalityTraits, prompt.traits);
-  const speakingStyle = firstStringArray(value.speakingStyle, value.speechStyle, value.style, value.tone, prompt.speakingStyle);
-  const roleplayNotes = firstStringArray(value.roleplayNotes, value.scenario, value.lore, value.notes, value.examples, prompt.roleplayNotes);
-  const boundaries = firstStringArray(value.boundaries, value.rules, value.constraints, prompt.boundaries);
-  const selfIntroductionExample = firstString(value.selfIntroductionExample, value.selfIntro, value.greeting, value.firstMessage, prompt.selfIntroductionExample);
+  const name = firstString(value.displayName, value.name, value.char_name, value.characterName, value.personaName, prompt.displayName);
+  const nickname = firstString(value.nickname, value.alias, value.shortName, value.char_alias, prompt.nickname);
+  const identity = firstString(
+    value.identity,
+    value.char_persona,
+    value.description,
+    value.background,
+    value.bio,
+    value.persona,
+    value.creator_notes,
+    value.creatorNotes,
+    prompt.identity
+  );
+  const relationshipFrame = firstString(value.relationshipFrame, value.relationship, value.relationships, value.userRelationship, value.scenario, prompt.relationshipFrame);
+  const traits = firstStringArray(value.traits, value.personality, value.personalityTraits, value.char_traits, prompt.traits);
+  const speakingStyle = firstStringArray(value.speakingStyle, value.speechStyle, value.style, value.tone, value.system_prompt, value.post_history_instructions, prompt.speakingStyle);
+  const roleplayNotes = firstStringArray(value.roleplayNotes, value.scenario, value.lore, value.notes, value.examples, value.mes_example, value.example_dialogue, value.alternate_greetings, prompt.roleplayNotes);
+  const boundaries = firstStringArray(value.boundaries, value.rules, value.constraints, value.safety, prompt.boundaries);
+  const selfIntroductionExample = firstString(value.selfIntroductionExample, value.selfIntro, value.greeting, value.first_mes, value.firstMessage, value.firstMessage, prompt.selfIntroductionExample);
 
-  if (!name && !identity && traits.length === 0 && speakingStyle.length === 0 && !relationshipFrame && !isRecord(prompt)) {
+  if (!hasLoosePersonaSignal(value, prompt, name, identity, relationshipFrame, traits, speakingStyle, roleplayNotes, selfIntroductionExample)) {
     return null;
   }
 
@@ -495,11 +571,125 @@ function coerceLoosePersonaCard(value: unknown, fallback: PersonaCard, requested
   });
 }
 
+function coerceGenericPersonaCard(value: unknown, fallback: PersonaCard, requestedId: string, filePath: string): PersonaCard | null {
+  const entries = collectStringEntries(value);
+  if (entries.length === 0) return null;
+
+  const fileName = path.basename(filePath, path.extname(filePath));
+  const name = findEntryText(entries, /(?:^|\.|_)(?:display[_-]?name|char[_-]?name|character[_-]?name|persona[_-]?name|name|title|角色名|人格名|名称)$/i)
+    || fileName;
+  const identity = findEntryText(entries, /(?:identity|description|persona|background|bio|profile|prompt|system|设定|背景|简介|人设)/i)
+    || entriesToText(entries.slice(0, 12));
+  const relationshipFrame = findEntryText(entries, /(?:relationship|scenario|user|context|world|关系|场景|相处)/i)
+    || fallback.relationshipFrame;
+  const speakingStyle = findEntries(entries, /(?:speaking|speech|style|tone|voice|system|instruction|语气|口吻|说话|风格|指令)/i, 8);
+  const traits = splitTraitEntries(findEntries(entries, /(?:trait|personality|tag|性格|特质|标签)/i, 12));
+  const roleplayNotes = findEntries(entries, /(?:note|example|dialog|mes|greeting|scenario|lore|memory|补充|示例|对话|开场|世界|记忆)/i, 20);
+  const selfIntroductionExample = findEntryText(entries, /(?:first[_-]?mes|first[_-]?message|greeting|self[_-]?intro|intro|opening|开场|问候|自我介绍)/i)
+    || fallback.prompt.selfIntroductionExample;
+
+  return sanitizePersonaCard({
+    ...fallback,
+    schemaVersion: 1,
+    id: requestedId,
+    displayName: name,
+    nickname: name,
+    visibility: 'private',
+    role: 'companion',
+    description: `Imported from generic JSON: ${fileName}`,
+    identity,
+    relationshipFrame,
+    tags: ['imported-json', 'generic-persona'],
+    prompt: {
+      ...fallback.prompt,
+      traits: traits.length > 0 ? traits : fallback.prompt.traits,
+      speakingStyle: speakingStyle.length > 0 ? speakingStyle : fallback.prompt.speakingStyle,
+      roleplayNotes: roleplayNotes.length > 0 ? roleplayNotes : entriesToText(entries.slice(0, 20)).split(/\n/),
+      selfIntroductionExample,
+    },
+  });
+}
+
 function firstString(...values: unknown[]): string {
   for (const value of values) {
     if (typeof value === 'string' && value.trim()) return value.trim();
   }
   return '';
+}
+
+interface StringEntry {
+  path: string;
+  text: string;
+}
+
+function collectStringEntries(value: unknown, prefix = '', depth = 0, output: StringEntry[] = []): StringEntry[] {
+  if (output.length >= 400 || depth > 8) return output;
+  if (typeof value === 'string' && value.trim()) {
+    output.push({ path: prefix || 'value', text: value.trim() });
+    return output;
+  }
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => collectStringEntries(item, `${prefix}[${index}]`, depth + 1, output));
+    return output;
+  }
+  if (isRecord(value)) {
+    for (const [key, item] of Object.entries(value)) {
+      collectStringEntries(item, prefix ? `${prefix}.${key}` : key, depth + 1, output);
+      if (output.length >= 400) break;
+    }
+  }
+  return output;
+}
+
+function findEntryText(entries: StringEntry[], pattern: RegExp): string {
+  return entries.find(entry => pattern.test(entry.path))?.text || '';
+}
+
+function findEntries(entries: StringEntry[], pattern: RegExp, limit: number): string[] {
+  return entries
+    .filter(entry => pattern.test(entry.path))
+    .map(entry => entry.text)
+    .filter(Boolean)
+    .slice(0, limit);
+}
+
+function entriesToText(entries: StringEntry[]): string {
+  return entries
+    .map(entry => `${entry.path}: ${entry.text}`)
+    .join('\n');
+}
+
+function splitTraitEntries(values: string[]): string[] {
+  return values
+    .flatMap(value => value.split(/\r?\n|[,;，；、]/))
+    .map(value => value.trim().replace(/^[\-*]\s*/, ''))
+    .filter(Boolean)
+    .slice(0, MAX_PROMPT_ITEMS);
+}
+
+function hasLoosePersonaSignal(
+  value: Record<string, unknown>,
+  prompt: Record<string, unknown>,
+  name: string,
+  identity: string,
+  relationshipFrame: string,
+  traits: string[],
+  speakingStyle: string[],
+  roleplayNotes: string[],
+  selfIntroductionExample: string
+): boolean {
+  if (name || identity || relationshipFrame || selfIntroductionExample) return true;
+  if (traits.length > 0 || speakingStyle.length > 0 || roleplayNotes.length > 0) return true;
+  return [
+    'char_name',
+    'char_persona',
+    'personality',
+    'scenario',
+    'first_mes',
+    'mes_example',
+    'system_prompt',
+    'post_history_instructions',
+  ].some(key => key in value || key in prompt);
 }
 
 function firstStringArray(...values: unknown[]): string[] {
