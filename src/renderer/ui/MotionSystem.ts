@@ -1,5 +1,14 @@
 export type AthenaSpace = 'companion' | 'work';
 
+interface SentMessageFlight {
+  startLeft: number;
+  startTop: number;
+  dx: number;
+  dy: number;
+  scaleX: number;
+  scaleY: number;
+}
+
 export class MotionSystem {
   private settingsReducedMotion = false;
   private hasChangedSpace = false;
@@ -52,34 +61,38 @@ export class MotionSystem {
     const flight = document.createElement('div');
     flight.className = 'message-flight';
     flight.textContent = text;
-    flight.style.width = `${Math.min(target.width, Math.max(160, start.width - 150))}px`;
+    flight.style.width = `${Math.min(target.width, Math.max(132, composerRect.width - 210))}px`;
     document.body.appendChild(flight);
 
-    const flightRect = flight.getBoundingClientRect();
-    const startLeft = this.clamp(
-      start.left + start.width / 2 - flightRect.width / 2,
-      12,
-      window.innerWidth - flightRect.width - 12,
-    );
-    const startTop = this.clamp(
-      start.top + start.height / 2 - Math.min(flightRect.height, target.height) / 2,
-      8,
-      window.innerHeight - Math.min(flightRect.height, target.height) - 8,
-    );
-    flight.style.left = `${startLeft}px`;
-    flight.style.top = `${startTop}px`;
+    const geometry = this.measureSentMessageFlight(flight, start, target);
+    flight.style.left = `${geometry.startLeft}px`;
+    flight.style.top = `${geometry.startTop}px`;
+    this.composer.dataset.sendMotion = 'true';
 
-    const dx = target.left - startLeft;
-    const dy = target.top - startTop;
-    const scaleX = Math.max(0.72, Math.min(1.08, target.width / Math.max(1, flight.offsetWidth)));
-    const duration = 520;
+    const duration = 540;
     const animation = flight.animate([
-      { opacity: 0.08, transform: 'translate3d(0, 8px, 0) scale(1.035)' },
-      { opacity: 0.92, offset: 0.28, transform: 'translate3d(0, -4px, 0) scale(1)' },
-      { opacity: 0.98, transform: `translate3d(${dx}px, ${dy}px, 0) scale(${scaleX})` },
+      {
+        opacity: 0,
+        transform: 'translate3d(0, 7px, 0) scale(0.94)',
+        filter: 'blur(2px) saturate(0.92)',
+        borderRadius: '23px',
+      },
+      {
+        opacity: 0.96,
+        offset: 0.2,
+        transform: 'translate3d(0, -5px, 0) scale(1.018)',
+        filter: 'blur(0) saturate(1.04)',
+        borderRadius: '20px 20px 10px 20px',
+      },
+      {
+        opacity: 0.98,
+        transform: `translate3d(${geometry.dx}px, ${geometry.dy}px, 0) scale(${geometry.scaleX}, ${geometry.scaleY})`,
+        filter: 'blur(0) saturate(1)',
+        borderRadius: '17px 17px 7px 17px',
+      },
     ], {
       duration,
-      easing: 'cubic-bezier(0.2, 0.82, 0.18, 1)',
+      easing: 'cubic-bezier(0.18, 0.86, 0.2, 1)',
       fill: 'forwards',
     });
 
@@ -90,6 +103,7 @@ export class MotionSystem {
       settled = true;
       window.clearTimeout(fallbackTimer);
       flight.remove();
+      delete this.composer.dataset.sendMotion;
       this.activeFlightCleanups.delete(finish);
       this.settleSentMessage(message);
     };
@@ -113,6 +127,29 @@ export class MotionSystem {
   private settleSentMessage(message: HTMLElement): void {
     message.style.removeProperty('visibility');
     message.dataset.entry = 'landed';
+  }
+
+  private measureSentMessageFlight(flight: HTMLElement, start: DOMRect, target: DOMRect): SentMessageFlight {
+    const flightRect = flight.getBoundingClientRect();
+    const startLeft = this.clamp(
+      start.right - flightRect.width - 6,
+      12,
+      window.innerWidth - flightRect.width - 12,
+    );
+    const startTop = this.clamp(
+      start.top + start.height / 2 - Math.min(flightRect.height, target.height) / 2,
+      8,
+      window.innerHeight - Math.min(flightRect.height, target.height) - 8,
+    );
+
+    return {
+      startLeft,
+      startTop,
+      dx: target.left - startLeft,
+      dy: target.top - startTop,
+      scaleX: Math.max(0.74, Math.min(1.12, target.width / Math.max(1, flightRect.width))),
+      scaleY: Math.max(0.86, Math.min(1.08, target.height / Math.max(1, flightRect.height))),
+    };
   }
 
   private clamp(value: number, min: number, max: number): number {

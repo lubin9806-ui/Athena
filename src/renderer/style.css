@@ -941,6 +941,7 @@ summary:focus-visible {
   width: 17px;
   height: 17px;
   stroke-width: 1.9;
+  transition: transform var(--motion-fast) ease;
 }
 
 #composer-meta {
@@ -6253,7 +6254,7 @@ html[data-theme="night"] body {
   line-height: 1.65;
   pointer-events: none;
   transform-origin: left top;
-  will-change: opacity, transform;
+  will-change: opacity, transform, filter, border-radius;
   -webkit-backdrop-filter: blur(18px) saturate(128%);
   backdrop-filter: blur(18px) saturate(128%);
 }
@@ -6284,6 +6285,18 @@ html[data-theme="night"] body {
   border-color: rgba(255, 255, 255, 0.76);
   box-shadow: 0 24px 62px rgba(42, 54, 46, 0.16), 0 0 0 3px rgba(66, 111, 85, 0.055), inset 0 1px rgba(255, 255, 255, 0.82);
   transform: translateY(-1px);
+}
+
+#input-form[data-send-motion="true"] {
+  transform: translateY(1px) scale(0.998);
+  box-shadow:
+    0 14px 36px rgba(42, 54, 46, 0.11),
+    inset 0 1px rgba(255, 255, 255, 0.72),
+    inset 0 -1px rgba(76, 96, 82, 0.1);
+}
+
+#input-form[data-send-motion="true"] #send-btn .icon {
+  transform: translate3d(1px, -1px, 0) rotate(-8deg) scale(0.94);
 }
 
 #send-btn {
