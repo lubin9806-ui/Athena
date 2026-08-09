@@ -13,7 +13,7 @@
 | 责任项 | 结果 | 证据 |
 |---|---|---|
 | ATH-PRODUCT-001 | **Closed** | 官网/商店源稿移除旧 Muse/Venus/Oracle 与虚构工作流卖点；Live2D、音乐、日历、云同步、Steam/Mobile/macOS/Linux 明确 Planned/Excluded；营销回归扫描通过 |
-| ATH-DESKTOP-002 | **Blocked（定义完成，外部依赖未就绪）** | 单一一次性个人 SKU、2 设备、1.x 权益、换机、14 日退款、支持/隐私/安全分流、EULA/隐私草案和本地适配器已完成；主体、价格、支付/许可证平台、公钥、公开入口、生产 UI/安全存储和签字仍缺失 |
+| ATH-DESKTOP-002 | **Blocked（定义完成，外部依赖未就绪）** | 单一一次性个人 SKU、2 设备、1.x 权益、换机、14 日退款、支持/隐私/安全分流、EULA/隐私草案和本地适配器已完成；公开入口已初步配置；主体、价格、支付/许可证平台、公钥、生产 UI/安全存储和签字仍缺失 |
 
 ## Universal + Desktop 清单复核
 
@@ -30,7 +30,7 @@ Universal 分区中，安全已取得 10 项通过，但签名/恶意软件扫�
 
 - `npm.cmd run typecheck` 通过。
 - persona、modes、theme、logger、security、privacy、supply-chain、release、desktop-faults、web-search 和 tools 非 live 回归全部通过。
-- `npm.cmd run test:commercial` 输出 `ATHENA_COMMERCIAL_READINESS_OK sku=athena-desktop-personal-v1 model=one_time devices=2 productionBlockers=9`。
+- `npm.cmd run test:commercial` 输出 `ATHENA_COMMERCIAL_READINESS_OK sku=athena-desktop-personal-v1 model=one_time devices=2 productionBlockers=8`。
 - 开发态 Electron smoke 输出 `ATHENA_SMOKE_READY_TO_SHOW` 与 `ATHENA_SMOKE_DOM_OK`。
 - `npm.cmd run audit:security` 输出 `found 0 vulnerabilities`。
 - `npm.cmd run build` 成功生成 unsigned 工程包，并明确输出 `ATHENA_RELEASE_EXTERNAL_BLOCKED code-signing-certificate-missing` 与 `ATHENA_BUILD_SOURCE_DIRTY paths=75`。

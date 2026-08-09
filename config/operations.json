@@ -3,8 +3,8 @@
   "releaseStage": "prelaunch",
   "reviewId": "ATH-OPS-001",
   "statusPage": {
-    "publicUrl": null,
-    "provider": null,
+    "publicUrl": "https://www.elanastra.com/status",
+    "provider": "elanastra.com Cloudflare-served static site",
     "sourceDocument": "docs/ops/STATUS_PAGE_TEMPLATE.md",
     "timestampStandard": "UTC",
     "p0InitialUpdateMinutes": 30,
@@ -38,7 +38,7 @@
     "androidOwner": null
   },
   "channels": {
-    "supportUrl": null,
+    "supportUrl": "https://www.elanastra.com/support",
     "supportEmail": "3155822002@qq.com",
     "securityEmail": "3155822002@qq.com",
     "privacyEmail": "3155822002@qq.com",

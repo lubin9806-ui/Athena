@@ -132,7 +132,6 @@ async function main() {
     'provider.activationBaseUrl is not configured',
     'provider.verificationPublicKey is not configured',
     'identity.legalEntity is not configured',
-    'identity.supportUrl is not configured',
     'price and currency are not configured',
   ]) {
     assert(blockers.includes(requiredBlocker), `prelaunch config must remain blocked by: ${requiredBlocker}`);

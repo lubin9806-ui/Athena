@@ -41,11 +41,11 @@
 | ATH-WEB-001 | 搜索抓取第三方 HTML，缺少正式 SLA、监控和政策审查 | `WEB_PROVIDER_REVIEW.md` 判定现有 HTML provider 无商业授权/SLA并从 1.0 排除；Internal Alpha 有 1.25 秒/8 rpm 限速、Retry-After、超时、反爬分类、无查询遥测诊断和降级 UX | P1 | 05 | Closed | provider 政策评审完成；未签约 provider 不进入 1.0；实验实现的限速、失败 UX 和本地监控有测试 |
 | ATH-CONFIG-001 | 启动项、通知、历史保留、导出等部分设置不驱动真实行为 | `SETTINGS_RUNTIME_AUDIT.md`；DesktopSettings 实现登录项/托盘/通知；全部可见控件枚举+wiring+隔离配置往返；旧在线语音/auto STT 控件移除 | P1 | 05 | Closed | 所有可见设置端到端生效并测试，或从发布版移除 |
 | ATH-DESKTOP-001 | Desktop Beta 缺少真实安装/升级/卸载/弱网/故障测试 | 已落盘受控 Beta 方案、参与者/安装矩阵模板和 disposable-VM harness；个人 Partner Center 已预留 `Athena AI companion`（Store ID `9NT09L9504R1`），独立 AppX Private Audience 工程包、包内容验证与 unpacked smoke 已通过，但尚未 clean-build、上传、认证或从私密 Store 链接安装；真实测试者仍为 0 | P1 | 06/Store Beta | Blocked | **外部阻断：Microsoft Store Private Audience 首包认证，或有效签名 Direct 候选，以及 20–50 名真实测试者/Windows 测试环境**；安装升级矩阵完成且无 P0/P1，真实参与者达到 20–50 后方可关闭 |
-| ATH-DESKTOP-002 | Desktop 1.0 的授权、支持、退款和正式发布材料未定义 | 单一一次性个人 SKU、2 设备/1.x 权益、换机/14 日退款/支持分流已冻结；可替换 LicenseAdapter、生产拒绝配置、官网/商店/EULA/隐私/支持源稿与本地回归已落盘；真实主体、价格、支付/许可证平台、公钥、公开 URL 和联系人仍为空 | P1 | 07 | Blocked | **外部阻断：发行主体、销售/税务、支付与许可证平台、价格币种、公开支持/隐私/安全渠道和法律/产品签字**；生产激活 UI/安全存储/公钥轮换/真实平台测试完成后关闭 |
+| ATH-DESKTOP-002 | Desktop 1.0 的授权、支持、退款和正式发布材料未定义 | 单一一次性个人 SKU、2 设备/1.x 权益、换机/14 日退款/支持分流已冻结；可替换 LicenseAdapter、生产拒绝配置、官网/商店/EULA/隐私/支持源稿与本地回归已落盘；官网基址、支持 URL 和支持/隐私/安全邮箱已初步配置；真实主体、价格、支付/许可证平台、公钥、生产激活和签字仍为空 | P1 | 07 | Blocked | **外部阻断：发行主体、销售/税务、支付与许可证平台、价格币种、法律/产品签字和真实生产激活证据**；生产激活 UI/安全存储/公钥轮换/真实平台测试完成后关闭 |
 | ATH-STEAM-001 | 无 Steamworks、Depot、所有权、内容问卷和 Steam 专用裁剪 | 已实现独立 Steam SKU/build、主进程 Steamworks restart/AppID/订阅/SteamID/私有分支 fail-closed 校验、SteamPipe VDF、VC++ redistributable 运行稿、Full/终端/HTTP/外链/站外支付多层裁剪、Cloud AES-GCM+vector clock+冲突/墓碑删除协议、AI 申报/guardrail、Athens 主题素材和 near-final verifier；窗口 03 白名单仍为空 | P0 | 08 | Blocked | **外部阻断：Desktop 1.0 干净基线、真实 Steamworks 合作方账号/AppID/DepotID/Steam Direct、签名候选、私有分支 owned-account/clean-machine/Cloud 测试、内容问卷与 Valve Store/build review**；`npm.cmd run test:steam` 仅证明工程边界，不冒充平台通过 |
 | ATH-CLOUD-001 | 无认证、租户隔离、同步、计费、SLO 和数据权利服务 | `cloud/` 独立服务边界已实现认证/MFA/恢复/会话/设备、租户隔离、v1 加密同步、密钥轮换、限流配额、审计、导出删除、备份恢复、模型最小留存、零费用适配器与故障演练；生产供应商/区域/计费/KMS/TLS/外部渗透与运维签字未完成 | P0 | 09 | Blocked | **外部阻断：确定云/区域/KMS、模型与恢复供应商条款、计费税务、生产部署与 SLO/RPO/RTO、外部渗透/镜像扫描、法定留存和 on-call/状态页**；全部通过并签字后作为 Mobile 发布前置 |
 | ATH-MOBILE-001 | 无 iOS/Android 工程和移动商店合规 | 未启动：Cloud 1.0 生产发布门为 No-Go；仓库无移动工程、Apple/Google 商店账号或真实审核证据 | P0 | 10 | Blocked | **前置阻断：Cloud 1.0 必须先取得有签字的生产 Go**；解锁后再写移动 ADR、创建 Companion 并完成 Mobile 专项清单、真实账号签名与 App Store/Google Play 审核 |
-| ATH-OPS-001 | 无跨平台事件响应、状态页、停止支持与发布复盘机制 | `config/operations.json`、`docs/ops/*` 与 `scripts/verify-operations-readiness.js` 已建立责任链、支持时限、事故等级、状态页模板、停更/撤包/热修/通知/复盘、EOL 和迁移控制；窗口 11 独立复核判定五平台全部 No-Go；真实负责人/值班/公开渠道/独立状态页和外部平台演练仍缺失 | P1 | 11 | Blocked | **外部阻断：配置真实 Release/Security/QA/Support/各平台 Owner 与 Cloud 双人 on-call，部署独立状态页和公开支持/安全/隐私入口**；完成 P0 tabletop、五平台停更/撤包/通知/恢复演练并关闭行动项后方可 Closed |
+| ATH-OPS-001 | 无跨平台事件响应、状态页、停止支持与发布复盘机制 | `config/operations.json`、`docs/ops/*` 与 `scripts/verify-operations-readiness.js` 已建立责任链、支持时限、事故等级、状态页模板、停更/撤包/热修/通知/复盘、EOL 和迁移控制；Desktop 负责人、支持/安全/隐私邮箱、支持 URL、事故微信桥接和状态页 URL 已初步配置；窗口 11 独立复核仍判定五平台全部 No-Go | P1 | 11 | Blocked | **外部阻断：配置 Legal/License、Steam、Cloud 双人 on-call、iOS/Android Owner、分页服务和真实平台演练**；完成 P0 tabletop、五平台停更/撤包/通知/恢复演练并关闭行动项后方可 Closed |
 | ATH-ARCH-001 | PluginManager/Planner 关闭，Workflows/Skills 多为骨架 | Workflows 已实现四个有界 start/next/cancel/complete 会话并测试；PluginManager、Planner、Skills/插件市场保持 Excluded 且不进入 1.0 宣传 | P2 | 05 | Closed | 已实现并测试的固定工作流保留为 Beta；其余骨架从 1.0 UI/宣传排除 |
 | ATH-PRODUCT-001 | Live2D、音乐、日历、跨平台等旧愿景未实现 | `promo/*.html` 与 `DESKTOP_1_0_STORE_LISTING.md` 已移除旧 Muse/Venus/Oracle 和未实现工作流卖点；Live2D、音乐、日历、云同步、Steam/Mobile/macOS/Linux 均明确为 Planned/Excluded；商业回归扫描禁词和必需边界 | P3 | 07 | Closed | 已从 Desktop 1.0 官网/商店源稿排除；未来进入矩阵后另建实现问题并重新过营销审核 |
 | ATH-REPO-001 | 来源不明空目录、历史归档和大模型本地 payload 仍需长期归属策略 | `新建文件夹/`、`legacy/root-artifacts`、`models/` | P2 | 04 | Open | 确认所有者/许可/保留期；在有备份和批准前不得删除 |
@@ -138,12 +138,12 @@
 |---|---|---|
 | SKU | `config/commercial.json`、`DESKTOP_1_0_COMMERCIAL_POLICY.md`：单一 `athena-desktop-personal-v1`，一次性个人许可，不设 Free/Pro 或订阅，最多 2 台本人设备，覆盖 1.x | 价格、币种、销售区域和税务未确定；没有真实收费 |
 | 激活与换机 | `LicenseAdapter`/`LicenseStore` 契约、`LicenseService` 激活/校验/停用状态机；本地 fixture 验证 2 设备上限、释放槽位、篡改/错设备/2.x 拒绝和密钥不持久化 | 生产平台、公钥、设备标识、安全存储、撤销/恢复、应用内 UI 和真实网络测试未实现 |
-| 退款与支持 | 14 日自愿退款且法定权利优先；退款撤权但保留本机数据；一般支持/隐私/安全三入口和响应目标已冻结 | 真实入口均为 `null`，EULA/隐私政策未生效，法律与运营签字缺失 |
+| 退款与支持 | 14 日自愿退款且法定权利优先；退款撤权但保留本机数据；一般支持/隐私/安全三入口和响应目标已冻结 | 官网基址、支持 URL 和支持/隐私/安全邮箱已初步配置；EULA/隐私政策未生效，法律与运营签字缺失 |
 | 官网与发行材料 | `promo/index.html`、`product.html`、`visual.html`；商店长短描述、截图规则、EULA/隐私草案、支持运行稿 | 全部明确 Prelaunch/No-Go/尚未开放购买；正式域名、下载、价格和签名 build 截图不存在 |
 | 产品承诺审计 | ATH-PRODUCT-001 关闭；Live2D、音乐、日历、跨设备同步、Cloud/Steam/Mobile/macOS/Linux 保持 Planned/Excluded；旧人格和虚构工作流卖点移除 | 未来实现必须先更新产品矩阵并重新审核素材 |
-| 自动化 | `npm.cmd run test:commercial` 输出 `ATHENA_COMMERCIAL_READINESS_OK sku=athena-desktop-personal-v1 model=one_time devices=2 productionBlockers=9` | 通过证明边界和拒绝门有效，不等于生产平台或商业发布通过 |
+| 自动化 | `npm.cmd run test:commercial` 输出 `ATHENA_COMMERCIAL_READINESS_OK sku=athena-desktop-personal-v1 model=one_time devices=2 productionBlockers=8` | 通过证明边界和拒绝门有效，不等于生产平台或商业发布通过 |
 
-结论：ATH-PRODUCT-001 **Closed**；ATH-DESKTOP-002 的可替换工程与政策定义完成，但因真实主体/交易/许可证/公开联系渠道和签字缺失转为 **Blocked**。Universal + Desktop 清单仍有签名、真实 Beta、质量、法务和运营未完成项，Desktop 1.0 为 **No-Go**。
+结论：ATH-PRODUCT-001 **Closed**；ATH-DESKTOP-002 的可替换工程与政策定义完成，但因真实主体/交易/许可证/签字和生产激活证据缺失转为 **Blocked**。Universal + Desktop 清单仍有签名、真实 Beta、质量、法务和运营未完成项，Desktop 1.0 为 **No-Go**。
 
 ## 11. 窗口 09：Cloud 1.0 工程交接记录
 

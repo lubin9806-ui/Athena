@@ -24,7 +24,7 @@
 | 负责人 | 窗口 11（独立复核与运营门；未代替 Product/Security/Legal/QA 人工签字） |
 | 候选产物 SHA-256 | unsigned installer `7D486394F947FF36AE905DFFD9F095987B66B7C3C835D1814635F80936BF6845`；unsigned unpacked EXE `337540574E02AECDF804417DB48C2A87A682405BD3347EFCA29B617730DC94E1` |
 | 最终结论 | **No-Go / Blocked** |
-| 未关闭风险 | ATH-REL-001：代码签名证书、批准发布者 DN、HTTPS 更新源、clean-checkout CI 实跑和真实更新/暂停/回滚仍缺外部证据；ATH-DESKTOP-001：真实测试者 0/20–50，安装矩阵、UAC、Defender、标准用户和弱网未完成；ATH-DESKTOP-002：发行主体、价格税务、支付/许可证平台、公钥、公开支持/隐私/安全入口和签字缺失。当前包 `NotSigned` 且不得销售或分发给 Beta 参与者 |
+| 未关闭风险 | ATH-REL-001：代码签名证书、批准发布者 DN、HTTPS 更新源、clean-checkout CI 实跑和真实更新/暂停/回滚仍缺外部证据；ATH-DESKTOP-001：真实测试者 0/20–50，安装矩阵、UAC、Defender、标准用户和弱网未完成；ATH-DESKTOP-002：发行主体、价格税务、支付/许可证平台、公钥和签字缺失；公开入口已初步配置但未形成正式发布批准。当前包 `NotSigned` 且不得销售或分发给 Beta 参与者 |
 
 ## 3. 当前基线证据（2026-07-15）
 
@@ -59,7 +59,7 @@
 - [x] `npm.cmd run test:desktop-faults` → `ATHENA_DESKTOP_FAULTS_OK noOllama=degraded portConflict=rejected weakNetwork=bounded`
 - [~] 开发态 smoke 输出 `ATHENA_SMOKE_READY_TO_SHOW` / `ATHENA_SMOKE_DOM_OK`；窗口 07 最新 unsigned EXE 因新哈希被本机 Application Control 阻止启动，旧窗口打包态成功不能替代新包证据
 - [x] `npm.cmd run test:supply-chain` → `ATHENA_SUPPLY_CHAIN_OK packages=80 manifest=docs/SUPPLY_CHAIN_MANIFEST.json`；官方 npm audit 为 0 vulnerabilities
-- [x] `npm.cmd run test:commercial` → `ATHENA_COMMERCIAL_READINESS_OK sku=athena-desktop-personal-v1 model=one_time devices=2 productionBlockers=9`
+- [x] `npm.cmd run test:commercial` → `ATHENA_COMMERCIAL_READINESS_OK sku=athena-desktop-personal-v1 model=one_time devices=2 productionBlockers=8`
 - [~] 工程候选 installer 105,971,220 bytes、unpacked EXE 232,771,072 bytes 已生成并精确哈希；两者 Authenticode 均为 `NotSigned`，candidate manifest 为 `BLOCKED`；生产 ASAR 1,376 项且 `.map/.d.ts` 为 0，内置商业配置保持 `prelaunch/unconfigured`
 - [ ] 代码签名证书、发布者 DN、HTTPS feed 和真实 clean-checkout CI run（外部 Blocked）
 - [ ] 首装/覆盖升级/跨版本/卸载/重装、标准用户/UAC/Defender/弱网真实矩阵
@@ -155,8 +155,8 @@
 
 ### 4.7 运营和支持
 
-- [~] 支持/隐私/安全分流、响应目标、14 日退款和已知限制内容已定义；真实 URL/邮箱、独立状态页和公开已知问题页未上线
-- [~] `config/operations.json` 与 `docs/ops/RELEASE_OPERATIONS.md` 已定义发布责任链和升级链；真实负责人、Cloud 双人 on-call、分页服务和公开入口仍为空
+- [~] 支持/隐私/安全分流、响应目标、14 日退款和已知限制内容已定义；官网支持 URL、邮箱和状态页 URL 已初步配置；公开已知问题页、法律签字和正式发布批准未完成
+- [~] `config/operations.json` 与 `docs/ops/RELEASE_OPERATIONS.md` 已定义发布责任链和升级链；Desktop 负责人和公开入口已初步配置；Legal/License、Steam、Cloud 双人 on-call、iOS/Android Owner、分页服务和演练仍缺失
 - [~] P0/P1 的停更、撤包、热修、通知、修复和复盘流程及模板已落盘；尚未用 Desktop/Steam/Cloud/Apple/Google 真实账号完成演练
 - [ ] 指标只采集必要数据，并与隐私同意/退出机制一致
 - [~] 版本停止支持、数据迁移和服务终止策略已落盘；尚未在真实公开渠道发布或完成生产演练
@@ -171,7 +171,7 @@
 - [ ] 轻量安装器不暗示包含模型；离线包标明真实体积和磁盘需求
 - [ ] Execute Beta 的默认 Off、高危确认、审计和故障恢复通过真实用户测试
 - [ ] beta/stable 更新通道、签名更新与回滚通过
-- [~] 已明确 1.0 采用无账号一次性个人授权、2 设备、1.x 权益、换机和 14 日退款；生产 provider、公钥、安全存储、应用内 UI、公开入口和真实演练未完成
+- [~] 已明确 1.0 采用无账号一次性个人授权、2 设备、1.x 权益、换机和 14 日退款；公开入口已初步配置；生产 provider、公钥、安全存储、应用内 UI 和真实演练未完成
 
 ## 6. Steam 专项
 

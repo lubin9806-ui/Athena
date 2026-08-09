@@ -20,7 +20,7 @@
 - 窗口 11 刷新时 `git status --porcelain=v1` 有 18 条；其中包含窗口 11 运营/复审文件和待隔离的本机发行配置/运行态改动。提交窗口 11 后仍必须从 clean checkout 构建签名候选。
 - Node `v24.18.0`，npm `11.16.0`，Electron `42.7.0`，electron-builder `26.15.3`。
 - 仓库和当前环境未发现已配置 Windows CSC、Steam AppID/DepotID、Apple Team 或 Google Play service-account 证据；检查只记录存在性，不读取或输出秘密。
-- `config/operations.json` 的真实负责人、值班、支持/安全/隐私入口、状态页 provider/URL 全为 `null`。流程已经定义，但运营能力未配备。
+- `config/operations.json` 已初步配置 Desktop 负责人、支持/安全/隐私邮箱、支持 URL、事故微信桥接和状态页 provider/URL；Legal/License、Steam、Cloud 双人 on-call、iOS/Android Owner、分页服务和演练仍缺失。
 
 ## 3. 窗口 03–10 独立复核
 
@@ -30,9 +30,9 @@
 | 04 | ATH-LEGAL-001 | `test:supply-chain` → `ATHENA_SUPPLY_CHAIN_OK packages=80`；manifest 已刷新并与当前 unsigned installer/EXE 的大小与哈希一致 | **源码/依赖清单范围复现**；真实签名、Ollama 再分发和人工权属签字仍是发布门 |
 | 05 | ATH-VOICE-001 / ATH-WEB-001 / ATH-CONFIG-001 | `test:web-search`、`ATHENA_WINDOW05_ARCH_OK` 通过；切回 Node ABI 后 `ATHENA_WINDOW05_RELIABILITY_OK longMessages=1500` | 三项 Closed 的工程证据可复现；Node/Electron native ABI 必须按测试运行时重建，不得混用 |
 | 06 | ATH-REL-001 / ATH-DESKTOP-001 | `test:release` → migration backup/rollback verified；开发 smoke 有 READY/DOM 标记；根依赖 audit 为 0 high | **Blocked 保持正确**。当前 installer 已能完整生成但未签名；真实 certificate/publisher/feed/clean CI/安装矩阵和 20–50 人 Beta 不存在 |
-| 07 | ATH-DESKTOP-002 / ATH-PRODUCT-001 | `test:commercial` → `productionBlockers=9`；宣传源稿扫描通过 | 产品声明边界的 Closed 可复现；商业发布仍 Blocked。真实主体、价格、支付/许可证、公钥、公开入口、生产 UI 和签字缺失 |
+| 07 | ATH-DESKTOP-002 / ATH-PRODUCT-001 | `test:commercial` → `productionBlockers=8`；宣传源稿扫描通过 | 产品声明边界的 Closed 可复现；商业发布仍 Blocked。真实主体、价格、支付/许可证、公钥、生产 UI 和签字缺失；公开入口已初步配置 |
 | 08 | ATH-STEAM-001 | `test:steam` → 工程边界、裁剪、Cloud 冲突/删除和源素材检查通过；同时明确输出 `engineering-only`、`no real Steam candidate supplied` | **Blocked / P0**。无外部账号、ID、签名候选和 Valve 回执；不得提升为 Go |
-| 09 | ATH-CLOUD-001 | 13 个 Cloud 测试通过；`ATHENA_CLOUD_DRILL_OK`；`ATHENA_CLOUD_1_0_ENGINEERING_OK ... production=no-go`；Cloud audit 0 | **Blocked / P0**。测试只证明 local fixture 与独立边界，生产 provider、基础设施、安全审计、值班和状态页均缺失 |
+| 09 | ATH-CLOUD-001 | 13 个 Cloud 测试通过；`ATHENA_CLOUD_DRILL_OK`；`ATHENA_CLOUD_1_0_ENGINEERING_OK ... production=no-go`；Cloud audit 0 | **Blocked / P0**。测试只证明 local fixture 与独立边界，生产 provider、基础设施、安全审计和双人 on-call 均缺失；状态页 URL 已初步配置 |
 | 10 | ATH-MOBILE-001 | 文件扫描未发现 iOS/Android/mobile 工程或商店材料 | **Blocked / P0**。没有可以执行的安装、升级、签名、隐私、备份恢复或商店测试；“无证据”不能写成 Not Applicable |
 
 ## 4. Desktop Direct 构建、安装、升级与恢复复核
@@ -82,7 +82,7 @@
 |---|---|---|---|---|---|
 | 外部账号/主体 | 缺发行主体/支付/许可 provider | 缺 Steamworks partner/AppID/DepotID | 缺云、模型、计费、KMS provider | 缺 Apple Developer/App Store Connect | 缺 Play Console |
 | 签名/密钥 | Windows CSC/批准 publisher 缺失 | 签名 Steam EXE/SteamPipe manifest 缺失 | 生产 TLS/KMS/IAM 缺失 | Team/Distribution cert/profile 缺失 | upload/app-signing key 与 service account 缺失 |
-| 商店/公开材料 | 源稿有，真实 URL/截图/价格缺失 | 源稿/素材有，未上传/审核，截图门失败 | 状态页/支持/隐私 URL 缺失 | 全部缺失 | 全部缺失 |
+| 商店/公开材料 | 源稿有，支持/状态入口已初步配置；真实下载/截图/价格缺失 | 源稿/素材有，未上传/审核，截图门失败 | 状态页 URL 已初步配置；生产公开材料仍缺 | 全部缺失 | 全部缺失 |
 | 安装/升级 | unsigned installer 存在，签名矩阵未跑 | 无 depot/private branch | 无生产 deploy/rollback | 无 IPA/TestFlight | 无 AAB/internal track |
 | 外部审核 | 无签字 | 无 Valve Store/build review | 无独立 pen test/运营签字 | 无 App Review | 无 Play review |
 
