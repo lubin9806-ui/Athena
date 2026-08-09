@@ -4,7 +4,7 @@ const path = require('path');
 
 const root = path.resolve(__dirname, '..');
 const { buildChatPrompt, buildSystemPrompt } = require(path.join(root, 'dist/core/ai/PromptBuilder.js'));
-const { getPersonaEditorState, resolvePersonaCard, savePersonaCard } = require(path.join(root, 'dist/core/ai/Personality.js'));
+const { getPersonaEditorState, importPersonaCardFromFile, resolvePersonaCard, savePersonaCard } = require(path.join(root, 'dist/core/ai/Personality.js'));
 
 const emptyContext = {
   profileFacts: [],
@@ -66,6 +66,24 @@ const reloaded = getPersonaEditorState('test-card');
 assert(fs.existsSync(path.join(tempPersonaDir, 'test-card.persona.json')), 'persona save must write a local persona card file');
 assert(saved.card.displayName === 'Test Persona', 'persona save must return the saved card');
 assert(reloaded.card.displayName === 'Test Persona', 'persona editor state must reload the saved card');
+
+const looseImportPath = path.join(tempPersonaDir, 'loose-persona.json');
+fs.writeFileSync(looseImportPath, JSON.stringify({
+  name: 'Imported Persona',
+  nickname: 'Importer',
+  identity: 'Imported from a plain JSON persona file.',
+  relationship: 'Test import relationship.',
+  traits: ['adaptable', 'local'],
+  speakingStyle: ['clear'],
+  roleplayNotes: ['import test'],
+  boundaries: ['test boundary'],
+  selfIntro: 'I am Imported Persona.',
+}, null, 2));
+const imported = importPersonaCardFromFile('imported-card', looseImportPath);
+assert(fs.existsSync(path.join(tempPersonaDir, 'imported-card.persona.json')), 'persona import must write the selected profile card file');
+assert(imported.card.displayName === 'Imported Persona', 'persona import must map loose name fields');
+assert(imported.card.identity.includes('plain JSON'), 'persona import must map loose identity fields');
+assert(imported.card.prompt.traits.includes('adaptable'), 'persona import must map loose traits');
 delete process.env.ATHENA_PERSONA_DIR;
 
 const privateCardPath = path.join(root, 'personality', 'private', 'default.persona.json');

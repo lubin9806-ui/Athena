@@ -1677,6 +1677,7 @@ summary:focus-visible {
 .memory-edit-form button,
 .settings-field input,
 .settings-field select,
+.settings-inline-button,
 .settings-field textarea {
   min-width: 0;
   min-height: 40px;
@@ -1702,7 +1703,8 @@ summary:focus-visible {
 
 .memory-controls button,
 .window-pin-form button,
-.memory-edit-form button {
+.memory-edit-form button,
+.settings-inline-button {
   padding: 0 12px;
   color: var(--text-muted);
   background: rgba(255, 255, 255, 0.07);
@@ -1711,14 +1713,16 @@ summary:focus-visible {
 
 .memory-controls button:hover,
 .window-pin-form button:hover,
-.memory-edit-form button:hover {
+.memory-edit-form button:hover,
+.settings-inline-button:hover {
   color: var(--text);
   background: rgba(255, 255, 255, 0.1);
 }
 
 .memory-controls button:active,
 .window-pin-form button:active,
-.memory-edit-form button:active {
+.memory-edit-form button:active,
+.settings-inline-button:active {
   transform: scale(0.96);
 }
 

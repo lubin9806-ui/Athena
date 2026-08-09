@@ -7,6 +7,7 @@ export type SttEngine = 'local_whisper';
 export type ConversationMode = 'create' | 'companion' | 'reason' | 'execute';
 export type ModelProvider = 'ollama' | 'openai' | 'deepseek' | 'athena-cloud' | 'custom';
 export type RemoteModelProvider = Exclude<ModelProvider, 'ollama'>;
+export type MemoryImportContentMode = 'normal' | 'adult';
 
 import type { WebSearchSettings } from './search';
 import type { ToolModePermissions, ToolSettings } from './tools';
@@ -57,6 +58,7 @@ export interface MemorySettings {
   retrieveProjects: boolean;
   retrievalDepth: number;
   minImportanceForAutoExtract: number;
+  importContentMode: MemoryImportContentMode;
 }
 
 export interface VoiceSettings {

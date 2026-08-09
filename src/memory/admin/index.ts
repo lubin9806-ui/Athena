@@ -55,6 +55,7 @@ export interface MemoryImportCandidate {
 
 export interface MemoryImportPreview {
   sourcePath: string;
+  contentMode: MemoryImportContentMode;
   totalRecords: number;
   assistantMessages: number;
   extractedAddMemories: number;
@@ -66,6 +67,10 @@ export interface MemoryImportCommitResult {
   imported: number;
   skipped: number;
 }
+
+const MAX_IMPORT_CANDIDATES = 5_000;
+const MAX_IMPORTED_MEMORY_CHARS = 5_000;
+export type MemoryImportContentMode = 'normal' | 'adult';
 
 export function listMemories(options: MemoryListOptions = {}): MemoryListResult {
   const kind = options.kind || 'all';
@@ -169,21 +174,26 @@ export function updateMemory(kind: MemoryKind, id: number, patch: MemoryUpdatePa
   return false;
 }
 
-export function previewChatRecordImport(sourcePath: string): MemoryImportPreview {
+export function previewChatRecordImport(sourcePath: string, contentMode: MemoryImportContentMode = 'normal'): MemoryImportPreview {
   const normalizedPath = sourcePath.trim();
   if (!normalizedPath || !fs.existsSync(normalizedPath)) {
     throw new Error('聊天记录文件不存在');
   }
 
   const raw = fs.readFileSync(normalizedPath, 'utf8');
-  const records = JSON.parse(raw) as any[];
-  const assistantMessages = records.filter(item => item.role === 'assistant' && typeof item.content === 'string');
-  const extracted = unique(extractAddMemories(assistantMessages.map(item => item.content)).map(normalizeQuery).filter(Boolean));
+  const records = parseImportRecords(JSON.parse(raw));
+  const assistantMessages = records.filter(item => item.role === 'assistant' && recordText(item));
+  const textRecords = records.map(recordText).filter(Boolean);
+  const extracted = unique(
+    extractImportMemories(textRecords)
+      .map(text => trimImportedMemory(normalizeQuery(text)))
+      .filter(Boolean)
+  ).slice(0, MAX_IMPORT_CANDIDATES);
   const accepted: MemoryImportCandidate[] = [];
   const rejected: MemoryImportCandidate[] = [];
 
   extracted.forEach((content, index) => {
-    const rejectReason = rejectReasonForMemory(content);
+    const rejectReason = importRejectReasonForMemory(content, contentMode);
     const candidate: MemoryImportCandidate = {
       id: index,
       content,
@@ -197,6 +207,7 @@ export function previewChatRecordImport(sourcePath: string): MemoryImportPreview
 
   return {
     sourcePath: normalizedPath,
+    contentMode,
     totalRecords: records.length,
     assistantMessages: assistantMessages.length,
     extractedAddMemories: extracted.length,
@@ -205,8 +216,8 @@ export function previewChatRecordImport(sourcePath: string): MemoryImportPreview
   };
 }
 
-export function commitChatRecordImport(sourcePath: string, candidateIds?: number[]): MemoryImportCommitResult {
-  const preview = previewChatRecordImport(sourcePath);
+export function commitChatRecordImport(sourcePath: string, candidateIds?: number[], contentMode: MemoryImportContentMode = 'normal'): MemoryImportCommitResult {
+  const preview = previewChatRecordImport(sourcePath, contentMode);
   const allow = candidateIds && candidateIds.length > 0 ? new Set(candidateIds) : undefined;
   const selected = preview.accepted.filter(candidate => !allow || allow.has(candidate.id));
   const db = getDatabase();
@@ -432,6 +443,42 @@ function sortTimestamp(item: MemoryListItem): number {
   const value = item.updated_at || item.created_at || '';
   const time = Date.parse(value);
   return Number.isFinite(time) ? time : 0;
+}
+
+function parseImportRecords(value: unknown): any[] {
+  if (Array.isArray(value)) return value;
+  if (!value || typeof value !== 'object') return [];
+  const source = value as Record<string, unknown>;
+  for (const key of ['messages', 'records', 'items', 'data', 'conversation']) {
+    if (Array.isArray(source[key])) return source[key] as any[];
+  }
+  return [source];
+}
+
+function recordText(item: any): string {
+  if (!item || typeof item !== 'object') return '';
+  for (const key of ['content', 'text', 'memory', 'summary', 'detail', 'fact', 'note']) {
+    if (typeof item[key] === 'string' && item[key].trim()) return item[key];
+  }
+  if (typeof item.message === 'string') return item.message;
+  if (item.message && typeof item.message === 'object' && typeof item.message.content === 'string') {
+    return item.message.content;
+  }
+  return '';
+}
+
+function extractImportMemories(contents: string[]): string[] {
+  const tagged = extractAddMemories(contents);
+  return tagged.length > 0 ? tagged : contents;
+}
+
+function trimImportedMemory(text: string): string {
+  return text.slice(0, MAX_IMPORTED_MEMORY_CHARS).trim();
+}
+
+function importRejectReasonForMemory(text: string, contentMode: MemoryImportContentMode): string {
+  if (contentMode === 'adult') return text.length < 2 ? 'too short' : '';
+  return rejectReasonForMemory(text);
 }
 
 function extractAddMemories(contents: string[]): string[] {

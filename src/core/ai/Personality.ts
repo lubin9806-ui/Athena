@@ -100,7 +100,11 @@ export interface PersonaCardPatch {
 
 const DEFAULT_PERSONA_ID = 'athena-neutral';
 const LOCAL_DEFAULT_PROFILE_ID = 'default';
-const MAX_PROMPT_ITEMS = 24;
+const MAX_PROMPT_ITEMS = 80;
+const MAX_PERSONA_LABEL_CHARS = 120;
+const MAX_PERSONA_TEXT_CHARS = 4_000;
+const MAX_PERSONA_PROMPT_ITEM_CHARS = 1_000;
+const MAX_PERSONA_SELF_INTRO_CHARS = 2_000;
 
 export const ATHENA_NEUTRAL_PERSONA: PersonaCard = {
   schemaVersion: 1,
@@ -283,6 +287,21 @@ export function savePersonaCard(profileId: string | undefined, patch: PersonaCar
   };
 }
 
+export function importPersonaCardFromFile(profileId: string | undefined, sourcePath: string): ResolvedPersonaCard {
+  const requested = sanitizePersonaId(profileId || LOCAL_DEFAULT_PROFILE_ID);
+  const resolved = resolvePersonaCardWithSource(requested);
+  const imported = readImportedPersonaFile(sourcePath, resolved.card, requested);
+  const filePath = writablePersonaPath(requested, resolved.sourcePath);
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, `${JSON.stringify(imported, null, 2)}\n`, 'utf8');
+  return {
+    card: imported,
+    source: 'local',
+    sourcePath: filePath,
+    editable: true,
+  };
+}
+
 export function getTimeMood(card: PersonaCard, hour: number): TimeMood {
   if (hour >= 5 && hour < 9) return card.timeMoods.earlyMorning;
   if (hour >= 9 && hour < 12) return card.timeMoods.morning;
@@ -365,6 +384,22 @@ function readPersonaFile(filePath: string): PersonaCard | null {
   }
 }
 
+function readImportedPersonaFile(filePath: string, fallback: PersonaCard, requestedId: string): PersonaCard {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+  } catch (error) {
+    throw new Error(`Persona JSON could not be read: ${error instanceof Error ? error.message : String(error)}`);
+  }
+
+  const strictCard = sanitizePersonaCard(parsed);
+  if (strictCard) return strictCard;
+
+  const looseCard = coerceLoosePersonaCard(parsed, fallback, requestedId);
+  if (looseCard) return looseCard;
+  throw new Error('Persona JSON must be a persona card or contain at least a name, identity, traits, speakingStyle, relationship, or prompt object.');
+}
+
 function sanitizePersonaCard(value: unknown): PersonaCard | null {
   if (!isRecord(value) || value.schemaVersion !== 1) return null;
   const prompt = isRecord(value.prompt) ? value.prompt : {};
@@ -374,27 +409,27 @@ function sanitizePersonaCard(value: unknown): PersonaCard | null {
   return {
     schemaVersion: 1,
     id: sanitizePersonaId(readString(value.id, fallback.id)),
-    displayName: readString(value.displayName, fallback.displayName, 80),
-    nickname: readString(value.nickname, '', 80),
-    appName: readString(value.appName, fallback.appName, 80),
+    displayName: readString(value.displayName, fallback.displayName, MAX_PERSONA_LABEL_CHARS),
+    nickname: readString(value.nickname, '', MAX_PERSONA_LABEL_CHARS),
+    appName: readString(value.appName, fallback.appName, MAX_PERSONA_LABEL_CHARS),
     visibility: value.visibility === 'private' ? 'private' : 'public',
     role: value.role === 'character' || value.role === 'companion' ? value.role : 'assistant',
-    description: readString(value.description, fallback.description, 300),
-    identity: readString(value.identity, fallback.identity, 800),
-    relationshipFrame: readString(value.relationshipFrame, fallback.relationshipFrame, 800),
+    description: readString(value.description, fallback.description, 2_000),
+    identity: readString(value.identity, fallback.identity, MAX_PERSONA_TEXT_CHARS),
+    relationshipFrame: readString(value.relationshipFrame, fallback.relationshipFrame, MAX_PERSONA_TEXT_CHARS),
     tags: readStringArray(value.tags, 16, 40),
     prompt: {
-      priorityRules: readStringArray(prompt.priorityRules, MAX_PROMPT_ITEMS, 300),
-      traits: readStringArray(prompt.traits, MAX_PROMPT_ITEMS, 300),
-      speakingStyle: readStringArray(prompt.speakingStyle, MAX_PROMPT_ITEMS, 300),
-      roleplayNotes: readStringArray(prompt.roleplayNotes, MAX_PROMPT_ITEMS, 300),
-      selfIntroductionRules: readStringArray(prompt.selfIntroductionRules, MAX_PROMPT_ITEMS, 300),
-      selfIntroductionExample: readString(prompt.selfIntroductionExample, fallback.prompt.selfIntroductionExample, 600),
-      dailyHabits: readStringArray(prompt.dailyHabits, MAX_PROMPT_ITEMS, 300),
-      presenceRules: readStringArray(prompt.presenceRules, MAX_PROMPT_ITEMS, 300),
-      boundaries: readStringArray(prompt.boundaries, MAX_PROMPT_ITEMS, 300),
-      memoryRules: readStringArray(prompt.memoryRules, MAX_PROMPT_ITEMS, 300),
-      workRules: readStringArray(prompt.workRules, MAX_PROMPT_ITEMS, 300),
+      priorityRules: readStringArray(prompt.priorityRules, MAX_PROMPT_ITEMS, MAX_PERSONA_PROMPT_ITEM_CHARS),
+      traits: readStringArray(prompt.traits, MAX_PROMPT_ITEMS, MAX_PERSONA_PROMPT_ITEM_CHARS),
+      speakingStyle: readStringArray(prompt.speakingStyle, MAX_PROMPT_ITEMS, MAX_PERSONA_PROMPT_ITEM_CHARS),
+      roleplayNotes: readStringArray(prompt.roleplayNotes, MAX_PROMPT_ITEMS, MAX_PERSONA_PROMPT_ITEM_CHARS),
+      selfIntroductionRules: readStringArray(prompt.selfIntroductionRules, MAX_PROMPT_ITEMS, MAX_PERSONA_PROMPT_ITEM_CHARS),
+      selfIntroductionExample: readString(prompt.selfIntroductionExample, fallback.prompt.selfIntroductionExample, MAX_PERSONA_SELF_INTRO_CHARS),
+      dailyHabits: readStringArray(prompt.dailyHabits, MAX_PROMPT_ITEMS, MAX_PERSONA_PROMPT_ITEM_CHARS),
+      presenceRules: readStringArray(prompt.presenceRules, MAX_PROMPT_ITEMS, MAX_PERSONA_PROMPT_ITEM_CHARS),
+      boundaries: readStringArray(prompt.boundaries, MAX_PROMPT_ITEMS, MAX_PERSONA_PROMPT_ITEM_CHARS),
+      memoryRules: readStringArray(prompt.memoryRules, MAX_PROMPT_ITEMS, MAX_PERSONA_PROMPT_ITEM_CHARS),
+      workRules: readStringArray(prompt.workRules, MAX_PROMPT_ITEMS, MAX_PERSONA_PROMPT_ITEM_CHARS),
     },
     memoryPolicy: {
       allowLongTermMemory: readBoolean(memoryPolicy.allowLongTermMemory, fallback.memoryPolicy.allowLongTermMemory),
@@ -409,6 +444,80 @@ function sanitizePersonaCard(value: unknown): PersonaCard | null {
     },
     timeMoods: sanitizeTimeMoods(value.timeMoods),
   };
+}
+
+function coerceLoosePersonaCard(value: unknown, fallback: PersonaCard, requestedId: string): PersonaCard | null {
+  if (!isRecord(value)) return null;
+  const prompt = isRecord(value.prompt) ? value.prompt : {};
+  const name = firstString(value.displayName, value.name, value.characterName, value.personaName, prompt.displayName);
+  const nickname = firstString(value.nickname, value.alias, value.shortName, prompt.nickname);
+  const identity = firstString(value.identity, value.background, value.bio, value.description, value.persona, prompt.identity);
+  const relationshipFrame = firstString(value.relationshipFrame, value.relationship, value.relationships, value.userRelationship, prompt.relationshipFrame);
+  const traits = firstStringArray(value.traits, value.personality, value.personalityTraits, prompt.traits);
+  const speakingStyle = firstStringArray(value.speakingStyle, value.speechStyle, value.style, value.tone, prompt.speakingStyle);
+  const roleplayNotes = firstStringArray(value.roleplayNotes, value.scenario, value.lore, value.notes, value.examples, prompt.roleplayNotes);
+  const boundaries = firstStringArray(value.boundaries, value.rules, value.constraints, prompt.boundaries);
+  const selfIntroductionExample = firstString(value.selfIntroductionExample, value.selfIntro, value.greeting, value.firstMessage, prompt.selfIntroductionExample);
+
+  if (!name && !identity && traits.length === 0 && speakingStyle.length === 0 && !relationshipFrame && !isRecord(prompt)) {
+    return null;
+  }
+
+  return sanitizePersonaCard({
+    ...fallback,
+    schemaVersion: 1,
+    id: firstString(value.id, value.profileId, requestedId) || requestedId,
+    displayName: name || fallback.displayName,
+    nickname: nickname || name || fallback.nickname,
+    appName: firstString(value.appName, value.app, fallback.appName) || fallback.appName,
+    visibility: value.visibility === 'public' ? 'public' : 'private',
+    role: value.role === 'assistant' || value.role === 'character' || value.role === 'companion'
+      ? value.role
+      : fallback.role,
+    description: firstString(value.description, value.summary, fallback.description) || fallback.description,
+    identity: identity || fallback.identity,
+    relationshipFrame: relationshipFrame || fallback.relationshipFrame,
+    tags: firstStringArray(value.tags, fallback.tags),
+    prompt: {
+      ...fallback.prompt,
+      priorityRules: firstStringArray(prompt.priorityRules, value.priorityRules, fallback.prompt.priorityRules),
+      traits: traits.length > 0 ? traits : fallback.prompt.traits,
+      speakingStyle: speakingStyle.length > 0 ? speakingStyle : fallback.prompt.speakingStyle,
+      roleplayNotes: roleplayNotes.length > 0 ? roleplayNotes : fallback.prompt.roleplayNotes,
+      selfIntroductionRules: firstStringArray(prompt.selfIntroductionRules, value.selfIntroductionRules, fallback.prompt.selfIntroductionRules),
+      selfIntroductionExample: selfIntroductionExample || fallback.prompt.selfIntroductionExample,
+      dailyHabits: firstStringArray(prompt.dailyHabits, value.dailyHabits, fallback.prompt.dailyHabits),
+      presenceRules: firstStringArray(prompt.presenceRules, value.presenceRules, fallback.prompt.presenceRules),
+      boundaries: boundaries.length > 0 ? boundaries : fallback.prompt.boundaries,
+      memoryRules: firstStringArray(prompt.memoryRules, value.memoryRules, fallback.prompt.memoryRules),
+      workRules: firstStringArray(prompt.workRules, value.workRules, fallback.prompt.workRules),
+    },
+  });
+}
+
+function firstString(...values: unknown[]): string {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim()) return value.trim();
+  }
+  return '';
+}
+
+function firstStringArray(...values: unknown[]): string[] {
+  for (const value of values) {
+    if (Array.isArray(value)) {
+      const items = value
+        .filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+        .map(item => item.trim());
+      if (items.length > 0) return items;
+    }
+    if (typeof value === 'string' && value.trim()) {
+      return value
+        .split(/\r?\n/)
+        .map(item => item.trim().replace(/^[\-*]\s*/, ''))
+        .filter(Boolean);
+    }
+  }
+  return [];
 }
 
 function applyPersonaPatch(card: PersonaCard, patch: PersonaCardPatch): PersonaCard {

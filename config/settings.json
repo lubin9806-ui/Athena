@@ -45,7 +45,7 @@
     "preferredAddress": "",
     "tone": "balanced",
     "replyLength": "balanced",
-    "initiative": "balanced",
+    "initiative": "high",
     "proactiveCare": true,
     "useMemoryInSmallTalk": true,
     "creatorModeHints": true,
@@ -58,7 +58,8 @@
     "retrieveEvents": true,
     "retrieveProjects": true,
     "retrievalDepth": 8,
-    "minImportanceForAutoExtract": 5
+    "minImportanceForAutoExtract": 5,
+    "importContentMode": "adult"
   },
   "voice": {
     "sttEnabled": true,

@@ -11,6 +11,7 @@ import type {
   GeneralSettings,
   InitiativeLevel,
   MemorySettings,
+  MemoryImportContentMode,
   ModelProvider,
   ModelSettings,
   AppearanceSettings,
@@ -95,6 +96,7 @@ const DEFAULT_SETTINGS: AppSettings = {
     retrieveProjects: true,
     retrievalDepth: 8,
     minImportanceForAutoExtract: 5,
+    importContentMode: 'normal',
   },
   voice: {
     sttEnabled: false,
@@ -181,6 +183,7 @@ const CONVERSATION_MODES = new Set<ConversationMode>(['create', 'companion', 're
 const WEB_SEARCH_MODES = new Set<WebSearchMode>(['auto', 'manual']);
 const TOOL_PERMISSION_LEVELS = new Set<ToolPermissionLevel>(['off', 'read', 'files', 'full']);
 const MODEL_PROVIDERS = new Set<ModelProvider>(['ollama', 'openai', 'deepseek', 'athena-cloud', 'custom']);
+const MEMORY_IMPORT_CONTENT_MODES = new Set<MemoryImportContentMode>(['normal', 'adult']);
 const TOOL_PERMISSION_RANK: Record<ToolPermissionLevel, number> = { off: 0, read: 1, files: 2, full: 3 };
 
 export function getSettingsBundle(): SettingsBundle {
@@ -495,6 +498,7 @@ function sanitizeMemory(value: unknown): MemorySettings {
     retrieveProjects: cleanBoolean(source.retrieveProjects, DEFAULT_SETTINGS.memory.retrieveProjects),
     retrievalDepth: clampInteger(source.retrievalDepth, 0, 20, DEFAULT_SETTINGS.memory.retrievalDepth),
     minImportanceForAutoExtract: clampInteger(source.minImportanceForAutoExtract, 1, 10, DEFAULT_SETTINGS.memory.minImportanceForAutoExtract),
+    importContentMode: cleanEnum(source.importContentMode, MEMORY_IMPORT_CONTENT_MODES, DEFAULT_SETTINGS.memory.importContentMode),
   };
 }
 

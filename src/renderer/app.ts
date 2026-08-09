@@ -52,6 +52,8 @@ declare global {
       saveSettings: (patch: SettingsPatch) => Promise<SettingsBundle>;
       getPersona: (profileId?: string) => Promise<PersonaEditorState | null>;
       savePersona: (profileId: string, patch: PersonaCardPatch) => Promise<PersonaEditorState | null>;
+      choosePersonaImportFile: () => Promise<string | null>;
+      importPersonaFile: (profileId: string, sourcePath: string) => Promise<PersonaEditorState | null>;
       getModelCredentialStatus: (provider: RemoteModelProvider) => Promise<ModelCredentialStatus | null>;
       setModelCredential: (provider: RemoteModelProvider, apiKey: string) => Promise<ModelCredentialStatus | null>;
       clearModelCredential: (provider: RemoteModelProvider) => Promise<ModelCredentialStatus | null>;
@@ -243,6 +245,7 @@ interface MemoryImportCandidate {
 
 interface MemoryImportPreview {
   sourcePath: string;
+  contentMode: MemoryImportContentMode;
   totalRecords: number;
   assistantMessages: number;
   extractedAddMemories: number;
@@ -282,6 +285,7 @@ type AnimationLevel = 'low' | 'balanced' | 'high';
 type ThemeMode = 'day' | 'night' | 'system';
 type SttEngine = 'local_whisper';
 type WebSearchMode = 'auto' | 'manual';
+type MemoryImportContentMode = 'normal' | 'adult';
 
 interface WebSearchStatus {
   phase: 'searching' | 'reading' | 'refining' | 'done' | 'failed';
@@ -388,6 +392,7 @@ interface MemorySettings {
   retrieveProjects: boolean;
   retrievalDepth: number;
   minImportanceForAutoExtract: number;
+  importContentMode: MemoryImportContentMode;
 }
 
 interface VoiceSettings {
@@ -713,6 +718,7 @@ const settingCloseTray = mustGet<HTMLInputElement>('setting-close-tray');
 const settingNotifications = mustGet<HTMLInputElement>('setting-notifications');
 const settingAutoConnectModel = mustGet<HTMLInputElement>('setting-auto-connect-model');
 const settingPersonaProfile = mustGet<HTMLInputElement>('setting-persona-profile');
+const personaImportJson = createPersonaImportJsonButton();
 const personaCardSummary = mustGet<HTMLElement>('persona-card-summary');
 const personaDisplayName = mustGet<HTMLInputElement>('persona-display-name');
 const personaNickname = mustGet<HTMLInputElement>('persona-nickname');
@@ -784,6 +790,7 @@ const settingMemoryEvents = mustGet<HTMLInputElement>('setting-memory-events');
 const settingMemoryProjects = mustGet<HTMLInputElement>('setting-memory-projects');
 const settingMemoryDepth = mustGet<HTMLInputElement>('setting-memory-depth');
 const settingMemoryMinImportance = mustGet<HTMLInputElement>('setting-memory-min-importance');
+const settingMemoryImportMode = createMemoryImportModeControl();
 const settingSttEnabled = mustGet<HTMLInputElement>('setting-stt-enabled');
 const settingTtsEnabled = mustGet<HTMLInputElement>('setting-tts-enabled');
 const settingAutoPlayAssistant = mustGet<HTMLInputElement>('setting-auto-play-assistant');
@@ -803,6 +810,8 @@ const privacyStaticDecision = mustGet<HTMLElement>('privacy-static-decision');
 const privacyExport = mustGet<HTMLButtonElement>('privacy-export');
 const privacyClear = mustGet<HTMLButtonElement>('privacy-clear');
 const settingsFeedback = mustGet<HTMLElement>('settings-feedback');
+
+relaxPersonaEditorInputLimits();
 
 const liquidGlassRenderer = new LiquidGlassRenderer([modeSwitch, workModeSwitch, inputForm], appShell);
 const liveGlass = new LiveGlass(
@@ -1158,6 +1167,7 @@ function init(): void {
   settingPersonaProfile.addEventListener('change', () => {
     void loadPersonaEditorState(settingPersonaProfile.value.trim() || 'default');
   });
+  personaImportJson.addEventListener('click', () => void importPersonaJsonFile());
   settingTheme.addEventListener('change', () => {
     themeController.apply(settingTheme.value as ThemeMode, true);
   });
@@ -2868,6 +2878,7 @@ function populateSettingsForm(bundle: SettingsBundle): void {
   settingMemoryProjects.checked = memory.retrieveProjects;
   settingMemoryDepth.value = String(memory.retrievalDepth);
   settingMemoryMinImportance.value = String(memory.minImportanceForAutoExtract);
+  settingMemoryImportMode.value = memory.importContentMode || 'normal';
   settingSttEnabled.checked = voice.sttEnabled;
   settingTtsEnabled.checked = voice.ttsEnabled;
   settingAutoPlayAssistant.checked = voice.autoPlayAssistant;
@@ -2936,12 +2947,30 @@ async function savePersonaCardForm(profileId: string): Promise<PersonaEditorStat
   return state;
 }
 
+async function importPersonaJsonFile(): Promise<void> {
+  const profileId = settingPersonaProfile.value.trim() || 'default';
+  try {
+    const sourcePath = await window.athenaAPI.choosePersonaImportFile();
+    if (!sourcePath) return;
+    personaCardSummary.textContent = '正在导入人格 JSON...';
+    const state = await window.athenaAPI.importPersonaFile(profileId, sourcePath);
+    if (!state) throw new Error('主进程没有返回角色卡');
+    currentPersonaEditorState = state;
+    populatePersonaCardForm(state);
+    setSettingsFeedback(`已导入人格 JSON：${sourcePath}`, 'success');
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    personaCardSummary.textContent = `人格 JSON 导入失败：${message}`;
+    setSettingsFeedback(`人格 JSON 导入失败：${message}`, 'error');
+  }
+}
+
 function listFromLines(value: string): string[] {
   return value
     .split(/\r?\n/)
     .map(line => line.trim().replace(/^[\-*]\s*/, ''))
     .filter(Boolean)
-    .slice(0, 24);
+    .slice(0, 80);
 }
 
 function linesFromList(value: string[]): string {
@@ -3088,6 +3117,7 @@ async function saveSettingsForm(): Promise<void> {
           retrieveProjects: settingMemoryProjects.checked,
           retrievalDepth: Number(settingMemoryDepth.value),
           minImportanceForAutoExtract: Number(settingMemoryMinImportance.value),
+          importContentMode: settingMemoryImportMode.value as MemoryImportContentMode,
         },
         voice: {
           sttEnabled: settingSttEnabled.checked,
@@ -3475,6 +3505,8 @@ async function previewMemoryImport(): Promise<void> {
     currentImportPreview = preview;
     memoryImportCommit.disabled = preview.accepted.length === 0;
     memoryImportSummary.textContent = `记录 ${preview.totalRecords} · 助手 ${preview.assistantMessages} · 提取 ${preview.extractedAddMemories} · 可导入 ${preview.accepted.length} · 过滤 ${preview.rejected.length}`;
+    const modeLabel = preview.contentMode === 'adult' ? '18+ mode' : 'normal mode';
+    memoryImportSummary.textContent = `${modeLabel} | records ${preview.totalRecords} | assistant ${preview.assistantMessages} | extracted ${preview.extractedAddMemories} | importable ${preview.accepted.length} | filtered ${preview.rejected.length}`;
     renderImportCandidates(preview);
   } catch (error) {
     memoryImportSummary.textContent = `预览失败：${error instanceof Error ? error.message : String(error)}`;
@@ -4030,6 +4062,84 @@ function mustGet<T extends HTMLElement>(id: string): T {
   const element = document.getElementById(id);
   if (!element) throw new Error(`Missing element: #${id}`);
   return element as T;
+}
+
+function createPersonaImportJsonButton(): HTMLButtonElement {
+  const existing = document.getElementById('persona-import-json');
+  if (existing instanceof HTMLButtonElement) return existing;
+
+  const button = document.createElement('button');
+  button.id = 'persona-import-json';
+  button.type = 'button';
+  button.textContent = '导入人格 JSON';
+  button.className = 'settings-inline-button';
+
+  const field = document.createElement('label');
+  field.className = 'settings-field settings-field-full';
+  const label = document.createElement('span');
+  label.textContent = '人格文件';
+  const note = document.createElement('span');
+  note.className = 'settings-note';
+  note.textContent = '选择本机 JSON 文件后，会写入当前角色卡 ID 并回填下方表单。';
+  field.append(label, button, note);
+
+  const anchor = settingPersonaProfile.closest('.settings-field');
+  anchor?.after(field);
+  return button;
+}
+
+function createMemoryImportModeControl(): HTMLSelectElement {
+  const existing = document.getElementById('setting-memory-import-mode');
+  if (existing instanceof HTMLSelectElement) return existing;
+
+  const field = document.createElement('label');
+  field.className = 'settings-field';
+
+  const label = document.createElement('span');
+  label.textContent = '记忆导入模式';
+
+  const select = document.createElement('select');
+  select.id = 'setting-memory-import-mode';
+  select.append(
+    optionForMemoryImportMode('normal', '正常'),
+    optionForMemoryImportMode('adult', '18+')
+  );
+
+  const note = document.createElement('span');
+  note.className = 'settings-note';
+  note.textContent = '18+ 模式下，亲密/身份边界内容不会在导入预览中自动过滤；保存设置后生效。';
+
+  field.append(label, select, note);
+  personaCardSummary.after(field);
+  return select;
+}
+
+function optionForMemoryImportMode(value: MemoryImportContentMode, label: string): HTMLOptionElement {
+  const option = document.createElement('option');
+  option.value = value;
+  option.textContent = label;
+  return option;
+}
+
+function relaxPersonaEditorInputLimits(): void {
+  const limits: Array<[string, number, number?]> = [
+    ['persona-display-name', 120],
+    ['persona-nickname', 120],
+    ['persona-identity', 4_000, 5],
+    ['persona-relationship', 4_000, 5],
+    ['persona-traits', 80_000, 6],
+    ['persona-speaking-style', 80_000, 6],
+    ['persona-roleplay-notes', 80_000, 6],
+    ['persona-boundaries', 80_000, 6],
+    ['persona-self-intro', 2_000, 4],
+  ];
+  for (const [id, maxLength, rows] of limits) {
+    const element = document.getElementById(id);
+    if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) {
+      element.maxLength = maxLength;
+      if (rows !== undefined && element instanceof HTMLTextAreaElement) element.rows = rows;
+    }
+  }
 }
 
 if (document.readyState === 'loading') {

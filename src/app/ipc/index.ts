@@ -15,7 +15,7 @@ import {
 import { VoiceService } from '../../core/voice/VoiceService';
 import { LLMClient } from '../../core/ai/Client';
 import { canRouteModelRequest } from '../../core/ai/ModelNetworkPolicy';
-import { getPersonaEditorState, savePersonaCard, type PersonaCardPatch, type ResolvedPersonaCard } from '../../core/ai/Personality';
+import { getPersonaEditorState, importPersonaCardFromFile, savePersonaCard, type PersonaCardPatch, type ResolvedPersonaCard } from '../../core/ai/Personality';
 import {
   clearModelCredential,
   getModelCredentialStatus,
@@ -85,6 +85,8 @@ const INVOKE_CHANNELS = [
   'config:set',
   'persona:get',
   'persona:save',
+  'persona:chooseImportFile',
+  'persona:importFile',
   'model:credentialStatus',
   'model:setCredential',
   'model:clearCredential',
@@ -342,6 +344,24 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     return toRendererPersonaState(resolved);
   });
 
+  ipcMain.handle('persona:chooseImportFile', async (event) => {
+    if (!isTrustedSender(event)) return null;
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: '选择人格 JSON',
+      properties: ['openFile'],
+      filters: [{ name: 'JSON', extensions: ['json'] }],
+    });
+    return result.canceled ? null : result.filePaths[0];
+  });
+
+  ipcMain.handle('persona:importFile', async (event, profileId: unknown, sourcePath: unknown) => {
+    if (!isTrustedSender(event)) return null;
+    const safePath = cleanExistingFilePath(sourcePath, ['json'], MAX_PATH_CHARS);
+    if (!safePath) throw new Error('Persona import path must be an existing JSON file.');
+    const resolved = importPersonaCardFromFile(cleanString(profileId, 80) || getAppSettings().profile, safePath);
+    return toRendererPersonaState(resolved);
+  });
+
   ipcMain.handle('model:credentialStatus', async (event, value: unknown) => {
     if (!isTrustedSender(event)) return null;
     const provider = cleanRemoteModelProvider(value);
@@ -481,14 +501,14 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     if (!isTrustedSender(event)) throw new Error('IPC sender rejected.');
     const safePath = cleanExistingFilePath(sourcePath, ['json'], MAX_PATH_CHARS);
     if (!safePath) throw new Error('Memory import path must be an existing JSON file.');
-    return previewChatRecordImport(safePath);
+    return previewChatRecordImport(safePath, getAppSettings().memory.importContentMode);
   });
 
   ipcMain.handle('memory:commitImport', async (event, sourcePath: unknown, candidateIds?: unknown) => {
     if (!isTrustedSender(event)) throw new Error('IPC sender rejected.');
     const safePath = cleanExistingFilePath(sourcePath, ['json'], MAX_PATH_CHARS);
     if (!safePath) throw new Error('Memory import path must be an existing JSON file.');
-    return commitChatRecordImport(safePath, cleanCandidateIds(candidateIds));
+    return commitChatRecordImport(safePath, cleanCandidateIds(candidateIds), getAppSettings().memory.importContentMode);
   });
 
   ipcMain.handle('privacy:get', async (event) => {
@@ -654,16 +674,16 @@ function cleanSettingsPatch(value: unknown): SettingsPatch {
 function cleanPersonaCardPatch(value: unknown): PersonaCardPatch {
   if (!isRecord(value)) return {};
   return {
-    displayName: cleanString(value.displayName, 80),
-    nickname: cleanString(value.nickname, 80),
-    description: cleanString(value.description, 300),
-    identity: cleanString(value.identity, 800),
-    relationshipFrame: cleanString(value.relationshipFrame, 800),
-    traits: cleanStringList(value.traits, 24, 300),
-    speakingStyle: cleanStringList(value.speakingStyle, 24, 300),
-    roleplayNotes: cleanStringList(value.roleplayNotes, 24, 300),
-    boundaries: cleanStringList(value.boundaries, 24, 300),
-    selfIntroductionExample: cleanString(value.selfIntroductionExample, 600),
+    displayName: cleanString(value.displayName, 120),
+    nickname: cleanString(value.nickname, 120),
+    description: cleanString(value.description, 2_000),
+    identity: cleanString(value.identity, 4_000),
+    relationshipFrame: cleanString(value.relationshipFrame, 4_000),
+    traits: cleanStringList(value.traits, 80, 1_000),
+    speakingStyle: cleanStringList(value.speakingStyle, 80, 1_000),
+    roleplayNotes: cleanStringList(value.roleplayNotes, 80, 1_000),
+    boundaries: cleanStringList(value.boundaries, 80, 1_000),
+    selfIntroductionExample: cleanString(value.selfIntroductionExample, 2_000),
   };
 }
 
@@ -750,7 +770,7 @@ function cleanCandidateIds(value: unknown): number[] | undefined {
   const ids = value
     .map(cleanNonNegativeInteger)
     .filter((id): id is number => id !== null)
-    .slice(0, 500);
+    .slice(0, 5_000);
   return ids.length > 0 ? ids : undefined;
 }
 

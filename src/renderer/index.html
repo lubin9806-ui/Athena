@@ -394,6 +394,19 @@
               <span>角色卡 ID</span>
               <input id="setting-persona-profile" type="text" maxlength="80" placeholder="default" />
             </label>
+            <label class="settings-field settings-field-full">
+              <span>人格文件</span>
+              <button id="persona-import-json" class="settings-inline-button" type="button">导入人格 JSON</button>
+              <span class="settings-note">选择本机 JSON 文件后，会写入当前角色卡 ID 并回填下方表单。</span>
+            </label>
+            <label class="settings-field settings-field-full">
+              <span>记忆导入模式</span>
+              <select id="setting-memory-import-mode">
+                <option value="normal">正常</option>
+                <option value="adult">18+</option>
+              </select>
+              <span class="settings-note">18+ 模式下，亲密/身份边界内容不会在导入预览中自动过滤；保存设置后生效。</span>
+            </label>
             <div id="persona-card-summary" class="settings-note">
               当前角色卡加载中
             </div>

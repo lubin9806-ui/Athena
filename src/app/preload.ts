@@ -48,6 +48,8 @@ contextBridge.exposeInMainWorld('athenaAPI', {
   saveSettings: (patch: any) => ipcRenderer.invoke('config:set', patch),
   getPersona: (profileId?: string) => ipcRenderer.invoke('persona:get', profileId),
   savePersona: (profileId: string, patch: any) => ipcRenderer.invoke('persona:save', profileId, patch),
+  choosePersonaImportFile: () => ipcRenderer.invoke('persona:chooseImportFile'),
+  importPersonaFile: (profileId: string, sourcePath: string) => ipcRenderer.invoke('persona:importFile', profileId, sourcePath),
   getModelCredentialStatus: (provider: string) => ipcRenderer.invoke('model:credentialStatus', provider),
   setModelCredential: (provider: string, apiKey: string) => ipcRenderer.invoke('model:setCredential', provider, apiKey),
   clearModelCredential: (provider: string) => ipcRenderer.invoke('model:clearCredential', provider),
