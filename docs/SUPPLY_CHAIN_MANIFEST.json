@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-24T15:48:54.158Z",
+  "generatedAt": "2026-08-09T13:19:07.103Z",
   "project": {
     "name": "athena",
     "version": "0.9.5",
@@ -335,8 +335,8 @@
     },
     {
       "name": "js-yaml",
-      "version": "4.3.0",
-      "resolved": "https://registry.npmjs.org/js-yaml/-/js-yaml-4.3.0.tgz",
+      "version": "4.3.1",
+      "resolved": "https://registry.npmjs.org/js-yaml/-/js-yaml-4.3.1.tgz",
       "license": "MIT",
       "repository": "nodeca/js-yaml",
       "homepage": null
@@ -615,8 +615,8 @@
     },
     {
       "name": "undici",
-      "version": "7.28.0",
-      "resolved": "https://registry.npmjs.org/undici/-/undici-7.28.0.tgz",
+      "version": "7.29.0",
+      "resolved": "https://registry.npmjs.org/undici/-/undici-7.29.0.tgz",
       "license": "MIT",
       "repository": "git+https://github.com/nodejs/undici.git",
       "homepage": "https://undici.nodejs.org"
@@ -698,7 +698,7 @@
     }
   ],
   "localOllamaRuntime": {
-    "installedVersion": "0.32.3",
+    "installedVersion": "0.32.6",
     "defaultModel": {
       "runtimeTag": "qwen2.5:14b",
       "localOllamaId": "7cdf5a0187d5",
@@ -34138,6 +34138,31 @@
         "sha256": "157A1283989B0AF18D8C5B8BB315CB4F6389C5E4315CCF0D76C01C99A89D3B49"
       },
       {
+        "path": "docs/concepts/athena-daylight-liquid-life-concept-v1.png",
+        "bytes": 1312647,
+        "sha256": "6862D6BDF3B794F240AA93E789D6733F9797E9C32B80E78E5A5FE90D585343AB"
+      },
+      {
+        "path": "docs/concepts/athena-daylight-liquid-life-concept-v2.png",
+        "bytes": 1448413,
+        "sha256": "4F20D59A4906E90909DC96C9C43C98238FF3085FC1D52F639744B62D8021071B"
+      },
+      {
+        "path": "docs/concepts/athena-daylight-liquid-life-runtime.png",
+        "bytes": 1022828,
+        "sha256": "8517F37749A30D5662575CC646D62D7CD30D0C4DEB2F54A8C008540284849C92"
+      },
+      {
+        "path": "docs/concepts/athena-daylight-liquid-life-settings-runtime.png",
+        "bytes": 886427,
+        "sha256": "50CD99088D56E12EAC64FBEDCB713EBBC96309A277D8FFBA67FD1D7F886E87E9"
+      },
+      {
+        "path": "docs/concepts/athena-daylight-liquid-life-work-runtime.png",
+        "bytes": 1526014,
+        "sha256": "39FDBA23ADB4CA2F6C014A9B5B412BB0771EFE0C21C89FD1D79CE0B2E888BF9F"
+      },
+      {
         "path": "docs/concepts/athena-depth-wallpaper-final-clean.png",
         "bytes": 522644,
         "sha256": "7517890B863E139B4F4065685BEBFA3B7E409A2E4C7864F5E22F7B22A6AF70D9"
@@ -34168,9 +34193,39 @@
         "sha256": "3B39F3AF77C56EFBC31DCF2EEBF7A2EE2CBEE5A9813A6EFFC1F05A68F83618BC"
       },
       {
+        "path": "docs/concepts/athena-design-a-athenian-daylight.png",
+        "bytes": 1431731,
+        "sha256": "58E8B7263A480F8949B61E9327228E5A28D096BE2973A747C676E908F1CB7E58"
+      },
+      {
+        "path": "docs/concepts/athena-design-b-workbench.png",
+        "bytes": 1262179,
+        "sha256": "E491739AAC52E34341FA6CC5220A48F1F8FE9E1DB7DAB6399FF91628BCAEEDF1"
+      },
+      {
         "path": "docs/concepts/athena-final-mode-check.png",
         "bytes": 312871,
         "sha256": "B3117DC52345E855AD23694603829EADFA5321CFAC75C3EEC00BEF32858296D8"
+      },
+      {
+        "path": "docs/concepts/athena-gpt-layout-main.png",
+        "bytes": 1224871,
+        "sha256": "4B30DB7570DE0AB980961D2327532F02B982102B5C3E3D90A6DC4DB36C75EEEB"
+      },
+      {
+        "path": "docs/concepts/athena-gpt-layout-model-settings.png",
+        "bytes": 1292691,
+        "sha256": "E54AE91151C8C347BA5B4DD5B67BAA79E28D4B73E3FD7D19F24AE59458060A07"
+      },
+      {
+        "path": "docs/concepts/athena-gpt-layout-tools.png",
+        "bytes": 1361698,
+        "sha256": "1DF9633C967B3BA7DAB9B6E06C49400C1ECD7107A46C1286CF8955DD8D723C48"
+      },
+      {
+        "path": "docs/concepts/athena-gpt-layout-window-memory.png",
+        "bytes": 1405522,
+        "sha256": "0BAD366CDAB08ABBE505347FAE5C3E66A548CC8CBEC97ED387D987B7AE6D9AA1"
       },
       {
         "path": "docs/concepts/athena-interactive-runtime-v2.png",
@@ -34298,6 +34353,26 @@
         "sha256": "C55218A295576AE1285AAE7CC97A99A568078D51442783BDC7BA382A5F238EBF"
       },
       {
+        "path": "docs/concepts/athena-runtime-main.png",
+        "bytes": 62119,
+        "sha256": "45CF4835E029CEBF05A8BDD18E20C32B60E897CA0ADBDB9D511B0E3F5C762AF3"
+      },
+      {
+        "path": "docs/concepts/athena-runtime-model-settings.png",
+        "bytes": 140617,
+        "sha256": "983D6D071B305B0A41B8D183E27800626A576DB706DC3C562FFB9907A17700A9"
+      },
+      {
+        "path": "docs/concepts/athena-runtime-tools.png",
+        "bytes": 164367,
+        "sha256": "35EFBDF3CBF59AEE5B25728D314BE5CB79144266FEEA11174D2063FABC7C91EB"
+      },
+      {
+        "path": "docs/concepts/athena-runtime-window-memory.png",
+        "bytes": 137819,
+        "sha256": "AA012C055F115F4D4B53DF9E6E71827A8BFC59114BD5E295B2FC2BEF53713F33"
+      },
+      {
         "path": "docs/concepts/athena-unified-glass-day-final.png",
         "bytes": 296045,
         "sha256": "2B619BC193EFFB0105321AC46AFEE6770BA58A02C60012A5434C14D607144DED"
@@ -34416,13 +34491,13 @@
   "buildArtifacts": [
     {
       "path": "release/Athena Setup 0.9.5.exe",
-      "bytes": 435662421,
-      "sha256": "061B708B0630AF0BAF4EB4B812DBB415D03FF0CCE32C4E695A7CAA993F561D9B"
+      "bytes": 435671013,
+      "sha256": "371ED18C9EBEF7CF148A0E3BE11A80826B48349FD0964F60B49AE305A883E4D1"
     },
     {
       "path": "release/win-unpacked/Athena.exe",
       "bytes": 232771072,
-      "sha256": "F2D06456B1164336EA062F374B4966C803142BB144AB7405959DB378C4706224"
+      "sha256": "4D714F3F83E0A01B854764CADE405FE39B5B5BFC77D90675EC38DD02A58D8FFF"
     }
   ],
   "packagingDecisions": [

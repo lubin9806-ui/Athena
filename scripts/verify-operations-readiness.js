@@ -95,6 +95,7 @@ function main() {
   const steam = readJson('config/steam.json');
   const cloudProviders = readJson('cloud/config/provider-policies.json');
   const supplyChain = readJson('docs/SUPPLY_CHAIN_MANIFEST.json');
+  const pkg = readJson('package.json');
   const issues = parseIssues();
   const issue = id => issues.find(item => item.id === id);
   const isOpen = id => !issue(id) || issue(id).status !== 'Closed';
@@ -117,10 +118,11 @@ function main() {
   const openP0 = issues.filter(item => item.severity === 'P0' && item.status !== 'Closed');
   const unstaffedRoles = Object.entries(operations.roles).filter(([, value]) => !value).map(([name]) => name);
   const missingChannels = Object.entries(operations.channels).filter(([, value]) => !value).map(([name]) => name);
-  const installer = artifact('release/Athena Setup 0.9.0-beta.1.exe');
+  const installerPath = `release/Athena Setup ${pkg.version}.exe`;
+  const installer = artifact(installerPath);
   const desktopExe = artifact('release/win-unpacked/Athena.exe');
   const steamExe = artifact('release-steam/win-unpacked/AthenaSteam.exe');
-  const recordedInstaller = supplyChain.buildArtifacts?.find(item => /Athena Setup 0\.9\.0-beta\.1\.exe$/.test(item.path));
+  const recordedInstaller = supplyChain.buildArtifacts?.find(item => item.path === installerPath);
   const manifestMatchesInstaller = Boolean(
     installer.exists
       && recordedInstaller
