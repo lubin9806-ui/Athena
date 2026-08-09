@@ -2515,7 +2515,7 @@ function resizeInputBox(): void {
   inputBox.style.height = 'auto';
   const inputHeight = Math.min(inputBox.scrollHeight, 116);
   inputBox.style.height = `${inputHeight}px`;
-  inputForm.style.setProperty('--composer-height', `${inputHeight + 34}px`);
+  inputForm.style.setProperty('--composer-height', `${inputHeight + 50}px`);
   if (composerSecondaryTools.dataset.open === 'true') positionComposerTools();
 }
 

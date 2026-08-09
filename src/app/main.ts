@@ -393,6 +393,44 @@ function createWindow(): void {
              const liquidPressReactive = spaceSwitch.dataset.liquidPressed === 'true';
              if (!liquidPressReactive) return false;
 
+             const inputLiquidCanvas = inputForm.querySelector('.liquid-glass-canvas');
+             const inputLiquidCanvasRect = inputLiquidCanvas?.getBoundingClientRect();
+             const inputLiquidCanvasStyle = inputLiquidCanvas ? window.getComputedStyle(inputLiquidCanvas) : null;
+             const inputGlassFormRect = inputForm.getBoundingClientRect();
+             const inputGlassReactive = Boolean(inputForm.style.getPropertyValue('--glass-x'))
+               && Boolean(inputForm.style.getPropertyValue('--glass-pressure'));
+             const inputLiquidCanvasVisible = inputLiquidCanvas instanceof HTMLCanvasElement
+               && inputLiquidCanvas.hidden === false
+               && inputLiquidCanvasRect
+               && inputLiquidCanvasRect.width >= inputGlassFormRect.width - 2
+               && inputLiquidCanvasRect.height >= inputGlassFormRect.height - 2
+               && inputLiquidCanvasStyle?.display !== 'none'
+               && inputLiquidCanvasStyle?.visibility !== 'hidden'
+               && Number(inputLiquidCanvasStyle?.opacity || '1') > 0.5;
+             console.log('ATHENA_SMOKE_INPUT_GLASS', JSON.stringify({
+               inputGlassReactive,
+               liquidRenderer: inputForm.dataset.liquidRenderer || null,
+               liquidFrame: inputForm.dataset.liquidFrame || null,
+               canvasVisible: inputLiquidCanvasVisible,
+               canvasRect: inputLiquidCanvasRect ? {
+                 left: inputLiquidCanvasRect.left,
+                 top: inputLiquidCanvasRect.top,
+                 right: inputLiquidCanvasRect.right,
+                 bottom: inputLiquidCanvasRect.bottom,
+                 width: inputLiquidCanvasRect.width,
+                 height: inputLiquidCanvasRect.height,
+               } : null,
+               formRect: {
+                 left: inputGlassFormRect.left,
+                 top: inputGlassFormRect.top,
+                 right: inputGlassFormRect.right,
+                 bottom: inputGlassFormRect.bottom,
+                 width: inputGlassFormRect.width,
+                 height: inputGlassFormRect.height,
+               },
+             }));
+             if (!inputGlassReactive || !inputLiquidCanvasVisible) return false;
+
              const originalSettings = await api.getSettings();
              const firstRunPaths = Array.from(firstRunModelChoice.querySelectorAll('[data-model-path]'))
                .map(button => button.getAttribute('data-model-path'));
@@ -521,7 +559,19 @@ function createWindow(): void {
              const composerTools = document.getElementById('composer-secondary-tools');
              const composerToolsRect = composerTools?.getBoundingClientRect();
              const composerToolsStyle = composerTools ? window.getComputedStyle(composerTools) : null;
+             const composerMeta = document.getElementById('composer-meta');
+             const composerMetaRect = composerMeta?.getBoundingClientRect();
+             const composerMetaStyle = composerMeta ? window.getComputedStyle(composerMeta) : null;
              const inputFormRect = inputForm?.getBoundingClientRect();
+             const composerMetaVisible = Boolean(inputFormRect
+               && composerMetaRect
+               && composerMetaRect.width > 120
+               && composerMetaRect.height > 8
+               && composerMetaRect.top >= inputFormRect.top
+               && composerMetaRect.bottom <= inputFormRect.bottom - 2
+               && composerMetaStyle?.display !== 'none'
+               && composerMetaStyle?.visibility !== 'hidden'
+               && Number(composerMetaStyle?.opacity || '1') > 0.8);
              const composerToolsVisible = composerMoreButton.getAttribute('aria-expanded') === 'true'
                && composerToolsRect
                && composerToolsRect.width > 120
@@ -560,10 +610,19 @@ function createWindow(): void {
                inlineOpacity: composerTools?.style.opacity || null,
                parentId: composerTools?.parentElement?.id || null,
                dataOpen: composerTools?.dataset.open || null,
+               metaRect: composerMetaRect ? {
+                 left: composerMetaRect.left,
+                 top: composerMetaRect.top,
+                 right: composerMetaRect.right,
+                 bottom: composerMetaRect.bottom,
+                 width: composerMetaRect.width,
+                 height: composerMetaRect.height,
+               } : null,
+               metaVisible: composerMetaVisible,
                windowHeight: window.innerHeight,
                windowWidth: window.innerWidth,
              }));
-             if (!composerToolsVisible) return false;
+             if (!composerToolsVisible || !composerMetaVisible) return false;
              availableToolsButton.click();
              let toolCatalogReactive = false;
              for (let attempt = 0; attempt < 20; attempt += 1) {
@@ -603,6 +662,8 @@ function createWindow(): void {
                liquidShaderReactive,
                liquidMotionReactive,
                liquidPressReactive,
+               inputGlassReactive,
+               inputLiquidCanvasVisible,
                 modeReactive,
                 modePersisted,
                 modeRestored,
@@ -617,6 +678,7 @@ function createWindow(): void {
                 temporaryChatReactive,
                 toolCatalogReactive,
                 composerToolsVisible,
+                composerMetaVisible,
                 webSearchForceReactive,
                 webSearchForceRestored,
                 presenceQuickActionReactive,
