@@ -984,12 +984,12 @@ summary:focus-visible {
 }
 
 #composer-secondary-tools {
-  position: absolute;
-  left: 0;
-  bottom: calc(100% + 10px);
-  z-index: 12;
+  position: fixed;
+  left: var(--composer-tools-left, 0px);
+  top: var(--composer-tools-top, 0px);
+  z-index: 160;
   width: 176px;
-  display: grid;
+  display: none;
   gap: 4px;
   padding: 6px;
   border: 1px solid var(--border-strong);
@@ -1006,8 +1006,17 @@ summary:focus-visible {
 }
 
 #composer-secondary-tools[data-open="true"] {
+  display: grid;
   opacity: 1;
   visibility: visible;
+  transform: translateY(0) scale(1);
+}
+
+#composer-secondary-tools.is-open {
+  display: grid;
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
   transform: translateY(0) scale(1);
 }
 
@@ -2852,7 +2861,6 @@ body {
 #composer-main,
 #composer-meta,
 #voice-feedback,
-#composer-secondary-tools,
 #input-aura {
   z-index: 2;
 }
@@ -6812,11 +6820,6 @@ html[data-theme="night"] body {
 #input-form > :not(.liquid-glass-canvas) {
   position: relative;
   z-index: 2;
-}
-
-#input-form > #composer-secondary-tools {
-  position: absolute;
-  z-index: 12;
 }
 
 #mode-switch::before,

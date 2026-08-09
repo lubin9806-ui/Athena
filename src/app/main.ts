@@ -517,6 +517,53 @@ function createWindow(): void {
              if (!temporaryChatReactive) return false;
 
              composerMoreButton.click();
+             await new Promise(resolve => setTimeout(resolve, 90));
+             const composerTools = document.getElementById('composer-secondary-tools');
+             const composerToolsRect = composerTools?.getBoundingClientRect();
+             const composerToolsStyle = composerTools ? window.getComputedStyle(composerTools) : null;
+             const inputFormRect = inputForm?.getBoundingClientRect();
+             const composerToolsVisible = composerMoreButton.getAttribute('aria-expanded') === 'true'
+               && composerToolsRect
+               && composerToolsRect.width > 120
+               && composerToolsRect.height > 120
+               && composerToolsRect.top >= 0
+               && composerToolsRect.left >= 0
+               && composerToolsRect.bottom <= window.innerHeight
+               && (!inputFormRect || composerToolsRect.bottom <= inputFormRect.top - 6)
+               && composerToolsStyle?.visibility === 'visible'
+               && Number(composerToolsStyle?.opacity) > 0.8
+               && Number(composerToolsStyle?.zIndex) >= 100;
+             console.log('ATHENA_SMOKE_COMPOSER_TOOLS', JSON.stringify({
+               expanded: composerMoreButton.getAttribute('aria-expanded'),
+               rect: composerToolsRect ? {
+                 left: composerToolsRect.left,
+                 top: composerToolsRect.top,
+                 right: composerToolsRect.right,
+                 bottom: composerToolsRect.bottom,
+                 width: composerToolsRect.width,
+                 height: composerToolsRect.height,
+               } : null,
+               inputRect: inputFormRect ? {
+                 left: inputFormRect.left,
+                 top: inputFormRect.top,
+                 right: inputFormRect.right,
+                 bottom: inputFormRect.bottom,
+                 width: inputFormRect.width,
+                 height: inputFormRect.height,
+               } : null,
+               visibility: composerToolsStyle?.visibility || null,
+               opacity: composerToolsStyle?.opacity || null,
+               pointerEvents: composerToolsStyle?.pointerEvents || null,
+               zIndex: composerToolsStyle?.zIndex || null,
+               className: composerTools?.className || null,
+               inlineVisibility: composerTools?.style.visibility || null,
+               inlineOpacity: composerTools?.style.opacity || null,
+               parentId: composerTools?.parentElement?.id || null,
+               dataOpen: composerTools?.dataset.open || null,
+               windowHeight: window.innerHeight,
+               windowWidth: window.innerWidth,
+             }));
+             if (!composerToolsVisible) return false;
              availableToolsButton.click();
              let toolCatalogReactive = false;
              for (let attempt = 0; attempt < 20; attempt += 1) {
@@ -569,6 +616,7 @@ function createWindow(): void {
                 newChatAutoTitleReactive,
                 temporaryChatReactive,
                 toolCatalogReactive,
+                composerToolsVisible,
                 webSearchForceReactive,
                 webSearchForceRestored,
                 presenceQuickActionReactive,

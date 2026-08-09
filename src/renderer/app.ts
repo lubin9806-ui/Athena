@@ -813,6 +813,7 @@ const liveGlass = new LiveGlass(
   motion => liquidGlassRenderer.update(motion),
 );
 const motionSystem = new MotionSystem(appShell, inputForm);
+appShell.appendChild(composerSecondaryTools);
 
 const TEMPORARY_CHAT_LABEL = '临时聊天';
 const TEMPORARY_CHAT_BADGE = '临时聊天：只在本窗口保留，关闭后清除';
@@ -1204,6 +1205,7 @@ function init(): void {
   inputBox.addEventListener('keydown', handleInputKeydown);
   inputBox.addEventListener('input', resizeInputBox);
   composerMoreBtn.addEventListener('click', () => toggleComposerTools());
+  window.addEventListener('resize', () => positionComposerTools());
   webSearchBtn.addEventListener('click', () => {
     if (webSearchBtn.disabled) return;
     forceWebSearchForNextMessage = !forceWebSearchForNextMessage;
@@ -2482,7 +2484,31 @@ function syncPanelState(): void {
 function toggleComposerTools(force?: boolean): void {
   const next = force ?? composerSecondaryTools.dataset.open !== 'true';
   composerSecondaryTools.dataset.open = String(next);
+  composerSecondaryTools.classList.toggle('is-open', next);
+  composerSecondaryTools.style.setProperty('display', next ? 'grid' : 'none', 'important');
+  composerSecondaryTools.style.setProperty('visibility', next ? 'visible' : 'hidden', 'important');
+  composerSecondaryTools.style.setProperty('opacity', next ? '1' : '0', 'important');
+  composerSecondaryTools.style.setProperty('pointer-events', next ? 'auto' : 'none', 'important');
+  composerSecondaryTools.style.setProperty(
+    'transform',
+    next ? 'translateY(0) scale(1)' : 'translateY(10px) scale(0.94)',
+    'important',
+  );
+  if (next) positionComposerTools();
   composerMoreBtn.setAttribute('aria-expanded', String(next));
+}
+
+function positionComposerTools(): void {
+  const button = composerMoreBtn.getBoundingClientRect();
+  const composer = inputForm.getBoundingClientRect();
+  const width = composerSecondaryTools.offsetWidth || 176;
+  const height = composerSecondaryTools.offsetHeight || 196;
+  const margin = 12;
+  const gap = 10;
+  const left = Math.max(margin, Math.min(window.innerWidth - width - margin, button.left));
+  const top = Math.max(margin, composer.top - height - gap);
+  composerSecondaryTools.style.setProperty('--composer-tools-left', `${Math.round(left)}px`);
+  composerSecondaryTools.style.setProperty('--composer-tools-top', `${Math.round(top)}px`);
 }
 
 function resizeInputBox(): void {
@@ -2490,6 +2516,7 @@ function resizeInputBox(): void {
   const inputHeight = Math.min(inputBox.scrollHeight, 116);
   inputBox.style.height = `${inputHeight}px`;
   inputForm.style.setProperty('--composer-height', `${inputHeight + 34}px`);
+  if (composerSecondaryTools.dataset.open === 'true') positionComposerTools();
 }
 
 async function loadSettingsPanel(): Promise<void> {
