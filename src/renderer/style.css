@@ -6814,6 +6814,11 @@ html[data-theme="night"] body {
   z-index: 2;
 }
 
+#input-form > #composer-secondary-tools {
+  position: absolute;
+  z-index: 12;
+}
+
 #mode-switch::before,
 #app-shell:is([data-theme="day"], [data-theme="night"]) #mode-switch::before {
   z-index: 1;
