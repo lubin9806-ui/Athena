@@ -6222,41 +6222,11 @@ html[data-theme="night"] body {
   animation: none;
 }
 
-.message.user[data-entry="landed"] {
-  animation: user-message-land 240ms cubic-bezier(0.2, 0.82, 0.18, 1) both;
-}
-
-@keyframes user-message-land {
-  from { opacity: 0.82; transform: translate3d(0, 5px, 0) scale(0.992); }
-  to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
-}
-
 .message-time,
 .emotion-badge,
 .message-sources-heading,
 .message-tools-heading {
   color: var(--text-dim);
-}
-
-.message-flight {
-  position: fixed;
-  z-index: 120;
-  max-height: 88px;
-  padding: 11px 15px;
-  contain: layout paint style;
-  overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  border-radius: 17px 17px 7px 17px;
-  color: #29312c;
-  background: color-mix(in srgb, var(--message-user-bg) 92%, rgba(255, 255, 255, 0.5));
-  box-shadow: 0 10px 24px rgba(36, 48, 40, 0.12), inset 0 1px rgba(255, 255, 255, 0.6);
-  font-family: "Segoe UI Variable Text", "Microsoft YaHei UI", sans-serif;
-  font-size: 14px;
-  line-height: 1.65;
-  pointer-events: none;
-  transform-origin: left top;
-  backface-visibility: hidden;
-  will-change: opacity, transform;
 }
 
 #input-form,
@@ -6453,8 +6423,7 @@ html[data-theme="night"] body {
   }
 
   #app-shell[data-space-moving="true"] #stage,
-  .message[data-entry="new"] .message-segment[data-fresh="true"],
-  .message.user[data-entry="landed"] {
+  .message[data-entry="new"] .message-segment[data-fresh="true"] {
     animation: none;
   }
 }
@@ -6470,8 +6439,7 @@ html[data-theme="night"] body {
 }
 
 #app-shell[data-animation="low"][data-space-moving="true"] #stage,
-#app-shell[data-animation="low"] .message[data-entry="new"] .message-segment[data-fresh="true"],
-#app-shell[data-animation="low"] .message.user[data-entry="landed"] {
+#app-shell[data-animation="low"] .message[data-entry="new"] .message-segment[data-fresh="true"] {
   animation: none;
 }
 
