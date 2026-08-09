@@ -62,8 +62,8 @@
   },
   "voice": {
     "sttEnabled": true,
-    "ttsEnabled": true,
-    "autoPlayAssistant": true,
+    "ttsEnabled": false,
+    "autoPlayAssistant": false,
     "sttEngine": "local_whisper",
     "ttsVoice": "",
     "silenceAutoStop": true
@@ -76,7 +76,7 @@
   },
   "privacy": {
     "networkConsent": {
-      "remoteModel": true,
+      "remoteModel": false,
       "webSearch": false,
       "onlineSpeechToText": false,
       "onlineTextToSpeech": false,
