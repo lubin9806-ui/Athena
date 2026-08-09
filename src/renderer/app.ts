@@ -50,6 +50,8 @@ declare global {
       getSystemInfo: () => Promise<{ modelConnected: boolean; modelProvider: ModelProvider; modelName: string; modelEndpoint: string; ollamaConnected: boolean; hour: number; ollamaModel: string; ollamaEndpoint: string } | null>;
       getSettings: () => Promise<SettingsBundle>;
       saveSettings: (patch: SettingsPatch) => Promise<SettingsBundle>;
+      getPersona: (profileId?: string) => Promise<PersonaEditorState | null>;
+      savePersona: (profileId: string, patch: PersonaCardPatch) => Promise<PersonaEditorState | null>;
       getModelCredentialStatus: (provider: RemoteModelProvider) => Promise<ModelCredentialStatus | null>;
       setModelCredential: (provider: RemoteModelProvider, apiKey: string) => Promise<ModelCredentialStatus | null>;
       clearModelCredential: (provider: RemoteModelProvider) => Promise<ModelCredentialStatus | null>;
@@ -442,6 +444,45 @@ interface PersonaSummarySettings {
   role: 'assistant' | 'companion' | 'character';
   description: string;
   source: 'builtin' | 'local' | 'fallback';
+  sourcePath?: string;
+}
+
+interface PersonaCard {
+  id: string;
+  displayName: string;
+  nickname: string;
+  visibility: 'public' | 'private';
+  role: 'assistant' | 'companion' | 'character';
+  description: string;
+  identity: string;
+  relationshipFrame: string;
+  prompt: {
+    traits: string[];
+    speakingStyle: string[];
+    roleplayNotes: string[];
+    boundaries: string[];
+    selfIntroductionExample: string;
+  };
+}
+
+interface PersonaEditorState {
+  card: PersonaCard;
+  source: 'builtin' | 'local' | 'fallback';
+  sourcePath?: string;
+  editable: boolean;
+}
+
+interface PersonaCardPatch {
+  displayName: string;
+  nickname: string;
+  description: string;
+  identity: string;
+  relationshipFrame: string;
+  traits: string[];
+  speakingStyle: string[];
+  roleplayNotes: string[];
+  boundaries: string[];
+  selfIntroductionExample: string;
 }
 
 interface ModelSettings {
@@ -672,6 +713,16 @@ const settingCloseTray = mustGet<HTMLInputElement>('setting-close-tray');
 const settingNotifications = mustGet<HTMLInputElement>('setting-notifications');
 const settingAutoConnectModel = mustGet<HTMLInputElement>('setting-auto-connect-model');
 const settingPersonaProfile = mustGet<HTMLInputElement>('setting-persona-profile');
+const personaCardSummary = mustGet<HTMLElement>('persona-card-summary');
+const personaDisplayName = mustGet<HTMLInputElement>('persona-display-name');
+const personaNickname = mustGet<HTMLInputElement>('persona-nickname');
+const personaIdentity = mustGet<HTMLTextAreaElement>('persona-identity');
+const personaRelationship = mustGet<HTMLTextAreaElement>('persona-relationship');
+const personaTraits = mustGet<HTMLTextAreaElement>('persona-traits');
+const personaSpeakingStyle = mustGet<HTMLTextAreaElement>('persona-speaking-style');
+const personaRoleplayNotes = mustGet<HTMLTextAreaElement>('persona-roleplay-notes');
+const personaBoundaries = mustGet<HTMLTextAreaElement>('persona-boundaries');
+const personaSelfIntro = mustGet<HTMLTextAreaElement>('persona-self-intro');
 const settingUserName = mustGet<HTMLInputElement>('setting-user-name');
 const settingPreferredAddress = mustGet<HTMLInputElement>('setting-preferred-address');
 const settingTone = mustGet<HTMLSelectElement>('setting-tone');
@@ -772,6 +823,7 @@ let isStreaming = false;
 let currentContent = '';
 let currentImportPreview: MemoryImportPreview | null = null;
 let currentSettingsBundle: SettingsBundle | null = null;
+let currentPersonaEditorState: PersonaEditorState | null = null;
 let currentMode: AthenaMode = 'companion';
 let currentWorkMode: AthenaMode = 'create';
 let projects: AthenaProjectRecord[] = [];
@@ -1101,6 +1153,9 @@ function init(): void {
   settingsForm.addEventListener('submit', (event) => {
     event.preventDefault();
     saveSettingsForm();
+  });
+  settingPersonaProfile.addEventListener('change', () => {
+    void loadPersonaEditorState(settingPersonaProfile.value.trim() || 'default');
   });
   settingTheme.addEventListener('change', () => {
     themeController.apply(settingTheme.value as ThemeMode, true);
@@ -2754,6 +2809,7 @@ function populateSettingsForm(bundle: SettingsBundle): void {
   settingCreatorHints.checked = personalization.creatorModeHints;
   settingCustomNotes.value = personalization.customNotes;
   inputBox.placeholder = modePlaceholder(currentMode);
+  void loadPersonaEditorState(bundle.settings.profile);
   settingEnterSend.checked = conversation.enterToSend;
   settingStreamResponses.checked = conversation.streamResponses;
   settingShowTimestamps.checked = conversation.showTimestamps;
@@ -2800,6 +2856,69 @@ function populateSettingsForm(bundle: SettingsBundle): void {
   applySkuRuntimeProfile(bundle.sku);
   selectControls.sync();
   void refreshVoiceCapabilities();
+}
+
+async function loadPersonaEditorState(profileId: string): Promise<void> {
+  try {
+    const state = await window.athenaAPI.getPersona(profileId);
+    if (!state) throw new Error('主进程没有返回角色卡');
+    currentPersonaEditorState = state;
+    populatePersonaCardForm(state);
+  } catch (error) {
+    personaCardSummary.textContent = `角色卡加载失败：${error instanceof Error ? error.message : String(error)}`;
+    currentPersonaEditorState = null;
+  }
+}
+
+function populatePersonaCardForm(state: PersonaEditorState): void {
+  const card = state.card;
+  personaDisplayName.value = card.displayName;
+  personaNickname.value = card.nickname;
+  personaIdentity.value = card.identity;
+  personaRelationship.value = card.relationshipFrame;
+  personaTraits.value = linesFromList(card.prompt.traits);
+  personaSpeakingStyle.value = linesFromList(card.prompt.speakingStyle);
+  personaRoleplayNotes.value = linesFromList(card.prompt.roleplayNotes);
+  personaBoundaries.value = linesFromList(card.prompt.boundaries);
+  personaSelfIntro.value = card.prompt.selfIntroductionExample;
+  const sourceLabel = state.source === 'builtin' ? '内置默认卡' : state.card.visibility === 'private' ? '本机私有卡' : '本机角色卡';
+  const pathLabel = state.sourcePath ? ` · ${state.sourcePath}` : '';
+  personaCardSummary.textContent = `当前角色：${card.displayName}${card.nickname && card.nickname !== card.displayName ? ` / ${card.nickname}` : ''} · ${sourceLabel}${pathLabel}`;
+}
+
+function readPersonaCardPatch(): PersonaCardPatch {
+  return {
+    displayName: personaDisplayName.value.trim() || 'Athena',
+    nickname: personaNickname.value.trim(),
+    description: currentPersonaEditorState?.card.description || '',
+    identity: personaIdentity.value.trim(),
+    relationshipFrame: personaRelationship.value.trim(),
+    traits: listFromLines(personaTraits.value),
+    speakingStyle: listFromLines(personaSpeakingStyle.value),
+    roleplayNotes: listFromLines(personaRoleplayNotes.value),
+    boundaries: listFromLines(personaBoundaries.value),
+    selfIntroductionExample: personaSelfIntro.value.trim(),
+  };
+}
+
+async function savePersonaCardForm(profileId: string): Promise<PersonaEditorState | null> {
+  const state = await window.athenaAPI.savePersona(profileId, readPersonaCardPatch());
+  if (!state) throw new Error('角色卡保存失败');
+  currentPersonaEditorState = state;
+  populatePersonaCardForm(state);
+  return state;
+}
+
+function listFromLines(value: string): string[] {
+  return value
+    .split(/\r?\n/)
+    .map(line => line.trim().replace(/^[\-*]\s*/, ''))
+    .filter(Boolean)
+    .slice(0, 24);
+}
+
+function linesFromList(value: string[]): string {
+  return value.join('\n');
 }
 
 function applySkuRuntimeProfile(sku: SettingsBundle['sku']): void {
@@ -2881,9 +3000,11 @@ async function saveSettingsForm(): Promise<void> {
   }
 
   try {
+    const profileId = settingPersonaProfile.value.trim() || 'default';
+    await savePersonaCardForm(profileId);
     const bundle = await window.athenaAPI.saveSettings({
         settings: {
-          profile: settingPersonaProfile.value.trim() || 'default',
+          profile: profileId,
           general: {
           launchAtStartup: settingLaunchStartup.checked,
           closeToTray: settingCloseTray.checked,

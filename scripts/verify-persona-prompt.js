@@ -1,9 +1,10 @@
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 
 const root = path.resolve(__dirname, '..');
 const { buildChatPrompt, buildSystemPrompt } = require(path.join(root, 'dist/core/ai/PromptBuilder.js'));
-const { resolvePersonaCard } = require(path.join(root, 'dist/core/ai/Personality.js'));
+const { getPersonaEditorState, resolvePersonaCard, savePersonaCard } = require(path.join(root, 'dist/core/ai/Personality.js'));
 
 const emptyContext = {
   profileFacts: [],
@@ -40,10 +41,32 @@ assert(!neutralPrompt.includes('Su Shixia'), 'public prompt must not contain the
 const rendererHtml = fs.readFileSync(path.join(root, 'src/renderer/index.html'), 'utf8');
 const rendererApp = fs.readFileSync(path.join(root, 'src/renderer/app.ts'), 'utf8');
 assert(rendererHtml.includes('setting-persona-profile'), 'settings UI must expose the persona card profile entry');
+assert(rendererHtml.includes('persona-display-name'), 'settings UI must expose persona display name editing');
+assert(rendererHtml.includes('persona-speaking-style'), 'settings UI must expose persona speaking-style editing');
 assert(!rendererHtml.includes('Muse & Venus'), 'visible startup branding must not use Muse & Venus');
 assert(!rendererHtml.includes('苏时夏'), 'renderer HTML must not hard-code the private persona name');
 assert(!rendererApp.includes('苏时夏'), 'renderer app must not hard-code the private persona name');
 assert(!rendererApp.includes('Su Shixia'), 'renderer app must not hard-code the private romanized persona name');
+
+const tempPersonaDir = fs.mkdtempSync(path.join(os.tmpdir(), 'athena-persona-test-'));
+process.env.ATHENA_PERSONA_DIR = tempPersonaDir;
+const saved = savePersonaCard('test-card', {
+  displayName: 'Test Persona',
+  nickname: 'Tester',
+  description: 'Temporary test card',
+  identity: 'A temporary local test persona.',
+  relationshipFrame: 'A test-only assistant relationship.',
+  traits: ['precise', 'short'],
+  speakingStyle: ['plain'],
+  roleplayNotes: ['test mode only'],
+  boundaries: ['do not leak private cards'],
+  selfIntroductionExample: 'I am Test Persona.',
+});
+const reloaded = getPersonaEditorState('test-card');
+assert(fs.existsSync(path.join(tempPersonaDir, 'test-card.persona.json')), 'persona save must write a local persona card file');
+assert(saved.card.displayName === 'Test Persona', 'persona save must return the saved card');
+assert(reloaded.card.displayName === 'Test Persona', 'persona editor state must reload the saved card');
+delete process.env.ATHENA_PERSONA_DIR;
 
 const privateCardPath = path.join(root, 'personality', 'private', 'default.persona.json');
 if (fs.existsSync(privateCardPath)) {

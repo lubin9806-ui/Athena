@@ -15,6 +15,7 @@ import {
 import { VoiceService } from '../../core/voice/VoiceService';
 import { LLMClient } from '../../core/ai/Client';
 import { canRouteModelRequest } from '../../core/ai/ModelNetworkPolicy';
+import { getPersonaEditorState, savePersonaCard, type PersonaCardPatch, type ResolvedPersonaCard } from '../../core/ai/Personality';
 import {
   clearModelCredential,
   getModelCredentialStatus,
@@ -82,6 +83,8 @@ const INVOKE_CHANNELS = [
   'system:info',
   'config:get',
   'config:set',
+  'persona:get',
+  'persona:save',
   'model:credentialStatus',
   'model:setCredential',
   'model:clearCredential',
@@ -325,6 +328,18 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
       desktop,
     });
     return toRendererSettingsBundle(bundle);
+  });
+
+  ipcMain.handle('persona:get', async (event, profileId: unknown) => {
+    if (!isTrustedSender(event)) return null;
+    const resolved = getPersonaEditorState(cleanString(profileId, 80) || getAppSettings().profile);
+    return toRendererPersonaState(resolved);
+  });
+
+  ipcMain.handle('persona:save', async (event, profileId: unknown, patch: unknown) => {
+    if (!isTrustedSender(event)) return null;
+    const resolved = savePersonaCard(cleanString(profileId, 80) || getAppSettings().profile, cleanPersonaCardPatch(patch));
+    return toRendererPersonaState(resolved);
   });
 
   ipcMain.handle('model:credentialStatus', async (event, value: unknown) => {
@@ -634,6 +649,69 @@ function cleanMemoryPatch(value: unknown): MemoryUpdatePatch {
 
 function cleanSettingsPatch(value: unknown): SettingsPatch {
   return isRecord(value) ? value as SettingsPatch : {};
+}
+
+function cleanPersonaCardPatch(value: unknown): PersonaCardPatch {
+  if (!isRecord(value)) return {};
+  return {
+    displayName: cleanString(value.displayName, 80),
+    nickname: cleanString(value.nickname, 80),
+    description: cleanString(value.description, 300),
+    identity: cleanString(value.identity, 800),
+    relationshipFrame: cleanString(value.relationshipFrame, 800),
+    traits: cleanStringList(value.traits, 24, 300),
+    speakingStyle: cleanStringList(value.speakingStyle, 24, 300),
+    roleplayNotes: cleanStringList(value.roleplayNotes, 24, 300),
+    boundaries: cleanStringList(value.boundaries, 24, 300),
+    selfIntroductionExample: cleanString(value.selfIntroductionExample, 600),
+  };
+}
+
+function cleanStringList(value: unknown, maxItems: number, maxLength: number): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const items = value
+    .filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+    .map(item => item.trim().slice(0, maxLength))
+    .slice(0, maxItems);
+  return items.length > 0 ? items : [];
+}
+
+function toRendererPersonaState(resolved: ResolvedPersonaCard): ResolvedPersonaCard {
+  return {
+    card: {
+      ...resolved.card,
+      tags: [...resolved.card.tags],
+      prompt: {
+        ...resolved.card.prompt,
+        priorityRules: [...resolved.card.prompt.priorityRules],
+        traits: [...resolved.card.prompt.traits],
+        speakingStyle: [...resolved.card.prompt.speakingStyle],
+        roleplayNotes: [...resolved.card.prompt.roleplayNotes],
+        selfIntroductionRules: [...resolved.card.prompt.selfIntroductionRules],
+        dailyHabits: [...resolved.card.prompt.dailyHabits],
+        presenceRules: [...resolved.card.prompt.presenceRules],
+        boundaries: [...resolved.card.prompt.boundaries],
+        memoryRules: [...resolved.card.prompt.memoryRules],
+        workRules: [...resolved.card.prompt.workRules],
+      },
+      timeMoods: {
+        earlyMorning: { ...resolved.card.timeMoods.earlyMorning },
+        morning: { ...resolved.card.timeMoods.morning },
+        noon: { ...resolved.card.timeMoods.noon },
+        afternoon: { ...resolved.card.timeMoods.afternoon },
+        evening: { ...resolved.card.timeMoods.evening },
+        lateNight: { ...resolved.card.timeMoods.lateNight },
+      },
+      memoryPolicy: { ...resolved.card.memoryPolicy },
+      toolPolicy: {
+        ...resolved.card.toolPolicy,
+        allowedModes: [...resolved.card.toolPolicy.allowedModes],
+      },
+    },
+    source: resolved.source,
+    editable: resolved.editable,
+    ...(resolved.sourcePath ? { sourcePath: resolved.sourcePath } : {}),
+  };
 }
 
 function toRendererSettingsBundle(bundle: SettingsBundle): SettingsBundle {

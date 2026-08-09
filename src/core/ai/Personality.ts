@@ -75,6 +75,27 @@ export interface PersonaSummary {
   role: PersonaRole;
   description: string;
   source: 'builtin' | 'local' | 'fallback';
+  sourcePath?: string;
+}
+
+export interface ResolvedPersonaCard {
+  card: PersonaCard;
+  source: PersonaSummary['source'];
+  sourcePath?: string;
+  editable: boolean;
+}
+
+export interface PersonaCardPatch {
+  displayName?: string;
+  nickname?: string;
+  description?: string;
+  identity?: string;
+  relationshipFrame?: string;
+  traits?: string[];
+  speakingStyle?: string[];
+  roleplayNotes?: string[];
+  boundaries?: string[];
+  selfIntroductionExample?: string;
 }
 
 const DEFAULT_PERSONA_ID = 'athena-neutral';
@@ -202,6 +223,10 @@ export const ATHENA_NEUTRAL_PERSONA: PersonaCard = {
 };
 
 export function resolvePersonaCard(profileId?: string): PersonaCard {
+  return resolvePersonaCardWithSource(profileId).card;
+}
+
+export function resolvePersonaCardWithSource(profileId?: string): ResolvedPersonaCard {
   const requested = sanitizePersonaId(process.env.ATHENA_PERSONA_PROFILE || profileId || LOCAL_DEFAULT_PROFILE_ID);
   const explicit = loadPersonaFromExplicitFile();
   if (explicit) return explicit;
@@ -214,12 +239,17 @@ export function resolvePersonaCard(profileId?: string): PersonaCard {
     if (localDefault) return localDefault;
   }
 
-  return ATHENA_NEUTRAL_PERSONA;
+  return {
+    card: ATHENA_NEUTRAL_PERSONA,
+    source: 'builtin',
+    editable: true,
+  };
 }
 
 export function summarizePersonaCard(
   card: PersonaCard,
   source: PersonaSummary['source'] = card.id === ATHENA_NEUTRAL_PERSONA.id ? 'builtin' : 'local',
+  sourcePath?: string,
 ): PersonaSummary {
   return {
     id: card.id,
@@ -229,6 +259,27 @@ export function summarizePersonaCard(
     role: card.role,
     description: card.description,
     source,
+    ...(sourcePath ? { sourcePath } : {}),
+  };
+}
+
+export function getPersonaEditorState(profileId?: string): ResolvedPersonaCard {
+  return resolvePersonaCardWithSource(profileId);
+}
+
+export function savePersonaCard(profileId: string | undefined, patch: PersonaCardPatch): ResolvedPersonaCard {
+  const requested = sanitizePersonaId(profileId || LOCAL_DEFAULT_PROFILE_ID);
+  const resolved = resolvePersonaCardWithSource(requested);
+  const patched = applyPersonaPatch(resolved.card, patch);
+  const card = resolved.source === 'builtin' ? { ...patched, id: requested } : patched;
+  const filePath = writablePersonaPath(requested, resolved.sourcePath);
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, `${JSON.stringify(card, null, 2)}\n`, 'utf8');
+  return {
+    card,
+    source: 'local',
+    sourcePath: filePath,
+    editable: true,
   };
 }
 
@@ -280,13 +331,15 @@ function section(title: string, items: string[]): string {
   return [`## ${title}`, ...clean.map(item => `- ${item.trim()}`), ''].join('\n');
 }
 
-function loadPersonaFromExplicitFile(): PersonaCard | null {
+function loadPersonaFromExplicitFile(): ResolvedPersonaCard | null {
   const explicit = process.env.ATHENA_PERSONA_FILE?.trim();
   if (!explicit) return null;
-  return readPersonaFile(path.resolve(explicit));
+  const sourcePath = path.resolve(explicit);
+  const card = readPersonaFile(sourcePath);
+  return card ? { card, source: 'local', sourcePath, editable: true } : null;
 }
 
-function loadLocalPersonaCard(profileId: string): PersonaCard | null {
+function loadLocalPersonaCard(profileId: string): ResolvedPersonaCard | null {
   const safeId = sanitizePersonaId(profileId);
   const projectRoot = resolveProjectRoot();
   const configPersonas = resolveConfigFile(path.join('personas', `${safeId}.persona.json`));
@@ -299,7 +352,9 @@ function loadLocalPersonaCard(profileId: string): PersonaCard | null {
     path.join(projectRoot, 'personality', 'private', `${safeId}.json`),
     path.join(projectRoot, 'personality', `${safeId}.persona.json`),
   ]);
-  return filePath ? readPersonaFile(filePath) : null;
+  if (!filePath) return null;
+  const card = readPersonaFile(filePath);
+  return card ? { card, source: 'local', sourcePath: filePath, editable: true } : null;
 }
 
 function readPersonaFile(filePath: string): PersonaCard | null {
@@ -354,6 +409,46 @@ function sanitizePersonaCard(value: unknown): PersonaCard | null {
     },
     timeMoods: sanitizeTimeMoods(value.timeMoods),
   };
+}
+
+function applyPersonaPatch(card: PersonaCard, patch: PersonaCardPatch): PersonaCard {
+  const source = isRecord(patch) ? patch : {};
+  return sanitizePersonaCard({
+    ...card,
+    displayName: source.displayName ?? card.displayName,
+    nickname: source.nickname ?? card.nickname,
+    description: source.description ?? card.description,
+    identity: source.identity ?? card.identity,
+    relationshipFrame: source.relationshipFrame ?? card.relationshipFrame,
+    prompt: {
+      ...card.prompt,
+      traits: Array.isArray(source.traits) ? source.traits : card.prompt.traits,
+      speakingStyle: Array.isArray(source.speakingStyle) ? source.speakingStyle : card.prompt.speakingStyle,
+      roleplayNotes: Array.isArray(source.roleplayNotes) ? source.roleplayNotes : card.prompt.roleplayNotes,
+      boundaries: Array.isArray(source.boundaries) ? source.boundaries : card.prompt.boundaries,
+      selfIntroductionExample: source.selfIntroductionExample ?? card.prompt.selfIntroductionExample,
+    },
+  }) || card;
+}
+
+function writablePersonaPath(profileId: string, existingPath?: string): string {
+  if (existingPath && isWritableLocalPersonaPath(existingPath)) return existingPath;
+  return path.join(resolveWritablePersonaRoot(), `${sanitizePersonaId(profileId)}.persona.json`);
+}
+
+function resolveWritablePersonaRoot(): string {
+  if (process.env.ATHENA_PERSONA_DIR) return path.resolve(process.env.ATHENA_PERSONA_DIR);
+  const configRoot = resolveConfigFile('settings.json');
+  if (configRoot) return path.join(path.dirname(configRoot), 'personas');
+  return path.join(resolveProjectRoot(), 'config', 'personas');
+}
+
+function isWritableLocalPersonaPath(filePath: string): boolean {
+  const normalized = path.resolve(filePath);
+  const projectRoot = path.resolve(resolveProjectRoot());
+  const privateRoot = path.join(projectRoot, 'personality', 'private');
+  const configRoot = path.join(projectRoot, 'config', 'personas');
+  return normalized.startsWith(privateRoot) || normalized.startsWith(configRoot);
 }
 
 function sanitizeTimeMoods(value: unknown): PersonaCard['timeMoods'] {

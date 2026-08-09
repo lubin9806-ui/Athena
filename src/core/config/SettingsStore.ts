@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { resolveConfigFile, resolveWritableConfigFile } from '../runtime/Paths';
-import { resolvePersonaCard, summarizePersonaCard } from '../ai/Personality';
+import { resolvePersonaCardWithSource, summarizePersonaCard } from '../ai/Personality';
 import { applySteamSettingsPolicy, capSteamToolSettings, isSteamSku } from '../steam/SteamSkuPolicy';
 import { isMicrosoftStoreSku } from '../store/MicrosoftStoreSku';
 import type {
@@ -185,20 +185,23 @@ const TOOL_PERMISSION_RANK: Record<ToolPermissionLevel, number> = { off: 0, read
 
 export function getSettingsBundle(): SettingsBundle {
   const settings = loadAppSettings();
+  const persona = resolvePersonaCardWithSource(settings.profile);
   return {
     settings,
     model: loadModelSettings(),
-    persona: summarizePersonaCard(resolvePersonaCard(settings.profile)),
+    persona: summarizePersonaCard(persona.card, persona.source, persona.sourcePath),
     sku: isSteamSku() ? 'steam' : isMicrosoftStoreSku() ? 'microsoft-store' : 'desktop-direct',
   };
 }
 
 export function saveSettingsBundle(patch: SettingsPatch): SettingsBundle {
   const current = getSettingsBundle();
+  const nextSettings = applySteamSettingsPolicy(sanitizeAppSettings(mergeAppSettings(current.settings, patch.settings)));
+  const persona = resolvePersonaCardWithSource(nextSettings.profile);
   const next: SettingsBundle = {
-    settings: applySteamSettingsPolicy(sanitizeAppSettings(mergeAppSettings(current.settings, patch.settings))),
+    settings: nextSettings,
     model: sanitizeModelSettings(mergeModelSettings(current.model, patch.model)),
-    persona: summarizePersonaCard(resolvePersonaCard(patch.settings?.profile || current.settings.profile)),
+    persona: summarizePersonaCard(persona.card, persona.source, persona.sourcePath),
     sku: current.sku,
   };
 
