@@ -6217,6 +6217,19 @@ html[data-theme="night"] body {
   backdrop-filter: blur(18px) saturate(126%);
 }
 
+.message.user[data-entry="sending"] {
+  animation: none;
+}
+
+.message.user[data-entry="landed"] {
+  animation: user-message-land 240ms cubic-bezier(0.2, 0.82, 0.18, 1) both;
+}
+
+@keyframes user-message-land {
+  from { opacity: 0.82; transform: translate3d(0, 5px, 0) scale(0.992); }
+  to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+
 .message-time,
 .emotion-badge,
 .message-sources-heading,
@@ -6240,6 +6253,7 @@ html[data-theme="night"] body {
   line-height: 1.65;
   pointer-events: none;
   transform-origin: left top;
+  will-change: opacity, transform;
   -webkit-backdrop-filter: blur(18px) saturate(128%);
   backdrop-filter: blur(18px) saturate(128%);
 }
@@ -6430,7 +6444,8 @@ html[data-theme="night"] body {
   }
 
   #app-shell[data-space-moving="true"] #stage,
-  .message[data-entry="new"] .message-segment[data-fresh="true"] {
+  .message[data-entry="new"] .message-segment[data-fresh="true"],
+  .message.user[data-entry="landed"] {
     animation: none;
   }
 }
@@ -6446,7 +6461,8 @@ html[data-theme="night"] body {
 }
 
 #app-shell[data-animation="low"][data-space-moving="true"] #stage,
-#app-shell[data-animation="low"] .message[data-entry="new"] .message-segment[data-fresh="true"] {
+#app-shell[data-animation="low"] .message[data-entry="new"] .message-segment[data-fresh="true"],
+#app-shell[data-animation="low"] .message.user[data-entry="landed"] {
   animation: none;
 }
 
