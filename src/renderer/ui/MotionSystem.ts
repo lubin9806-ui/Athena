@@ -6,7 +6,6 @@ interface SentMessageFlight {
   dx: number;
   dy: number;
   scaleX: number;
-  scaleY: number;
 }
 
 export class MotionSystem {
@@ -61,7 +60,7 @@ export class MotionSystem {
     const flight = document.createElement('div');
     flight.className = 'message-flight';
     flight.textContent = text;
-    flight.style.width = `${Math.min(target.width, Math.max(132, composerRect.width - 210))}px`;
+    flight.style.width = `${Math.min(target.width, Math.max(156, composerRect.width * 0.42))}px`;
     document.body.appendChild(flight);
 
     const geometry = this.measureSentMessageFlight(flight, start, target);
@@ -69,30 +68,24 @@ export class MotionSystem {
     flight.style.top = `${geometry.startTop}px`;
     this.composer.dataset.sendMotion = 'true';
 
-    const duration = 540;
+    const duration = 430;
     const animation = flight.animate([
       {
-        opacity: 0,
-        transform: 'translate3d(0, 7px, 0) scale(0.94)',
-        filter: 'blur(2px) saturate(0.92)',
-        borderRadius: '23px',
+        opacity: 0.18,
+        transform: 'translate3d(0, 4px, 0) scale(0.98)',
+      },
+      {
+        opacity: 0.92,
+        offset: 0.18,
+        transform: 'translate3d(0, -3px, 0) scale(1.01)',
       },
       {
         opacity: 0.96,
-        offset: 0.2,
-        transform: 'translate3d(0, -5px, 0) scale(1.018)',
-        filter: 'blur(0) saturate(1.04)',
-        borderRadius: '20px 20px 10px 20px',
-      },
-      {
-        opacity: 0.98,
-        transform: `translate3d(${geometry.dx}px, ${geometry.dy}px, 0) scale(${geometry.scaleX}, ${geometry.scaleY})`,
-        filter: 'blur(0) saturate(1)',
-        borderRadius: '17px 17px 7px 17px',
+        transform: `translate3d(${geometry.dx}px, ${geometry.dy}px, 0) scale(${geometry.scaleX})`,
       },
     ], {
       duration,
-      easing: 'cubic-bezier(0.18, 0.86, 0.2, 1)',
+      easing: 'cubic-bezier(0.2, 0.72, 0.18, 1)',
       fill: 'forwards',
     });
 
@@ -147,8 +140,7 @@ export class MotionSystem {
       startTop,
       dx: target.left - startLeft,
       dy: target.top - startTop,
-      scaleX: Math.max(0.74, Math.min(1.12, target.width / Math.max(1, flightRect.width))),
-      scaleY: Math.max(0.86, Math.min(1.08, target.height / Math.max(1, flightRect.height))),
+      scaleX: Math.max(0.9, Math.min(1.04, target.width / Math.max(1, flightRect.width))),
     };
   }
 

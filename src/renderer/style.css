@@ -6243,20 +6243,20 @@ html[data-theme="night"] body {
   z-index: 120;
   max-height: 88px;
   padding: 11px 15px;
+  contain: layout paint style;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.58);
+  border: 1px solid rgba(255, 255, 255, 0.5);
   border-radius: 17px 17px 7px 17px;
   color: #29312c;
-  background: rgba(236, 241, 237, 0.72);
-  box-shadow: 0 16px 42px rgba(36, 48, 40, 0.14), inset 0 1px rgba(255, 255, 255, 0.78);
+  background: color-mix(in srgb, var(--message-user-bg) 92%, rgba(255, 255, 255, 0.5));
+  box-shadow: 0 10px 24px rgba(36, 48, 40, 0.12), inset 0 1px rgba(255, 255, 255, 0.6);
   font-family: "Segoe UI Variable Text", "Microsoft YaHei UI", sans-serif;
   font-size: 14px;
   line-height: 1.65;
   pointer-events: none;
   transform-origin: left top;
-  will-change: opacity, transform, filter, border-radius;
-  -webkit-backdrop-filter: blur(18px) saturate(128%);
-  backdrop-filter: blur(18px) saturate(128%);
+  backface-visibility: hidden;
+  will-change: opacity, transform;
 }
 
 #input-form,
@@ -6289,10 +6289,6 @@ html[data-theme="night"] body {
 
 #input-form[data-send-motion="true"] {
   transform: translateY(1px) scale(0.998);
-  box-shadow:
-    0 14px 36px rgba(42, 54, 46, 0.11),
-    inset 0 1px rgba(255, 255, 255, 0.72),
-    inset 0 -1px rgba(76, 96, 82, 0.1);
 }
 
 #input-form[data-send-motion="true"] #send-btn .icon {
