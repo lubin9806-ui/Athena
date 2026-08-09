@@ -19,6 +19,7 @@ import type {
   PersonalizationTone,
   PrivacySettings,
   ReplyLength,
+  RemoteModelProvider,
   SettingsBundle,
   SettingsPatch,
   SttEngine,
@@ -558,10 +559,10 @@ function sanitizeModelSettings(value: unknown): ModelSettings {
       numCtx: clampInteger(ollama.numCtx, 1024, 32768, DEFAULT_MODEL.ollama.numCtx),
     },
     remote: {
-      openai: sanitizeRemoteModelSettings(remote.openai, DEFAULT_MODEL.remote.openai),
-      deepseek: sanitizeRemoteModelSettings(remote.deepseek, DEFAULT_MODEL.remote.deepseek),
-      'athena-cloud': sanitizeRemoteModelSettings(remote['athena-cloud'], DEFAULT_MODEL.remote['athena-cloud']),
-      custom: sanitizeRemoteModelSettings(remote.custom, DEFAULT_MODEL.remote.custom),
+      openai: sanitizeRemoteModelSettings('openai', remote.openai, DEFAULT_MODEL.remote.openai),
+      deepseek: sanitizeRemoteModelSettings('deepseek', remote.deepseek, DEFAULT_MODEL.remote.deepseek),
+      'athena-cloud': sanitizeRemoteModelSettings('athena-cloud', remote['athena-cloud'], DEFAULT_MODEL.remote['athena-cloud']),
+      custom: sanitizeRemoteModelSettings('custom', remote.custom, DEFAULT_MODEL.remote.custom),
     },
     fallback: {
       enabled: cleanBoolean(fallback.enabled, DEFAULT_MODEL.fallback.enabled),
@@ -570,10 +571,10 @@ function sanitizeModelSettings(value: unknown): ModelSettings {
   };
 }
 
-function sanitizeRemoteModelSettings(value: unknown, fallback: ModelSettings['remote']['openai']): ModelSettings['remote']['openai'] {
+function sanitizeRemoteModelSettings(provider: RemoteModelProvider, value: unknown, fallback: ModelSettings['remote']['openai']): ModelSettings['remote']['openai'] {
   const source = isRecord(value) ? value : {};
   return {
-    baseUrl: sanitizeRemoteBaseUrl(source.baseUrl, fallback.baseUrl),
+    baseUrl: sanitizeRemoteBaseUrl(provider, source.baseUrl, fallback.baseUrl),
     model: cleanString(source.model, 160, fallback.model),
     temperature: clampNumber(source.temperature, 0, 2, fallback.temperature),
     maxTokens: clampInteger(source.maxTokens, 128, 32768, fallback.maxTokens),
@@ -581,8 +582,8 @@ function sanitizeRemoteModelSettings(value: unknown, fallback: ModelSettings['re
   };
 }
 
-function sanitizeRemoteBaseUrl(value: unknown, fallback: string): string {
-  const cleaned = cleanString(value, 500, fallback).replace(/\/$/, '');
+function sanitizeRemoteBaseUrl(provider: RemoteModelProvider, value: unknown, fallback: string): string {
+  const cleaned = normalizeRemoteBaseUrl(provider, cleanString(value, 500, fallback));
   if (!cleaned) return '';
   try {
     const parsed = new URL(cleaned);
@@ -591,6 +592,32 @@ function sanitizeRemoteBaseUrl(value: unknown, fallback: string): string {
       : fallback;
   } catch {
     return fallback;
+  }
+}
+
+function normalizeRemoteBaseUrl(provider: RemoteModelProvider, value: string): string {
+  const trimmed = value.trim().replace(/\/+$/, '');
+  if (!trimmed) return '';
+  try {
+    const parsed = new URL(trimmed);
+    parsed.hash = '';
+    parsed.search = '';
+    parsed.pathname = parsed.pathname.replace(/\/+$/, '');
+    const hostname = parsed.hostname.toLowerCase();
+    const pathname = parsed.pathname.toLowerCase();
+    if (provider === 'openai' && hostname === 'api.openai.com') {
+      parsed.pathname = '/v1';
+      return parsed.toString().replace(/\/$/, '');
+    }
+    if (provider === 'deepseek' && hostname === 'api.deepseek.com') {
+      parsed.pathname = pathname === '/v1' || pathname === '/anthropic' || pathname === '/beta' ? '' : parsed.pathname;
+      return parsed.toString().replace(/\/$/, '');
+    }
+    if (pathname.endsWith('/models')) parsed.pathname = parsed.pathname.slice(0, -'/models'.length) || '';
+    if (pathname.endsWith('/chat/completions')) parsed.pathname = parsed.pathname.slice(0, -'/chat/completions'.length) || '';
+    return parsed.toString().replace(/\/$/, '');
+  } catch {
+    return trimmed;
   }
 }
 

@@ -67,6 +67,15 @@ async function main() {
     assert.strictEqual(canRouteModelRequest('deepseek', false), false);
     assert.strictEqual(canRouteModelRequest('deepseek', true), true);
 
+    const normalized = saveSettingsBundle({ model: {
+      remote: {
+        openai: { baseUrl: 'https://api.openai.com/chat/completions', model: 'gpt-test' },
+        deepseek: { baseUrl: 'https://api.deepseek.com/anthropic', model: 'deepseek-test' },
+      },
+    } });
+    assert.strictEqual(normalized.model.remote.openai.baseUrl, 'https://api.openai.com/v1');
+    assert.strictEqual(normalized.model.remote.deepseek.baseUrl, 'https://api.deepseek.com');
+
     const client = new LLMClient(bundle.model, () => 'sk-athena-provider-fixture');
     assert.strictEqual(await client.checkConnection(), true);
     assert.deepStrictEqual(await client.listModels(), ['fixture-model']);

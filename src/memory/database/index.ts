@@ -173,9 +173,6 @@ function runMigrations(database: Database.Database, currentVersion: number): voi
       last_active_at DATETIME DEFAULT (datetime('now', 'localtime'))
     );
     CREATE INDEX IF NOT EXISTS idx_chat_windows_last_active ON chat_windows(deleted_at, archived_at, last_active_at DESC);
-    CREATE INDEX IF NOT EXISTS idx_chat_windows_temporary ON chat_windows(is_temporary, deleted_at, archived_at);
-    CREATE INDEX IF NOT EXISTS idx_chat_windows_project ON chat_windows(project_id, deleted_at, archived_at, last_active_at DESC);
-
     CREATE TABLE IF NOT EXISTS chat_messages (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       window_id INTEGER NOT NULL REFERENCES chat_windows(id) ON DELETE CASCADE,

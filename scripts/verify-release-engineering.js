@@ -114,9 +114,58 @@ function verifyMigrationRecovery(scratch) {
     env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', ATHENA_DB_DIR: databaseDir },
   });
   assert.strictEqual(succeeded.status, 0, `migration should recover: ${succeeded.stdout} ${succeeded.stderr}`);
-  assert.match(succeeded.stdout, /schema=1/);
+  assert.match(succeeded.stdout, /schema=5/);
   const backups = fs.readdirSync(path.join(databaseDir, 'backups')).filter(name => name.endsWith('.bak'));
   assert(backups.length >= 1, 'at least one pre-migration backup must remain');
+}
+
+function verifyVersion3ChatWindowMigration(scratch) {
+  const databaseDir = path.join(scratch, 'migration-v3-database');
+  fs.mkdirSync(databaseDir, { recursive: true });
+  const databasePath = path.join(databaseDir, 'athena.db');
+  const Database = require('better-sqlite3');
+  const legacy = new Database(databasePath);
+  legacy.exec(`
+    CREATE TABLE chat_windows (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      summary TEXT NOT NULL DEFAULT '',
+      mode TEXT NOT NULL DEFAULT 'companion' CHECK(mode IN ('create', 'companion', 'reason', 'execute')),
+      working_state TEXT NOT NULL DEFAULT '{}',
+      archived_at DATETIME,
+      deleted_at DATETIME,
+      created_at DATETIME DEFAULT (datetime('now', 'localtime')),
+      updated_at DATETIME DEFAULT (datetime('now', 'localtime')),
+      last_active_at DATETIME DEFAULT (datetime('now', 'localtime'))
+    );
+    INSERT INTO chat_windows(title) VALUES ('legacy window');
+    PRAGMA user_version = 3;
+  `);
+  legacy.close();
+
+  const probe = `
+    const db=require('./dist/memory/database/index.js');
+    try {
+      const opened=db.getDatabase();
+      const columns=opened.prepare('PRAGMA table_info(chat_windows)').all().map(column => column.name);
+      console.log('schema='+opened.pragma('user_version',{simple:true}));
+      console.log('columns='+columns.join(','));
+      console.log('window='+JSON.stringify(opened.prepare('SELECT project_id, is_temporary FROM chat_windows WHERE id=1').get()));
+      db.closeDatabase();
+    } catch(error) {
+      console.error(error.message);
+      process.exit(23);
+    }
+  `;
+  const migrated = spawnSync(process.execPath, ['-e', probe], {
+    cwd: ROOT,
+    encoding: 'utf8',
+    env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', ATHENA_DB_DIR: databaseDir },
+  });
+  assert.strictEqual(migrated.status, 0, `v3 chat window migration should recover: ${migrated.stdout} ${migrated.stderr}`);
+  assert.match(migrated.stdout, /schema=5/);
+  assert.match(migrated.stdout, /project_id/);
+  assert.match(migrated.stdout, /is_temporary/);
 }
 
 function main() {
@@ -125,6 +174,7 @@ function main() {
     verifyVersionIdentity();
     verifyChannelControls(scratch);
     verifyMigrationRecovery(scratch);
+    verifyVersion3ChatWindowMigration(scratch);
     console.log('ATHENA_RELEASE_ENGINEERING_OK version=0.9.5 channels=beta,stable migrationBackup=verified rollback=verified');
   } finally {
     fs.rmSync(scratch, { recursive: true, force: true });
