@@ -58,8 +58,8 @@
 - [x] updater 客户端使用 NSIS generic provider、SHA-512、包内 publisher DN 匹配、默认不自动下载/安装，并在检查和下载前尊重 `control.json.paused`
 - [x] `npm.cmd run test:desktop-faults` → `ATHENA_DESKTOP_FAULTS_OK noOllama=degraded portConflict=rejected weakNetwork=bounded`
 - [~] 开发态 smoke 输出 `ATHENA_SMOKE_READY_TO_SHOW` / `ATHENA_SMOKE_DOM_OK`；窗口 07 最新 unsigned EXE 因新哈希被本机 Application Control 阻止启动，旧窗口打包态成功不能替代新包证据
-- [x] `npm.cmd run test:supply-chain` → `ATHENA_SUPPLY_CHAIN_OK packages=77 manifest=docs/SUPPLY_CHAIN_MANIFEST.json`；官方 npm audit 为 0 vulnerabilities
-- [x] `npm.cmd run test:commercial` → `ATHENA_COMMERCIAL_READINESS_OK sku=athena-desktop-personal-v1 model=one_time devices=2 productionBlockers=13`
+- [x] `npm.cmd run test:supply-chain` → `ATHENA_SUPPLY_CHAIN_OK packages=80 manifest=docs/SUPPLY_CHAIN_MANIFEST.json`；官方 npm audit 为 0 vulnerabilities
+- [x] `npm.cmd run test:commercial` → `ATHENA_COMMERCIAL_READINESS_OK sku=athena-desktop-personal-v1 model=one_time devices=2 productionBlockers=9`
 - [~] 工程候选 installer 105,971,220 bytes、unpacked EXE 232,771,072 bytes 已生成并精确哈希；两者 Authenticode 均为 `NotSigned`，candidate manifest 为 `BLOCKED`；生产 ASAR 1,376 项且 `.map/.d.ts` 为 0，内置商业配置保持 `prelaunch/unconfigured`
 - [ ] 代码签名证书、发布者 DN、HTTPS feed 和真实 clean-checkout CI run（外部 Blocked）
 - [ ] 首装/覆盖升级/跨版本/卸载/重装、标准用户/UAC/Defender/弱网真实矩阵

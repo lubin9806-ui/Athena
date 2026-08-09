@@ -23,14 +23,14 @@
     ]
   },
   "roles": {
-    "executiveOwner": null,
-    "releaseCommander": null,
-    "engineeringOwner": null,
-    "securityPrivacyOwner": null,
+    "executiveOwner": "Elan",
+    "releaseCommander": "Elan",
+    "engineeringOwner": "Elan",
+    "securityPrivacyOwner": "Elan",
     "legalLicenseOwner": null,
-    "qaReleaseOwner": null,
-    "supportCommsOwner": null,
-    "desktopOwner": null,
+    "qaReleaseOwner": "Elan",
+    "supportCommsOwner": "Elan",
+    "desktopOwner": "Elan",
     "steamOwner": null,
     "cloudOnCallPrimary": null,
     "cloudOnCallSecondary": null,
@@ -39,10 +39,10 @@
   },
   "channels": {
     "supportUrl": null,
-    "supportEmail": null,
-    "securityEmail": null,
-    "privacyEmail": null,
-    "incidentBridge": null,
+    "supportEmail": "3155822002@qq.com",
+    "securityEmail": "3155822002@qq.com",
+    "privacyEmail": "3155822002@qq.com",
+    "incidentBridge": "WeChat: lb3155822002qwe",
     "pagingService": null
   },
   "supportTargets": {

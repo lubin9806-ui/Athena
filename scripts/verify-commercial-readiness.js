@@ -124,9 +124,19 @@ async function main() {
     currency: null,
   });
   const blockers = commercialProductionBlockers(policy);
-  assert(blockers.length >= 10, 'prelaunch config must remain blocked until external commercial inputs exist');
-  assert(blockers.some(blocker => blocker.includes('legalEntity')));
-  assert(blockers.some(blocker => blocker.includes('verificationPublicKey')));
+  for (const requiredBlocker of [
+    'provider.mode is not production',
+    'releaseStage is not production',
+    'provider.paymentAdapter is not configured',
+    'provider.licenseAdapter is not configured',
+    'provider.activationBaseUrl is not configured',
+    'provider.verificationPublicKey is not configured',
+    'identity.legalEntity is not configured',
+    'identity.supportUrl is not configured',
+    'price and currency are not configured',
+  ]) {
+    assert(blockers.includes(requiredBlocker), `prelaunch config must remain blocked by: ${requiredBlocker}`);
+  }
   await verifyLicenseBoundary(policy);
   verifyMaterials();
   console.log(`ATHENA_COMMERCIAL_READINESS_OK sku=${policy.product.skuId} model=one_time devices=2 productionBlockers=${blockers.length}`);

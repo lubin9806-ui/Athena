@@ -34,10 +34,10 @@
   },
   "identity": {
     "legalEntity": null,
-    "websiteBaseUrl": null,
+    "websiteBaseUrl": "https://www.elanastra.com",
     "supportUrl": null,
-    "supportEmail": null,
-    "privacyEmail": null,
-    "securityEmail": null
+    "supportEmail": "3155822002@qq.com",
+    "privacyEmail": "3155822002@qq.com",
+    "securityEmail": "3155822002@qq.com"
   }
 }

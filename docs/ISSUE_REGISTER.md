@@ -141,7 +141,7 @@
 | 退款与支持 | 14 日自愿退款且法定权利优先；退款撤权但保留本机数据；一般支持/隐私/安全三入口和响应目标已冻结 | 真实入口均为 `null`，EULA/隐私政策未生效，法律与运营签字缺失 |
 | 官网与发行材料 | `promo/index.html`、`product.html`、`visual.html`；商店长短描述、截图规则、EULA/隐私草案、支持运行稿 | 全部明确 Prelaunch/No-Go/尚未开放购买；正式域名、下载、价格和签名 build 截图不存在 |
 | 产品承诺审计 | ATH-PRODUCT-001 关闭；Live2D、音乐、日历、跨设备同步、Cloud/Steam/Mobile/macOS/Linux 保持 Planned/Excluded；旧人格和虚构工作流卖点移除 | 未来实现必须先更新产品矩阵并重新审核素材 |
-| 自动化 | `npm.cmd run test:commercial` 输出 `ATHENA_COMMERCIAL_READINESS_OK sku=athena-desktop-personal-v1 model=one_time devices=2 productionBlockers=13` | 通过证明边界和拒绝门有效，不等于生产平台或商业发布通过 |
+| 自动化 | `npm.cmd run test:commercial` 输出 `ATHENA_COMMERCIAL_READINESS_OK sku=athena-desktop-personal-v1 model=one_time devices=2 productionBlockers=9` | 通过证明边界和拒绝门有效，不等于生产平台或商业发布通过 |
 
 结论：ATH-PRODUCT-001 **Closed**；ATH-DESKTOP-002 的可替换工程与政策定义完成，但因真实主体/交易/许可证/公开联系渠道和签字缺失转为 **Blocked**。Universal + Desktop 清单仍有签名、真实 Beta、质量、法务和运营未完成项，Desktop 1.0 为 **No-Go**。
 

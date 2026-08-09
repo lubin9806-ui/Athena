@@ -30,7 +30,7 @@ Universal 分区中，安全已取得 10 项通过，但签名/恶意软件扫�
 
 - `npm.cmd run typecheck` 通过。
 - persona、modes、theme、logger、security、privacy、supply-chain、release、desktop-faults、web-search 和 tools 非 live 回归全部通过。
-- `npm.cmd run test:commercial` 输出 `ATHENA_COMMERCIAL_READINESS_OK sku=athena-desktop-personal-v1 model=one_time devices=2 productionBlockers=13`。
+- `npm.cmd run test:commercial` 输出 `ATHENA_COMMERCIAL_READINESS_OK sku=athena-desktop-personal-v1 model=one_time devices=2 productionBlockers=9`。
 - 开发态 Electron smoke 输出 `ATHENA_SMOKE_READY_TO_SHOW` 与 `ATHENA_SMOKE_DOM_OK`。
 - `npm.cmd run audit:security` 输出 `found 0 vulnerabilities`。
 - `npm.cmd run build` 成功生成 unsigned 工程包，并明确输出 `ATHENA_RELEASE_EXTERNAL_BLOCKED code-signing-certificate-missing` 与 `ATHENA_BUILD_SOURCE_DIRTY paths=75`。
