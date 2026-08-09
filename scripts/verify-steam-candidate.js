@@ -79,7 +79,11 @@ function verifySource() {
 
   const mainSource = fs.readFileSync(path.join(ROOT, 'src', 'app', 'main.ts'), 'utf8');
   assert.match(mainSource, /isSteamExternalNavigationAllowed/);
-  assert.match(mainSource, /!isSteamBuild\) initializeDesktopUpdater/);
+  assert.match(
+    mainSource,
+    /!isSmokeTest && !isSteamBuild && !isMicrosoftStoreBuild\) initializeDesktopUpdater\(mainWindow\)/,
+    'Desktop updater must stay disabled for Steam and Microsoft Store builds.',
+  );
   const toolsSource = fs.readFileSync(path.join(ROOT, 'src', 'core', 'tools', 'ComputerTools.ts'), 'utf8');
   assert.match(toolsSource, /isSteamToolAllowed/);
   const builderSource = fs.readFileSync(path.join(ROOT, 'electron-builder.steam.yml'), 'utf8');
