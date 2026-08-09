@@ -640,6 +640,7 @@ function toRendererSettingsBundle(bundle: SettingsBundle): SettingsBundle {
   return {
     settings: bundle.settings,
     sku: bundle.sku,
+    persona: { ...bundle.persona },
     model: {
       ...bundle.model,
       ollama: { ...bundle.model.ollama },

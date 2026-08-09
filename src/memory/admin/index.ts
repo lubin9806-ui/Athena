@@ -226,7 +226,7 @@ export function commitChatRecordImport(sourcePath: string, candidateIds?: number
         '2026-06-30',
         summary,
         item.content,
-        JSON.stringify(['苏时夏', '聊天记录']),
+        JSON.stringify(['角色卡', '聊天记录']),
         item.importance,
         summary,
         item.content
@@ -234,7 +234,7 @@ export function commitChatRecordImport(sourcePath: string, candidateIds?: number
       if (result.changes > 0) imported += 1;
       if (result.changes > 0) {
         const row = db.prepare('SELECT id FROM events WHERE summary = ? AND detail = ?').get(summary, item.content) as { id: number } | undefined;
-        if (row) upsertMemoryIndex('events', row.id, `${summary} ${item.content} 苏时夏 聊天记录`);
+        if (row) upsertMemoryIndex('events', row.id, `${summary} ${item.content} 角色卡 聊天记录`);
       }
     }
   });

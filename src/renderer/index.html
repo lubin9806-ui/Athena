@@ -284,7 +284,7 @@
         <div>
           <div class="panel-eyebrow">EXECUTION</div>
           <div id="execution-panel-title">执行</div>
-          <div id="execution-panel-subtitle">直接描述目标，时夏会调用工具并把真实过程留在这里</div>
+          <div id="execution-panel-subtitle">直接描述目标，当前角色会调用工具并把真实过程留在这里</div>
         </div>
       </div>
 
@@ -391,11 +391,15 @@
           <summary class="settings-heading">个性化</summary>
           <div class="settings-section-body">
             <label class="settings-field">
+              <span>角色卡 ID</span>
+              <input id="setting-persona-profile" type="text" maxlength="80" placeholder="default" />
+            </label>
+            <label class="settings-field">
               <span>你的名字</span>
               <input id="setting-user-name" type="text" maxlength="80" placeholder="可留空" />
             </label>
             <label class="settings-field">
-              <span>时夏怎么称呼你</span>
+              <span>角色怎么称呼你</span>
               <input id="setting-preferred-address" type="text" maxlength="80" placeholder="比如：名字、老板" />
             </label>
             <label class="settings-field">
@@ -775,7 +779,7 @@
         <button id="composer-more-btn" class="composer-button" type="button" title="更多工具" aria-label="更多工具" aria-expanded="false">
           <svg class="icon"><use href="#icon-plus"></use></svg>
         </button>
-        <textarea id="input-box" rows="1" placeholder="和时夏说点什么…"></textarea>
+        <textarea id="input-box" rows="1" placeholder="和当前角色说点什么…"></textarea>
         <button id="voice-stt-btn" class="composer-button" type="button" title="开始录音" aria-label="开始录音" aria-pressed="false">
           <svg class="icon"><use href="#icon-mic"></use></svg>
           <span id="voice-stt-label" aria-hidden="true"></span>

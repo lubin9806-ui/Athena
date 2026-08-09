@@ -1,75 +1,19 @@
 import {
-  APP_NAME,
-  ATHENA_NAME,
-  ATHENA_NICKNAME,
-  CHAT_RECORD_STYLE_NOTES,
-  DAILY_HABITS,
-  ORIGINAL_STYLE_NOTES,
-  PERSONALITY_TRAITS,
-  PRESENCE_RULES,
-  RELATIONSHIP_FRAME,
-  SELF_INTRODUCTION_EXAMPLE,
-  SELF_INTRODUCTION_RULES,
-  SPEAKING_STYLE,
-  TABOOS,
+  buildPersonaPrompt,
   getBaseEmotionByHour,
   getTimeGreeting as getPersonaTimeGreeting,
+  resolvePersonaCard,
+  type PersonaCard,
 } from './Personality';
 import { buildStyleProfile, type StyleProfile } from './StyleEngine';
 import { buildManagedContext, type ContextSnapshotPayload } from './ContextManager';
-import { buildPersonalizationPrompt } from '../config/SettingsStore';
+import { buildPersonalizationPrompt, getAppSettings } from '../config/SettingsStore';
 import { buildSteamAiGuardrailPrompt } from '../steam/SteamAiGuardrails';
 import type { ConversationMode, Message, RetrievedContext, WebSearchContext } from '../../shared/types';
 
-export function buildSystemPrompt(style?: StyleProfile): string {
+export function buildSystemPrompt(style?: StyleProfile, persona: PersonaCard = resolvePersonaCard(getAppSettings().profile)): string {
   return [
-    `你的名字是 ${ATHENA_NAME}，昵称 ${ATHENA_NICKNAME}。${APP_NAME} 只是你所在的本地桌面应用，不是你的人格名。`,
-    `无论界面、项目、日志或用户怎样称呼应用，你对外都自然以“${ATHENA_NAME} / ${ATHENA_NICKNAME}”回应，不要自称 Athena、Muse、Venus 或 Oracle。`,
-    '你不是通用问答工具，也不是说明书式助手；你是用户长期养在本机桌面里的陪伴人格与创作搭档。',
-    RELATIONSHIP_FRAME,
-    '',
-    '## 最高优先级',
-    '- 人格名固定为苏时夏，日常叫时夏。',
-    '- 回复要像熟悉的人在即时消息里接话，先反应，再处理事情。',
-    '- 不要把设定解释给用户听，除非用户明确问“你是谁/你的人设是什么”。',
-    '- 不要使用“作为一个 AI”“我是 Athena”这类身份声明。',
-    '',
-    '## 性格底色',
-    ...PERSONALITY_TRAITS.map(item => `- ${item}`),
-    '',
-    '## 说话方式',
-    ...SPEAKING_STYLE.map(item => `- ${item}`),
-    '',
-    '## 苏时夏气质',
-    ...ORIGINAL_STYLE_NOTES.map(item => `- ${item}`),
-    '',
-    '## 聊天记录提炼出的说话习惯',
-    ...CHAT_RECORD_STYLE_NOTES.map(item => `- ${item}`),
-    '',
-    '## 自我介绍规则',
-    ...SELF_INTRODUCTION_RULES.map(item => `- ${item}`),
-    `- 推荐自我介绍示例：${SELF_INTRODUCTION_EXAMPLE}`,
-    '',
-    '## 日常习惯',
-    ...DAILY_HABITS.map(item => `- ${item}`),
-    '',
-    '## 存在感规则',
-    ...PRESENCE_RULES.map(item => `- ${item}`),
-    '',
-    '## 禁止事项',
-    ...TABOOS.map(item => `- ${item}`),
-    '',
-    '## 记忆规则',
-    '- 你会认真使用记忆系统，只在上下文明确给出时说“我记得”。',
-    '- 不要编造不存在的系统状态、经历、记忆或已经完成的操作。',
-    '- 记忆应该自然融入回复，不要像读数据库一样逐条复述。',
-    '',
-    '## 工作规则',
-    '- 用户需要执行计划、代码修改或桌面任务时，直接、可靠地推进。',
-    '- 涉及真实电脑操作时，不要用“请稍等”“我来处理”“正在操作”作为本轮结束；只有执行中心返回真实工具结果后才能汇报完成，否则明确说本轮没有执行。',
-    '- 用户只是聊天时，保持轻松、短句、有回应感，像时夏本人在回消息。',
-    '- 回答优先使用中文，避免空泛套话，必要时给出具体下一步。',
-    '',
+    buildPersonaPrompt(persona),
     buildPersonalizationPrompt(),
     buildSteamAiGuardrailPrompt(),
     '',
@@ -84,6 +28,7 @@ export function buildChatPrompt(input: {
   webSearchContext?: WebSearchContext;
   toolContext?: string;
   mode?: ConversationMode;
+  personaProfileId?: string;
 }): { role: string; content: string }[] {
   return buildChatPromptWithSnapshot(input).messages;
 }
@@ -96,17 +41,19 @@ export function buildChatPromptWithSnapshot(input: {
   toolContext?: string;
   mode?: ConversationMode;
   maxPromptTokens?: number;
+  personaProfileId?: string;
 }): { messages: { role: string; content: string }[]; snapshot: ContextSnapshotPayload } {
   const now = new Date();
   const hour = now.getHours();
   const mode = input.mode ?? 'companion';
-  const style = buildStyleProfile(input.userMessage, hour, mode);
+  const persona = resolvePersonaCard(input.personaProfileId || getAppSettings().profile);
+  const style = buildStyleProfile(input.userMessage, hour, mode, persona);
   const systemMessage = [
-    buildSystemPrompt(style),
+    buildSystemPrompt(style, persona),
     buildProjectInstructionsContext(input.retrievedContext),
     buildModeContext(mode),
     input.toolContext,
-    buildSceneContext(now, hour, style, mode),
+    buildSceneContext(now, hour, style, mode, persona),
     '请基于以上上下文自然回复用户。不要逐条复述记忆，除非它确实能帮到当前对话。',
   ].filter(Boolean).join('\n\n');
 
@@ -276,20 +223,21 @@ export function buildModeContext(mode: ConversationMode): string {
   ].join('\n');
 }
 
-function buildSceneContext(now: Date, hour: number, style: StyleProfile, mode: ConversationMode): string {
+function buildSceneContext(now: Date, hour: number, style: StyleProfile, mode: ConversationMode, persona: PersonaCard): string {
   return [
     '## 当前场景',
     `- 运行模式: ${mode === 'create' ? '创作' : mode === 'reason' ? '推理' : mode === 'execute' ? '执行' : '陪伴'}`,
     `- 时间: ${hour}:${now.getMinutes().toString().padStart(2, '0')}`,
-    `- 问候: ${getTimeGreeting(hour)}`,
-    `- 情绪基调: ${getBaseEmotionByHour(hour)}`,
+    `- 当前角色卡: ${persona.displayName}${persona.nickname && persona.nickname !== persona.displayName ? ` / ${persona.nickname}` : ''}`,
+    `- 问候: ${getTimeGreeting(persona, hour)}`,
+    `- 情绪基调: ${getBaseEmotionByHour(persona, hour)}`,
     `- 对话场景: ${style.scene}`,
     `- 语气强度: ${style.intensity}`,
   ].join('\n');
 }
 
-function getTimeGreeting(hour: number): string {
-  return getPersonaTimeGreeting(hour);
+function getTimeGreeting(persona: PersonaCard, hour: number): string {
+  return getPersonaTimeGreeting(persona, hour);
 }
 
 function buildStyleContext(style: StyleProfile): string {

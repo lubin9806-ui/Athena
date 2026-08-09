@@ -1,10 +1,10 @@
 import packageMetadata from '../../../package.json';
 
 export const APP_NAME = 'Athena';
-export const ASSISTANT_NAME = '苏时夏';
-export const ASSISTANT_NICKNAME = '时夏';
+export const ASSISTANT_NAME = 'Athena';
+export const ASSISTANT_NICKNAME = 'Athena';
 export const APP_VERSION = packageMetadata.version;
-export const APP_DESCRIPTION = '苏时夏，本地桌面人工助手';
+export const APP_DESCRIPTION = 'Athena，本地桌面人工助手';
 
 export const DB_DIR = 'database';
 export const DB_FILENAME = 'athena.db';

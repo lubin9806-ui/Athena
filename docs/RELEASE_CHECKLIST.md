@@ -120,7 +120,7 @@
 ### 4.4 法务与知识产权
 
 - [ ] 公司/发行主体、产品名、域名、支持邮箱和隐私联系人确定
-- [ ] Athena/苏时夏名称、图标、字体、壁纸、宣传图、音频的权属证据归档
+- [ ] Athena/角色卡名称、图标、字体、壁纸、宣传图、音频的权属证据归档
 - [x] npm 与 Python 依赖许可清单、SBOM 和 notices 随版本归档：`docs/THIRD_PARTY_NOTICES.md`、`docs/SUPPLY_CHAIN_MANIFEST.json`
 - [~] Ollama 的精确版本与再分发条款核验：`OllamaSetup.exe` 0.31.1 与 SHA-256 已归档；再分发条款仍需发布签字
 - [~] Qwen 的精确模型、量化、manifest、license 和归属文本核验：默认 tag、上游模型和 Apache-2.0 已归档；离线包精确 blob/quant manifest 需 allowlist 后复核

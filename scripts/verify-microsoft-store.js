@@ -77,9 +77,10 @@ function verifyPackagedContent(artifact) {
       'skills/actions.js',
     ];
     for (const value of forbidden) assert(!entries.includes(value), `Store AppX contains foreign or developer state: ${value}`);
-    assert(entries.includes('dist/core/ai/Personality.js'), 'Canonical Su Shixia personality is missing from Store AppX.');
+    assert(entries.includes('dist/core/ai/Personality.js'), 'Persona card engine is missing from Store AppX.');
 
     const sensitivePatterns = [
+      ['private persona', /(?:苏时夏|Su Shixia|sushixia-private)/i],
       ['developer path', /(?:C:\\Users\\lubin|G:\\Athena|d:\\vs\\vs\.6)/i],
       ['private key', /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/],
       ['OpenAI key', /\bsk-(?:proj-)?[A-Za-z0-9_-]{16,}/],

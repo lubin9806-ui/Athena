@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { resolveConfigFile, resolveWritableConfigFile } from '../runtime/Paths';
+import { resolvePersonaCard, summarizePersonaCard } from '../ai/Personality';
 import { applySteamSettingsPolicy, capSteamToolSettings, isSteamSku } from '../steam/SteamSkuPolicy';
 import { isMicrosoftStoreSku } from '../store/MicrosoftStoreSku';
 import type {
@@ -183,9 +184,11 @@ const MODEL_PROVIDERS = new Set<ModelProvider>(['ollama', 'openai', 'deepseek', 
 const TOOL_PERMISSION_RANK: Record<ToolPermissionLevel, number> = { off: 0, read: 1, files: 2, full: 3 };
 
 export function getSettingsBundle(): SettingsBundle {
+  const settings = loadAppSettings();
   return {
-    settings: loadAppSettings(),
+    settings,
     model: loadModelSettings(),
+    persona: summarizePersonaCard(resolvePersonaCard(settings.profile)),
     sku: isSteamSku() ? 'steam' : isMicrosoftStoreSku() ? 'microsoft-store' : 'desktop-direct',
   };
 }
@@ -195,6 +198,7 @@ export function saveSettingsBundle(patch: SettingsPatch): SettingsBundle {
   const next: SettingsBundle = {
     settings: applySteamSettingsPolicy(sanitizeAppSettings(mergeAppSettings(current.settings, patch.settings))),
     model: sanitizeModelSettings(mergeModelSettings(current.model, patch.model)),
+    persona: summarizePersonaCard(resolvePersonaCard(patch.settings?.profile || current.settings.profile)),
     sku: current.sku,
   };
 

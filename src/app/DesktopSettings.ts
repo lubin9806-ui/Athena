@@ -25,7 +25,7 @@ export function applyDesktopSettings(settings: GeneralSettings): DesktopSettings
 export function showReminderNotification(title: string, enabled: boolean): boolean {
   if (!enabled || !Notification.isSupported()) return false;
   const notification = new Notification({
-    title: '苏时夏提醒',
+    title: 'Athena 提醒',
     body: title.slice(0, 240),
     silent: false,
   });

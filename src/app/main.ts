@@ -843,9 +843,9 @@ function createTray(): void {
   const iconPath = path.join(__dirname, '../../resources/su-shixia-tray.png');
   const icon = nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 });
   tray = new Tray(icon);
-  tray.setToolTip('苏时夏 — Athena Desktop Assistant');
+  tray.setToolTip('Athena Desktop Assistant');
   tray.setContextMenu(Menu.buildFromTemplate([
-    { label: '打开苏时夏', click: () => { mainWindow?.show(); mainWindow?.focus(); } },
+    { label: '打开 Athena', click: () => { mainWindow?.show(); mainWindow?.focus(); } },
     { type: 'separator' },
     { label: '退出', click: () => { isQuitting = true; app.quit(); } },
   ]));

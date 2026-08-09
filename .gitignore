@@ -19,6 +19,7 @@ database/*.db-shm
 database/*.db-wal
 database/backups/
 memory/*.json
+personality/private/
 
 # Environment
 .env

@@ -88,6 +88,16 @@ export interface PrivacySettings {
   firstRunPrivacySeenAt?: string;
 }
 
+export interface PersonaSummarySettings {
+  id: string;
+  displayName: string;
+  nickname: string;
+  visibility: 'public' | 'private';
+  role: 'assistant' | 'companion' | 'character';
+  description: string;
+  source: 'builtin' | 'local' | 'fallback';
+}
+
 export interface AppSettings {
   version: number;
   profile: string;
@@ -133,6 +143,7 @@ export interface ModelSettings {
 export interface SettingsBundle {
   settings: AppSettings;
   model: ModelSettings;
+  persona: PersonaSummarySettings;
   sku: 'desktop-direct' | 'steam' | 'microsoft-store';
 }
 

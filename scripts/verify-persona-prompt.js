@@ -3,6 +3,7 @@ const path = require('path');
 
 const root = path.resolve(__dirname, '..');
 const { buildChatPrompt, buildSystemPrompt } = require(path.join(root, 'dist/core/ai/PromptBuilder.js'));
+const { resolvePersonaCard } = require(path.join(root, 'dist/core/ai/Personality.js'));
 
 const emptyContext = {
   profileFacts: [],
@@ -11,32 +12,49 @@ const emptyContext = {
   recentMessages: [],
 };
 
-const prompt = buildSystemPrompt();
-const identityPrompt = buildChatPrompt({
-  userMessage: '你是谁，介绍一下你自己',
-  recentMessages: [],
-  retrievedContext: emptyContext,
-})[0].content;
+function assert(condition, message) {
+  if (!condition) throw new Error(message);
+}
+
+function identityPromptFor(profileId) {
+  return buildChatPrompt({
+    userMessage: '你是谁，介绍一下你自己',
+    recentMessages: [],
+    retrievedContext: emptyContext,
+    personaProfileId: profileId,
+  })[0].content;
+}
+
+const neutralPersona = resolvePersonaCard('athena-neutral');
+const neutralPrompt = buildSystemPrompt(undefined, neutralPersona);
+const neutralIdentityPrompt = identityPromptFor('athena-neutral');
+
+assert(neutralPersona.id === 'athena-neutral', 'public fallback persona must be athena-neutral');
+assert(neutralPrompt.includes('你的名字是 Athena'), 'public prompt must name Athena');
+assert(neutralPrompt.includes('发布版默认不携带开发者私人记忆'), 'public prompt must include the release privacy boundary');
+assert(neutralPrompt.includes('用户可以通过角色卡自定义身份'), 'public prompt must describe custom persona cards');
+assert(neutralIdentityPrompt.includes('我叫 Athena'), 'public identity scene must reinforce neutral introduction');
+assert(!neutralPrompt.includes('苏时夏'), 'public prompt must not contain the private persona name');
+assert(!neutralPrompt.includes('Su Shixia'), 'public prompt must not contain the private romanized persona name');
 
 const rendererHtml = fs.readFileSync(path.join(root, 'src/renderer/index.html'), 'utf8');
 const rendererApp = fs.readFileSync(path.join(root, 'src/renderer/app.ts'), 'utf8');
-
-function assert(condition, message) {
-  if (!condition) {
-    throw new Error(message);
-  }
-}
-
-assert(prompt.includes('你的名字是 苏时夏'), 'system prompt must name Su Shixia first');
-assert(prompt.includes('昵称 时夏'), 'system prompt must include Shixia nickname');
-assert(prompt.includes('Athena 只是你所在的本地桌面应用'), 'system prompt must separate app name from persona name');
-assert(prompt.includes('不要自称 Athena、Muse、Venus 或 Oracle'), 'system prompt must forbid old persona names');
-assert(prompt.includes('我叫苏时夏，叫我时夏就好'), 'self-introduction example must be interpolated');
-assert(!prompt.includes('{SELF_INTRODUCTION_EXAMPLE}'), 'self-introduction example must not be left as a placeholder');
-assert(identityPrompt.includes('我叫苏时夏，叫我时夏就好'), 'identity scene must reinforce the intended introduction');
-assert(rendererHtml.includes('和时夏说点什么'), 'input placeholder must address Shixia');
-assert(rendererApp.includes('时夏在。今天想先聊两句'), 'startup greeting must use Shixia');
+assert(rendererHtml.includes('setting-persona-profile'), 'settings UI must expose the persona card profile entry');
 assert(!rendererHtml.includes('Muse & Venus'), 'visible startup branding must not use Muse & Venus');
-assert(!rendererApp.includes('Athena 已经醒着'), 'startup greeting must not call the persona Athena');
+assert(!rendererHtml.includes('苏时夏'), 'renderer HTML must not hard-code the private persona name');
+assert(!rendererApp.includes('苏时夏'), 'renderer app must not hard-code the private persona name');
+assert(!rendererApp.includes('Su Shixia'), 'renderer app must not hard-code the private romanized persona name');
+
+const privateCardPath = path.join(root, 'personality', 'private', 'default.persona.json');
+if (fs.existsSync(privateCardPath)) {
+  process.env.ATHENA_PERSONA_FILE = privateCardPath;
+  const privatePersona = resolvePersonaCard('default');
+  const privatePrompt = buildSystemPrompt(undefined, privatePersona);
+  const privateIdentityPrompt = identityPromptFor('default');
+  assert(privatePersona.visibility === 'private', 'local owner persona must be marked private');
+  assert(privatePrompt.includes('你的名字是 苏时夏'), 'private prompt must load the owner persona card');
+  assert(privatePrompt.includes('我叫苏时夏，叫我时夏就好'), 'private self-introduction example must be interpolated');
+  assert(privateIdentityPrompt.includes('我叫苏时夏，叫我时夏就好'), 'private identity scene must reinforce the intended introduction');
+}
 
 console.log('persona prompt OK');

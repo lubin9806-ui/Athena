@@ -1,4 +1,4 @@
-/** Renderer entry: Su Shixia workspace UI, chat, voice, settings, and Athena IPC wiring. */
+/** Renderer entry: Athena workspace UI, chat, voice, settings, and IPC wiring. */
 
 import './style.css';
 import { ChatPanel, type ChatMessageSnapshot, type ChatSource, type ChatToolExecution } from './ui/ChatPanel';
@@ -434,6 +434,16 @@ interface AppSettings {
   ui: UiSettings;
 }
 
+interface PersonaSummarySettings {
+  id: string;
+  displayName: string;
+  nickname: string;
+  visibility: 'public' | 'private';
+  role: 'assistant' | 'companion' | 'character';
+  description: string;
+  source: 'builtin' | 'local' | 'fallback';
+}
+
 interface ModelSettings {
   provider: ModelProvider;
   setupComplete: boolean;
@@ -460,6 +470,7 @@ interface ModelSettings {
 interface SettingsBundle {
   settings: AppSettings;
   model: ModelSettings;
+  persona: PersonaSummarySettings;
   sku: 'desktop-direct' | 'steam' | 'microsoft-store';
 }
 
@@ -660,6 +671,7 @@ const settingLaunchStartup = mustGet<HTMLInputElement>('setting-launch-startup')
 const settingCloseTray = mustGet<HTMLInputElement>('setting-close-tray');
 const settingNotifications = mustGet<HTMLInputElement>('setting-notifications');
 const settingAutoConnectModel = mustGet<HTMLInputElement>('setting-auto-connect-model');
+const settingPersonaProfile = mustGet<HTMLInputElement>('setting-persona-profile');
 const settingUserName = mustGet<HTMLInputElement>('setting-user-name');
 const settingPreferredAddress = mustGet<HTMLInputElement>('setting-preferred-address');
 const settingTone = mustGet<HTMLSelectElement>('setting-tone');
@@ -804,6 +816,12 @@ function setStatus(text: string, state: AppStatusState): void {
   statusText.textContent = text;
   statusDot.dataset.state = state;
   appShell.dataset.state = state === 'working' ? 'thinking' : 'idle';
+}
+
+function currentPersonaLabel(): string {
+  return currentSettingsBundle?.persona.nickname
+    || currentSettingsBundle?.persona.displayName
+    || 'Athena';
 }
 
 function setMode(mode: AthenaMode): void {
@@ -2245,7 +2263,7 @@ async function refreshStartupModelStatus(autoConnect: boolean): Promise<void> {
       setStatus('待命', 'ready');
       return;
     }
-    chatPanel.addMessage('时夏在。模型自动连接先关着，需要聊天时再叫醒本地模型就好。', 'assistant', '待命');
+    chatPanel.addMessage(`${currentPersonaLabel()}在。模型自动连接先关着，需要聊天时再叫醒本地模型就好。`, 'assistant', '待命');
     setStatus('待命', 'ready');
     return;
   }
@@ -2263,7 +2281,7 @@ async function refreshStartupModelStatus(autoConnect: boolean): Promise<void> {
         setStatus(`${modelProviderLabel(info.modelProvider)} · ${info.modelName} · 已连接`, 'ready');
         return;
       }
-      chatPanel.addMessage(`${greetingForHour(info.hour)}，时夏在。今天想先聊两句，还是把手头的事往前推一点？`, 'assistant', '温柔');
+      chatPanel.addMessage(`${greetingForHour(info.hour)}，${currentPersonaLabel()}在。今天想先聊两句，还是把手头的事往前推一点？`, 'assistant', '温柔');
       setStatus(`${modelProviderLabel(info.modelProvider)} · ${info.modelName} · 已连接`, 'ready');
     } else {
       if (chatPanel.hasMessages()) {
@@ -2725,6 +2743,7 @@ function populateSettingsForm(bundle: SettingsBundle): void {
   settingCloseTray.checked = general.closeToTray;
   settingNotifications.checked = general.desktopNotifications;
   settingAutoConnectModel.checked = general.autoConnectModel;
+  settingPersonaProfile.value = bundle.settings.profile;
   settingUserName.value = personalization.userName;
   settingPreferredAddress.value = personalization.preferredAddress;
   settingTone.value = personalization.tone;
@@ -2734,6 +2753,7 @@ function populateSettingsForm(bundle: SettingsBundle): void {
   settingMemorySmalltalk.checked = personalization.useMemoryInSmallTalk;
   settingCreatorHints.checked = personalization.creatorModeHints;
   settingCustomNotes.value = personalization.customNotes;
+  inputBox.placeholder = modePlaceholder(currentMode);
   settingEnterSend.checked = conversation.enterToSend;
   settingStreamResponses.checked = conversation.streamResponses;
   settingShowTimestamps.checked = conversation.showTimestamps;
@@ -2862,8 +2882,9 @@ async function saveSettingsForm(): Promise<void> {
 
   try {
     const bundle = await window.athenaAPI.saveSettings({
-      settings: {
-        general: {
+        settings: {
+          profile: settingPersonaProfile.value.trim() || 'default',
+          general: {
           launchAtStartup: settingLaunchStartup.checked,
           closeToTray: settingCloseTray.checked,
           desktopNotifications: settingNotifications.checked,
@@ -3821,10 +3842,11 @@ function modeLabel(mode: AthenaMode): string {
 }
 
 function modeThinkingText(mode: AthenaMode): string {
-  if (mode === 'create') return '时夏在构思...';
-  if (mode === 'reason') return '时夏在推理...';
-  if (mode === 'execute') return '时夏在规划执行...';
-  return '时夏在听...';
+  const persona = currentPersonaLabel();
+  if (mode === 'create') return `${persona}在构思...`;
+  if (mode === 'reason') return `${persona}在推理...`;
+  if (mode === 'execute') return `${persona}在规划执行...`;
+  return `${persona}在听...`;
 }
 
 function modeHintText(mode: AthenaMode): string {
@@ -3836,9 +3858,9 @@ function modeHintText(mode: AthenaMode): string {
 
 function modePlaceholder(mode: AthenaMode): string {
   if (mode === 'create') return '描述想做的画面、文字或方案...';
-  if (mode === 'reason') return '把问题、条件和目标告诉时夏...';
+  if (mode === 'reason') return `把问题、条件和目标告诉${currentPersonaLabel()}...`;
   if (mode === 'execute') return '用自然语言描述要在电脑上完成的任务...';
-  return '和时夏说点什么...';
+  return `和${currentPersonaLabel()}说点什么...`;
 }
 
 function debounce(fn: () => void, delay: number): () => void {
