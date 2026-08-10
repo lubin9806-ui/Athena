@@ -1,5 +1,8 @@
-import type { ConversationMode, MemoryEvent, ProfileEntry, ProjectNote, RetrievedContext } from '../../shared/types';
+import type { ConversationMode, DailyMemorySummary, MemoryEvent, ProceduralMemory, ProfileEntry, ProjectNote, RetrievedContext, TemporalMemoryFact } from '../../shared/types';
+import { getImportantDailyMemorySummaries, isRawEventRetrievable, searchDailyMemorySummaries } from '../daily';
 import { searchEvents, getImportantEvents } from '../episodic';
+import { getImportantTemporalMemoryFacts, searchTemporalMemoryFacts } from '../graph';
+import { getImportantProceduralMemories, searchProceduralMemories } from '../procedural';
 import { searchProfileFacts, getHighConfidenceProfile } from '../profile';
 import { searchProjectNotes, getImportantProjectNotes } from '../projects';
 import { getChatWindow, getChatWindowMessages, getRecentMessages } from '../working';
@@ -7,7 +10,10 @@ import { getChatWindow, getChatWindowMessages, getRecentMessages } from '../work
 export interface RetrieveOptions {
   query: string;
   maxProfileFacts?: number;
+  maxProceduralMemories?: number;
+  maxTemporalFacts?: number;
   maxEvents?: number;
+  maxDailySummaries?: number;
   maxProjectNotes?: number;
   recentMessageCount?: number;
   conversationMode?: ConversationMode;
@@ -23,7 +29,10 @@ export function retrieveContext(options: RetrieveOptions): RetrievedContext {
   const {
     query,
     maxProfileFacts = 20,
+    maxProceduralMemories = 6,
+    maxTemporalFacts = 8,
     maxEvents = 8,
+    maxDailySummaries = maxEvents,
     maxProjectNotes = 8,
     recentMessageCount = 20,
     conversationMode,
@@ -36,12 +45,18 @@ export function retrieveContext(options: RetrieveOptions): RetrievedContext {
     : getRecentMessages(recentMessageCount, conversationMode);
   const chatWindow = chatWindowId ? getChatWindow(chatWindowId) : null;
   const profileFacts = collectProfileFacts(keywords, maxProfileFacts);
+  const proceduralMemories = collectProceduralMemories(keywords, maxProceduralMemories);
+  const temporalFacts = collectTemporalFacts(keywords, maxTemporalFacts);
   const relatedEvents = collectEvents(keywords, maxEvents);
+  const dailySummaries = collectDailySummaries(keywords, maxDailySummaries);
   const projectNotes = collectProjectNotes(keywords, maxProjectNotes);
 
   return {
     profileFacts,
+    proceduralMemories,
+    temporalFacts,
     relatedEvents,
+    dailySummaries,
     projectNotes,
     recentMessages,
     chatWindow: chatWindow ? {
@@ -57,7 +72,7 @@ export function retrieveContext(options: RetrieveOptions): RetrievedContext {
       projectInstructions: chatWindow.projectInstructions,
       projectInstructionsSnapshot: chatWindow.projectInstructionsSnapshot,
     } : undefined,
-    relevanceScore: calculateRelevanceScore(profileFacts, relatedEvents, projectNotes, keywords),
+    relevanceScore: calculateRelevanceScore(profileFacts, proceduralMemories, temporalFacts, relatedEvents, dailySummaries, projectNotes, keywords),
   };
 }
 
@@ -133,11 +148,98 @@ function collectEvents(keywords: string[], limit: number): MemoryEvent[] {
     found.push(event);
   }
 
+  const retrievable = found.filter(event => isRawEventRetrievable(event.date, event.importance));
+
   return scoreAndSort(
-    found,
+    retrievable,
     keywords,
     event => `${event.summary} ${event.detail || ''} ${event.tags.join(' ')}`,
     event => event.importance
+  ).slice(0, limit).map(item => item.item);
+}
+
+function collectProceduralMemories(keywords: string[], limit: number): ProceduralMemory[] {
+  const found: ProceduralMemory[] = [];
+  const seen = new Set<string>();
+
+  for (const keyword of keywords) {
+    for (const memory of searchProceduralMemories(keyword, 4)) {
+      const key = `${memory.scope}:${memory.key}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      found.push(memory);
+    }
+  }
+
+  for (const memory of getImportantProceduralMemories(7, limit)) {
+    if (found.length >= limit) break;
+    const key = `${memory.scope}:${memory.key}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    found.push(memory);
+  }
+
+  return scoreAndSort(
+    found,
+    keywords,
+    memory => `${memory.scope} ${memory.key} ${memory.instruction} ${memory.evidence || ''}`,
+    memory => memory.importance + memory.confidence * 3
+  ).slice(0, limit).map(item => item.item);
+}
+
+function collectTemporalFacts(keywords: string[], limit: number): TemporalMemoryFact[] {
+  const found: TemporalMemoryFact[] = [];
+  const seen = new Set<string>();
+
+  for (const keyword of keywords) {
+    for (const fact of searchTemporalMemoryFacts(keyword, 5)) {
+      const key = `${fact.subject}:${fact.predicate}:${fact.object}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      found.push(fact);
+    }
+  }
+
+  for (const fact of getImportantTemporalMemoryFacts(7, limit)) {
+    if (found.length >= limit) break;
+    const key = `${fact.subject}:${fact.predicate}:${fact.object}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    found.push(fact);
+  }
+
+  return scoreAndSort(
+    found,
+    keywords,
+    fact => `${fact.subject} ${fact.predicate} ${fact.object} ${fact.summary}`,
+    fact => fact.importance + fact.confidence * 3
+  ).slice(0, limit).map(item => item.item);
+}
+
+function collectDailySummaries(keywords: string[], limit: number): DailyMemorySummary[] {
+  const found: DailyMemorySummary[] = [];
+  const seen = new Set<string>();
+
+  for (const keyword of keywords) {
+    for (const summary of searchDailyMemorySummaries(keyword, 5)) {
+      if (seen.has(summary.date)) continue;
+      seen.add(summary.date);
+      found.push(summary);
+    }
+  }
+
+  for (const summary of getImportantDailyMemorySummaries(6, limit)) {
+    if (found.length >= limit) break;
+    if (seen.has(summary.date)) continue;
+    seen.add(summary.date);
+    found.push(summary);
+  }
+
+  return scoreAndSort(
+    found,
+    keywords,
+    summary => `${summary.date} ${summary.summary} ${summary.highlights.join(' ')}`,
+    summary => summary.importance
   ).slice(0, limit).map(item => item.item);
 }
 
@@ -193,12 +295,18 @@ function keywordMatchScore(text: string, keywords: string[]): number {
 
 function calculateRelevanceScore(
   profileFacts: ProfileEntry[],
+  proceduralMemories: ProceduralMemory[],
+  temporalFacts: TemporalMemoryFact[],
   events: MemoryEvent[],
+  dailySummaries: DailyMemorySummary[],
   projectNotes: ProjectNote[],
   keywords: string[]
 ): number {
   const profileScore = profileFacts.reduce((sum, fact) => sum + keywordMatchScore(fact.fact, keywords) * fact.confidence, 0);
+  const proceduralScore = proceduralMemories.reduce((sum, memory) => sum + keywordMatchScore(`${memory.key} ${memory.instruction}`, keywords) * memory.confidence, 0);
+  const temporalScore = temporalFacts.reduce((sum, fact) => sum + keywordMatchScore(`${fact.subject} ${fact.predicate} ${fact.object} ${fact.summary}`, keywords) * fact.confidence, 0);
   const eventScore = events.reduce((sum, event) => sum + keywordMatchScore(`${event.summary} ${event.detail || ''}`, keywords) * 0.8, 0);
+  const dailyScore = dailySummaries.reduce((sum, summary) => sum + keywordMatchScore(`${summary.summary} ${summary.highlights.join(' ')}`, keywords) * 0.6, 0);
   const projectScore = projectNotes.reduce((sum, note) => sum + keywordMatchScore(`${note.project} ${note.title} ${note.note}`, keywords), 0);
-  return Math.min(1, (profileScore + eventScore + projectScore) / 10);
+  return Math.min(1, (profileScore + proceduralScore + temporalScore + eventScore + dailyScore + projectScore) / 10);
 }

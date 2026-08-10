@@ -7,13 +7,17 @@ import { ensureSufficientDiskSpace } from '../../core/runtime/DiskSpaceGuard';
 
 let db: Database.Database | null = null;
 let resolvedDbPath: string | null = null;
-export const DATABASE_SCHEMA_VERSION = 5;
+export const DATABASE_SCHEMA_VERSION = 8;
 const MIGRATION_BACKUP_RETENTION = 5;
 
 export interface MemoryStats {
   messageCount: number;
   profileCount: number;
   eventCount: number;
+  dailySummaryCount: number;
+  proceduralMemoryCount: number;
+  temporalFactCount: number;
+  reviewQueuePendingCount: number;
   projectNoteCount: number;
   indexCount: number;
   dbSize: string;
@@ -66,6 +70,10 @@ export function getStats(): MemoryStats {
   const messageCount = countRows(database, 'messages');
   const profileCount = countRows(database, 'profile');
   const eventCount = countRows(database, 'events');
+  const dailySummaryCount = countRows(database, 'daily_memory_summaries');
+  const proceduralMemoryCount = countRows(database, 'procedural_memories');
+  const temporalFactCount = countRows(database, 'memory_facts');
+  const reviewQueuePendingCount = countWhere(database, 'memory_review_queue', "status = 'pending'");
   const projectNoteCount = countRows(database, 'project_notes');
   const indexCount = countRows(database, 'memory_index');
 
@@ -77,7 +85,7 @@ export function getStats(): MemoryStats {
     // The file may not exist yet on very first startup.
   }
 
-  return { messageCount, profileCount, eventCount, projectNoteCount, indexCount, dbSize };
+  return { messageCount, profileCount, eventCount, dailySummaryCount, proceduralMemoryCount, temporalFactCount, reviewQueuePendingCount, projectNoteCount, indexCount, dbSize };
 }
 
 export function getDatabaseFilePath(): string {
@@ -215,6 +223,101 @@ function runMigrations(database: Database.Database, currentVersion: number): voi
     CREATE INDEX IF NOT EXISTS idx_events_date ON events(date DESC);
     CREATE INDEX IF NOT EXISTS idx_events_importance ON events(importance DESC);
 
+    CREATE TABLE IF NOT EXISTS daily_memory_summaries (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      date DATE NOT NULL UNIQUE,
+      summary TEXT NOT NULL,
+      highlights TEXT NOT NULL DEFAULT '[]',
+      source_event_count INTEGER NOT NULL DEFAULT 0,
+      source_message_count INTEGER NOT NULL DEFAULT 0,
+      max_importance INTEGER NOT NULL DEFAULT 1,
+      importance INTEGER NOT NULL DEFAULT 5,
+      decay_stage TEXT NOT NULL DEFAULT 'fresh' CHECK(decay_stage IN ('fresh', 'year_one', 'decay_5', 'decay_6', 'decay_7', 'decay_8', 'expired')),
+      generated_at DATETIME DEFAULT (datetime('now', 'localtime')),
+      updated_at DATETIME DEFAULT (datetime('now', 'localtime'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_daily_memory_summaries_date ON daily_memory_summaries(date DESC);
+    CREATE INDEX IF NOT EXISTS idx_daily_memory_summaries_importance ON daily_memory_summaries(importance DESC, date DESC);
+
+    CREATE TABLE IF NOT EXISTS procedural_memories (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      scope TEXT NOT NULL DEFAULT 'global' CHECK(scope IN ('global', 'project', 'mode', 'tool', 'persona')),
+      key TEXT NOT NULL,
+      instruction TEXT NOT NULL,
+      evidence TEXT,
+      confidence REAL DEFAULT 0.7,
+      importance INTEGER DEFAULT 6,
+      status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'archived')),
+      created_at DATETIME DEFAULT (datetime('now', 'localtime')),
+      updated_at DATETIME DEFAULT (datetime('now', 'localtime')),
+      last_recalled_at DATETIME,
+      UNIQUE(scope, key)
+    );
+    CREATE INDEX IF NOT EXISTS idx_procedural_memories_scope ON procedural_memories(scope, status, importance DESC);
+    CREATE INDEX IF NOT EXISTS idx_procedural_memories_updated ON procedural_memories(updated_at DESC);
+
+    CREATE TABLE IF NOT EXISTS memory_entities (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      type TEXT NOT NULL DEFAULT 'concept',
+      name TEXT NOT NULL,
+      summary TEXT NOT NULL DEFAULT '',
+      aliases TEXT NOT NULL DEFAULT '[]',
+      created_at DATETIME DEFAULT (datetime('now', 'localtime')),
+      updated_at DATETIME DEFAULT (datetime('now', 'localtime')),
+      UNIQUE(type, name)
+    );
+    CREATE INDEX IF NOT EXISTS idx_memory_entities_name ON memory_entities(name);
+
+    CREATE TABLE IF NOT EXISTS memory_facts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      subject_entity_id INTEGER REFERENCES memory_entities(id) ON DELETE SET NULL,
+      subject TEXT NOT NULL,
+      predicate TEXT NOT NULL,
+      object TEXT NOT NULL,
+      summary TEXT NOT NULL,
+      confidence REAL DEFAULT 0.7,
+      importance INTEGER DEFAULT 6,
+      valid_from DATETIME DEFAULT (datetime('now', 'localtime')),
+      valid_to DATETIME,
+      status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'superseded', 'archived')),
+      created_at DATETIME DEFAULT (datetime('now', 'localtime')),
+      updated_at DATETIME DEFAULT (datetime('now', 'localtime'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_memory_facts_subject ON memory_facts(subject, predicate, status);
+    CREATE INDEX IF NOT EXISTS idx_memory_facts_valid ON memory_facts(status, valid_from DESC, valid_to);
+    CREATE INDEX IF NOT EXISTS idx_memory_facts_importance ON memory_facts(importance DESC);
+
+    CREATE TABLE IF NOT EXISTS memory_fact_sources (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      fact_id INTEGER NOT NULL REFERENCES memory_facts(id) ON DELETE CASCADE,
+      source_table TEXT NOT NULL,
+      source_id INTEGER,
+      quote TEXT,
+      created_at DATETIME DEFAULT (datetime('now', 'localtime'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_memory_fact_sources_fact ON memory_fact_sources(fact_id);
+
+    CREATE TABLE IF NOT EXISTS memory_review_queue (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      kind TEXT NOT NULL CHECK(kind IN ('profile', 'event', 'project', 'procedure', 'fact')),
+      status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'applied', 'rejected')),
+      title TEXT NOT NULL,
+      content TEXT NOT NULL,
+      payload_json TEXT NOT NULL DEFAULT '{}',
+      reason TEXT NOT NULL DEFAULT '',
+      confidence REAL DEFAULT 0.5,
+      importance INTEGER DEFAULT 5,
+      source_table TEXT,
+      source_id INTEGER,
+      chat_window_id INTEGER REFERENCES chat_windows(id) ON DELETE SET NULL,
+      applied_table TEXT,
+      applied_id INTEGER,
+      created_at DATETIME DEFAULT (datetime('now', 'localtime')),
+      reviewed_at DATETIME
+    );
+    CREATE INDEX IF NOT EXISTS idx_memory_review_queue_status ON memory_review_queue(status, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_memory_review_queue_kind ON memory_review_queue(kind, status, importance DESC);
+
     CREATE TABLE IF NOT EXISTS project_notes (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       project TEXT NOT NULL,
@@ -310,6 +413,10 @@ function runMigrations(database: Database.Database, currentVersion: number): voi
 
 function countRows(database: Database.Database, tableName: string): number {
   return (database.prepare(`SELECT COUNT(*) as c FROM ${tableName}`).get() as { c: number }).c;
+}
+
+function countWhere(database: Database.Database, tableName: string, where: string): number {
+  return (database.prepare(`SELECT COUNT(*) as c FROM ${tableName} WHERE ${where}`).get() as { c: number }).c;
 }
 
 function getDatabasePath(): string {

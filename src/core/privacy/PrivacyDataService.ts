@@ -152,7 +152,20 @@ export function cleanupVoiceCache(retentionHours = getAppSettings().data.voiceCa
 
 export function clearAllLocalData(): { deletedTables: string[]; voiceCacheFilesDeleted: number } {
   const db = getDatabase();
-  const deletedTables = ['messages', 'profile', 'events', 'project_notes', 'memory_index', 'data_activity_records'];
+  const deletedTables = [
+    'messages',
+    'profile',
+    'events',
+    'daily_memory_summaries',
+    'procedural_memories',
+    'memory_entities',
+    'memory_facts',
+    'memory_fact_sources',
+    'memory_review_queue',
+    'project_notes',
+    'memory_index',
+    'data_activity_records',
+  ];
   db.transaction(() => {
     for (const table of deletedTables) db.prepare(`DELETE FROM ${table}`).run();
   })();
@@ -205,6 +218,12 @@ function buildExportPayload(): Record<string, unknown> {
       messages: selectAll(db, 'messages'),
       profile: selectAll(db, 'profile'),
       events: selectAll(db, 'events'),
+      daily_memory_summaries: selectAll(db, 'daily_memory_summaries'),
+      procedural_memories: selectAll(db, 'procedural_memories'),
+      memory_entities: selectAll(db, 'memory_entities'),
+      memory_facts: selectAll(db, 'memory_facts'),
+      memory_fact_sources: selectAll(db, 'memory_fact_sources'),
+      memory_review_queue: selectAll(db, 'memory_review_queue'),
       project_notes: selectAll(db, 'project_notes'),
       memory_index: selectAll(db, 'memory_index'),
       data_activity_records: selectAll(db, 'data_activity_records'),

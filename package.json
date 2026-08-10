@@ -28,6 +28,7 @@
     "test:modes": "tsc && node scripts/verify-conversation-modes.js",
     "test:chat-windows": "tsc && electron scripts/verify-chat-windows.js",
     "test:theme": "tsc && node scripts/verify-theme.js",
+    "test:memory-retention": "tsc && electron scripts/verify-memory-retention.js",
     "test:logger": "tsc && node scripts/verify-logger-pipe.js",
     "test:security": "tsc && node scripts/verify-security-baseline.js",
     "test:privacy": "tsc && electron scripts/verify-privacy-data.js",

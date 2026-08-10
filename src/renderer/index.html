@@ -179,6 +179,7 @@
       </div>
       <div id="memory-tabs" role="tablist" data-active="window">
         <button class="memory-tab active" type="button" data-tab="window">窗口</button>
+        <button class="memory-tab" type="button" data-tab="review">待确认</button>
         <button class="memory-tab" type="button" data-tab="manage">记忆</button>
         <button class="memory-tab" type="button" data-tab="debug">检索</button>
         <button class="memory-tab" type="button" data-tab="import">导入</button>
@@ -223,12 +224,28 @@
           </section>
         </div>
       </section>
+      <section class="memory-view" id="memory-review-view">
+        <div class="memory-controls">
+          <select id="memory-review-status" aria-label="待确认记忆状态">
+            <option value="pending">待确认</option>
+            <option value="applied">已确认</option>
+            <option value="rejected">已拒绝</option>
+            <option value="all">全部状态</option>
+          </select>
+          <button id="memory-review-refresh" type="button">刷新</button>
+        </div>
+        <div id="memory-review-summary"></div>
+        <div id="memory-review-list"></div>
+      </section>
       <section class="memory-view" id="memory-manage-view">
         <div class="memory-controls">
           <select id="memory-kind" aria-label="记忆类型">
             <option value="all">全部类型</option>
             <option value="profile">画像</option>
+            <option value="procedure">工作规则</option>
+            <option value="fact">时间事实</option>
             <option value="event">事件</option>
+            <option value="daily">日总结</option>
             <option value="project">项目</option>
             <option value="message">对话</option>
           </select>
@@ -727,6 +744,11 @@
               <span>自动记忆最低重要度</span>
               <input id="setting-memory-min-importance" type="number" min="1" max="10" step="1" />
             </label>
+            <div class="settings-field settings-field-full settings-memory-actions">
+              <button id="setting-open-memory-review" class="settings-panel-link" type="button">查看待确认记忆</button>
+              <button id="setting-open-memory-manage" class="settings-panel-link" type="button">打开记忆管理</button>
+            </div>
+            <div id="setting-memory-review-summary" class="settings-note" role="status">待确认记忆会先进入审核队列，确认后才写入长期记忆。</div>
           </div>
         </details>
 

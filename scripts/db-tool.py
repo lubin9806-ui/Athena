@@ -39,13 +39,74 @@ def run_migrations(conn: sqlite3.Connection) -> None:
           UNIQUE(source_table, source_id)
         );
         CREATE INDEX IF NOT EXISTS idx_memory_index_source ON memory_index(source_table, source_id);
+        CREATE TABLE IF NOT EXISTS daily_memory_summaries (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          date DATE NOT NULL UNIQUE,
+          summary TEXT NOT NULL,
+          highlights TEXT NOT NULL DEFAULT '[]',
+          source_event_count INTEGER NOT NULL DEFAULT 0,
+          source_message_count INTEGER NOT NULL DEFAULT 0,
+          max_importance INTEGER NOT NULL DEFAULT 1,
+          importance INTEGER NOT NULL DEFAULT 5,
+          decay_stage TEXT NOT NULL DEFAULT 'fresh',
+          generated_at DATETIME DEFAULT (datetime('now', 'localtime')),
+          updated_at DATETIME DEFAULT (datetime('now', 'localtime'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_daily_memory_summaries_date ON daily_memory_summaries(date DESC);
+        CREATE TABLE IF NOT EXISTS procedural_memories (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          scope TEXT NOT NULL DEFAULT 'global',
+          key TEXT NOT NULL,
+          instruction TEXT NOT NULL,
+          evidence TEXT,
+          confidence REAL DEFAULT 0.7,
+          importance INTEGER DEFAULT 6,
+          status TEXT NOT NULL DEFAULT 'active',
+          created_at DATETIME DEFAULT (datetime('now', 'localtime')),
+          updated_at DATETIME DEFAULT (datetime('now', 'localtime')),
+          last_recalled_at DATETIME,
+          UNIQUE(scope, key)
+        );
+        CREATE TABLE IF NOT EXISTS memory_facts (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          subject_entity_id INTEGER,
+          subject TEXT NOT NULL,
+          predicate TEXT NOT NULL,
+          object TEXT NOT NULL,
+          summary TEXT NOT NULL,
+          confidence REAL DEFAULT 0.7,
+          importance INTEGER DEFAULT 6,
+          valid_from DATETIME DEFAULT (datetime('now', 'localtime')),
+          valid_to DATETIME,
+          status TEXT NOT NULL DEFAULT 'active',
+          created_at DATETIME DEFAULT (datetime('now', 'localtime')),
+          updated_at DATETIME DEFAULT (datetime('now', 'localtime'))
+        );
+        CREATE TABLE IF NOT EXISTS memory_review_queue (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          kind TEXT NOT NULL,
+          status TEXT NOT NULL DEFAULT 'pending',
+          title TEXT NOT NULL,
+          content TEXT NOT NULL,
+          payload_json TEXT NOT NULL DEFAULT '{}',
+          reason TEXT NOT NULL DEFAULT '',
+          confidence REAL DEFAULT 0.5,
+          importance INTEGER DEFAULT 5,
+          source_table TEXT,
+          source_id INTEGER,
+          chat_window_id INTEGER,
+          applied_table TEXT,
+          applied_id INTEGER,
+          created_at DATETIME DEFAULT (datetime('now', 'localtime')),
+          reviewed_at DATETIME
+        );
         """
     )
 
 
 def get_stats() -> dict:
     with connect() as conn:
-        tables = ["messages", "profile", "events", "project_notes", "memory_index"]
+        tables = ["messages", "profile", "events", "daily_memory_summaries", "procedural_memories", "memory_facts", "memory_review_queue", "project_notes", "memory_index"]
         stats = {"database": str(DB_PATH), "sizeBytes": DB_PATH.stat().st_size if DB_PATH.exists() else 0}
         for table in tables:
             stats[table] = safe_count(conn, table)
@@ -82,6 +143,21 @@ def reindex() -> dict:
                 conn,
                 "events",
                 "SELECT id, summary, COALESCE(detail, ''), COALESCE(tags, ''), COALESCE(emotion, '') FROM events",
+            ),
+            "daily_memory_summaries": index_rows(
+                conn,
+                "daily_memory_summaries",
+                "SELECT id, date, summary, COALESCE(highlights, ''), decay_stage FROM daily_memory_summaries",
+            ),
+            "procedural_memories": index_rows(
+                conn,
+                "procedural_memories",
+                "SELECT id, scope, key, instruction, COALESCE(evidence, '') FROM procedural_memories WHERE status = 'active'",
+            ),
+            "memory_facts": index_rows(
+                conn,
+                "memory_facts",
+                "SELECT id, subject, predicate, object, summary FROM memory_facts WHERE status = 'active' AND valid_to IS NULL",
             ),
             "project_notes": index_rows(
                 conn,

@@ -85,6 +85,91 @@ def run_migrations(conn: sqlite3.Connection) -> None:
     CREATE INDEX IF NOT EXISTS idx_events_date ON events(date DESC);
     CREATE INDEX IF NOT EXISTS idx_events_importance ON events(importance DESC);
 
+    CREATE TABLE IF NOT EXISTS daily_memory_summaries (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      date DATE NOT NULL UNIQUE,
+      summary TEXT NOT NULL,
+      highlights TEXT NOT NULL DEFAULT '[]',
+      source_event_count INTEGER NOT NULL DEFAULT 0,
+      source_message_count INTEGER NOT NULL DEFAULT 0,
+      max_importance INTEGER NOT NULL DEFAULT 1,
+      importance INTEGER NOT NULL DEFAULT 5,
+      decay_stage TEXT NOT NULL DEFAULT 'fresh',
+      generated_at DATETIME DEFAULT (datetime('now', 'localtime')),
+      updated_at DATETIME DEFAULT (datetime('now', 'localtime'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_daily_memory_summaries_date ON daily_memory_summaries(date DESC);
+
+    CREATE TABLE IF NOT EXISTS procedural_memories (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      scope TEXT NOT NULL DEFAULT 'global',
+      key TEXT NOT NULL,
+      instruction TEXT NOT NULL,
+      evidence TEXT,
+      confidence REAL DEFAULT 0.7,
+      importance INTEGER DEFAULT 6,
+      status TEXT NOT NULL DEFAULT 'active',
+      created_at DATETIME DEFAULT (datetime('now', 'localtime')),
+      updated_at DATETIME DEFAULT (datetime('now', 'localtime')),
+      last_recalled_at DATETIME,
+      UNIQUE(scope, key)
+    );
+
+    CREATE TABLE IF NOT EXISTS memory_entities (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      type TEXT NOT NULL DEFAULT 'concept',
+      name TEXT NOT NULL,
+      summary TEXT NOT NULL DEFAULT '',
+      aliases TEXT NOT NULL DEFAULT '[]',
+      created_at DATETIME DEFAULT (datetime('now', 'localtime')),
+      updated_at DATETIME DEFAULT (datetime('now', 'localtime')),
+      UNIQUE(type, name)
+    );
+
+    CREATE TABLE IF NOT EXISTS memory_facts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      subject_entity_id INTEGER,
+      subject TEXT NOT NULL,
+      predicate TEXT NOT NULL,
+      object TEXT NOT NULL,
+      summary TEXT NOT NULL,
+      confidence REAL DEFAULT 0.7,
+      importance INTEGER DEFAULT 6,
+      valid_from DATETIME DEFAULT (datetime('now', 'localtime')),
+      valid_to DATETIME,
+      status TEXT NOT NULL DEFAULT 'active',
+      created_at DATETIME DEFAULT (datetime('now', 'localtime')),
+      updated_at DATETIME DEFAULT (datetime('now', 'localtime'))
+    );
+
+    CREATE TABLE IF NOT EXISTS memory_fact_sources (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      fact_id INTEGER NOT NULL,
+      source_table TEXT NOT NULL,
+      source_id INTEGER,
+      quote TEXT,
+      created_at DATETIME DEFAULT (datetime('now', 'localtime'))
+    );
+
+    CREATE TABLE IF NOT EXISTS memory_review_queue (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      kind TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      title TEXT NOT NULL,
+      content TEXT NOT NULL,
+      payload_json TEXT NOT NULL DEFAULT '{}',
+      reason TEXT NOT NULL DEFAULT '',
+      confidence REAL DEFAULT 0.5,
+      importance INTEGER DEFAULT 5,
+      source_table TEXT,
+      source_id INTEGER,
+      chat_window_id INTEGER,
+      applied_table TEXT,
+      applied_id INTEGER,
+      created_at DATETIME DEFAULT (datetime('now', 'localtime')),
+      reviewed_at DATETIME
+    );
+
     CREATE TABLE IF NOT EXISTS project_notes (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       project TEXT NOT NULL,

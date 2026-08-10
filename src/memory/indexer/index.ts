@@ -1,11 +1,14 @@
 import { getDatabase } from '../database';
 
-export type IndexedMemoryTable = 'messages' | 'profile' | 'events' | 'project_notes';
+export type IndexedMemoryTable = 'messages' | 'profile' | 'events' | 'daily_memory_summaries' | 'procedural_memories' | 'memory_facts' | 'project_notes';
 
 export interface MemoryIndexStats {
   messages: number;
   profile: number;
   events: number;
+  daily_memory_summaries: number;
+  procedural_memories: number;
+  memory_facts: number;
   project_notes: number;
 }
 
@@ -57,6 +60,9 @@ export function rebuildMemoryIndex(): MemoryIndexStats {
     messages: 0,
     profile: 0,
     events: 0,
+    daily_memory_summaries: 0,
+    procedural_memories: 0,
+    memory_facts: 0,
     project_notes: 0,
   };
 
@@ -76,6 +82,24 @@ export function rebuildMemoryIndex(): MemoryIndexStats {
   for (const row of events) {
     upsertMemoryIndex('events', row.id, `${row.summary} ${row.detail || ''} ${row.tags || ''} ${row.emotion || ''}`);
     stats.events += 1;
+  }
+
+  const dailySummaries = db.prepare('SELECT id, date, summary, highlights, decay_stage FROM daily_memory_summaries').all() as any[];
+  for (const row of dailySummaries) {
+    upsertMemoryIndex('daily_memory_summaries', row.id, `${row.date} ${row.summary} ${row.highlights || ''} ${row.decay_stage || ''}`);
+    stats.daily_memory_summaries += 1;
+  }
+
+  const procedural = db.prepare('SELECT id, scope, key, instruction, evidence FROM procedural_memories WHERE status = \'active\'').all() as any[];
+  for (const row of procedural) {
+    upsertMemoryIndex('procedural_memories', row.id, `${row.scope} ${row.key} ${row.instruction} ${row.evidence || ''}`);
+    stats.procedural_memories += 1;
+  }
+
+  const facts = db.prepare('SELECT id, subject, predicate, object, summary FROM memory_facts WHERE status = \'active\' AND valid_to IS NULL').all() as any[];
+  for (const row of facts) {
+    upsertMemoryIndex('memory_facts', row.id, `${row.subject} ${row.predicate} ${row.object} ${row.summary}`);
+    stats.memory_facts += 1;
   }
 
   const projectNotes = db.prepare('SELECT id, project, title, note, status, tags FROM project_notes').all() as any[];

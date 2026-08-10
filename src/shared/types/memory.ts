@@ -15,6 +15,71 @@ export interface MemoryEvent {
   created_at?: string;
 }
 
+export interface DailyMemorySummary {
+  id: number;
+  date: string;
+  summary: string;
+  highlights: string[];
+  source_event_count: number;
+  source_message_count: number;
+  max_importance: number;
+  importance: number;
+  decay_stage: 'fresh' | 'year_one' | 'decay_5' | 'decay_6' | 'decay_7' | 'decay_8' | 'expired';
+  generated_at?: string;
+  updated_at?: string;
+}
+
+export interface ProceduralMemory {
+  id: number;
+  scope: 'global' | 'project' | 'mode' | 'tool' | 'persona';
+  key: string;
+  instruction: string;
+  evidence?: string;
+  confidence: number;
+  importance: number;
+  status: 'active' | 'archived';
+  created_at?: string;
+  updated_at?: string;
+  last_recalled_at?: string;
+}
+
+export interface TemporalMemoryFact {
+  id: number;
+  subject: string;
+  predicate: string;
+  object: string;
+  summary: string;
+  confidence: number;
+  importance: number;
+  valid_from?: string;
+  valid_to?: string;
+  status: 'active' | 'superseded' | 'archived';
+  created_at?: string;
+  updated_at?: string;
+}
+
+export type MemoryReviewKind = 'profile' | 'event' | 'project' | 'procedure' | 'fact';
+export type MemoryReviewStatus = 'pending' | 'applied' | 'rejected';
+
+export interface MemoryReviewItem {
+  id: number;
+  kind: MemoryReviewKind;
+  status: MemoryReviewStatus;
+  title: string;
+  content: string;
+  payload: Record<string, unknown>;
+  reason: string;
+  confidence: number;
+  importance: number;
+  source_table?: string;
+  source_id?: number;
+  chat_window_id?: number;
+  applied_table?: string;
+  applied_id?: number;
+  created_at: string;
+  reviewed_at?: string;
+}
+
 export interface ProjectNote {
   id: number;
   project: string;
@@ -44,7 +109,10 @@ export interface ChatWindowContext {
 
 export interface RetrievedContext {
   profileFacts: ProfileEntry[];
+  proceduralMemories: ProceduralMemory[];
+  temporalFacts: TemporalMemoryFact[];
   relatedEvents: MemoryEvent[];
+  dailySummaries: DailyMemorySummary[];
   projectNotes: ProjectNote[];
   recentMessages: Message[];
   chatWindow?: ChatWindowContext;

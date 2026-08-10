@@ -6,6 +6,7 @@ const path = require('node:path');
 const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'athena-chat-windows-'));
 process.env.ATHENA_DB_DIR = tempDir;
 process.env.ATHENA_DB_FILENAME = 'chat-windows-test.db';
+process.env.ATHENA_CONFIG_DIR = path.join(tempDir, 'config');
 
 const root = path.resolve(__dirname, '..');
 const rendererSource = fs.readFileSync(path.join(root, 'src', 'renderer', 'app.ts'), 'utf8');

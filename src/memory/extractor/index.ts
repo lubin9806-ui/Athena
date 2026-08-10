@@ -1,12 +1,16 @@
 import type { ProfileCategory } from '../../shared/types';
 import type { MemoryEventInput } from '../episodic';
+import type { ProceduralMemoryInput } from '../procedural';
 import type { ProfileFactInput } from '../profile';
 import type { ProjectNoteInput } from '../projects';
+import type { TemporalMemoryFactInput } from '../graph';
 
 export interface ExtractedMemory {
   profileFacts: ProfileFactInput[];
   event?: MemoryEventInput;
   projectNote?: ProjectNoteInput;
+  proceduralMemories: ProceduralMemoryInput[];
+  temporalFacts: TemporalMemoryFactInput[];
 }
 
 export function extractMemoryFromUserMessage(message: string): ExtractedMemory {
@@ -15,6 +19,8 @@ export function extractMemoryFromUserMessage(message: string): ExtractedMemory {
     profileFacts: extractProfileFacts(clean),
     event: extractEvent(clean),
     projectNote: extractProjectNote(clean),
+    proceduralMemories: extractProceduralMemories(clean),
+    temporalFacts: extractTemporalFacts(clean),
   };
 }
 
@@ -88,6 +94,61 @@ function extractEvent(message: string): MemoryEventInput | undefined {
   };
 }
 
+function extractProceduralMemories(message: string): ProceduralMemoryInput[] {
+  const memories: ProceduralMemoryInput[] = [];
+  const patterns: Array<{ regex: RegExp; key: string; importance: number }> = [
+    { regex: /(?:以后|以後|下次|之后|之後|今后|今後).{0,12}(?:你|Athena|助手).{0,12}(?:要|应该|應該|记得|記得|优先|優先)(.+)/i, key: 'future collaboration rule', importance: 8 },
+    { regex: /(?:when i say|next time|from now on|please always|remember to)\s+(.+)/i, key: 'future collaboration rule', importance: 8 },
+    { regex: /(?:测试|test).{0,16}(?:就|时|時).{0,16}(?:跑|执行|執行|run)(.+)/i, key: 'testing workflow', importance: 7 },
+  ];
+
+  for (const pattern of patterns) {
+    const match = message.match(pattern.regex);
+    if (!match) continue;
+    const instruction = cleanMemoryText(match[1] || match[0]).slice(0, 800);
+    if (instruction.length < 4) continue;
+    memories.push({
+      scope: inferProceduralScope(message),
+      key: pattern.key,
+      instruction,
+      evidence: message.slice(0, 1_000),
+      confidence: 0.72,
+      importance: pattern.importance,
+    });
+  }
+
+  return memories;
+}
+
+function extractTemporalFacts(message: string): TemporalMemoryFactInput[] {
+  const facts: TemporalMemoryFactInput[] = [];
+  const patterns: Array<{ regex: RegExp; predicate: string; importance: number }> = [
+    { regex: /(?:当前|現在|现在|目前)(.{2,80}?)(?:是|为|為|=)(.{2,160})/i, predicate: 'current_state', importance: 7 },
+    { regex: /(?:current|active|now)\s+(.{2,80}?)\s+(?:is|=)\s+(.{2,160})/i, predicate: 'current_state', importance: 7 },
+    { regex: /(.{2,80}?)(?:已经|已經|改成|变成|變成|切换到|切換到)(.{2,160})/i, predicate: 'changed_to', importance: 7 },
+  ];
+
+  for (const pattern of patterns) {
+    const match = message.match(pattern.regex);
+    if (!match) continue;
+    const subject = cleanMemoryText(match[1]);
+    const object = cleanMemoryText(match[2]);
+    if (subject.length < 2 || object.length < 2) continue;
+    facts.push({
+      subject,
+      predicate: pattern.predicate,
+      object,
+      summary: `${subject} ${pattern.predicate} ${object}`,
+      confidence: 0.68,
+      importance: pattern.importance,
+      sourceTable: 'messages',
+      sourceQuote: message.slice(0, 1_000),
+    });
+  }
+
+  return facts;
+}
+
 function inferProjectTitle(message: string): string {
   if (/记忆|memory/i.test(message)) return 'Memory system';
   if (/bug|修复|错误|报错|fix/i.test(message)) return 'Issue to fix';
@@ -112,6 +173,13 @@ function extractTags(message: string): string[] {
     if (regex.test(message)) tags.push(tag);
   }
   return Array.from(new Set(tags));
+}
+
+function inferProceduralScope(message: string): ProceduralMemoryInput['scope'] {
+  if (/项目|project|Athena/i.test(message)) return 'project';
+  if (/测试|test|typecheck|smoke/i.test(message)) return 'tool';
+  if (/语气|风格|人格|persona/i.test(message)) return 'persona';
+  return 'global';
 }
 
 function cleanMemoryText(value: string): string {

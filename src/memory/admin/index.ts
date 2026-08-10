@@ -3,7 +3,7 @@ import { deleteMemoryIndex, upsertMemoryIndex } from '../indexer';
 import { retrieveContext, extractKeywords } from '../retriever';
 import * as fs from 'fs';
 
-export type MemoryKind = 'profile' | 'event' | 'project' | 'message';
+export type MemoryKind = 'profile' | 'procedure' | 'fact' | 'event' | 'daily' | 'project' | 'message';
 
 export interface MemoryListOptions {
   kind?: MemoryKind | 'all';
@@ -33,7 +33,10 @@ export interface MemoryDebugResult {
   keywords: string[];
   relevanceScore: number;
   profileFacts: MemoryListItem[];
+  proceduralMemories: MemoryListItem[];
+  temporalFacts: MemoryListItem[];
   relatedEvents: MemoryListItem[];
+  dailySummaries: MemoryListItem[];
   projectNotes: MemoryListItem[];
   recentMessages: MemoryListItem[];
 }
@@ -79,7 +82,10 @@ export function listMemories(options: MemoryListOptions = {}): MemoryListResult 
   const items: MemoryListItem[] = [];
 
   if (kind === 'all' || kind === 'profile') items.push(...listProfileMemories(query, limit));
+  if (kind === 'all' || kind === 'procedure') items.push(...listProceduralMemories(query, limit));
+  if (kind === 'all' || kind === 'fact') items.push(...listTemporalFactMemories(query, limit));
   if (kind === 'all' || kind === 'event') items.push(...listEventMemories(query, limit));
+  if (kind === 'all' || kind === 'daily') items.push(...listDailySummaryMemories(query, limit));
   if (kind === 'all' || kind === 'project') items.push(...listProjectMemories(query, limit));
   if (kind === 'all' || kind === 'message') items.push(...listMessageMemories(query, limit));
 
@@ -95,7 +101,10 @@ export function deleteMemory(kind: MemoryKind, id: number): boolean {
   const db = getDatabase();
   const table: Record<MemoryKind, string> = {
     profile: 'profile',
+    procedure: 'procedural_memories',
+    fact: 'memory_facts',
     event: 'events',
+    daily: 'daily_memory_summaries',
     project: 'project_notes',
     message: 'messages',
   };
@@ -140,6 +149,58 @@ export function updateMemory(kind: MemoryKind, id: number, patch: MemoryUpdatePa
     `).run(title || current.summary, content || current.detail || current.summary, importance ?? current.importance, id);
     if (result.changes > 0) {
       upsertMemoryIndex('events', id, `${title || current.summary} ${content || current.detail || current.summary}`);
+    }
+    return result.changes > 0;
+  }
+
+  if (kind === 'procedure') {
+    const current = db.prepare('SELECT key, instruction, importance, confidence FROM procedural_memories WHERE id = ?').get(id) as any;
+    if (!current) return false;
+    const result = db.prepare(`
+      UPDATE procedural_memories
+      SET key = ?,
+          instruction = ?,
+          importance = ?,
+          confidence = ?,
+          updated_at = datetime('now', 'localtime')
+      WHERE id = ?
+    `).run(title || current.key, content || current.instruction, importance ?? current.importance, confidence ?? current.confidence, id);
+    if (result.changes > 0) {
+      upsertMemoryIndex('procedural_memories', id, `${title || current.key} ${content || current.instruction}`);
+    }
+    return result.changes > 0;
+  }
+
+  if (kind === 'fact') {
+    const current = db.prepare('SELECT subject, predicate, object, summary, importance, confidence FROM memory_facts WHERE id = ?').get(id) as any;
+    if (!current) return false;
+    const summary = content || current.summary;
+    const result = db.prepare(`
+      UPDATE memory_facts
+      SET summary = ?,
+          importance = ?,
+          confidence = ?,
+          updated_at = datetime('now', 'localtime')
+      WHERE id = ?
+    `).run(summary, importance ?? current.importance, confidence ?? current.confidence, id);
+    if (result.changes > 0) {
+      upsertMemoryIndex('memory_facts', id, `${current.subject} ${current.predicate} ${current.object} ${summary}`);
+    }
+    return result.changes > 0;
+  }
+
+  if (kind === 'daily') {
+    const current = db.prepare('SELECT summary, importance FROM daily_memory_summaries WHERE id = ?').get(id) as any;
+    if (!current) return false;
+    const result = db.prepare(`
+      UPDATE daily_memory_summaries
+      SET summary = ?,
+          importance = ?,
+          updated_at = datetime('now', 'localtime')
+      WHERE id = ?
+    `).run(content || title || current.summary, importance ?? current.importance, id);
+    if (result.changes > 0) {
+      upsertMemoryIndex('daily_memory_summaries', id, content || title || current.summary);
     }
     return result.changes > 0;
   }
@@ -281,6 +342,28 @@ export function debugRetrieveMemory(query: string): MemoryDebugResult {
       created_at: fact.created_at,
       updated_at: fact.updated_at,
     })),
+    proceduralMemories: context.proceduralMemories.map(memory => ({
+      id: memory.id,
+      kind: 'procedure',
+      title: `${memory.scope} / ${memory.key}`,
+      content: memory.instruction,
+      meta: `${memory.status} 路 confidence ${memory.confidence.toFixed(2)} 路 importance ${memory.importance}`,
+      confidence: memory.confidence,
+      importance: memory.importance,
+      created_at: memory.created_at,
+      updated_at: memory.updated_at,
+    })),
+    temporalFacts: context.temporalFacts.map(fact => ({
+      id: fact.id,
+      kind: 'fact',
+      title: `${fact.subject} / ${fact.predicate}`,
+      content: fact.summary,
+      meta: `${fact.status} 路 confidence ${fact.confidence.toFixed(2)} 路 valid ${fact.valid_from || 'unknown'}`,
+      confidence: fact.confidence,
+      importance: fact.importance,
+      created_at: fact.created_at,
+      updated_at: fact.updated_at,
+    })),
     relatedEvents: context.relatedEvents.map(event => ({
       id: event.id,
       kind: 'event',
@@ -289,6 +372,16 @@ export function debugRetrieveMemory(query: string): MemoryDebugResult {
       meta: `${event.date} · recalled ${event.recalled_count}`,
       importance: event.importance,
       created_at: event.created_at,
+    })),
+    dailySummaries: context.dailySummaries.map(summary => ({
+      id: summary.id,
+      kind: 'daily',
+      title: summary.date,
+      content: summary.summary,
+      meta: `${summary.decay_stage} 路 events ${summary.source_event_count} 路 messages ${summary.source_message_count}`,
+      importance: summary.importance,
+      created_at: summary.generated_at,
+      updated_at: summary.updated_at,
     })),
     projectNotes: context.projectNotes.map(note => ({
       id: note.id,
@@ -357,6 +450,77 @@ function listEventMemories(query: string, limit: number): MemoryListItem[] {
   }));
 }
 
+function listProceduralMemories(query: string, limit: number): MemoryListItem[] {
+  const db = getDatabase();
+  const where = query ? 'WHERE key LIKE @like OR instruction LIKE @like OR evidence LIKE @like OR scope LIKE @like' : '';
+  const rows = db.prepare(`
+    SELECT id, scope, key, instruction, evidence, confidence, importance, status, created_at, updated_at
+    FROM procedural_memories
+    ${where}
+    ORDER BY importance DESC, confidence DESC, updated_at DESC
+    LIMIT @limit
+  `).all({ like: `%${query}%`, limit }) as any[];
+
+  return rows.map(row => ({
+    id: row.id,
+    kind: 'procedure',
+    title: `${row.scope} / ${row.key}`,
+    content: row.instruction,
+    meta: `${row.status} 路 ${row.evidence || 'no evidence'}`,
+    confidence: row.confidence,
+    importance: row.importance,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  }));
+}
+
+function listTemporalFactMemories(query: string, limit: number): MemoryListItem[] {
+  const db = getDatabase();
+  const where = query ? 'WHERE subject LIKE @like OR predicate LIKE @like OR object LIKE @like OR summary LIKE @like' : '';
+  const rows = db.prepare(`
+    SELECT id, subject, predicate, object, summary, confidence, importance, valid_from, valid_to, status, created_at, updated_at
+    FROM memory_facts
+    ${where}
+    ORDER BY status ASC, importance DESC, valid_from DESC
+    LIMIT @limit
+  `).all({ like: `%${query}%`, limit }) as any[];
+
+  return rows.map(row => ({
+    id: row.id,
+    kind: 'fact',
+    title: `${row.subject} / ${row.predicate}`,
+    content: row.summary || `${row.subject} ${row.predicate} ${row.object}`,
+    meta: `${row.status} 路 valid ${row.valid_from || 'unknown'}${row.valid_to ? ` to ${row.valid_to}` : ''}`,
+    confidence: row.confidence,
+    importance: row.importance,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  }));
+}
+
+function listDailySummaryMemories(query: string, limit: number): MemoryListItem[] {
+  const db = getDatabase();
+  const where = query ? 'WHERE summary LIKE @like OR highlights LIKE @like OR date LIKE @like' : '';
+  const rows = db.prepare(`
+    SELECT id, date, summary, highlights, source_event_count, source_message_count, importance, decay_stage, generated_at, updated_at
+    FROM daily_memory_summaries
+    ${where}
+    ORDER BY date DESC, importance DESC, id DESC
+    LIMIT @limit
+  `).all({ like: `%${query}%`, limit }) as any[];
+
+  return rows.map(row => ({
+    id: row.id,
+    kind: 'daily',
+    title: row.date,
+    content: row.summary,
+    meta: `${row.decay_stage} 路 events ${row.source_event_count} 路 messages ${row.source_message_count} 路 ${safeTags(row.highlights).join(', ') || 'no highlights'}`,
+    importance: row.importance,
+    created_at: row.generated_at,
+    updated_at: row.updated_at,
+  }));
+}
+
 function listProjectMemories(query: string, limit: number): MemoryListItem[] {
   const db = getDatabase();
   const where = query ? 'WHERE project LIKE @like OR title LIKE @like OR note LIKE @like OR tags LIKE @like' : '';
@@ -405,16 +569,22 @@ function getMemoryTotals(): Record<MemoryKind, number> {
   const db = getDatabase();
   return {
     profile: countRows(db, 'profile'),
+    procedure: countRows(db, 'procedural_memories'),
+    fact: countRows(db, 'memory_facts'),
     event: countRows(db, 'events'),
+    daily: countRows(db, 'daily_memory_summaries'),
     project: countRows(db, 'project_notes'),
     message: countRows(db, 'messages'),
   };
 }
 
 function indexTableForKind(kind: MemoryKind) {
-  const table: Record<MemoryKind, 'profile' | 'events' | 'project_notes' | 'messages'> = {
+  const table: Record<MemoryKind, 'profile' | 'procedural_memories' | 'memory_facts' | 'events' | 'daily_memory_summaries' | 'project_notes' | 'messages'> = {
     profile: 'profile',
+    procedure: 'procedural_memories',
+    fact: 'memory_facts',
     event: 'events',
+    daily: 'daily_memory_summaries',
     project: 'project_notes',
     message: 'messages',
   };

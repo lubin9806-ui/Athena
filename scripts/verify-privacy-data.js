@@ -128,10 +128,17 @@ function writeVoiceCache(name, ageHours) {
 
     db.prepare("INSERT INTO profile (category, fact) VALUES ('preference', 'clear me')").run();
     db.prepare("INSERT INTO events (date, summary) VALUES ('2026-07-15', 'clear event')").run();
+    db.prepare("INSERT INTO daily_memory_summaries (date, summary) VALUES ('2026-07-15', 'clear daily')").run();
+    db.prepare("INSERT INTO procedural_memories (scope, key, instruction) VALUES ('global', 'clear procedure', 'clear instruction')").run();
+    db.prepare("INSERT INTO memory_entities (type, name) VALUES ('concept', 'clear entity')").run();
+    db.prepare("INSERT INTO memory_facts (subject, predicate, object, summary) VALUES ('clear subject', 'clear predicate', 'clear object', 'clear fact')").run();
+    const clearFactId = db.prepare("SELECT id FROM memory_facts WHERE subject = 'clear subject'").get().id;
+    db.prepare("INSERT INTO memory_fact_sources (fact_id, source_table, quote) VALUES (?, 'manual', 'clear source')").run(clearFactId);
+    db.prepare("INSERT INTO memory_review_queue (kind, title, content, payload_json) VALUES ('fact', 'clear review', 'clear review content', '{}')").run();
     db.prepare("INSERT INTO project_notes (project, title, note) VALUES ('Athena', 'clear project', 'clear note')").run();
     const cleared = clearAllLocalData();
     assert(cleared.deletedTables.includes('messages'));
-    for (const table of ['messages', 'profile', 'events', 'project_notes', 'memory_index', 'data_activity_records']) {
+    for (const table of ['messages', 'profile', 'events', 'daily_memory_summaries', 'procedural_memories', 'memory_entities', 'memory_facts', 'memory_fact_sources', 'memory_review_queue', 'project_notes', 'memory_index', 'data_activity_records']) {
       assert.strictEqual(tableCount(db, table), 0, `${table} should be empty after clear`);
     }
     assert.strictEqual(fs.existsSync(freshVoice), false);

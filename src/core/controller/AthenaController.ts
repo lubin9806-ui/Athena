@@ -15,9 +15,7 @@ import {
 import { Reminder } from '../scheduler/Reminder';
 import { WorkflowManager } from '../workflow/WorkflowManager';
 import {
-  addMemoryEvent,
-  addProfileFacts,
-  addProjectNote,
+  applyMemoryRetentionPolicy,
   cleanupTemporaryChatWindows,
   ensureDefaultChatWindow,
   getChatWindow,
@@ -26,6 +24,7 @@ import {
   extractMemoryFromUserMessage,
   getDatabase,
   getStats,
+  queueExtractedMemory,
   rebuildMemoryIndex,
   retrieveContext,
   saveChatMessage,
@@ -97,8 +96,12 @@ export class AthenaController {
     if (retention.messagesDeleted > 0 || retention.activityDeleted > 0) {
       logger.info(`Data retention applied: messages=${retention.messagesDeleted}, activity=${retention.activityDeleted}`);
     }
+    const memoryRetention = applyMemoryRetentionPolicy();
+    if (memoryRetention.dailySummariesGenerated > 0 || memoryRetention.rawEventsPruned > 0) {
+      logger.info(`Memory retention applied: daily_summaries=${memoryRetention.dailySummariesGenerated}, raw_events_pruned=${memoryRetention.rawEventsPruned}`);
+    }
     const indexStats = rebuildMemoryIndex();
-    logger.info(`Memory index ready: messages=${indexStats.messages}, profile=${indexStats.profile}, events=${indexStats.events}, project_notes=${indexStats.project_notes}`);
+    logger.info(`Memory index ready: messages=${indexStats.messages}, profile=${indexStats.profile}, events=${indexStats.events}, daily_memory_summaries=${indexStats.daily_memory_summaries}, procedural_memories=${indexStats.procedural_memories}, memory_facts=${indexStats.memory_facts}, project_notes=${indexStats.project_notes}`);
     this.emotion.setBaseEmotion(new Date().getHours());
     const settings = getAppSettings();
     this.applyToolPermission(settings.tools, settings.conversation.activeMode);
@@ -233,7 +236,7 @@ export class AthenaController {
         })),
       });
     }
-    if (effectiveSaveHistory) this.persistExtractedMemory(userMessage);
+    if (effectiveSaveHistory) this.persistExtractedMemory(userMessage, savedUser.messageId, chatWindowId);
 
     logger.info(`Athena response completed [chars=${response.content.length}]`);
     return response;
@@ -295,34 +298,20 @@ export class AthenaController {
     logger.info('Athena shutdown complete.');
   }
 
-  private persistExtractedMemory(userMessage: string): void {
+  private persistExtractedMemory(userMessage: string, sourceMessageId?: number, chatWindowId?: number): void {
     const settings = getAppSettings();
     if (!settings.conversation.saveHistory) return;
     const memorySettings = settings.memory;
     if (!memorySettings.enabled || !memorySettings.autoExtract) return;
 
     const extracted = extractMemoryFromUserMessage(userMessage);
-    extracted.profileFacts = extracted.profileFacts.filter(fact => (fact.importance ?? 0) >= memorySettings.minImportanceForAutoExtract);
-    if (extracted.event && (extracted.event.importance ?? 0) < memorySettings.minImportanceForAutoExtract) {
-      extracted.event = undefined;
-    }
-    if (extracted.projectNote && (extracted.projectNote.importance ?? 0) < memorySettings.minImportanceForAutoExtract) {
-      extracted.projectNote = undefined;
-    }
-
-    if (extracted.profileFacts.length > 0) {
-      addProfileFacts(extracted.profileFacts);
-      logger.debug(`Stored ${extracted.profileFacts.length} profile memories.`);
-    }
-
-    if (extracted.projectNote) {
-      addProjectNote(extracted.projectNote);
-      logger.debug('Stored one project memory item.');
-    }
-
-    if (extracted.event) {
-      addMemoryEvent(extracted.event);
-      logger.debug('Stored one episodic memory item.');
+    const result = queueExtractedMemory(extracted, {
+      sourceMessageId,
+      chatWindowId,
+      minImportance: memorySettings.minImportanceForAutoExtract,
+    });
+    if (result.queued > 0 || result.applied > 0) {
+      logger.debug(`Memory extraction reviewed: queued=${result.queued}, applied=${result.applied}, rejected=${result.rejected}.`);
     }
   }
 
@@ -347,7 +336,7 @@ export class AthenaController {
       const content = `好，记下了：${job.title}。我会在 ${new Date(job.dueAt).toLocaleString('zh-CN')} 提醒你。`;
       const emotion = this.emotion.analyzeResponse(content);
       this.saveConversationMessage('assistant', content, emotion.type, mode, chatWindowId);
-      if (!isTemporaryChat) this.persistExtractedMemory(userMessage);
+      if (!isTemporaryChat) this.persistExtractedMemory(userMessage, undefined, chatWindowId);
       return { content, emotion };
     }
 
@@ -382,7 +371,7 @@ export class AthenaController {
       if (!run) return null;
       const emotion = this.emotion.analyzeResponse(run.message);
       this.saveConversationMessage('assistant', run.message, emotion.type, mode, chatWindowId);
-      if (!isTemporaryChat) this.persistExtractedMemory(userMessage);
+      if (!isTemporaryChat) this.persistExtractedMemory(userMessage, undefined, chatWindowId);
       return { content: run.message, emotion };
     }
 
@@ -395,11 +384,13 @@ export class AthenaController {
     emotion: string | undefined,
     mode: ConversationMode,
     chatWindowId: number,
-  ): { chatMessageId?: number } {
+  ): { chatMessageId?: number; messageId?: number } {
     const saved = saveChatMessage(chatWindowId, role, content, emotion, mode);
     const isTemporaryChat = getChatWindow(chatWindowId)?.is_temporary === true;
-    if (!isTemporaryChat && shouldSaveHistory()) saveMessage(role, content, emotion, mode);
-    return { chatMessageId: saved?.id };
+    const globalMessage = !isTemporaryChat && shouldSaveHistory()
+      ? saveMessage(role, content, emotion, mode)
+      : undefined;
+    return { chatMessageId: saved?.id, messageId: globalMessage?.id };
   }
 }
 
@@ -442,7 +433,10 @@ function buildRetrievedContext(
   const context = retrieveContext({
     query,
     maxProfileFacts: settings.retrieveProfile ? depth * 2 : 0,
+    maxProceduralMemories: settings.retrieveProfile ? Math.max(4, Math.ceil(depth / 2)) : 0,
+    maxTemporalFacts: settings.retrieveProfile ? depth : 0,
     maxEvents: settings.retrieveEvents ? depth : 0,
+    maxDailySummaries: settings.retrieveEvents ? depth : 0,
     maxProjectNotes: settings.retrieveProjects ? depth : 0,
     recentMessageCount: chatWindowId ? recentMessageCount + 1 : (saveHistory ? recentMessageCount : 0),
     conversationMode: mode,
@@ -459,7 +453,10 @@ function buildRetrievedContext(
 function emptyRetrievedContext(): RetrievedContext {
   return {
     profileFacts: [],
+    proceduralMemories: [],
+    temporalFacts: [],
     relatedEvents: [],
+    dailySummaries: [],
     projectNotes: [],
     recentMessages: [],
     chatWindow: undefined,

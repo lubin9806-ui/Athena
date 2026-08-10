@@ -44,15 +44,18 @@ import {
   getChatWindowMessages,
   listProjects,
   listMemories,
+  listMemoryReviewQueue,
   listChatWindows,
   pinChatWindowFact,
   previewChatRecordImport,
   renameChatWindow,
+  approveMemoryReviewItem,
+  rejectMemoryReviewItem,
   unpinChatWindowFact,
   updateProject,
   updateMemory,
 } from '../../memory';
-import type { MemoryKind, MemoryListOptions, MemoryUpdatePatch } from '../../memory';
+import type { MemoryKind, MemoryListOptions, MemoryReviewListOptions, MemoryUpdatePatch } from '../../memory';
 import type { RemoteModelProvider, SettingsBundle, SettingsPatch, ToolConfirmationRequest, ToolStatusEvent, WebSearchStatus } from '../../shared/types';
 import { armMicrophoneGrant, revokeMicrophoneGrant } from '../security/PermissionGate';
 import { applyDesktopSettings, showReminderNotification } from '../DesktopSettings';
@@ -100,6 +103,9 @@ const INVOKE_CHANNELS = [
   'memory:delete',
   'memory:update',
   'memory:debug',
+  'memoryReview:list',
+  'memoryReview:approve',
+  'memoryReview:reject',
   'memory:chooseImportFile',
   'memory:previewImport',
   'memory:commitImport',
@@ -116,7 +122,7 @@ const INVOKE_CHANNELS = [
 ] as const;
 
 const EVENT_CHANNELS = ['window:minimize', 'window:close'] as const;
-const MEMORY_KINDS = new Set<MemoryKind>(['profile', 'event', 'project', 'message']);
+const MEMORY_KINDS = new Set<MemoryKind>(['profile', 'procedure', 'fact', 'event', 'daily', 'project', 'message']);
 
 export function registerIpcHandlers(mainWindow: BrowserWindow): void {
   clearIpcHandlers();
@@ -487,6 +493,23 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     return debugRetrieveMemory(cleanString(query, 1_000));
   });
 
+  ipcMain.handle('memoryReview:list', async (event, status: unknown, limit: unknown) => {
+    if (!isTrustedSender(event)) return [];
+    return listMemoryReviewQueue(cleanMemoryReviewListOptions(status, limit));
+  });
+
+  ipcMain.handle('memoryReview:approve', async (event, id: unknown) => {
+    if (!isTrustedSender(event)) return null;
+    const memoryId = cleanPositiveInteger(id);
+    return memoryId ? approveMemoryReviewItem(memoryId) : null;
+  });
+
+  ipcMain.handle('memoryReview:reject', async (event, id: unknown) => {
+    if (!isTrustedSender(event)) return null;
+    const memoryId = cleanPositiveInteger(id);
+    return memoryId ? rejectMemoryReviewItem(memoryId) : null;
+  });
+
   ipcMain.handle('memory:chooseImportFile', async (event) => {
     if (!isTrustedSender(event)) return null;
     const result = await dialog.showOpenDialog(mainWindow, {
@@ -667,6 +690,16 @@ function cleanMemoryPatch(value: unknown): MemoryUpdatePatch {
   };
 }
 
+function cleanMemoryReviewListOptions(status: unknown, limit: unknown): MemoryReviewListOptions {
+  const cleanStatus = status === 'pending' || status === 'applied' || status === 'rejected' || status === 'all'
+    ? status
+    : 'pending';
+  const cleanLimit = typeof limit === 'number'
+    ? Math.max(1, Math.min(200, Math.round(limit)))
+    : undefined;
+  return { status: cleanStatus, limit: cleanLimit };
+}
+
 function cleanSettingsPatch(value: unknown): SettingsPatch {
   return isRecord(value) ? value as SettingsPatch : {};
 }
@@ -780,7 +813,7 @@ function cleanNonNegativeInteger(value: unknown): number | null {
 }
 
 function emptyMemoryTotals(): Record<MemoryKind, number> {
-  return { profile: 0, event: 0, project: 0, message: 0 };
+  return { profile: 0, procedure: 0, fact: 0, event: 0, daily: 0, project: 0, message: 0 };
 }
 
 function emptyMemoryDebug() {
@@ -789,7 +822,10 @@ function emptyMemoryDebug() {
     keywords: [],
     relevanceScore: 0,
     profileFacts: [],
+    proceduralMemories: [],
+    temporalFacts: [],
     relatedEvents: [],
+    dailySummaries: [],
     projectNotes: [],
     recentMessages: [],
   };

@@ -9,6 +9,12 @@ TABLES = (
     "messages",
     "profile",
     "events",
+    "daily_memory_summaries",
+    "procedural_memories",
+    "memory_entities",
+    "memory_facts",
+    "memory_fact_sources",
+    "memory_review_queue",
     "project_notes",
     "memory_index",
     "data_activity_records",
@@ -48,7 +54,7 @@ def main() -> None:
 
     if integrity != "ok":
         fail("integrity-failed", str(integrity))
-    if schema_version != 1:
+    if schema_version != 8:
         fail("schema-version", str(schema_version))
     if freelist_count != 0:
         fail("freelist-not-empty", str(freelist_count))

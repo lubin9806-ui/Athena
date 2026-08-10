@@ -67,6 +67,9 @@ declare global {
       deleteMemory: (kind: MemoryKind, id: number) => Promise<boolean>;
       updateMemory: (kind: MemoryKind, id: number, patch: MemoryUpdatePatch) => Promise<boolean>;
       debugMemory: (query: string) => Promise<MemoryDebugResult>;
+      listMemoryReviewQueue: (status?: MemoryReviewStatus | 'all', limit?: number) => Promise<MemoryReviewItem[]>;
+      approveMemoryReview: (id: number) => Promise<MemoryReviewItem | null>;
+      rejectMemoryReview: (id: number) => Promise<MemoryReviewItem | null>;
       chooseMemoryImportFile: () => Promise<string | null>;
       previewMemoryImport: (sourcePath: string) => Promise<MemoryImportPreview>;
       commitMemoryImport: (sourcePath: string, candidateIds: number[]) => Promise<MemoryImportCommitResult>;
@@ -86,7 +89,9 @@ declare global {
   }
 }
 
-type MemoryKind = 'profile' | 'event' | 'project' | 'message';
+type MemoryKind = 'profile' | 'procedure' | 'fact' | 'event' | 'daily' | 'project' | 'message';
+type MemoryReviewKind = 'profile' | 'event' | 'project' | 'procedure' | 'fact';
+type MemoryReviewStatus = 'pending' | 'applied' | 'rejected';
 type AthenaMode = 'create' | 'companion' | 'reason' | 'execute';
 type VoiceInputState = 'idle' | 'requesting' | 'recording' | 'transcribing' | 'error';
 type AppStatusState = 'ready' | 'working' | 'offline' | 'error';
@@ -136,6 +141,25 @@ interface MemoryListItem {
 interface MemoryListResult {
   items: MemoryListItem[];
   totals: Record<MemoryKind, number>;
+}
+
+interface MemoryReviewItem {
+  id: number;
+  kind: MemoryReviewKind;
+  status: MemoryReviewStatus;
+  title: string;
+  content: string;
+  payload: Record<string, unknown>;
+  reason: string;
+  confidence: number;
+  importance: number;
+  source_table?: string;
+  source_id?: number;
+  chat_window_id?: number;
+  applied_table?: string;
+  applied_id?: number;
+  created_at: string;
+  reviewed_at?: string;
 }
 
 interface ChatWindowRecord {
@@ -230,7 +254,10 @@ interface MemoryDebugResult {
   keywords: string[];
   relevanceScore: number;
   profileFacts: MemoryListItem[];
+  proceduralMemories: MemoryListItem[];
+  temporalFacts: MemoryListItem[];
   relatedEvents: MemoryListItem[];
+  dailySummaries: MemoryListItem[];
   projectNotes: MemoryListItem[];
   recentMessages: MemoryListItem[];
 }
@@ -694,6 +721,10 @@ const memoryDebugForm = mustGet<HTMLFormElement>('memory-debug-form');
 const memoryDebugQuery = mustGet<HTMLInputElement>('memory-debug-query');
 const memoryDebugSummary = mustGet<HTMLElement>('memory-debug-summary');
 const memoryDebugList = mustGet<HTMLElement>('memory-debug-list');
+const memoryReviewStatus = mustGet<HTMLSelectElement>('memory-review-status');
+const memoryReviewRefresh = mustGet<HTMLButtonElement>('memory-review-refresh');
+const memoryReviewSummary = mustGet<HTMLElement>('memory-review-summary');
+const memoryReviewList = mustGet<HTMLElement>('memory-review-list');
 const memoryImportPath = mustGet<HTMLInputElement>('memory-import-path');
 const memoryImportBrowse = mustGet<HTMLButtonElement>('memory-import-browse');
 const memoryImportPreview = mustGet<HTMLButtonElement>('memory-import-preview');
@@ -790,6 +821,9 @@ const settingMemoryEvents = mustGet<HTMLInputElement>('setting-memory-events');
 const settingMemoryProjects = mustGet<HTMLInputElement>('setting-memory-projects');
 const settingMemoryDepth = mustGet<HTMLInputElement>('setting-memory-depth');
 const settingMemoryMinImportance = mustGet<HTMLInputElement>('setting-memory-min-importance');
+const settingOpenMemoryReview = mustGet<HTMLButtonElement>('setting-open-memory-review');
+const settingOpenMemoryManage = mustGet<HTMLButtonElement>('setting-open-memory-manage');
+const settingMemoryReviewSummary = mustGet<HTMLElement>('setting-memory-review-summary');
 const settingMemoryImportMode = createMemoryImportModeControl();
 const settingSttEnabled = mustGet<HTMLInputElement>('setting-stt-enabled');
 const settingTtsEnabled = mustGet<HTMLInputElement>('setting-tts-enabled');
@@ -1137,6 +1171,12 @@ function init(): void {
     void toggleSettingsPanel(false);
     void selectMode('execute');
   });
+  settingOpenMemoryReview.addEventListener('click', () => {
+    void openMemoryPanelTab('review');
+  });
+  settingOpenMemoryManage.addEventListener('click', () => {
+    void openMemoryPanelTab('manage');
+  });
   btnSettings.addEventListener('click', () => toggleSettingsPanel());
   modelStatusButton.addEventListener('click', () => void openModelSettings());
   btnSettingsClose.addEventListener('click', () => toggleSettingsPanel(false));
@@ -1241,6 +1281,8 @@ function init(): void {
   });
   memoryKind.addEventListener('change', () => loadMemoryList());
   memorySearch.addEventListener('input', debounce(() => loadMemoryList(), 180));
+  memoryReviewStatus.addEventListener('change', () => loadMemoryReviewQueue());
+  memoryReviewRefresh.addEventListener('click', () => loadMemoryReviewQueue());
   memoryDebugForm.addEventListener('submit', (event) => {
     event.preventDefault();
     runMemoryDebug();
@@ -2381,13 +2423,21 @@ async function toggleMemoryPanel(force?: boolean): Promise<void> {
   syncPanelState();
   if (next) {
     await refreshWindowMemoryPanel();
+    if (memoryTabs.dataset.active === 'review') await loadMemoryReviewQueue();
     if (memoryTabs.dataset.active === 'manage') await loadMemoryList();
-    if (memoryTabs.dataset.active === 'manage') memorySearch.focus({ preventScroll: true });
+    if (memoryTabs.dataset.active === 'review') memoryReviewStatus.focus({ preventScroll: true });
+    else if (memoryTabs.dataset.active === 'manage') memorySearch.focus({ preventScroll: true });
     else windowPinInput.focus({ preventScroll: true });
     appShell.scrollLeft = 0;
     document.documentElement.scrollLeft = 0;
     document.body.scrollLeft = 0;
   }
+}
+
+async function openMemoryPanelTab(tabName: string): Promise<void> {
+  await toggleSettingsPanel(false);
+  await selectMemoryTab(tabName);
+  await toggleMemoryPanel(true);
 }
 
 async function toggleSettingsPanel(force?: boolean): Promise<void> {
@@ -2536,6 +2586,7 @@ async function loadSettingsPanel(): Promise<void> {
     currentSettingsBundle = bundle;
     populateSettingsForm(bundle);
     applyRuntimeSettings(bundle.settings);
+    void refreshSettingsMemoryReviewSummary();
     setSettingsFeedback('');
   } catch (error) {
     setSettingsFeedback(`读取失败：${error instanceof Error ? error.message : String(error)}`, 'error');
@@ -3312,12 +3363,101 @@ async function selectMemoryTab(tabName: string): Promise<void> {
     await refreshWindowMemoryPanel();
     windowPinInput.focus();
   }
+  if (tabName === 'review') {
+    await loadMemoryReviewQueue();
+    memoryReviewStatus.focus();
+  }
   if (tabName === 'manage') {
     await loadMemoryList();
     memorySearch.focus();
   }
   if (tabName === 'debug') memoryDebugQuery.focus();
   if (tabName === 'import') memoryImportPath.focus();
+}
+
+async function refreshSettingsMemoryReviewSummary(): Promise<void> {
+  try {
+    const pending = await window.athenaAPI.listMemoryReviewQueue('pending', 1);
+    settingMemoryReviewSummary.textContent = pending.length > 0
+      ? '有待确认记忆。打开队列后可逐条确认或拒绝，确认后才写入长期记忆。'
+      : '暂无待确认记忆。自动抽取到的规则和时间事实会先进入这里。';
+  } catch {
+    settingMemoryReviewSummary.textContent = '暂时无法读取待确认记忆队列。';
+  }
+}
+
+async function loadMemoryReviewQueue(): Promise<void> {
+  memoryReviewSummary.textContent = '读取中...';
+  memoryReviewList.replaceChildren();
+  try {
+    const status = memoryReviewStatus.value as MemoryReviewStatus | 'all';
+    const items = await window.athenaAPI.listMemoryReviewQueue(status, 100);
+    memoryReviewSummary.textContent = `${reviewStatusLabel(status)} ${items.length} 条`;
+    renderMemoryReviewItems(items);
+    void refreshSettingsMemoryReviewSummary();
+  } catch (error) {
+    memoryReviewSummary.textContent = `读取失败：${error instanceof Error ? error.message : String(error)}`;
+  }
+}
+
+function renderMemoryReviewItems(items: MemoryReviewItem[]): void {
+  memoryReviewList.replaceChildren();
+  if (items.length === 0) {
+    memoryReviewList.textContent = '没有待处理的记忆。';
+    return;
+  }
+
+  for (const item of items) {
+    const row = document.createElement('article');
+    row.className = 'memory-item';
+    row.dataset.kind = item.kind;
+
+    const head = document.createElement('div');
+    head.className = 'memory-item-head';
+
+    const title = document.createElement('div');
+    title.className = 'memory-item-title';
+    title.textContent = `${kindLabel(item.kind as MemoryKind)} · ${item.title}`;
+
+    const actions = document.createElement('div');
+    actions.className = 'memory-item-actions';
+    if (item.status === 'pending') {
+      const approve = document.createElement('button');
+      approve.type = 'button';
+      approve.title = '确认写入长期记忆';
+      approve.textContent = '✓';
+      approve.addEventListener('click', async () => {
+        approve.disabled = true;
+        await window.athenaAPI.approveMemoryReview(item.id);
+        await loadMemoryReviewQueue();
+      });
+      actions.appendChild(approve);
+
+      const reject = document.createElement('button');
+      reject.type = 'button';
+      reject.title = '拒绝这条候选记忆';
+      reject.textContent = '×';
+      reject.addEventListener('click', async () => {
+        reject.disabled = true;
+        await window.athenaAPI.rejectMemoryReview(item.id);
+        await loadMemoryReviewQueue();
+      });
+      actions.appendChild(reject);
+    }
+
+    const content = document.createElement('div');
+    content.className = 'memory-item-content';
+    content.textContent = item.content;
+
+    const meta = document.createElement('div');
+    meta.className = 'memory-item-meta';
+    const reviewed = item.reviewed_at ? ` · reviewed ${item.reviewed_at}` : '';
+    meta.textContent = `${reviewStatusLabel(item.status)} · ${item.reason || 'review required'} · confidence ${item.confidence.toFixed(2)} · importance ${item.importance}${reviewed}`;
+
+    head.append(title, actions);
+    row.append(head, content, meta);
+    memoryReviewList.appendChild(row);
+  }
 }
 
 async function loadMemoryList(): Promise<void> {
@@ -3336,7 +3476,7 @@ async function loadMemoryList(): Promise<void> {
 }
 
 function renderMemoryTotals(totals: Record<MemoryKind, number>): void {
-  memoryTotalRow.textContent = `画像 ${totals.profile} · 事件 ${totals.event} · 项目 ${totals.project} · 对话 ${totals.message}`;
+  memoryTotalRow.textContent = `画像 ${totals.profile} · 规则 ${totals.procedure} · 事实 ${totals.fact} · 事件 ${totals.event} · 日总结 ${totals.daily} · 项目 ${totals.project} · 对话 ${totals.message}`;
 }
 
 function renderMemoryItems(container: HTMLElement, items: MemoryListItem[], allowDelete: boolean): void {
@@ -3465,8 +3605,11 @@ async function runMemoryDebug(): Promise<void> {
     const result = await window.athenaAPI.debugMemory(query);
     memoryDebugSummary.textContent = `关键词：${result.keywords.join(' / ') || '无'} · 相关度 ${result.relevanceScore.toFixed(2)}`;
     renderDebugSection('画像', result.profileFacts);
+    renderDebugSection('工作规则', result.proceduralMemories);
+    renderDebugSection('时间事实', result.temporalFacts);
     renderDebugSection('项目', result.projectNotes);
     renderDebugSection('事件', result.relatedEvents);
+    renderDebugSection('日总结', result.dailySummaries);
     renderDebugSection('最近对话', result.recentMessages);
   } catch (error) {
     memoryDebugSummary.textContent = `检索失败：${error instanceof Error ? error.message : String(error)}`;
@@ -4000,11 +4143,21 @@ function toFileUrl(filePath: string): string {
 function kindLabel(kind: MemoryKind): string {
   const labels: Record<MemoryKind, string> = {
     profile: '画像',
+    procedure: '工作规则',
+    fact: '时间事实',
     event: '事件',
+    daily: '日总结',
     project: '项目',
     message: '对话',
   };
   return labels[kind];
+}
+
+function reviewStatusLabel(status: MemoryReviewStatus | 'all'): string {
+  if (status === 'pending') return '待确认';
+  if (status === 'applied') return '已确认';
+  if (status === 'rejected') return '已拒绝';
+  return '全部';
 }
 
 function toolPermissionShortLabel(level: ToolPermissionLevel): string {

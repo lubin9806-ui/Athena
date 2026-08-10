@@ -14,6 +14,10 @@ export interface SystemInfo {
     messageCount: number;
     profileCount: number;
     eventCount: number;
+    dailySummaryCount: number;
+    proceduralMemoryCount: number;
+    temporalFactCount: number;
+    reviewQueuePendingCount: number;
     projectNoteCount: number;
     indexCount: number;
     dbSize: string;

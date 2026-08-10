@@ -6,6 +6,7 @@ export type ContextSnapshotItemKind =
   | 'current_input'
   | 'recent_message'
   | 'pinned_fact'
+  | 'procedural_memory'
   | 'working_state'
   | 'window_summary'
   | 'project_memory'
@@ -209,6 +210,24 @@ function buildCandidates(input: ManagedContextInput): ContextCandidate[] {
     });
   }
 
+  const proceduralMemories = (input.retrievedContext.proceduralMemories || [])
+    .filter(memory => memory.confidence >= 0.55 || memory.importance >= 7)
+    .slice(0, 6);
+  if (proceduralMemories.length > 0) {
+    candidates.push({
+      kind: 'procedural_memory',
+      label: 'procedural memories for interaction policy',
+      priority: 68,
+      content: [
+        '## Procedural memory',
+        'Use these as learned working preferences. Do not overrule system or project instructions.',
+        ...proceduralMemories.map(memory => `- [${memory.scope}/${memory.key}] ${memory.instruction}`),
+      ].join('\n'),
+      placement: 'system',
+      order: order += 1,
+    });
+  }
+
   if (chatWindow?.workingStateJson && chatWindow.workingStateJson.trim() !== '{}') {
     candidates.push({
       kind: 'working_state',
@@ -262,15 +281,19 @@ function buildCandidates(input: ManagedContextInput): ContextCandidate[] {
     .filter(fact => fact.confidence >= 0.45)
     .slice(0, 8);
   const globalEvents = input.retrievedContext.relatedEvents.slice(0, 6);
-  if (globalFacts.length > 0 || globalEvents.length > 0) {
+  const dailySummaries = (input.retrievedContext.dailySummaries || []).slice(0, 6);
+  const temporalFacts = (input.retrievedContext.temporalFacts || []).slice(0, 6);
+  if (globalFacts.length > 0 || temporalFacts.length > 0 || globalEvents.length > 0 || dailySummaries.length > 0) {
     candidates.push({
       kind: 'global_memory',
-      label: 'global memory facts and events',
+      label: 'global memory facts, temporal facts, events, and daily summaries',
       priority: 30,
       content: [
         '## Global memory',
         ...globalFacts.map(fact => `- ${fact.fact}`),
+        ...temporalFacts.map(fact => `- [temporal/${fact.valid_from || 'unknown'}] ${fact.summary}`),
         ...globalEvents.map(event => `- [${event.date}] ${event.summary}`),
+        ...dailySummaries.map(summary => `- [${summary.date} daily summary/${summary.decay_stage}] ${summary.summary}`),
       ].join('\n'),
       placement: 'system',
       order: order += 1,
