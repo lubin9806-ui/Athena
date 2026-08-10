@@ -13,8 +13,24 @@ export interface MemoryIndexStats {
   project_notes: number;
 }
 
+export interface MemoryVectorProvider {
+  id: string;
+  dimensions: number;
+  vectorize(text: string): number[] | null;
+}
+
 const SEMANTIC_VECTOR_DIMENSIONS = 64;
 const SEMANTIC_SCAN_LIMIT = 750;
+
+let memoryVectorProvider: MemoryVectorProvider | null = null;
+
+export function setMemoryVectorProvider(provider: MemoryVectorProvider | null): void {
+  memoryVectorProvider = provider && provider.dimensions > 0 ? provider : null;
+}
+
+export function getMemoryVectorProviderId(): string {
+  return memoryVectorProvider?.id || 'local-hash-ngram';
+}
 
 export function upsertMemoryIndex(sourceTable: IndexedMemoryTable, sourceId: number, text: string): void {
   const db = getDatabase();
@@ -192,6 +208,9 @@ function keywordScore(keywordsJson: string, terms: string[]): number {
 }
 
 function buildSemanticVector(text: string): number[] {
+  const providerVector = buildProviderVector(text);
+  if (providerVector) return providerVector;
+
   const vector = Array.from({ length: SEMANTIC_VECTOR_DIMENSIONS }, () => 0);
   const features = semanticFeatures(text);
   for (const feature of features) {
@@ -199,6 +218,28 @@ function buildSemanticVector(text: string): number[] {
   }
   const magnitude = Math.sqrt(vector.reduce((sum, value) => sum + value * value, 0));
   return magnitude > 0 ? vector.map(value => Number((value / magnitude).toFixed(6))) : vector;
+}
+
+function buildProviderVector(text: string): number[] | null {
+  if (!memoryVectorProvider) return null;
+  try {
+    const vector = memoryVectorProvider.vectorize(text);
+    if (!vector) return null;
+    return normalizeVector(vector, memoryVectorProvider.dimensions);
+  } catch {
+    return null;
+  }
+}
+
+function normalizeVector(vector: number[], dimensions: number): number[] | null {
+  const safeDimensions = Math.max(1, Math.min(4096, Math.round(dimensions)));
+  if (!Array.isArray(vector) || vector.length < safeDimensions) return null;
+  const folded = Array.from({ length: SEMANTIC_VECTOR_DIMENSIONS }, () => 0);
+  vector.slice(0, safeDimensions).forEach((value, index) => {
+    folded[index % SEMANTIC_VECTOR_DIMENSIONS] += Number.isFinite(value) ? value : 0;
+  });
+  const magnitude = Math.sqrt(folded.reduce((sum, value) => sum + value * value, 0));
+  return magnitude > 0 ? folded.map(value => Number((value / magnitude).toFixed(6))) : null;
 }
 
 function semanticFeatures(text: string): string[] {

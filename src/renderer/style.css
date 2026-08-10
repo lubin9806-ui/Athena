@@ -2030,6 +2030,31 @@ summary:focus-visible {
   line-height: 1.45;
 }
 
+.memory-review-details {
+  margin-top: 8px;
+  color: var(--text-dim);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.memory-review-details summary {
+  cursor: pointer;
+  color: var(--text-muted);
+}
+
+.memory-review-details-body {
+  max-height: 220px;
+  overflow: auto;
+  margin-top: 7px;
+  padding: 8px 9px;
+  border: 1px solid rgba(255, 255, 255, 0.055);
+  border-radius: 9px;
+  background: rgba(0, 0, 0, 0.14);
+  font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .memory-edit-form {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

@@ -153,6 +153,7 @@ interface MemoryReviewItem {
   content: string;
   payload: Record<string, unknown>;
   reason: string;
+  group_key?: string;
   confidence: number;
   importance: number;
   source_table?: string;
@@ -3467,10 +3468,41 @@ function renderMemoryReviewItems(items: MemoryReviewItem[]): void {
     const reviewed = item.reviewed_at ? ` · reviewed ${item.reviewed_at}` : '';
     meta.textContent = `${reviewStatusLabel(item.status)} · ${item.reason || 'review required'} · confidence ${item.confidence.toFixed(2)} · importance ${item.importance}${reviewed}`;
 
+    const details = document.createElement('details');
+    details.className = 'memory-review-details';
+    const detailsSummary = document.createElement('summary');
+    detailsSummary.textContent = '审核细节';
+    const detailsBody = document.createElement('div');
+    detailsBody.className = 'memory-review-details-body';
+    detailsBody.textContent = reviewPayloadSummary(item);
+    details.append(detailsSummary, detailsBody);
+
     head.append(title, actions);
-    row.append(head, content, meta);
+    row.append(head, content, meta, details);
     memoryReviewList.appendChild(row);
   }
+}
+
+function reviewSourceLabel(item: MemoryReviewItem): string {
+  const source = item.source_table && item.source_id ? `${item.source_table}#${item.source_id}` : 'manual/source unknown';
+  const windowLabel = item.chat_window_id ? `window#${item.chat_window_id}` : '';
+  const applied = item.applied_table && item.applied_id ? `applied ${item.applied_table}#${item.applied_id}` : '';
+  return [source, windowLabel, applied].filter(Boolean).join(' / ');
+}
+
+function reviewPayloadSummary(item: MemoryReviewItem): string {
+  const lines = [
+    `id: ${item.id}`,
+    `status: ${item.status}`,
+    `kind: ${item.kind}`,
+    `group: ${item.group_key || 'none'}`,
+    `source: ${reviewSourceLabel(item)}`,
+    `created: ${item.created_at}`,
+  ];
+  if (item.reviewed_at) lines.push(`reviewed: ${item.reviewed_at}`);
+  const payload = JSON.stringify(item.payload || {}, null, 2);
+  lines.push('payload:', payload.length > 1800 ? `${payload.slice(0, 1800)}...` : payload);
+  return lines.join('\n');
 }
 
 function pendingVisibleReviewIds(): number[] {

@@ -127,6 +127,28 @@ try {
   memory.rebuildMemoryIndex();
   const vectorRow = db.prepare("SELECT semantic_vector FROM memory_index WHERE source_table = 'procedural_memories' AND source_id = ?").get(procedure.id);
   assert(vectorRow && JSON.parse(vectorRow.semantic_vector).some(value => value > 0), 'memory index should store local semantic vectors');
+  memory.setMemoryVectorProvider({
+    id: 'test-local-vector',
+    dimensions: 4,
+    vectorize(text) {
+      return /provider-indexed|provider-query/.test(text) ? [1, 0, 0, 0] : null;
+    },
+  });
+  assert.equal(memory.getMemoryVectorProviderId(), 'test-local-vector', 'local vector provider should be replaceable');
+  const providerProcedure = memory.upsertProceduralMemory({
+    scope: 'global',
+    key: 'provider vector seam',
+    instruction: 'provider-indexed stores a semantic vector without query keyword overlap.',
+    evidence: 'retention verifier',
+    confidence: 0.9,
+    importance: 8,
+  });
+  assert(
+    memory.searchMemoryIndex('procedural_memories', 'provider-query', 10).includes(providerProcedure.id),
+    'provider vector search should retrieve semantically matched memories without keyword overlap',
+  );
+  memory.setMemoryVectorProvider(null);
+  assert.equal(memory.getMemoryVectorProviderId(), 'local-hash-ngram', 'vector provider should reset to local fallback');
   const context = memory.retrieveContext({
     query: 'memory system test architecture',
     maxProfileFacts: 0,

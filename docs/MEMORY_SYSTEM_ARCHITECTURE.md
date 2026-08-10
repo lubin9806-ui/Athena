@@ -80,7 +80,7 @@ Index: `memory_index`
 Purpose:
 - Stable facts about the user, preferences, habits, health notes, and active projects.
 - Project-scoped decisions, status, and constraints.
-- Local semantic retrieval stores a small hashed vector beside keyword ngrams in `memory_index.semantic_vector`. This is not a remote embedding provider; it is an offline lexical-semantic fallback used to rank near matches when exact keyword search is weak.
+- Local semantic retrieval stores a small vector beside keyword ngrams in `memory_index.semantic_vector`. The default provider is an offline hashed ngram vector, and the indexer exposes a narrow `MemoryVectorProvider` seam for a future local embedding model. This is not a remote embedding provider; exact keyword search still works when no embedding provider is installed.
 
 Retention:
 - Not governed by daily decay.
