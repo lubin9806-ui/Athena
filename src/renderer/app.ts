@@ -725,6 +725,8 @@ const memoryDebugSummary = mustGet<HTMLElement>('memory-debug-summary');
 const memoryDebugList = mustGet<HTMLElement>('memory-debug-list');
 const memoryReviewStatus = mustGet<HTMLSelectElement>('memory-review-status');
 const memoryReviewRefresh = mustGet<HTMLButtonElement>('memory-review-refresh');
+const memoryReviewApproveVisible = mustGet<HTMLButtonElement>('memory-review-approve-visible');
+const memoryReviewRejectVisible = mustGet<HTMLButtonElement>('memory-review-reject-visible');
 const memoryReviewSummary = mustGet<HTMLElement>('memory-review-summary');
 const memoryReviewList = mustGet<HTMLElement>('memory-review-list');
 const memoryImportPath = mustGet<HTMLInputElement>('memory-import-path');
@@ -868,6 +870,7 @@ const NEW_CHAT_TITLE = '新对话';
 let isStreaming = false;
 let currentContent = '';
 let currentImportPreview: MemoryImportPreview | null = null;
+let currentMemoryReviewItems: MemoryReviewItem[] = [];
 let currentSettingsBundle: SettingsBundle | null = null;
 let currentPersonaEditorState: PersonaEditorState | null = null;
 let currentMode: AthenaMode = 'companion';
@@ -1285,6 +1288,8 @@ function init(): void {
   memorySearch.addEventListener('input', debounce(() => loadMemoryList(), 180));
   memoryReviewStatus.addEventListener('change', () => loadMemoryReviewQueue());
   memoryReviewRefresh.addEventListener('click', () => loadMemoryReviewQueue());
+  memoryReviewApproveVisible.addEventListener('click', () => void approveVisibleMemoryReviews());
+  memoryReviewRejectVisible.addEventListener('click', () => void rejectVisibleMemoryReviews());
   memoryDebugForm.addEventListener('submit', (event) => {
     event.preventDefault();
     runMemoryDebug();
@@ -3390,15 +3395,21 @@ async function refreshSettingsMemoryReviewSummary(): Promise<void> {
 
 async function loadMemoryReviewQueue(): Promise<void> {
   memoryReviewSummary.textContent = '读取中...';
+  currentMemoryReviewItems = [];
+  updateMemoryReviewBulkActions();
   memoryReviewList.replaceChildren();
   try {
     const status = memoryReviewStatus.value as MemoryReviewStatus | 'all';
     const items = await window.athenaAPI.listMemoryReviewQueue(status, 100);
-    memoryReviewSummary.textContent = `${reviewStatusLabel(status)} ${items.length} 条`;
+    currentMemoryReviewItems = items;
+    const pendingCount = items.filter(item => item.status === 'pending').length;
+    memoryReviewSummary.textContent = `${reviewStatusLabel(status)} ${items.length} 条${pendingCount > 0 ? ` · 可批量处理 ${pendingCount} 条` : ''}`;
+    updateMemoryReviewBulkActions();
     renderMemoryReviewItems(items);
     void refreshSettingsMemoryReviewSummary();
   } catch (error) {
     memoryReviewSummary.textContent = `读取失败：${error instanceof Error ? error.message : String(error)}`;
+    updateMemoryReviewBulkActions();
   }
 }
 
@@ -3460,6 +3471,40 @@ function renderMemoryReviewItems(items: MemoryReviewItem[]): void {
     row.append(head, content, meta);
     memoryReviewList.appendChild(row);
   }
+}
+
+function pendingVisibleReviewIds(): number[] {
+  return currentMemoryReviewItems
+    .filter(item => item.status === 'pending')
+    .map(item => item.id);
+}
+
+function updateMemoryReviewBulkActions(): void {
+  const count = pendingVisibleReviewIds().length;
+  memoryReviewApproveVisible.disabled = count === 0;
+  memoryReviewRejectVisible.disabled = count === 0;
+  memoryReviewApproveVisible.textContent = count > 0 ? `批量确认 ${count}` : '批量确认';
+  memoryReviewRejectVisible.textContent = count > 0 ? `批量拒绝 ${count}` : '批量拒绝';
+}
+
+async function approveVisibleMemoryReviews(): Promise<void> {
+  const ids = pendingVisibleReviewIds();
+  if (ids.length === 0) return;
+  memoryReviewApproveVisible.disabled = true;
+  memoryReviewRejectVisible.disabled = true;
+  memoryReviewSummary.textContent = `正在确认 ${ids.length} 条...`;
+  await window.athenaAPI.approveMemoryReviews(ids);
+  await loadMemoryReviewQueue();
+}
+
+async function rejectVisibleMemoryReviews(): Promise<void> {
+  const ids = pendingVisibleReviewIds();
+  if (ids.length === 0) return;
+  memoryReviewApproveVisible.disabled = true;
+  memoryReviewRejectVisible.disabled = true;
+  memoryReviewSummary.textContent = `正在拒绝 ${ids.length} 条...`;
+  await window.athenaAPI.rejectMemoryReviews(ids);
+  await loadMemoryReviewQueue();
 }
 
 async function loadMemoryList(): Promise<void> {

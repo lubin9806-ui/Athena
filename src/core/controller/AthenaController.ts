@@ -67,6 +67,8 @@ export class AthenaController {
   private webSearch: WebSearchService;
   private initialized = false;
   private initializePromise: Promise<void> | null = null;
+  private memoryMaintenanceTimer: ReturnType<typeof setTimeout> | null = null;
+  private memoryMaintenanceRunning = false;
 
   constructor() {
     this.llm = new LLMClient();
@@ -108,6 +110,7 @@ export class AthenaController {
     const settings = getAppSettings();
     this.applyToolPermission(settings.tools, settings.conversation.activeMode);
     this.initialized = true;
+    this.scheduleDailyMemoryMaintenance();
     logger.info('Athena initialized.');
     globalEventBus.emit('athena:ready');
   }
@@ -294,6 +297,10 @@ export class AthenaController {
   }
 
   shutdown(): void {
+    if (this.memoryMaintenanceTimer) {
+      clearTimeout(this.memoryMaintenanceTimer);
+      this.memoryMaintenanceTimer = null;
+    }
     this.conversation.shutdown();
     closeDatabase();
     this.initialized = false;
@@ -331,6 +338,41 @@ export class AthenaController {
     } catch (error) {
       logger.warn(`LLM daily memory refinement failed; falling back to heuristic retention: ${error instanceof Error ? error.message : String(error)}`);
       return applyMemoryRetentionPolicy();
+    }
+  }
+
+  private scheduleDailyMemoryMaintenance(now: Date = new Date()): void {
+    if (this.memoryMaintenanceTimer) clearTimeout(this.memoryMaintenanceTimer);
+    const delayMs = msUntilNextLocalMaintenance(now);
+    this.memoryMaintenanceTimer = setTimeout(() => {
+      void this.runScheduledMemoryMaintenance();
+    }, delayMs);
+    const timer = this.memoryMaintenanceTimer as unknown as { unref?: () => void };
+    timer.unref?.();
+    logger.info(`Daily memory maintenance scheduled in ${Math.round(delayMs / 60000)} minutes.`);
+  }
+
+  private async runScheduledMemoryMaintenance(): Promise<void> {
+    if (this.memoryMaintenanceRunning) return;
+    this.memoryMaintenanceRunning = true;
+    try {
+      const result = await this.applyMemoryRetentionMaintenance();
+      if (result.dailySummariesGenerated > 0 || result.rawEventsPruned > 0 || (result.llmRefinedSummaries ?? 0) > 0) {
+        logger.info(`Scheduled memory maintenance applied: daily_summaries=${result.dailySummariesGenerated}, llm_refined=${result.llmRefinedSummaries ?? 0}, raw_events_pruned=${result.rawEventsPruned}`);
+      }
+      recordDataActivity('maintenance', 'scheduled-memory-retention', {
+        dailySummariesGenerated: result.dailySummariesGenerated,
+        llmRefinedSummaries: result.llmRefinedSummaries ?? 0,
+        rawEventsPruned: result.rawEventsPruned,
+        decayCandidates: result.decayCandidates,
+      });
+      const indexStats = rebuildMemoryIndex();
+      logger.info(`Scheduled memory index refreshed: messages=${indexStats.messages}, profile=${indexStats.profile}, events=${indexStats.events}, daily_memory_summaries=${indexStats.daily_memory_summaries}, procedural_memories=${indexStats.procedural_memories}, memory_facts=${indexStats.memory_facts}, project_notes=${indexStats.project_notes}`);
+    } catch (error) {
+      logger.warn(`Scheduled memory maintenance failed: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      this.memoryMaintenanceRunning = false;
+      if (this.initialized) this.scheduleDailyMemoryMaintenance();
     }
   }
 
@@ -455,6 +497,13 @@ export class AthenaController {
       : undefined;
     return { chatMessageId: saved?.id, messageId: globalMessage?.id };
   }
+}
+
+function msUntilNextLocalMaintenance(now: Date): number {
+  const next = new Date(now);
+  next.setDate(next.getDate() + 1);
+  next.setHours(0, 5, 0, 0);
+  return Math.max(60_000, next.getTime() - now.getTime());
 }
 
 function safeParseJsonObject(value: string): Record<string, unknown> | null {
