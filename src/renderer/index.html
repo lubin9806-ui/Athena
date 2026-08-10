@@ -737,13 +737,14 @@
               <span>检索项目记忆</span>
             </label>
             <label class="settings-field">
-              <span>检索深度</span>
+              <span>每类检索条数</span>
               <input id="setting-memory-depth" type="number" min="0" max="20" step="1" />
             </label>
             <label class="settings-field">
               <span>自动记忆最低重要度</span>
               <input id="setting-memory-min-importance" type="number" min="1" max="10" step="1" />
             </label>
+            <div class="settings-note settings-field-full">长期回溯固定按天处理：0-365 天保留原始记忆；366-730 天按重要度逐级衰减；超过 730 天不进入检索。每天的记忆会在第二天生成日总结。</div>
             <div class="settings-field settings-field-full settings-memory-actions">
               <button id="setting-open-memory-review" class="settings-panel-link" type="button">查看待确认记忆</button>
               <button id="setting-open-memory-manage" class="settings-panel-link" type="button">打开记忆管理</button>

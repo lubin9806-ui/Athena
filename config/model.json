@@ -1,5 +1,5 @@
 {
-  "provider": "ollama",
+  "provider": "deepseek",
   "setupComplete": true,
   "ollama": {
     "baseUrl": "http://127.0.0.1:11434",

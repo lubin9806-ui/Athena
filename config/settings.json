@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "profile": "default",
+  "profile": "2",
   "developerMode": false,
   "general": {
     "launchAtStartup": false,
@@ -9,7 +9,7 @@
     "autoConnectModel": true
   },
   "appearance": {
-    "theme": "night",
+    "theme": "day",
     "animationLevel": "high",
     "glassEffects": true
   },
@@ -41,9 +41,9 @@
     "maxPages": 3
   },
   "personalization": {
-    "userName": "",
+    "userName": "苏时夏",
     "preferredAddress": "",
-    "tone": "balanced",
+    "tone": "soft",
     "replyLength": "balanced",
     "initiative": "high",
     "proactiveCare": true,
@@ -57,7 +57,7 @@
     "retrieveProfile": true,
     "retrieveEvents": true,
     "retrieveProjects": true,
-    "retrievalDepth": 8,
+    "retrievalDepth": 20,
     "minImportanceForAutoExtract": 5,
     "importContentMode": "adult"
   },
@@ -71,17 +71,17 @@
   },
   "data": {
     "confirmBeforeDelete": true,
-    "historyRetentionDays": 0,
+    "historyRetentionDays": 780,
     "voiceCacheRetentionHours": 24,
     "exportFormat": "json"
   },
   "privacy": {
     "networkConsent": {
-      "remoteModel": false,
-      "webSearch": false,
+      "remoteModel": true,
+      "webSearch": true,
       "onlineSpeechToText": false,
       "onlineTextToSpeech": false,
-      "externalToolNetwork": false
+      "externalToolNetwork": true
     },
     "firstRunPrivacySeenAt": "2026-07-15T15:18:13.142Z"
   },
