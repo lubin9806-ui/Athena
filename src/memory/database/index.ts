@@ -7,7 +7,7 @@ import { ensureSufficientDiskSpace } from '../../core/runtime/DiskSpaceGuard';
 
 let db: Database.Database | null = null;
 let resolvedDbPath: string | null = null;
-export const DATABASE_SCHEMA_VERSION = 8;
+export const DATABASE_SCHEMA_VERSION = 9;
 const MIGRATION_BACKUP_RETENTION = 5;
 
 export interface MemoryStats {
@@ -233,6 +233,7 @@ function runMigrations(database: Database.Database, currentVersion: number): voi
       max_importance INTEGER NOT NULL DEFAULT 1,
       importance INTEGER NOT NULL DEFAULT 5,
       decay_stage TEXT NOT NULL DEFAULT 'fresh' CHECK(decay_stage IN ('fresh', 'year_one', 'decay_5', 'decay_6', 'decay_7', 'decay_8', 'expired')),
+      summary_method TEXT NOT NULL DEFAULT 'heuristic' CHECK(summary_method IN ('heuristic', 'llm-refined')),
       generated_at DATETIME DEFAULT (datetime('now', 'localtime')),
       updated_at DATETIME DEFAULT (datetime('now', 'localtime'))
     );
@@ -305,6 +306,7 @@ function runMigrations(database: Database.Database, currentVersion: number): voi
       content TEXT NOT NULL,
       payload_json TEXT NOT NULL DEFAULT '{}',
       reason TEXT NOT NULL DEFAULT '',
+      group_key TEXT,
       confidence REAL DEFAULT 0.5,
       importance INTEGER DEFAULT 5,
       source_table TEXT,
@@ -341,6 +343,7 @@ function runMigrations(database: Database.Database, currentVersion: number): voi
       source_table TEXT NOT NULL,
       source_id INTEGER NOT NULL,
       keywords TEXT NOT NULL,
+      semantic_vector TEXT NOT NULL DEFAULT '[]',
       created_at DATETIME DEFAULT (datetime('now', 'localtime')),
       UNIQUE(source_table, source_id)
     );
@@ -403,8 +406,21 @@ function runMigrations(database: Database.Database, currentVersion: number): voi
     if (!chatWindowColumns.some(column => column.name === 'is_temporary')) {
       database.exec("ALTER TABLE chat_windows ADD COLUMN is_temporary INTEGER NOT NULL DEFAULT 0 CHECK(is_temporary IN (0, 1))");
     }
+    const dailySummaryColumns = database.prepare('PRAGMA table_info(daily_memory_summaries)').all() as Array<{ name: string }>;
+    if (!dailySummaryColumns.some(column => column.name === 'summary_method')) {
+      database.exec("ALTER TABLE daily_memory_summaries ADD COLUMN summary_method TEXT NOT NULL DEFAULT 'heuristic' CHECK(summary_method IN ('heuristic', 'llm-refined'))");
+    }
+    const reviewColumns = database.prepare('PRAGMA table_info(memory_review_queue)').all() as Array<{ name: string }>;
+    if (!reviewColumns.some(column => column.name === 'group_key')) {
+      database.exec('ALTER TABLE memory_review_queue ADD COLUMN group_key TEXT');
+    }
+    const memoryIndexColumns = database.prepare('PRAGMA table_info(memory_index)').all() as Array<{ name: string }>;
+    if (!memoryIndexColumns.some(column => column.name === 'semantic_vector')) {
+      database.exec("ALTER TABLE memory_index ADD COLUMN semantic_vector TEXT NOT NULL DEFAULT '[]'");
+    }
     database.exec('CREATE INDEX IF NOT EXISTS idx_chat_windows_temporary ON chat_windows(is_temporary, deleted_at, archived_at)');
     database.exec('CREATE INDEX IF NOT EXISTS idx_chat_windows_project ON chat_windows(project_id, deleted_at, archived_at, last_active_at DESC)');
+    database.exec('CREATE INDEX IF NOT EXISTS idx_memory_review_queue_group ON memory_review_queue(group_key, status)');
     if (process.env.ATHENA_TEST_FAIL_MIGRATION === '1') throw new Error('Injected migration failure');
     database.pragma(`user_version = ${DATABASE_SCHEMA_VERSION}`);
   });

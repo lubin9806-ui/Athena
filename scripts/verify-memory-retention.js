@@ -22,12 +22,13 @@ function addEvent(db, now, ageDays, importance, marker) {
   return { id: result.lastInsertRowid, date, marker };
 }
 
+async function run() {
 let exitCode = 0;
 try {
   const memory = require(path.join(root, 'dist', 'memory', 'index.js'));
   const now = new Date('2026-08-10T12:00:00.000Z');
   const db = memory.getDatabase();
-  assert.equal(db.pragma('user_version', { simple: true }), 8, 'memory schema should be v8');
+  assert.equal(db.pragma('user_version', { simple: true }), 9, 'memory schema should be v9');
 
   const cases = [
     addEvent(db, now, 100, 2, 'fresh-low-kept'),
@@ -77,6 +78,28 @@ try {
   const generated = memory.generateDueDailyMemorySummaries(now, 1);
   assert.equal(generated, 1, 'yesterday should be summarized on the next day');
   assert(memory.getDailyMemorySummary(yesterday)?.summary.includes('yesterday planning marker'));
+  assert.equal(memory.getDailyMemorySummary(yesterday)?.summary_method, 'heuristic', 'default daily summary should be heuristic');
+
+  const refinedYesterday = await memory.summarizeDailyMemoryWithRefiner(yesterday, async input => ({
+    summary: `LLM refined summary for ${input.date}: yesterday planning marker retained.`,
+    highlights: ['LLM refined planning marker'],
+    importance: 9,
+  }), { now, force: true });
+  assert.equal(refinedYesterday.summary_method, 'llm-refined', 'LLM refined daily summary should be marked');
+  assert(refinedYesterday.summary.includes('LLM refined summary'), 'LLM refined daily summary should replace heuristic text');
+
+  const twoDaysAgo = dateKeyFromAge(now, 2);
+  db.prepare(`
+    INSERT INTO messages (role, content, created_at)
+    VALUES ('user', 'two day semantic memory review marker', ?)
+  `).run(`${twoDaysAgo}T09:00:00.000Z`);
+  const refinedDue = await memory.generateDueDailyMemorySummariesWithRefiner(async input => ({
+    summary: `Refined due daily memory for ${input.date}: ${input.highlights.join(' ')}`,
+    highlights: ['two day refined marker'],
+    importance: 7,
+  }), now, 2);
+  assert.equal(refinedDue.generated, 1, 'LLM-assisted due summarizer should create missing previous-day summaries');
+  assert(refinedDue.llmRefined >= 1, 'LLM-assisted due summarizer should count refined summaries');
 
   const procedure = memory.upsertProceduralMemory({
     scope: 'global',
@@ -102,6 +125,8 @@ try {
   assert(temporal.id > 0, 'temporal fact should be stored');
 
   memory.rebuildMemoryIndex();
+  const vectorRow = db.prepare("SELECT semantic_vector FROM memory_index WHERE source_table = 'procedural_memories' AND source_id = ?").get(procedure.id);
+  assert(vectorRow && JSON.parse(vectorRow.semantic_vector).some(value => value > 0), 'memory index should store local semantic vectors');
   const context = memory.retrieveContext({
     query: 'memory system test architecture',
     maxProfileFacts: 0,
@@ -114,6 +139,8 @@ try {
   });
   assert(context.proceduralMemories.some(item => item.key === 'testing preference'), 'procedural memories should be retrievable');
   assert(context.temporalFacts.some(item => item.subject === 'Athena memory system'), 'temporal facts should be retrievable');
+  const semanticDaily = memory.searchDailyMemorySummaries('语义记忆系统', 10, now);
+  assert(Array.isArray(semanticDaily), 'semantic daily summary search should return an array');
 
   const extracted = memory.extractMemoryFromUserMessage('以后你要优先给我明确的下一步。当前测试目标是记忆审核队列');
   const queuedExtracted = memory.queueExtractedMemory(extracted, { minImportance: 5 });
@@ -136,6 +163,23 @@ try {
     importance: 8,
   });
   assert.equal(reviewRule.status, 'pending', 'manual review candidate should start pending');
+  const duplicateReviewRule = memory.enqueueMemoryReviewCandidate({
+    kind: 'procedure',
+    title: 'global / review approved rule',
+    content: 'When review approval is tested, write the rule only after approval.',
+    payload: {
+      scope: 'global',
+      key: 'review approved rule',
+      instruction: 'When review approval is tested, write the rule only after approval.',
+      evidence: 'retention verifier',
+      confidence: 0.9,
+      importance: 8,
+    },
+    reason: 'test review approval duplicate',
+    confidence: 0.8,
+    importance: 7,
+  });
+  assert.equal(duplicateReviewRule.id, reviewRule.id, 'duplicate pending review candidates should merge by group key');
   assert.equal(
     memory.retrieveContext({
       query: 'review approved rule',
@@ -166,6 +210,24 @@ try {
     'approved procedural memory should be retrievable',
   );
 
+  const bulkRule = memory.enqueueMemoryReviewCandidate({
+    kind: 'procedure',
+    title: 'global / bulk approved rule',
+    content: 'When bulk review approval is tested, approve through the batch API.',
+    payload: {
+      scope: 'global',
+      key: 'bulk approved rule',
+      instruction: 'When bulk review approval is tested, approve through the batch API.',
+      evidence: 'retention verifier',
+      confidence: 0.9,
+      importance: 8,
+    },
+    reason: 'test bulk review approval',
+    confidence: 0.9,
+    importance: 8,
+  });
+  assert.equal(memory.approveMemoryReviewItems([bulkRule.id])[0].status, 'applied', 'bulk approval should apply pending candidates');
+
   const rejectedFact = memory.rejectMemoryReviewItem(memory.enqueueMemoryReviewCandidate({
     kind: 'fact',
     title: 'Rejected subject / current_state',
@@ -185,6 +247,24 @@ try {
   assert.equal(rejectedFact.status, 'rejected', 'rejected review candidate should be marked rejected');
   assert.equal(db.prepare("SELECT COUNT(*) as c FROM memory_facts WHERE subject = 'Rejected subject'").get().c, 0, 'rejected fact should not be written');
 
+  const bulkRejectedFact = memory.enqueueMemoryReviewCandidate({
+    kind: 'fact',
+    title: 'Bulk rejected subject / current_state',
+    content: 'Bulk rejected subject current_state rejected object',
+    payload: {
+      subject: 'Bulk rejected subject',
+      predicate: 'current_state',
+      object: 'rejected object',
+      summary: 'Bulk rejected subject current_state rejected object',
+      confidence: 0.8,
+      importance: 8,
+    },
+    reason: 'test bulk review rejection',
+    confidence: 0.8,
+    importance: 8,
+  });
+  assert.equal(memory.rejectMemoryReviewItems([bulkRejectedFact.id])[0].status, 'rejected', 'bulk rejection should reject pending candidates');
+
   memory.closeDatabase();
   console.log('ATHENA_MEMORY_RETENTION_OK');
 } catch (error) {
@@ -198,3 +278,6 @@ try {
   fs.rmSync(tempDir, { recursive: true, force: true });
   process.exit(exitCode);
 }
+}
+
+run();

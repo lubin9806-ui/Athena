@@ -13,9 +13,13 @@ export interface MemoryIndexStats {
   project_notes: number;
 }
 
+const SEMANTIC_VECTOR_DIMENSIONS = 64;
+const SEMANTIC_SCAN_LIMIT = 750;
+
 export function upsertMemoryIndex(sourceTable: IndexedMemoryTable, sourceId: number, text: string): void {
   const db = getDatabase();
   const keywords = extractIndexKeywords(text);
+  const semanticVector = buildSemanticVector(text);
 
   if (keywords.length === 0) {
     deleteMemoryIndex(sourceTable, sourceId);
@@ -23,12 +27,13 @@ export function upsertMemoryIndex(sourceTable: IndexedMemoryTable, sourceId: num
   }
 
   db.prepare(`
-    INSERT INTO memory_index (source_table, source_id, keywords)
-    VALUES (?, ?, ?)
+    INSERT INTO memory_index (source_table, source_id, keywords, semantic_vector)
+    VALUES (?, ?, ?, ?)
     ON CONFLICT(source_table, source_id)
     DO UPDATE SET keywords = excluded.keywords,
+                  semantic_vector = excluded.semantic_vector,
                   created_at = datetime('now', 'localtime')
-  `).run(sourceTable, sourceId, JSON.stringify(keywords));
+  `).run(sourceTable, sourceId, JSON.stringify(keywords), JSON.stringify(semanticVector));
 }
 
 export function deleteMemoryIndex(sourceTable: IndexedMemoryTable, sourceId: number): void {
@@ -42,15 +47,39 @@ export function searchMemoryIndex(sourceTable: IndexedMemoryTable, keywords: Mem
   if (terms.length === 0) return [];
 
   const clauses = terms.map(() => 'keywords LIKE ?').join(' OR ');
-  const rows = getDatabase().prepare(`
-    SELECT source_id
+  const exactRows = getDatabase().prepare(`
+    SELECT source_id, keywords, semantic_vector
     FROM memory_index
     WHERE source_table = ? AND (${clauses})
     ORDER BY id DESC
     LIMIT ?
-  `).all(sourceTable, ...terms.map(term => `%${term}%`), limit) as { source_id: number }[];
+  `).all(sourceTable, ...terms.map(term => `%${term}%`), Math.max(limit, Math.min(120, limit * 4))) as MemoryIndexRow[];
 
-  return rows.map(row => row.source_id);
+  const semanticRows = getDatabase().prepare(`
+    SELECT source_id, keywords, semantic_vector
+    FROM memory_index
+    WHERE source_table = ?
+    ORDER BY id DESC
+    LIMIT ?
+  `).all(sourceTable, SEMANTIC_SCAN_LIMIT) as MemoryIndexRow[];
+
+  const queryVector = buildSemanticVector(terms.join(' '));
+  const scored = new Map<number, number>();
+  for (const row of exactRows) {
+    scored.set(row.source_id, Math.max(scored.get(row.source_id) ?? 0, 10 + keywordScore(row.keywords, terms)));
+  }
+  for (const row of semanticRows) {
+    const vector = parseSemanticVector(row.semantic_vector || row.keywords);
+    const semanticScore = cosineSimilarity(queryVector, vector);
+    if (semanticScore < 0.2) continue;
+    const score = semanticScore * 8 + keywordScore(row.keywords, terms);
+    scored.set(row.source_id, Math.max(scored.get(row.source_id) ?? 0, score));
+  }
+
+  return Array.from(scored.entries())
+    .sort((left, right) => right[1] - left[1])
+    .slice(0, Math.max(1, Math.min(100, Math.round(limit))))
+    .map(([sourceId]) => sourceId);
 }
 
 export function normalizeMemorySearchTerms(keywords: MemorySearchTerms, maxTerms = 12): string[] {
@@ -149,4 +178,77 @@ export function extractIndexKeywords(text: string): string[] {
       .map(word => word.trim())
       .filter(word => word.length >= 2 && !stopWords.has(word))
   )).slice(0, 48);
+}
+
+interface MemoryIndexRow {
+  source_id: number;
+  keywords: string;
+  semantic_vector?: string;
+}
+
+function keywordScore(keywordsJson: string, terms: string[]): number {
+  const text = keywordsJson.toLowerCase();
+  return terms.reduce((score, term) => score + (text.includes(term.toLowerCase()) ? 1 : 0), 0);
+}
+
+function buildSemanticVector(text: string): number[] {
+  const vector = Array.from({ length: SEMANTIC_VECTOR_DIMENSIONS }, () => 0);
+  const features = semanticFeatures(text);
+  for (const feature of features) {
+    vector[hashFeature(feature) % SEMANTIC_VECTOR_DIMENSIONS] += 1;
+  }
+  const magnitude = Math.sqrt(vector.reduce((sum, value) => sum + value * value, 0));
+  return magnitude > 0 ? vector.map(value => Number((value / magnitude).toFixed(6))) : vector;
+}
+
+function semanticFeatures(text: string): string[] {
+  const normalized = text.toLowerCase().replace(/\s+/g, ' ').trim();
+  const features: string[] = [];
+  const words = normalized.match(/[a-z][a-z0-9_-]{1,}/g) || [];
+  features.push(...words);
+  const cjkPhrases = normalized.match(/[\u4e00-\u9fff]{2,}/g) || [];
+  for (const phrase of cjkPhrases) {
+    for (let size = 2; size <= 4; size += 1) {
+      for (let i = 0; i <= phrase.length - size; i += 1) {
+        features.push(phrase.slice(i, i + size));
+      }
+    }
+  }
+  return features.slice(0, 600);
+}
+
+function parseSemanticVector(value: string): number[] {
+  try {
+    const parsed = JSON.parse(value);
+    if (Array.isArray(parsed) && parsed.every(item => typeof item === 'number')) {
+      return parsed.slice(0, SEMANTIC_VECTOR_DIMENSIONS);
+    }
+  } catch {
+    // Older rows may only have keyword JSON; rebuild a vector from that text.
+  }
+  return buildSemanticVector(value);
+}
+
+function cosineSimilarity(left: number[], right: number[]): number {
+  let dot = 0;
+  let leftMagnitude = 0;
+  let rightMagnitude = 0;
+  for (let index = 0; index < SEMANTIC_VECTOR_DIMENSIONS; index += 1) {
+    const a = left[index] || 0;
+    const b = right[index] || 0;
+    dot += a * b;
+    leftMagnitude += a * a;
+    rightMagnitude += b * b;
+  }
+  if (leftMagnitude === 0 || rightMagnitude === 0) return 0;
+  return dot / Math.sqrt(leftMagnitude * rightMagnitude);
+}
+
+function hashFeature(value: string): number {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
 }

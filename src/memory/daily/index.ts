@@ -11,10 +11,28 @@ interface DailySummaryOptions {
   now?: Date;
 }
 
+export interface DailyMemoryRefinementInput {
+  date: string;
+  heuristicSummary: string;
+  highlights: string[];
+  source_event_count: number;
+  source_message_count: number;
+  max_importance: number;
+}
+
+export interface DailyMemoryRefinement {
+  summary?: string;
+  highlights?: string[];
+  importance?: number;
+}
+
+export type DailyMemoryRefiner = (input: DailyMemoryRefinementInput) => Promise<DailyMemoryRefinement | null>;
+
 export interface MemoryRetentionPolicyResult {
   dailySummariesGenerated: number;
   rawEventsPruned: number;
   decayCandidates: number;
+  llmRefinedSummaries?: number;
 }
 
 interface DailySourceEvent {
@@ -33,68 +51,51 @@ export function summarizeDailyMemory(date: string, options: DailySummaryOptions 
   const day = normalizeDateKey(date);
   if (!day) return null;
 
-  const db = getDatabase();
   const existing = getDailyMemorySummary(day);
   if (existing && !options.force) return existing;
 
-  const events = db.prepare(`
-    SELECT summary, detail, tags, importance
-    FROM events
-    WHERE date = ?
-    ORDER BY importance DESC, id ASC
-    LIMIT 32
-  `).all(day) as DailySourceEvent[];
-  const messages = db.prepare(`
-    SELECT role, content
-    FROM messages
-    WHERE substr(created_at, 1, 10) = ?
-    ORDER BY id ASC
-    LIMIT 80
-  `).all(day) as DailySourceMessage[];
+  const draft = buildDailyMemoryDraft(day, options.now || new Date());
+  if (!draft) return null;
+  return saveDailyMemorySummary(day, draft, existing?.id);
+}
 
-  if (events.length === 0 && messages.length === 0) return null;
+export async function summarizeDailyMemoryWithRefiner(
+  date: string,
+  refiner: DailyMemoryRefiner,
+  options: DailySummaryOptions = {},
+): Promise<DailyMemorySummary | null> {
+  const day = normalizeDateKey(date);
+  if (!day) return null;
 
-  const highlights = buildHighlights(events, messages);
-  const maxImportance = Math.max(1, ...events.map(event => clampImportance(event.importance)));
-  const importance = clampImportance(Math.max(5, maxImportance, messages.length >= 16 ? 6 : 5));
-  const decayStage = decayStageForAgeDays(ageInDays(day, options.now || new Date()));
-  const summary = buildSummaryText(day, events, messages, highlights);
+  const existing = getDailyMemorySummary(day);
+  if (existing && !options.force && existing.summary_method === 'llm-refined') return existing;
+  if (existing && !options.force) return existing;
 
-  const result = db.prepare(`
-    INSERT INTO daily_memory_summaries (
-      date,
-      summary,
-      highlights,
-      source_event_count,
-      source_message_count,
-      max_importance,
-      importance,
-      decay_stage
-    )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    ON CONFLICT(date)
-    DO UPDATE SET summary = excluded.summary,
-                  highlights = excluded.highlights,
-                  source_event_count = excluded.source_event_count,
-                  source_message_count = excluded.source_message_count,
-                  max_importance = excluded.max_importance,
-                  importance = excluded.importance,
-                  decay_stage = excluded.decay_stage,
-                  updated_at = datetime('now', 'localtime')
-  `).run(
-    day,
-    summary,
-    JSON.stringify(highlights),
-    events.length,
-    messages.length,
-    maxImportance,
-    importance,
-    decayStage,
-  );
+  const draft = buildDailyMemoryDraft(day, options.now || new Date());
+  if (!draft) return null;
 
-  const id = existing?.id || result.lastInsertRowid as number;
-  upsertMemoryIndex('daily_memory_summaries', id, `${day} ${summary} ${highlights.join(' ')}`);
-  return getDailyMemorySummary(day);
+  let refined: DailyMemoryRefinement | null = null;
+  try {
+    refined = await refiner({
+      date: day,
+      heuristicSummary: draft.summary,
+      highlights: draft.highlights,
+      source_event_count: draft.source_event_count,
+      source_message_count: draft.source_message_count,
+      max_importance: draft.max_importance,
+    });
+  } catch {
+    refined = null;
+  }
+
+  const next = refined ? {
+    ...draft,
+    summary: cleanRefinedSummary(refined.summary) || draft.summary,
+    highlights: cleanRefinedHighlights(refined.highlights, draft.highlights),
+    importance: refined.importance === undefined ? draft.importance : clampImportance(refined.importance),
+    summary_method: 'llm-refined' as const,
+  } : draft;
+  return saveDailyMemorySummary(day, next, existing?.id);
 }
 
 export function generateDueDailyMemorySummaries(now: Date = new Date(), lookbackDays = 14): number {
@@ -106,6 +107,26 @@ export function generateDueDailyMemorySummaries(now: Date = new Date(), lookback
     if (summarizeDailyMemory(day, { now })) generated += 1;
   }
   return generated;
+}
+
+export async function generateDueDailyMemorySummariesWithRefiner(
+  refiner: DailyMemoryRefiner,
+  now: Date = new Date(),
+  lookbackDays = 14,
+): Promise<{ generated: number; llmRefined: number }> {
+  let generated = 0;
+  let llmRefined = 0;
+  const safeLookback = Math.max(1, Math.min(60, Math.round(lookbackDays)));
+  for (let offset = 1; offset <= safeLookback; offset += 1) {
+    const day = dateKeyFromDaysAgo(now, offset);
+    const existing = getDailyMemorySummary(day);
+    if (existing?.summary_method === 'llm-refined') continue;
+    const summary = await summarizeDailyMemoryWithRefiner(day, refiner, { now, force: existing?.summary_method === 'heuristic' });
+    if (!summary) continue;
+    if (!existing) generated += 1;
+    if (summary.summary_method === 'llm-refined') llmRefined += 1;
+  }
+  return { generated, llmRefined };
 }
 
 export function applyMemoryRetentionPolicy(now: Date = new Date()): MemoryRetentionPolicyResult {
@@ -138,6 +159,16 @@ export function applyMemoryRetentionPolicy(now: Date = new Date()): MemoryRetent
     dailySummariesGenerated,
     rawEventsPruned: prune.length,
     decayCandidates: rows.filter(row => ageInDays(row.date, now) > RAW_MEMORY_FULL_RECALL_DAYS).length,
+  };
+}
+
+export async function applyMemoryRetentionPolicyWithRefiner(refiner: DailyMemoryRefiner, now: Date = new Date()): Promise<MemoryRetentionPolicyResult> {
+  const generated = await generateDueDailyMemorySummariesWithRefiner(refiner, now);
+  const result = applyMemoryRetentionPolicyWithoutSummaryGeneration(now);
+  return {
+    ...result,
+    dailySummariesGenerated: generated.generated,
+    llmRefinedSummaries: generated.llmRefined,
   };
 }
 
@@ -265,6 +296,7 @@ function rowToDailyMemorySummary(row: any): DailyMemorySummary {
     max_importance: Number(row.max_importance || 1),
     importance: Number(row.importance || 5),
     decay_stage: cleanDecayStage(row.decay_stage),
+    summary_method: row.summary_method === 'llm-refined' ? 'llm-refined' : 'heuristic',
     generated_at: row.generated_at || undefined,
     updated_at: row.updated_at || undefined,
   };
@@ -281,9 +313,130 @@ function dailySummaryFields(): string {
     max_importance,
     importance,
     decay_stage,
+    summary_method,
     generated_at,
     updated_at
   `;
+}
+
+interface DailyMemoryDraft {
+  summary: string;
+  highlights: string[];
+  source_event_count: number;
+  source_message_count: number;
+  max_importance: number;
+  importance: number;
+  decay_stage: DailyMemorySummary['decay_stage'];
+  summary_method: 'heuristic' | 'llm-refined';
+}
+
+function buildDailyMemoryDraft(day: string, now: Date): DailyMemoryDraft | null {
+  const { events, messages } = loadDailySources(day);
+  if (events.length === 0 && messages.length === 0) return null;
+  const highlights = buildHighlights(events, messages);
+  const maxImportance = Math.max(1, ...events.map(event => clampImportance(event.importance)));
+  return {
+    summary: buildSummaryText(day, events, messages, highlights),
+    highlights,
+    source_event_count: events.length,
+    source_message_count: messages.length,
+    max_importance: maxImportance,
+    importance: clampImportance(Math.max(5, maxImportance, messages.length >= 16 ? 6 : 5)),
+    decay_stage: decayStageForAgeDays(ageInDays(day, now)),
+    summary_method: 'heuristic',
+  };
+}
+
+function loadDailySources(day: string): { events: DailySourceEvent[]; messages: DailySourceMessage[] } {
+  const db = getDatabase();
+  const events = db.prepare(`
+    SELECT summary, detail, tags, importance
+    FROM events
+    WHERE date = ?
+    ORDER BY importance DESC, id ASC
+    LIMIT 32
+  `).all(day) as DailySourceEvent[];
+  const messages = db.prepare(`
+    SELECT role, content
+    FROM messages
+    WHERE substr(created_at, 1, 10) = ?
+    ORDER BY id ASC
+    LIMIT 80
+  `).all(day) as DailySourceMessage[];
+  return { events, messages };
+}
+
+function saveDailyMemorySummary(day: string, draft: DailyMemoryDraft, existingId?: number): DailyMemorySummary | null {
+  const result = getDatabase().prepare(`
+    INSERT INTO daily_memory_summaries (
+      date,
+      summary,
+      highlights,
+      source_event_count,
+      source_message_count,
+      max_importance,
+      importance,
+      decay_stage,
+      summary_method
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(date)
+    DO UPDATE SET summary = excluded.summary,
+                  highlights = excluded.highlights,
+                  source_event_count = excluded.source_event_count,
+                  source_message_count = excluded.source_message_count,
+                  max_importance = excluded.max_importance,
+                  importance = excluded.importance,
+                  decay_stage = excluded.decay_stage,
+                  summary_method = excluded.summary_method,
+                  updated_at = datetime('now', 'localtime')
+  `).run(
+    day,
+    draft.summary,
+    JSON.stringify(draft.highlights),
+    draft.source_event_count,
+    draft.source_message_count,
+    draft.max_importance,
+    draft.importance,
+    draft.decay_stage,
+    draft.summary_method,
+  );
+
+  const id = existingId || result.lastInsertRowid as number;
+  upsertMemoryIndex('daily_memory_summaries', id, `${day} ${draft.summary} ${draft.highlights.join(' ')} ${draft.summary_method}`);
+  return getDailyMemorySummary(day);
+}
+
+function applyMemoryRetentionPolicyWithoutSummaryGeneration(now: Date): MemoryRetentionPolicyResult {
+  const db = getDatabase();
+  const rows = db.prepare(`
+    SELECT e.id, e.date, e.importance
+    FROM events e
+    WHERE EXISTS (
+      SELECT 1
+      FROM daily_memory_summaries d
+      WHERE d.date = e.date
+    )
+  `).all() as Array<{ id: number; date: string; importance: number }>;
+
+  const prune = rows.filter(row => {
+    const age = ageInDays(row.date, now);
+    return age > RAW_MEMORY_FULL_RECALL_DAYS && !isRawEventRetrievable(row.date, row.importance, now);
+  });
+
+  const deleteMany = db.transaction((items: Array<{ id: number }>) => {
+    for (const row of items) {
+      db.prepare('DELETE FROM events WHERE id = ?').run(row.id);
+      deleteMemoryIndex('events', row.id);
+    }
+  });
+  deleteMany(prune);
+
+  return {
+    dailySummariesGenerated: 0,
+    rawEventsPruned: prune.length,
+    decayCandidates: rows.filter(row => ageInDays(row.date, now) > RAW_MEMORY_FULL_RECALL_DAYS).length,
+  };
 }
 
 function ageInDays(date: string, now: Date): number {
@@ -314,6 +467,20 @@ function cleanDecayStage(value: string): DailyMemorySummary['decay_stage'] {
     return value;
   }
   return 'fresh';
+}
+
+function cleanRefinedSummary(value: string | undefined): string {
+  if (!value) return '';
+  return truncateText(value, 3_000);
+}
+
+function cleanRefinedHighlights(values: string[] | undefined, fallback: string[]): string[] {
+  if (!Array.isArray(values)) return fallback;
+  const cleaned = unique(values
+    .filter(item => typeof item === 'string')
+    .map(item => truncateText(item, 220)))
+    .slice(0, 12);
+  return cleaned.length > 0 ? cleaned : fallback;
 }
 
 function safeParseStringArray(value: string | null | undefined): string[] {

@@ -1,4 +1,5 @@
 import json
+import math
 import re
 import sqlite3
 import sys
@@ -6,6 +7,7 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DB_PATH = PROJECT_ROOT / "database" / "athena.db"
+SEMANTIC_VECTOR_DIMENSIONS = 64
 
 
 def main() -> None:
@@ -35,6 +37,7 @@ def run_migrations(conn: sqlite3.Connection) -> None:
           source_table TEXT NOT NULL,
           source_id INTEGER NOT NULL,
           keywords TEXT NOT NULL,
+          semantic_vector TEXT NOT NULL DEFAULT '[]',
           created_at DATETIME DEFAULT (datetime('now', 'localtime')),
           UNIQUE(source_table, source_id)
         );
@@ -49,6 +52,7 @@ def run_migrations(conn: sqlite3.Connection) -> None:
           max_importance INTEGER NOT NULL DEFAULT 1,
           importance INTEGER NOT NULL DEFAULT 5,
           decay_stage TEXT NOT NULL DEFAULT 'fresh',
+          summary_method TEXT NOT NULL DEFAULT 'heuristic',
           generated_at DATETIME DEFAULT (datetime('now', 'localtime')),
           updated_at DATETIME DEFAULT (datetime('now', 'localtime'))
         );
@@ -90,6 +94,7 @@ def run_migrations(conn: sqlite3.Connection) -> None:
           content TEXT NOT NULL,
           payload_json TEXT NOT NULL DEFAULT '{}',
           reason TEXT NOT NULL DEFAULT '',
+          group_key TEXT,
           confidence REAL DEFAULT 0.5,
           importance INTEGER DEFAULT 5,
           source_table TEXT,
@@ -102,6 +107,10 @@ def run_migrations(conn: sqlite3.Connection) -> None:
         );
         """
     )
+    ensure_column(conn, "memory_index", "semantic_vector", "TEXT NOT NULL DEFAULT '[]'")
+    ensure_column(conn, "daily_memory_summaries", "summary_method", "TEXT NOT NULL DEFAULT 'heuristic'")
+    ensure_column(conn, "memory_review_queue", "group_key", "TEXT")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_memory_review_queue_group ON memory_review_queue(group_key, status)")
 
 
 def get_stats() -> dict:
@@ -123,6 +132,12 @@ def safe_count(conn: sqlite3.Connection, table: str) -> int:
         return int(conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0])
     except sqlite3.Error:
         return 0
+
+
+def ensure_column(conn: sqlite3.Connection, table: str, column: str, definition: str) -> None:
+    columns = {row[1] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+    if column not in columns:
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
 
 
 def reindex() -> dict:
@@ -179,17 +194,19 @@ def index_rows(conn: sqlite3.Connection, table: str, query: str) -> int:
 
 def upsert_memory_index(conn: sqlite3.Connection, source_table: str, source_id: int, text: str) -> bool:
     keywords = extract_index_keywords(text)
+    semantic_vector = build_semantic_vector(text)
     if not keywords:
         return False
     conn.execute(
         """
-        INSERT INTO memory_index (source_table, source_id, keywords)
-        VALUES (?, ?, ?)
+        INSERT INTO memory_index (source_table, source_id, keywords, semantic_vector)
+        VALUES (?, ?, ?, ?)
         ON CONFLICT(source_table, source_id)
         DO UPDATE SET keywords = excluded.keywords,
+                      semantic_vector = excluded.semantic_vector,
                       created_at = datetime('now', 'localtime')
         """,
-        (source_table, source_id, json.dumps(keywords, ensure_ascii=False)),
+        (source_table, source_id, json.dumps(keywords, ensure_ascii=False), json.dumps(semantic_vector)),
     )
     return True
 
@@ -220,6 +237,35 @@ def extract_index_keywords(text: str) -> list[str]:
         if len(result) >= 48:
             break
     return result
+
+
+def build_semantic_vector(text: str) -> list[float]:
+    vector = [0.0] * SEMANTIC_VECTOR_DIMENSIONS
+    for feature in semantic_features(text):
+        vector[hash_feature(feature) % SEMANTIC_VECTOR_DIMENSIONS] += 1.0
+    magnitude = math.sqrt(sum(value * value for value in vector))
+    if magnitude <= 0:
+        return vector
+    return [round(value / magnitude, 6) for value in vector]
+
+
+def semantic_features(text: str) -> list[str]:
+    normalized = re.sub(r"\s+", " ", str(text).lower()).strip()
+    features: list[str] = []
+    features.extend(re.findall(r"[a-z][a-z0-9_-]{1,}", normalized))
+    for phrase in re.findall(r"[\u4e00-\u9fff]{2,}", normalized):
+        for size in range(2, 5):
+            for i in range(0, max(0, len(phrase) - size + 1)):
+                features.append(phrase[i:i + size])
+    return features[:600]
+
+
+def hash_feature(value: str) -> int:
+    hashed = 2166136261
+    for char in value:
+        hashed ^= ord(char)
+        hashed = (hashed * 16777619) & 0xFFFFFFFF
+    return hashed
 
 
 if __name__ == "__main__":

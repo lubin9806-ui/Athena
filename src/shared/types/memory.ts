@@ -25,6 +25,7 @@ export interface DailyMemorySummary {
   max_importance: number;
   importance: number;
   decay_stage: 'fresh' | 'year_one' | 'decay_5' | 'decay_6' | 'decay_7' | 'decay_8' | 'expired';
+  summary_method?: 'heuristic' | 'llm-refined';
   generated_at?: string;
   updated_at?: string;
 }
@@ -69,6 +70,7 @@ export interface MemoryReviewItem {
   content: string;
   payload: Record<string, unknown>;
   reason: string;
+  group_key?: string;
   confidence: number;
   importance: number;
   source_table?: string;

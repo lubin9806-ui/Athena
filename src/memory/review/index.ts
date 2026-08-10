@@ -6,6 +6,7 @@ import { upsertProceduralMemory, type ProceduralMemoryInput } from '../procedura
 import { getDatabase } from '../database';
 import type { ExtractedMemory } from '../extractor';
 import type { MemoryReviewItem, MemoryReviewKind } from '../../shared/types';
+import { createHash } from 'crypto';
 
 export interface MemoryReviewCandidate {
   kind: MemoryReviewKind;
@@ -19,6 +20,7 @@ export interface MemoryReviewCandidate {
   sourceId?: number;
   chatWindowId?: number;
   autoApply?: boolean;
+  groupKey?: string;
 }
 
 export interface MemoryReviewQueueResult {
@@ -54,6 +56,43 @@ export function queueExtractedMemory(
 export function enqueueMemoryReviewCandidate(candidate: MemoryReviewCandidate): MemoryReviewItem {
   const db = getDatabase();
   const normalized = normalizeCandidate(candidate);
+  const existing = db.prepare(`
+    SELECT ${reviewFields()}
+    FROM memory_review_queue
+    WHERE group_key = ? AND status = 'pending'
+    LIMIT 1
+  `).get(normalized.groupKey) as any;
+
+  if (existing) {
+    db.prepare(`
+      UPDATE memory_review_queue
+      SET title = ?,
+          content = ?,
+          payload_json = ?,
+          reason = ?,
+          confidence = MAX(confidence, ?),
+          importance = MAX(importance, ?),
+          source_table = COALESCE(source_table, ?),
+          source_id = COALESCE(source_id, ?),
+          chat_window_id = COALESCE(chat_window_id, ?)
+      WHERE id = ? AND status = 'pending'
+    `).run(
+      normalized.title,
+      normalized.content,
+      JSON.stringify(normalized.payload),
+      normalized.reason,
+      normalized.confidence,
+      normalized.importance,
+      normalized.sourceTable || null,
+      normalized.sourceId || null,
+      normalized.chatWindowId || null,
+      existing.id,
+    );
+    const item = getMemoryReviewItem(existing.id) as MemoryReviewItem;
+    if (normalized.autoApply) return applyMemoryReviewItem(item.id);
+    return item;
+  }
+
   const result = db.prepare(`
     INSERT INTO memory_review_queue (
       kind,
@@ -62,19 +101,21 @@ export function enqueueMemoryReviewCandidate(candidate: MemoryReviewCandidate): 
       content,
       payload_json,
       reason,
+      group_key,
       confidence,
       importance,
       source_table,
       source_id,
       chat_window_id
     )
-    VALUES (?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     normalized.kind,
     normalized.title,
     normalized.content,
     JSON.stringify(normalized.payload),
     normalized.reason,
+    normalized.groupKey,
     normalized.confidence,
     normalized.importance,
     normalized.sourceTable || null,
@@ -107,6 +148,12 @@ export function approveMemoryReviewItem(id: number): MemoryReviewItem | null {
   return applyMemoryReviewItem(id);
 }
 
+export function approveMemoryReviewItems(ids: number[]): MemoryReviewItem[] {
+  return cleanIds(ids)
+    .map(id => approveMemoryReviewItem(id))
+    .filter((item): item is MemoryReviewItem => Boolean(item));
+}
+
 export function rejectMemoryReviewItem(id: number): MemoryReviewItem | null {
   const db = getDatabase();
   db.prepare(`
@@ -115,6 +162,12 @@ export function rejectMemoryReviewItem(id: number): MemoryReviewItem | null {
     WHERE id = ? AND status = 'pending'
   `).run(id);
   return getMemoryReviewItem(id);
+}
+
+export function rejectMemoryReviewItems(ids: number[]): MemoryReviewItem[] {
+  return cleanIds(ids)
+    .map(id => rejectMemoryReviewItem(id))
+    .filter((item): item is MemoryReviewItem => Boolean(item));
 }
 
 export function getMemoryReviewItem(id: number): MemoryReviewItem | null {
@@ -267,13 +320,19 @@ function applyPayload(kind: MemoryReviewKind, payload: Record<string, unknown>):
 }
 
 function normalizeCandidate(candidate: MemoryReviewCandidate): MemoryReviewCandidate {
+  const payload = sanitizePayload(candidate.payload);
+  const title = normalizeText(candidate.title).slice(0, 300) || candidate.kind;
+  const content = normalizeText(candidate.content).slice(0, 10_000);
+  const reason = normalizeText(candidate.reason).slice(0, 1_000);
   return {
     ...candidate,
-    title: normalizeText(candidate.title).slice(0, 300) || candidate.kind,
-    content: normalizeText(candidate.content).slice(0, 10_000),
-    reason: normalizeText(candidate.reason).slice(0, 1_000),
+    title,
+    content,
+    payload,
+    reason,
     confidence: clampConfidence(candidate.confidence),
     importance: clampImportance(candidate.importance),
+    groupKey: normalizeGroupKey(candidate.groupKey) || buildGroupKey(candidate.kind, title, content, payload),
   };
 }
 
@@ -286,6 +345,7 @@ function rowToMemoryReviewItem(row: any): MemoryReviewItem {
     content: row.content,
     payload: safeParseObject(row.payload_json),
     reason: row.reason || '',
+    group_key: row.group_key || undefined,
     confidence: Number(row.confidence ?? 0.5),
     importance: Number(row.importance ?? 5),
     source_table: row.source_table || undefined,
@@ -307,6 +367,7 @@ function reviewFields(): string {
     'content',
     'payload_json',
     'reason',
+    'group_key',
     'confidence',
     'importance',
     'source_table',
@@ -317,6 +378,43 @@ function reviewFields(): string {
     'created_at',
     'reviewed_at',
   ].join(', ');
+}
+
+function sanitizePayload(value: Record<string, unknown>): Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  return stableObject(value as Record<string, unknown>) as Record<string, unknown>;
+}
+
+function stableObject(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(stableObject);
+  if (!value || typeof value !== 'object') return value;
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>)
+      .filter(([, entry]) => entry !== undefined)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, entry]) => [key, stableObject(entry)]),
+  );
+}
+
+function buildGroupKey(kind: MemoryReviewKind, title: string, content: string, payload: Record<string, unknown>): string {
+  const identity = JSON.stringify({
+    kind,
+    title: title.toLowerCase(),
+    content: content.toLowerCase(),
+    payload: stableObject(payload),
+  });
+  return `review:${kind}:${createHash('sha256').update(identity).digest('hex').slice(0, 32)}`;
+}
+
+function normalizeGroupKey(value: string | undefined): string {
+  if (!value) return '';
+  return value.trim().replace(/\s+/g, ':').slice(0, 160);
+}
+
+function cleanIds(ids: number[]): number[] {
+  return Array.from(new Set(ids
+    .map(id => Number(id))
+    .filter(id => Number.isInteger(id) && id > 0)));
 }
 
 function safeParseObject(value: string): Record<string, unknown> {

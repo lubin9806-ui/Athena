@@ -62,6 +62,8 @@ Purpose:
 - `daily_memory_summaries`: one compact daily summary generated the next day from saved messages and extracted events.
 
 Implemented policy:
+- Daily summaries are generated heuristically when no model is available, and are LLM-refined on startup when local Ollama or an explicitly consented remote model is reachable.
+- Refined summaries are stored with `summary_method = 'llm-refined'`; fallback summaries use `summary_method = 'heuristic'`.
 - Day 0-365: raw events are fully retrievable.
 - Day 366-455: raw events need importance >= 5.
 - Day 456-546: raw events need importance >= 6.
@@ -73,10 +75,12 @@ Implemented policy:
 ### 4. Semantic Memory
 
 Tables: `profile`, `project_notes`
+Index: `memory_index`
 
 Purpose:
 - Stable facts about the user, preferences, habits, health notes, and active projects.
 - Project-scoped decisions, status, and constraints.
+- Local semantic retrieval stores a small hashed vector beside keyword ngrams in `memory_index.semantic_vector`. This is not a remote embedding provider; it is an offline lexical-semantic fallback used to rank near matches when exact keyword search is weak.
 
 Retention:
 - Not governed by daily decay.
@@ -98,6 +102,11 @@ Purpose:
 Safety rule:
 - Procedural memories are retrieved into context, but automatic creation should stay gated behind explicit extraction, evidence, and review controls.
 - They must not silently override system instructions, project instructions, or privacy settings.
+
+Review flow:
+- New procedural and temporal candidates enter `memory_review_queue` unless they satisfy a narrow auto-apply rule.
+- Pending duplicates are merged by `group_key`, so repeated extraction does not flood the queue.
+- The service layer supports single-item and batch approve/reject operations; approval is the boundary that writes pending procedural or temporal memory into the active tables.
 
 ### 6. Temporal Graph Memory
 
@@ -139,7 +148,7 @@ The ContextManager remains responsible for token-budget pruning and must log why
 On startup:
 - Clean temporary chat windows.
 - Apply user-configured data retention.
-- Generate due daily summaries, normally yesterday and recent missing days.
+- Generate due daily summaries, normally yesterday and recent missing days, with LLM refinement when the configured model is available.
 - Apply memory retention decay.
 - Rebuild the retrieval index.
 

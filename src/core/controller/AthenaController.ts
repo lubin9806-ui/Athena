@@ -16,6 +16,7 @@ import { Reminder } from '../scheduler/Reminder';
 import { WorkflowManager } from '../workflow/WorkflowManager';
 import {
   applyMemoryRetentionPolicy,
+  applyMemoryRetentionPolicyWithRefiner,
   cleanupTemporaryChatWindows,
   ensureDefaultChatWindow,
   getChatWindow,
@@ -32,6 +33,7 @@ import {
 } from '../../memory';
 import { globalEventBus } from '../../engine/EventBus';
 import { createLogger } from '../../engine/Logger';
+import type { DailyMemoryRefinement, DailyMemoryRefinementInput, MemoryRetentionPolicyResult } from '../../memory';
 import type {
   ChatResponse,
   ConversationMode,
@@ -96,9 +98,9 @@ export class AthenaController {
     if (retention.messagesDeleted > 0 || retention.activityDeleted > 0) {
       logger.info(`Data retention applied: messages=${retention.messagesDeleted}, activity=${retention.activityDeleted}`);
     }
-    const memoryRetention = applyMemoryRetentionPolicy();
-    if (memoryRetention.dailySummariesGenerated > 0 || memoryRetention.rawEventsPruned > 0) {
-      logger.info(`Memory retention applied: daily_summaries=${memoryRetention.dailySummariesGenerated}, raw_events_pruned=${memoryRetention.rawEventsPruned}`);
+    const memoryRetention = await this.applyMemoryRetentionMaintenance();
+    if (memoryRetention.dailySummariesGenerated > 0 || memoryRetention.rawEventsPruned > 0 || (memoryRetention.llmRefinedSummaries ?? 0) > 0) {
+      logger.info(`Memory retention applied: daily_summaries=${memoryRetention.dailySummariesGenerated}, llm_refined=${memoryRetention.llmRefinedSummaries ?? 0}, raw_events_pruned=${memoryRetention.rawEventsPruned}`);
     }
     const indexStats = rebuildMemoryIndex();
     logger.info(`Memory index ready: messages=${indexStats.messages}, profile=${indexStats.profile}, events=${indexStats.events}, daily_memory_summaries=${indexStats.daily_memory_summaries}, procedural_memories=${indexStats.procedural_memories}, memory_facts=${indexStats.memory_facts}, project_notes=${indexStats.project_notes}`);
@@ -315,6 +317,67 @@ export class AthenaController {
     }
   }
 
+  private async applyMemoryRetentionMaintenance(): Promise<MemoryRetentionPolicyResult> {
+    if (!canRouteModelRequest(this.llm.providerName, canUseNetworkCapability('remoteModel'))) {
+      return applyMemoryRetentionPolicy();
+    }
+    const connected = await this.llm.checkConnection();
+    if (!connected) return applyMemoryRetentionPolicy();
+
+    try {
+      return await applyMemoryRetentionPolicyWithRefiner(
+        input => this.refineDailyMemorySummary(input),
+      );
+    } catch (error) {
+      logger.warn(`LLM daily memory refinement failed; falling back to heuristic retention: ${error instanceof Error ? error.message : String(error)}`);
+      return applyMemoryRetentionPolicy();
+    }
+  }
+
+  private async refineDailyMemorySummary(input: DailyMemoryRefinementInput): Promise<DailyMemoryRefinement | null> {
+    const schema = {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        summary: { type: 'string' },
+        highlights: {
+          type: 'array',
+          maxItems: 12,
+          items: { type: 'string' },
+        },
+        importance: {
+          type: 'integer',
+          minimum: 1,
+          maximum: 10,
+        },
+      },
+      required: ['summary', 'highlights'],
+    };
+
+    const response = await this.llm.chatJson([
+      {
+        role: 'system',
+        content: [
+          'You refine local assistant memory into a compact daily summary.',
+          'Keep durable preferences, project state, decisions, emotional context, and concrete next actions.',
+          'Avoid inventing facts. Do not include secrets, credentials, or private raw transcripts.',
+          'Return JSON only.',
+        ].join(' '),
+      },
+      {
+        role: 'user',
+        content: JSON.stringify(input),
+      },
+    ], schema, 'reason', { temperature: 0.1, maxTokens: 1200 });
+    const parsed = safeParseJsonObject(response);
+    if (!parsed) return null;
+    return {
+      summary: typeof parsed.summary === 'string' ? parsed.summary : undefined,
+      highlights: Array.isArray(parsed.highlights) ? parsed.highlights.filter(item => typeof item === 'string') : undefined,
+      importance: typeof parsed.importance === 'number' ? parsed.importance : undefined,
+    };
+  }
+
   private processLocalCommand(userMessage: string, mode: ConversationMode, chatWindowId: number): ChatResponse | null {
     const isTemporaryChat = getChatWindow(chatWindowId)?.is_temporary === true;
     const reminders = this.reminder.list();
@@ -391,6 +454,26 @@ export class AthenaController {
       ? saveMessage(role, content, emotion, mode)
       : undefined;
     return { chatMessageId: saved?.id, messageId: globalMessage?.id };
+  }
+}
+
+function safeParseJsonObject(value: string): Record<string, unknown> | null {
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? parsed as Record<string, unknown>
+      : null;
+  } catch {
+    const match = value.match(/\{[\s\S]*\}/);
+    if (!match) return null;
+    try {
+      const parsed = JSON.parse(match[0]);
+      return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+        ? parsed as Record<string, unknown>
+        : null;
+    } catch {
+      return null;
+    }
   }
 }
 

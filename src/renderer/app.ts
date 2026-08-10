@@ -69,7 +69,9 @@ declare global {
       debugMemory: (query: string) => Promise<MemoryDebugResult>;
       listMemoryReviewQueue: (status?: MemoryReviewStatus | 'all', limit?: number) => Promise<MemoryReviewItem[]>;
       approveMemoryReview: (id: number) => Promise<MemoryReviewItem | null>;
+      approveMemoryReviews: (ids: number[]) => Promise<MemoryReviewItem[]>;
       rejectMemoryReview: (id: number) => Promise<MemoryReviewItem | null>;
+      rejectMemoryReviews: (ids: number[]) => Promise<MemoryReviewItem[]>;
       chooseMemoryImportFile: () => Promise<string | null>;
       previewMemoryImport: (sourcePath: string) => Promise<MemoryImportPreview>;
       commitMemoryImport: (sourcePath: string, candidateIds: number[]) => Promise<MemoryImportCommitResult>;

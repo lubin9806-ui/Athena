@@ -50,7 +50,9 @@ import {
   previewChatRecordImport,
   renameChatWindow,
   approveMemoryReviewItem,
+  approveMemoryReviewItems,
   rejectMemoryReviewItem,
+  rejectMemoryReviewItems,
   unpinChatWindowFact,
   updateProject,
   updateMemory,
@@ -105,7 +107,9 @@ const INVOKE_CHANNELS = [
   'memory:debug',
   'memoryReview:list',
   'memoryReview:approve',
+  'memoryReview:approveMany',
   'memoryReview:reject',
+  'memoryReview:rejectMany',
   'memory:chooseImportFile',
   'memory:previewImport',
   'memory:commitImport',
@@ -504,10 +508,20 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     return memoryId ? approveMemoryReviewItem(memoryId) : null;
   });
 
+  ipcMain.handle('memoryReview:approveMany', async (event, ids: unknown) => {
+    if (!isTrustedSender(event)) return [];
+    return approveMemoryReviewItems(cleanPositiveIds(ids));
+  });
+
   ipcMain.handle('memoryReview:reject', async (event, id: unknown) => {
     if (!isTrustedSender(event)) return null;
     const memoryId = cleanPositiveInteger(id);
     return memoryId ? rejectMemoryReviewItem(memoryId) : null;
+  });
+
+  ipcMain.handle('memoryReview:rejectMany', async (event, ids: unknown) => {
+    if (!isTrustedSender(event)) return [];
+    return rejectMemoryReviewItems(cleanPositiveIds(ids));
   });
 
   ipcMain.handle('memory:chooseImportFile', async (event) => {
@@ -661,6 +675,14 @@ function cleanString(value: unknown, maxLength: number): string {
 function cleanPositiveInteger(value: unknown): number | null {
   const parsed = typeof value === 'number' ? value : Number(value);
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+}
+
+function cleanPositiveIds(value: unknown): number[] {
+  if (!Array.isArray(value)) return [];
+  return Array.from(new Set(value
+    .map(cleanPositiveInteger)
+    .filter((id): id is number => Boolean(id))))
+    .slice(0, 200);
 }
 
 function cleanMemoryKind(value: unknown): MemoryKind | null {
