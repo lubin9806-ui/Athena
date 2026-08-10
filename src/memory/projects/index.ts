@@ -1,5 +1,5 @@
 import { getDatabase } from '../database';
-import { deleteMemoryIndex, searchMemoryIndex, upsertMemoryIndex } from '../indexer';
+import { deleteMemoryIndex, normalizeMemorySearchTerms, searchMemoryIndex, upsertMemoryIndex, type MemorySearchTerms } from '../indexer';
 import type { AthenaProject, ProjectNote } from '../../shared/types';
 
 export type ProjectStatus = ProjectNote['status'];
@@ -182,9 +182,11 @@ export function addProjectNote(input: ProjectNoteInput): ProjectNote {
   return created;
 }
 
-export function searchProjectNotes(keyword: string, limit: number = 10): ProjectNote[] {
+export function searchProjectNotes(keyword: MemorySearchTerms, limit: number = 10): ProjectNote[] {
   const db = getDatabase();
-  const indexedIds = searchMemoryIndex('project_notes', [keyword], limit);
+  const terms = normalizeMemorySearchTerms(keyword);
+  if (terms.length === 0) return [];
+  const indexedIds = searchMemoryIndex('project_notes', terms, limit);
   const rows = indexedIds.length > 0
     ? db.prepare(`
         SELECT id, project, title, note, status, tags, importance, created_at, updated_at, last_recalled_at
@@ -197,10 +199,10 @@ export function searchProjectNotes(keyword: string, limit: number = 10): Project
         SELECT id, project, title, note, status, tags, importance, created_at, updated_at, last_recalled_at
         FROM project_notes
         WHERE status != 'archived'
-          AND (project LIKE ? OR title LIKE ? OR note LIKE ? OR tags LIKE ?)
+          AND (${likeClauses(['project', 'title', 'note', 'tags'], terms)})
         ORDER BY importance DESC, updated_at DESC
         LIMIT ?
-      `).all(`%${keyword}%`, `%${keyword}%`, `%${keyword}%`, `%${keyword}%`, limit) as any[];
+      `).all(...likeValues(['project', 'title', 'note', 'tags'], terms), limit) as any[];
 
   const notes = rows.map(rowToProjectNote);
   markProjectNotesRecalled(notes.map(note => note.id));
@@ -355,4 +357,14 @@ function clampImportance(value: number): number {
 
 function placeholders(values: unknown[]): string {
   return values.map(() => '?').join(', ');
+}
+
+function likeClauses(columns: string[], terms: string[]): string {
+  return terms
+    .map(() => `(${columns.map(column => `${column} LIKE ?`).join(' OR ')})`)
+    .join(' OR ');
+}
+
+function likeValues(columns: string[], terms: string[]): string[] {
+  return terms.flatMap(term => columns.map(() => `%${term}%`));
 }

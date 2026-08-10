@@ -1,5 +1,5 @@
 import { getDatabase } from '../database';
-import { deleteMemoryIndex, searchMemoryIndex, upsertMemoryIndex } from '../indexer';
+import { deleteMemoryIndex, normalizeMemorySearchTerms, searchMemoryIndex, upsertMemoryIndex, type MemorySearchTerms } from '../indexer';
 import type { ProfileCategory, ProfileEntry } from '../../shared/types';
 
 export interface ProfileFactInput {
@@ -99,9 +99,11 @@ export function getHighConfidenceProfile(minConfidence: number = 0.4, limit: num
   return rows.map(rowToProfileEntry);
 }
 
-export function searchProfileFacts(keyword: string, limit: number = 12): ProfileEntry[] {
+export function searchProfileFacts(keyword: MemorySearchTerms, limit: number = 12): ProfileEntry[] {
   const db = getDatabase();
-  const indexedIds = searchMemoryIndex('profile', [keyword], limit);
+  const terms = normalizeMemorySearchTerms(keyword);
+  if (terms.length === 0) return [];
+  const indexedIds = searchMemoryIndex('profile', terms, limit);
   const rows = indexedIds.length > 0
     ? db.prepare(`
         SELECT fact, confidence, source, importance, created_at, updated_at
@@ -113,10 +115,10 @@ export function searchProfileFacts(keyword: string, limit: number = 12): Profile
     : db.prepare(`
         SELECT fact, confidence, source, importance, created_at, updated_at
         FROM profile
-        WHERE fact LIKE ?
+        WHERE ${likeClauses(['fact'], terms)}
         ORDER BY importance DESC, confidence DESC, updated_at DESC
         LIMIT ?
-      `).all(`%${keyword}%`, limit) as any[];
+      `).all(...likeValues(['fact'], terms), limit) as any[];
 
   const facts = rows.map(rowToProfileEntry);
   markProfileFactsRecalled(facts.map(fact => fact.fact));
@@ -183,4 +185,14 @@ function clampImportance(value: number): number {
 
 function placeholders(values: unknown[]): string {
   return values.map(() => '?').join(', ');
+}
+
+function likeClauses(columns: string[], terms: string[]): string {
+  return terms
+    .map(() => `(${columns.map(column => `${column} LIKE ?`).join(' OR ')})`)
+    .join(' OR ');
+}
+
+function likeValues(columns: string[], terms: string[]): string[] {
+  return terms.flatMap(term => columns.map(() => `%${term}%`));
 }

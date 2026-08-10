@@ -1,6 +1,7 @@
 import { getDatabase } from '../database';
 
 export type IndexedMemoryTable = 'messages' | 'profile' | 'events' | 'daily_memory_summaries' | 'procedural_memories' | 'memory_facts' | 'project_notes';
+export type MemorySearchTerms = string | string[];
 
 export interface MemoryIndexStats {
   messages: number;
@@ -36,8 +37,8 @@ export function deleteMemoryIndex(sourceTable: IndexedMemoryTable, sourceId: num
     .run(sourceTable, sourceId);
 }
 
-export function searchMemoryIndex(sourceTable: IndexedMemoryTable, keywords: string[], limit: number = 20): number[] {
-  const terms = keywords.map(item => item.trim()).filter(Boolean).slice(0, 12);
+export function searchMemoryIndex(sourceTable: IndexedMemoryTable, keywords: MemorySearchTerms, limit: number = 20): number[] {
+  const terms = normalizeMemorySearchTerms(keywords);
   if (terms.length === 0) return [];
 
   const clauses = terms.map(() => 'keywords LIKE ?').join(' OR ');
@@ -50,6 +51,15 @@ export function searchMemoryIndex(sourceTable: IndexedMemoryTable, keywords: str
   `).all(sourceTable, ...terms.map(term => `%${term}%`), limit) as { source_id: number }[];
 
   return rows.map(row => row.source_id);
+}
+
+export function normalizeMemorySearchTerms(keywords: MemorySearchTerms, maxTerms = 12): string[] {
+  const items = Array.isArray(keywords) ? keywords : [keywords];
+  return Array.from(new Set(
+    items
+      .map(item => item.trim())
+      .filter(Boolean)
+  )).slice(0, maxTerms);
 }
 
 export function rebuildMemoryIndex(): MemoryIndexStats {

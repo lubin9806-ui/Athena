@@ -106,11 +106,12 @@ export function extractKeywords(message: string): string[] {
 }
 
 function collectProfileFacts(keywords: string[], limit: number): ProfileEntry[] {
+  if (limit <= 0) return [];
   const found: ProfileEntry[] = [];
   const seen = new Set<string>();
 
-  for (const keyword of keywords) {
-    for (const fact of searchProfileFacts(keyword, 6)) {
+  if (keywords.length > 0) {
+    for (const fact of searchProfileFacts(keywords, candidateSearchLimit(limit))) {
       if (seen.has(fact.fact)) continue;
       seen.add(fact.fact);
       found.push(fact);
@@ -130,11 +131,12 @@ function collectProfileFacts(keywords: string[], limit: number): ProfileEntry[] 
 }
 
 function collectEvents(keywords: string[], limit: number): MemoryEvent[] {
+  if (limit <= 0) return [];
   const found: MemoryEvent[] = [];
   const seen = new Set<number>();
 
-  for (const keyword of keywords) {
-    for (const event of searchEvents(keyword, 5)) {
+  if (keywords.length > 0) {
+    for (const event of searchEvents(keywords, candidateSearchLimit(limit))) {
       if (seen.has(event.id)) continue;
       seen.add(event.id);
       found.push(event);
@@ -159,11 +161,12 @@ function collectEvents(keywords: string[], limit: number): MemoryEvent[] {
 }
 
 function collectProceduralMemories(keywords: string[], limit: number): ProceduralMemory[] {
+  if (limit <= 0) return [];
   const found: ProceduralMemory[] = [];
   const seen = new Set<string>();
 
-  for (const keyword of keywords) {
-    for (const memory of searchProceduralMemories(keyword, 4)) {
+  if (keywords.length > 0) {
+    for (const memory of searchProceduralMemories(keywords, candidateSearchLimit(limit))) {
       const key = `${memory.scope}:${memory.key}`;
       if (seen.has(key)) continue;
       seen.add(key);
@@ -188,11 +191,12 @@ function collectProceduralMemories(keywords: string[], limit: number): Procedura
 }
 
 function collectTemporalFacts(keywords: string[], limit: number): TemporalMemoryFact[] {
+  if (limit <= 0) return [];
   const found: TemporalMemoryFact[] = [];
   const seen = new Set<string>();
 
-  for (const keyword of keywords) {
-    for (const fact of searchTemporalMemoryFacts(keyword, 5)) {
+  if (keywords.length > 0) {
+    for (const fact of searchTemporalMemoryFacts(keywords, candidateSearchLimit(limit))) {
       const key = `${fact.subject}:${fact.predicate}:${fact.object}`;
       if (seen.has(key)) continue;
       seen.add(key);
@@ -217,11 +221,12 @@ function collectTemporalFacts(keywords: string[], limit: number): TemporalMemory
 }
 
 function collectDailySummaries(keywords: string[], limit: number): DailyMemorySummary[] {
+  if (limit <= 0) return [];
   const found: DailyMemorySummary[] = [];
   const seen = new Set<string>();
 
-  for (const keyword of keywords) {
-    for (const summary of searchDailyMemorySummaries(keyword, 5)) {
+  if (keywords.length > 0) {
+    for (const summary of searchDailyMemorySummaries(keywords, candidateSearchLimit(limit))) {
       if (seen.has(summary.date)) continue;
       seen.add(summary.date);
       found.push(summary);
@@ -244,11 +249,12 @@ function collectDailySummaries(keywords: string[], limit: number): DailyMemorySu
 }
 
 function collectProjectNotes(keywords: string[], limit: number): ProjectNote[] {
+  if (limit <= 0) return [];
   const found: ProjectNote[] = [];
   const seen = new Set<number>();
 
-  for (const keyword of keywords) {
-    for (const note of searchProjectNotes(keyword, 5)) {
+  if (keywords.length > 0) {
+    for (const note of searchProjectNotes(keywords, candidateSearchLimit(limit))) {
       if (seen.has(note.id)) continue;
       seen.add(note.id);
       found.push(note);
@@ -268,6 +274,10 @@ function collectProjectNotes(keywords: string[], limit: number): ProjectNote[] {
     note => `${note.project} ${note.title} ${note.note} ${note.tags.join(' ')}`,
     note => note.importance
   ).slice(0, limit).map(item => item.item);
+}
+
+function candidateSearchLimit(limit: number): number {
+  return Math.max(limit, Math.min(50, limit * 3));
 }
 
 function scoreAndSort<T>(

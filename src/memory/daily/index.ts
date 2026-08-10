@@ -1,5 +1,5 @@
 import { getDatabase } from '../database';
-import { deleteMemoryIndex, searchMemoryIndex, upsertMemoryIndex } from '../indexer';
+import { deleteMemoryIndex, normalizeMemorySearchTerms, searchMemoryIndex, upsertMemoryIndex, type MemorySearchTerms } from '../indexer';
 import type { DailyMemorySummary } from '../../shared/types';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -141,10 +141,12 @@ export function applyMemoryRetentionPolicy(now: Date = new Date()): MemoryRetent
   };
 }
 
-export function searchDailyMemorySummaries(keyword: string, limit = 10, now: Date = new Date()): DailyMemorySummary[] {
+export function searchDailyMemorySummaries(keyword: MemorySearchTerms, limit = 10, now: Date = new Date()): DailyMemorySummary[] {
   const db = getDatabase();
   const safeLimit = Math.max(1, Math.min(50, Math.round(limit)));
-  const indexedIds = searchMemoryIndex('daily_memory_summaries', [keyword], safeLimit);
+  const terms = normalizeMemorySearchTerms(keyword);
+  if (terms.length === 0) return [];
+  const indexedIds = searchMemoryIndex('daily_memory_summaries', terms, safeLimit);
   const rows = indexedIds.length > 0
     ? db.prepare(`
         SELECT ${dailySummaryFields()}
@@ -156,10 +158,10 @@ export function searchDailyMemorySummaries(keyword: string, limit = 10, now: Dat
     : db.prepare(`
         SELECT ${dailySummaryFields()}
         FROM daily_memory_summaries
-        WHERE summary LIKE ? OR highlights LIKE ? OR date = ?
+        WHERE ${likeClauses(['summary', 'highlights'], terms)} OR date IN (${placeholders(terms)})
         ORDER BY importance DESC, date DESC, id DESC
         LIMIT ?
-      `).all(`%${keyword}%`, `%${keyword}%`, keyword, safeLimit) as any[];
+      `).all(...likeValues(['summary', 'highlights'], terms), ...terms, safeLimit) as any[];
 
   return rows
     .map(rowToDailyMemorySummary)
@@ -339,4 +341,14 @@ function clampImportance(value: number): number {
 
 function placeholders(values: unknown[]): string {
   return values.map(() => '?').join(', ');
+}
+
+function likeClauses(columns: string[], terms: string[]): string {
+  return terms
+    .map(() => `(${columns.map(column => `${column} LIKE ?`).join(' OR ')})`)
+    .join(' OR ');
+}
+
+function likeValues(columns: string[], terms: string[]): string[] {
+  return terms.flatMap(term => columns.map(() => `%${term}%`));
 }

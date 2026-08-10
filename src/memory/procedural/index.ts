@@ -1,5 +1,5 @@
 import { getDatabase } from '../database';
-import { deleteMemoryIndex, searchMemoryIndex, upsertMemoryIndex } from '../indexer';
+import { deleteMemoryIndex, normalizeMemorySearchTerms, searchMemoryIndex, upsertMemoryIndex, type MemorySearchTerms } from '../indexer';
 import type { ProceduralMemory } from '../../shared/types';
 
 export interface ProceduralMemoryInput {
@@ -37,10 +37,12 @@ export function upsertProceduralMemory(input: ProceduralMemoryInput): Procedural
   return getProceduralMemory(id) as ProceduralMemory;
 }
 
-export function searchProceduralMemories(keyword: string, limit = 10): ProceduralMemory[] {
+export function searchProceduralMemories(keyword: MemorySearchTerms, limit = 10): ProceduralMemory[] {
   const db = getDatabase();
   const safeLimit = Math.max(1, Math.min(50, Math.round(limit)));
-  const indexedIds = searchMemoryIndex('procedural_memories', [keyword], safeLimit);
+  const terms = normalizeMemorySearchTerms(keyword);
+  if (terms.length === 0) return [];
+  const indexedIds = searchMemoryIndex('procedural_memories', terms, safeLimit);
   const rows = indexedIds.length > 0
     ? db.prepare(`
         SELECT ${proceduralFields()}
@@ -53,10 +55,10 @@ export function searchProceduralMemories(keyword: string, limit = 10): Procedura
         SELECT ${proceduralFields()}
         FROM procedural_memories
         WHERE status = 'active'
-          AND (key LIKE ? OR instruction LIKE ? OR evidence LIKE ? OR scope LIKE ?)
+          AND (${likeClauses(['key', 'instruction', 'evidence', 'scope'], terms)})
         ORDER BY importance DESC, confidence DESC, updated_at DESC
         LIMIT ?
-      `).all(`%${keyword}%`, `%${keyword}%`, `%${keyword}%`, `%${keyword}%`, safeLimit) as any[];
+      `).all(...likeValues(['key', 'instruction', 'evidence', 'scope'], terms), safeLimit) as any[];
 
   const memories = rows.map(rowToProceduralMemory);
   markProceduralMemoriesRecalled(memories.map(memory => memory.id));
@@ -141,4 +143,14 @@ function clampImportance(value: number): number {
 
 function placeholders(values: unknown[]): string {
   return values.map(() => '?').join(', ');
+}
+
+function likeClauses(columns: string[], terms: string[]): string {
+  return terms
+    .map(() => `(${columns.map(column => `${column} LIKE ?`).join(' OR ')})`)
+    .join(' OR ');
+}
+
+function likeValues(columns: string[], terms: string[]): string[] {
+  return terms.flatMap(term => columns.map(() => `%${term}%`));
 }

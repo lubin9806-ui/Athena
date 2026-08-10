@@ -1,5 +1,5 @@
 import { getDatabase } from '../database';
-import { deleteMemoryIndex, searchMemoryIndex, upsertMemoryIndex } from '../indexer';
+import { deleteMemoryIndex, normalizeMemorySearchTerms, searchMemoryIndex, upsertMemoryIndex, type MemorySearchTerms } from '../indexer';
 import type { TemporalMemoryFact } from '../../shared/types';
 
 export interface TemporalMemoryFactInput {
@@ -74,10 +74,12 @@ export function addTemporalMemoryFact(input: TemporalMemoryFactInput): TemporalM
   return getTemporalMemoryFact(result) as TemporalMemoryFact;
 }
 
-export function searchTemporalMemoryFacts(keyword: string, limit = 10): TemporalMemoryFact[] {
+export function searchTemporalMemoryFacts(keyword: MemorySearchTerms, limit = 10): TemporalMemoryFact[] {
   const db = getDatabase();
   const safeLimit = Math.max(1, Math.min(50, Math.round(limit)));
-  const indexedIds = searchMemoryIndex('memory_facts', [keyword], safeLimit);
+  const terms = normalizeMemorySearchTerms(keyword);
+  if (terms.length === 0) return [];
+  const indexedIds = searchMemoryIndex('memory_facts', terms, safeLimit);
   const rows = indexedIds.length > 0
     ? db.prepare(`
         SELECT ${factFields()}
@@ -91,10 +93,10 @@ export function searchTemporalMemoryFacts(keyword: string, limit = 10): Temporal
         FROM memory_facts
         WHERE status = 'active'
           AND valid_to IS NULL
-          AND (subject LIKE ? OR predicate LIKE ? OR object LIKE ? OR summary LIKE ?)
+          AND (${likeClauses(['subject', 'predicate', 'object', 'summary'], terms)})
         ORDER BY importance DESC, confidence DESC, valid_from DESC
         LIMIT ?
-      `).all(`%${keyword}%`, `%${keyword}%`, `%${keyword}%`, `%${keyword}%`, safeLimit) as any[];
+      `).all(...likeValues(['subject', 'predicate', 'object', 'summary'], terms), safeLimit) as any[];
   return rows.map(rowToTemporalMemoryFact);
 }
 
@@ -181,4 +183,14 @@ function clampImportance(value: number): number {
 
 function placeholders(values: unknown[]): string {
   return values.map(() => '?').join(', ');
+}
+
+function likeClauses(columns: string[], terms: string[]): string {
+  return terms
+    .map(() => `(${columns.map(column => `${column} LIKE ?`).join(' OR ')})`)
+    .join(' OR ');
+}
+
+function likeValues(columns: string[], terms: string[]): string[] {
+  return terms.flatMap(term => columns.map(() => `%${term}%`));
 }
