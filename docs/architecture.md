@@ -11,6 +11,8 @@ Athena now has one active desktop runtime path:
 
 The durable agent domain is under `src/core/agent` and uses the canonical SQLite database. It owns task specifications, run checkpoints, guarded phases, scoped approvals, artifacts, and append-only run events. During the staged migration it is not yet the active chat/tool dispatcher; `docs/AGENT_PLATFORM_ARCHITECTURE.md` defines the ownership transfer blocks.
 
+Model requests pass through the provider-neutral contract in `src/core/ai/model`. `LLMClient` is the compatibility facade; OpenAI-compatible and Ollama adapters own request serialization, native tool calls, streaming accumulation, response normalization, and truthful capability reporting.
+
 ## Runtime Paths
 
 Runtime path resolution is centralized in `src/core/runtime/Paths.ts`.

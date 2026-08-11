@@ -46,6 +46,28 @@ The canonical implementation is under `src/core/agent`. SQLite schema v10 owns t
 
 Block 01 does not replace the current `Conversation`, `ToolRuntime`, or renderer flow. It establishes the durable contract that blocks 02 and 03 will adopt. The old fixed in-memory `WorkflowManager` remains temporarily for compatibility and is retired only after the new runner is wired through IPC and UI.
 
+## Block 02: Provider-Neutral Model Adapters
+
+The canonical model protocol is under `src/core/ai/model`. `LLMClient` remains the compatibility facade used by the current conversation and research paths, but delegates transport and protocol details to:
+
+- `OpenAICompatibleAdapter`: OpenAI, DeepSeek, Athena Cloud, and conservative custom endpoints.
+- `OllamaAdapter`: local Ollama chat, structured output, native tools, and NDJSON streaming.
+
+The shared contract carries typed messages, function definitions, tool choice, parsed tool calls, streaming events, finish reasons, usage, response formats, cancellation signals, and provider capabilities. Assistant tool calls and tool results remain in message history so block 03 can run a real multi-turn agent loop.
+
+Capability claims are explicit. OpenAI supports strict function schemas. DeepSeek strict schemas are enabled only for `/beta`; stable DeepSeek still uses native tool calls without claiming strict validation. Custom OpenAI-compatible endpoints default to conservative tool-choice capabilities. Ollama tool results are correlated by tool name, while OpenAI-compatible results use call IDs.
+
+Malformed tool argument JSON, duplicate definitions, unsupported tool-choice modes, and references to missing tools fail before execution. Streaming OpenAI function names and argument strings are accumulated by call index; Ollama NDJSON content and tool calls are normalized into the same response type.
+
+Block 02 does not execute tools. The legacy JSON planner remains active until block 03 introduces `AgentRunner` and `ToolRegistry`; that cutover can now consume `LLMClient.chatWithTools()` without provider-specific branches.
+
+Run:
+
+```powershell
+npm.cmd run test:model-adapters
+npm.cmd run test:model-providers
+```
+
 ## Acceptance
 
 Run:

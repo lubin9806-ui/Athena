@@ -53,6 +53,7 @@
     "test:tools": "tsc && node scripts/verify-computer-tools.js",
     "test:tools:live": "tsc && node scripts/verify-computer-tools.js --live",
     "test:model-providers": "tsc && electron scripts/verify-model-providers.js",
+    "test:model-adapters": "tsc && node scripts/verify-model-adapters.js",
     "test:agent-foundation": "tsc && electron scripts/verify-agent-foundation.js",
     "test:deepseek:live": "tsc && electron scripts/verify-deepseek-live-chat.js",
     "smoke:electron": "node scripts/clean-dist.js && vite build --config vite.config.mts && tsc && electron . --smoke-test",

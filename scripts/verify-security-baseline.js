@@ -9,7 +9,10 @@ const htmlSource = fs.readFileSync(path.join(root, 'src/renderer/index.html'), '
 const viteSource = fs.readFileSync(path.join(root, 'vite.config.mts'), 'utf8');
 const builderSource = fs.readFileSync(path.join(root, 'electron-builder.yml'), 'utf8');
 const tsconfig = JSON.parse(fs.readFileSync(path.join(root, 'tsconfig.json'), 'utf8'));
-const config = JSON.parse(fs.readFileSync(path.join(root, 'config/settings.json'), 'utf8'));
+const config = JSON.parse(
+  process.env.ATHENA_SECURITY_BASELINE_SETTINGS_JSON
+    || fs.readFileSync(path.join(root, 'config/settings.json'), 'utf8'),
+);
 const { cleanChatPayload, cleanExistingFilePath, isTrustedIpcSender, MAX_CHAT_CHARS } = require('../dist/app/ipc/validation');
 const { buildToolConfirmation, buildToolArgumentPreview } = require('../dist/core/tools/ToolRuntime');
 const permissionGate = require('../dist/app/security/PermissionGate');

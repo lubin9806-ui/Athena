@@ -3,6 +3,10 @@ const fs = require('fs/promises');
 const http = require('http');
 const path = require('path');
 
+const root = path.resolve(__dirname, '..');
+const scratch = path.join(root, 'temp', 'computer-tools-verification');
+process.env.ATHENA_CONFIG_DIR = path.join(scratch, 'config');
+
 const { ComputerToolService } = require('../dist/core/tools/ComputerTools.js');
 const { LLMClient } = require('../dist/core/ai/Client.js');
 const { buildToolArgumentPreview, requiresComputerAction, ToolRuntime, shouldPlanComputerTools } = require('../dist/core/tools/ToolRuntime.js');
@@ -10,8 +14,6 @@ const { toolPermissionPrompt } = require('../dist/core/tools/ComputerTools.js');
 const { buildChatPrompt } = require('../dist/core/ai/PromptBuilder.js');
 const { getSettingsBundle, normalizeToolSettings, resolveToolSettingsForMode } = require('../dist/core/config/SettingsStore.js');
 
-const root = path.resolve(__dirname, '..');
-const scratch = path.join(root, 'temp', 'computer-tools-verification');
 let serviceForCleanup = null;
 
 function settings(permissionLevel) {

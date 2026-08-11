@@ -9,6 +9,7 @@ import { buildStyleProfile, type StyleProfile } from './StyleEngine';
 import { buildManagedContext, type ContextSnapshotPayload } from './ContextManager';
 import { buildPersonalizationPrompt, getAppSettings } from '../config/SettingsStore';
 import { buildSteamAiGuardrailPrompt } from '../steam/SteamAiGuardrails';
+import type { ModelMessage } from './model';
 import type { ConversationMode, Message, RetrievedContext, WebSearchContext } from '../../shared/types';
 
 export function buildSystemPrompt(style?: StyleProfile, persona: PersonaCard = resolvePersonaCard(getAppSettings().profile)): string {
@@ -29,7 +30,7 @@ export function buildChatPrompt(input: {
   toolContext?: string;
   mode?: ConversationMode;
   personaProfileId?: string;
-}): { role: string; content: string }[] {
+}): ModelMessage[] {
   return buildChatPromptWithSnapshot(input).messages;
 }
 
@@ -42,7 +43,7 @@ export function buildChatPromptWithSnapshot(input: {
   mode?: ConversationMode;
   maxPromptTokens?: number;
   personaProfileId?: string;
-}): { messages: { role: string; content: string }[]; snapshot: ContextSnapshotPayload } {
+}): { messages: ModelMessage[]; snapshot: ContextSnapshotPayload } {
   const now = new Date();
   const hour = now.getHours();
   const mode = input.mode ?? 'companion';

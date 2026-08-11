@@ -1,4 +1,5 @@
 const assert = require('assert');
+process.env.ATHENA_PERSONA_PROFILE = 'athena-neutral';
 const {
   WebSearchService,
   buildSecondarySearchQuery,

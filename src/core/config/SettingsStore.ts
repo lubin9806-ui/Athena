@@ -621,7 +621,11 @@ function normalizeRemoteBaseUrl(provider: RemoteModelProvider, value: string): s
       return parsed.toString().replace(/\/$/, '');
     }
     if (provider === 'deepseek' && hostname === 'api.deepseek.com') {
-      parsed.pathname = pathname === '/v1' || pathname === '/anthropic' || pathname === '/beta' ? '' : parsed.pathname;
+      parsed.pathname = pathname === '/v1' || pathname === '/anthropic'
+        ? ''
+        : pathname === '/beta'
+          ? '/beta'
+          : parsed.pathname;
       return parsed.toString().replace(/\/$/, '');
     }
     if (pathname.endsWith('/models')) parsed.pathname = parsed.pathname.slice(0, -'/models'.length) || '';

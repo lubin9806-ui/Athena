@@ -75,6 +75,10 @@ async function main() {
     } });
     assert.strictEqual(normalized.model.remote.openai.baseUrl, 'https://api.openai.com/v1');
     assert.strictEqual(normalized.model.remote.deepseek.baseUrl, 'https://api.deepseek.com');
+    const deepseekBeta = saveSettingsBundle({ model: {
+      remote: { deepseek: { baseUrl: 'https://api.deepseek.com/beta' } },
+    } });
+    assert.strictEqual(deepseekBeta.model.remote.deepseek.baseUrl, 'https://api.deepseek.com/beta');
 
     const client = new LLMClient(bundle.model, () => 'sk-athena-provider-fixture');
     assert.strictEqual(await client.checkConnection(), true);
