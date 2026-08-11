@@ -9,7 +9,7 @@ process.env.ATHENA_CONFIG_DIR = path.join(scratch, 'config');
 
 const { ComputerToolService } = require('../dist/core/tools/ComputerTools.js');
 const { LLMClient } = require('../dist/core/ai/Client.js');
-const { buildToolArgumentPreview, requiresComputerAction, ToolRuntime, shouldPlanComputerTools } = require('../dist/core/tools/ToolRuntime.js');
+const { buildToolArgumentPreview, buildToolConfirmation, requiresComputerAction, ToolRuntime, shouldPlanComputerTools } = require('../dist/core/tools/ToolRuntime.js');
 const { toolPermissionPrompt } = require('../dist/core/tools/ComputerTools.js');
 const { buildChatPrompt } = require('../dist/core/ai/PromptBuilder.js');
 const { getSettingsBundle, normalizeToolSettings, resolveToolSettingsForMode } = require('../dist/core/config/SettingsStore.js');
@@ -151,6 +151,11 @@ async function verifyService() {
   assert(fileDefinitions.includes('move_matching_files'));
   assert(!fileDefinitions.includes('run_command'));
   assert(fullDefinitions.includes('run_command'));
+  assert.equal(
+    buildToolConfirmation('copy_path', 'Copy path', { source: 'a.txt', destination: 'b.txt' }).risk,
+    'destructive-file',
+    'copy_path defaults to overwrite and must require confirmation unless overwrite=false',
+  );
   assert(fullDefinitions.includes('terminal_start'));
   assert(fullDefinitions.includes('terminal_write'));
   assert(fullDefinitions.includes('terminal_read'));

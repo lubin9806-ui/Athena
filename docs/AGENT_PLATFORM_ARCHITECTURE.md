@@ -68,7 +68,32 @@ npm.cmd run test:model-adapters
 npm.cmd run test:model-providers
 ```
 
-## Acceptance
+## Block 03: Durable Agent Runtime
+
+The canonical execution kernel is under `src/core/agent`:
+
+- `ToolRegistry` owns versioned tool definitions, Ajv argument validation, retry and timeout contracts, idempotency metadata, redacted persistence views, and normalized results.
+- `AgentPolicyEngine` intersects the durable task capability declaration with explicit run grants, then returns allow, approval, or deny. Only that capability intersection is exposed to the model.
+- `AgentRunner` owns one native tool-call loop across providers. Model rounds, pending batches, tool results, validation evidence, approvals, and recovery cursors are persisted in the run checkpoint.
+- `ComputerAgentToolBridge` adapts the existing permission-gated computer tools without bypassing `ComputerToolService`. Runtime permission is checked again when execution begins, so a permission downgrade remains effective even before registry refresh.
+
+High-risk calls pause the complete model tool batch before any call executes. Approvals bind the run step, tool name, tool version, capability, risk level, call ID, and a canonical argument fingerprint. A changed tool version or strengthened policy requires a new approval.
+
+Tool retries are permitted only for idempotent tools or tools that support an idempotency key. After an interrupted process, a completed step is reconstructed without replay; an uncertain non-idempotent step pauses for a new critical replay approval. Cancellation aborts the active model/tool signal and terminalizes pending steps and approvals.
+
+Required task validations must have explicit passed evidence from tool results before the runner can complete the task. A final model message alone is not verification evidence.
+
+Block 03 is a core-runtime cutover, not the project workspace UI. The current `Conversation` and legacy JSON `ToolRuntime` remain the active renderer path until block 04 provides task creation, run controls, approval surfaces, history, and resume IPC.
+
+Run:
+
+```powershell
+npm.cmd run test:agent-runtime
+```
+
+The runtime acceptance covers schema rejection, capability denial, grouped approval, restart recovery, bounded idempotent retry, cancellation, duplicate-run locking, non-idempotent replay approval, completed-step reconstruction, validation evidence, tool-version approval invalidation, computer-tool permission revocation, and approval cleanup.
+
+## Block 01 Acceptance
 
 Run:
 

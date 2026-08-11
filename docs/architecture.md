@@ -13,6 +13,8 @@ The durable agent domain is under `src/core/agent` and uses the canonical SQLite
 
 Model requests pass through the provider-neutral contract in `src/core/ai/model`. `LLMClient` is the compatibility facade; OpenAI-compatible and Ollama adapters own request serialization, native tool calls, streaming accumulation, response normalization, and truthful capability reporting.
 
+Durable execution is coordinated by `AgentRunner`, `ToolRegistry`, and `AgentPolicyEngine` under `src/core/agent`. The runtime persists every model/tool boundary, validates arguments locally, binds approvals to versioned scoped calls, limits retries to replay-safe tools, and refuses completion when required validation evidence is missing. `src/core/tools/AgentComputerTools.ts` bridges the existing desktop tools while preserving their live permission checks.
+
 ## Runtime Paths
 
 Runtime path resolution is centralized in `src/core/runtime/Paths.ts`.

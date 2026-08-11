@@ -542,7 +542,7 @@ export function buildToolConfirmation(
   ]);
   if (destructiveFileTools.has(toolName)
     || (toolName === 'write_file' && String(args.mode || 'overwrite') === 'overwrite')
-    || (toolName === 'copy_path' && args.overwrite === true)) {
+    || (toolName === 'copy_path' && args.overwrite !== false)) {
     return {
       toolName,
       toolLabel,
