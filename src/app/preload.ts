@@ -27,6 +27,11 @@ contextBridge.exposeInMainWorld('athenaAPI', {
     ipcRenderer.on('agent:workspace-changed', handler);
     return () => ipcRenderer.removeListener('agent:workspace-changed', handler);
   },
+  getSkillLibrary: () => ipcRenderer.invoke('skill:list'),
+  installSkillFromDirectory: (replace = false) => ipcRenderer.invoke('skill:installFromDirectory', replace),
+  setSkillTrust: (name: string, packageHash: string, trust: 'approved' | 'untrusted' | 'quarantined') => ipcRenderer.invoke('skill:setTrust', { name, packageHash, trust }),
+  setSkillEnabled: (name: string, packageHash: string, enabled: boolean) => ipcRenderer.invoke('skill:setEnabled', { name, packageHash, enabled }),
+  uninstallSkill: (name: string, packageHash: string) => ipcRenderer.invoke('skill:uninstall', { name, packageHash }),
   getToolCatalog: (mode?: 'create' | 'companion' | 'reason' | 'execute') => ipcRenderer.invoke('tools:catalog', mode),
   onChatStream: (callback: (data: { content: string; done: boolean }) => void) => {
     const handler = (_: any, data: { content: string; done: boolean }) => callback(data);

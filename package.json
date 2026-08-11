@@ -57,6 +57,7 @@
     "test:agent-foundation": "tsc && electron scripts/verify-agent-foundation.js",
     "test:agent-runtime": "tsc && electron scripts/verify-agent-runtime.js",
     "test:project-workspace": "tsc && electron scripts/verify-project-workspace.js",
+    "test:skill-library": "tsc && node scripts/verify-skill-library.js",
     "test:deepseek:live": "tsc && electron scripts/verify-deepseek-live-chat.js",
     "smoke:electron": "node scripts/clean-dist.js && vite build --config vite.config.mts && tsc && electron . --smoke-test",
     "clean:dist": "node scripts/clean-dist.js",
@@ -71,7 +72,8 @@
     "ajv": "8.20.0",
     "better-sqlite3": "12.11.1",
     "cheerio": "1.2.0",
-    "electron-updater": "6.8.9"
+    "electron-updater": "6.8.9",
+    "yaml": "2.9.0"
   },
   "devDependencies": {
     "@types/better-sqlite3": "7.6.13",

@@ -89,6 +89,11 @@ const INVOKE_CHANNELS = [
   'agentRun:resolveApproval',
   'agentRun:resume',
   'agentRun:cancel',
+  'skill:list',
+  'skill:installFromDirectory',
+  'skill:setTrust',
+  'skill:setEnabled',
+  'skill:uninstall',
   'tools:catalog',
   'system:info',
   'config:get',
@@ -376,6 +381,50 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     });
   });
 
+  ipcMain.handle('skill:list', async (event) => {
+    if (!isTrustedSender(event)) return null;
+    return controller.getSkillLibrary();
+  });
+
+  ipcMain.handle('skill:installFromDirectory', async (event, replaceValue: unknown) => {
+    if (!isTrustedSender(event)) return null;
+    const selection = await dialog.showOpenDialog(mainWindow, {
+      title: '选择包含 SKILL.md 的 Skill 文件夹',
+      properties: ['openDirectory'],
+    });
+    const source = selection.canceled ? null : selection.filePaths[0];
+    return source ? controller.installSkillFromDirectory(source, replaceValue === true) : null;
+  });
+
+  ipcMain.handle('skill:setTrust', async (event, value: unknown) => {
+    if (!isTrustedSender(event)) return null;
+    if (!isRecord(value)) return null;
+    const name = cleanSkillName(value.name);
+    const packageHash = cleanSha256(value.packageHash);
+    const trust = value.trust === 'approved' || value.trust === 'untrusted' || value.trust === 'quarantined'
+      ? value.trust
+      : null;
+    return name && packageHash && trust ? controller.setSkillTrust(name, packageHash, trust) : null;
+  });
+
+  ipcMain.handle('skill:setEnabled', async (event, value: unknown) => {
+    if (!isTrustedSender(event)) return null;
+    if (!isRecord(value)) return null;
+    const name = cleanSkillName(value.name);
+    const packageHash = cleanSha256(value.packageHash);
+    return name && packageHash && typeof value.enabled === 'boolean'
+      ? controller.setSkillEnabled(name, packageHash, value.enabled)
+      : null;
+  });
+
+  ipcMain.handle('skill:uninstall', async (event, value: unknown) => {
+    if (!isTrustedSender(event)) return null;
+    if (!isRecord(value)) return null;
+    const name = cleanSkillName(value.name);
+    const packageHash = cleanSha256(value.packageHash);
+    return name && packageHash ? controller.uninstallSkill(name, packageHash) : null;
+  });
+
   ipcMain.handle('tools:catalog', async (event, value: unknown) => {
     if (!isTrustedSender(event)) return null;
     const mode = value === 'create' || value === 'companion' || value === 'reason' || value === 'execute'
@@ -621,12 +670,16 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
 
   ipcMain.handle('privacy:export', async (event, format: unknown) => {
     if (!isTrustedSender(event)) return null;
-    return exportAllData(format === 'markdown' ? 'markdown' : 'json');
+    return exportAllData(format === 'markdown' ? 'markdown' : 'json', {
+      agentSkills: controller.getSkillPrivacyData(),
+    });
   });
 
   ipcMain.handle('privacy:clearLocalData', async (event) => {
     if (!isTrustedSender(event)) return null;
-    return clearAllLocalData();
+    return clearAllLocalData({
+      clearSkillInvocationHistory: () => controller.clearSkillInvocationHistory(),
+    });
   });
 
   ipcMain.handle('voice:speak', async (event, text: unknown) => {
@@ -836,6 +889,16 @@ function cleanAgentId(value: unknown): string | null {
   if (typeof value !== 'string') return null;
   const id = value.trim();
   return /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(id) ? id : null;
+}
+
+function cleanSkillName(value: unknown): string | null {
+  return typeof value === 'string' && /^(?!-)(?!.*--)[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value) && value.length <= 64
+    ? value
+    : null;
+}
+
+function cleanSha256(value: unknown): string | null {
+  return typeof value === 'string' && /^[a-f0-9]{64}$/.test(value) ? value : null;
 }
 
 function notifyAgentWorkspaceChanged(

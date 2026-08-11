@@ -20,6 +20,8 @@ database/*.db-wal
 database/backups/
 memory/*.json
 config/personas/
+config/skills/
+config/skills-state.json
 personality/private/
 
 # Environment

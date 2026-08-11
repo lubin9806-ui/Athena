@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { getAppSettings, getSettingsBundle, shouldSaveHistory } from '../config/SettingsStore';
-import { resolveProjectRoot, resolveWritableConfigFile } from '../runtime/Paths';
+import { resolveProjectRoot, resolveSkillStateFile, resolveWritableConfigFile } from '../runtime/Paths';
 import {
   getDatabase,
   getDatabaseBackupDir,
@@ -55,6 +55,17 @@ export interface PrivacyCenterState {
     voiceTemp: string;
     backups: string;
   };
+}
+
+export interface SupplementalPrivacyData {
+  agentSkills?: {
+    packages: Record<string, unknown>;
+    invocations: unknown[];
+  };
+}
+
+export interface LocalDataClearHooks {
+  clearSkillInvocationHistory?: () => number;
 }
 
 const VOICE_EXPORT_MAX_BYTES = 12 * 1024 * 1024;
@@ -150,7 +161,11 @@ export function cleanupVoiceCache(retentionHours = getAppSettings().data.voiceCa
   return removed;
 }
 
-export function clearAllLocalData(): { deletedTables: string[]; voiceCacheFilesDeleted: number } {
+export function clearAllLocalData(hooks: LocalDataClearHooks = {}): {
+  deletedTables: string[];
+  voiceCacheFilesDeleted: number;
+  skillInvocationsDeleted: number;
+} {
   const db = getDatabase();
   const deletedTables = [
     'agent_run_events',
@@ -185,16 +200,20 @@ export function clearAllLocalData(): { deletedTables: string[]; voiceCacheFilesD
     // WAL mode or open readers may defer compaction; deletion is the privacy control.
   }
   const voiceCacheFilesDeleted = cleanupVoiceCache(1, new Date(Date.now() + 3650 * 24 * 60 * 60 * 1000));
-  return { deletedTables, voiceCacheFilesDeleted };
+  const skillInvocationsDeleted = hooks.clearSkillInvocationHistory?.() ?? 0;
+  return { deletedTables, voiceCacheFilesDeleted, skillInvocationsDeleted };
 }
 
-export function exportAllData(format: ExportFormat = getAppSettings().data.exportFormat): { path: string; bytes: number } {
+export function exportAllData(
+  format: ExportFormat = getAppSettings().data.exportFormat,
+  supplemental: SupplementalPrivacyData = {},
+): { path: string; bytes: number } {
   const exportDir = getExportDir();
   fs.mkdirSync(exportDir, { recursive: true });
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
   const ext = format === 'markdown' ? 'md' : 'json';
   const exportPath = path.join(exportDir, `athena-data-export-${stamp}.${ext}`);
-  const payload = buildExportPayload();
+  const payload = buildExportPayload(supplemental);
   const body = format === 'markdown' ? renderMarkdownExport(payload) : `${JSON.stringify(payload, null, 2)}\n`;
   fs.writeFileSync(exportPath, body, 'utf8');
   const bytes = fs.statSync(exportPath).size;
@@ -212,7 +231,7 @@ export function historyDisabledDataPatch(settings: AppSettings): Partial<AppSett
   };
 }
 
-function buildExportPayload(): Record<string, unknown> {
+function buildExportPayload(supplemental: SupplementalPrivacyData): Record<string, unknown> {
   const db = getDatabase();
   const settings = getAppSettings();
   return {
@@ -222,6 +241,7 @@ function buildExportPayload(): Record<string, unknown> {
     networkCapabilities: buildNetworkCapabilityNotices(settings.privacy.networkConsent),
     staticProtection: buildStaticProtectionDecision(),
     settings: redactSettingsBundle(),
+    agentSkills: supplemental.agentSkills || { packages: {}, invocations: [] },
     database: {
       path: getDatabaseFilePath(),
       stats: getStats(),
@@ -291,6 +311,15 @@ function buildDataMap(settings: AppSettings): DataMapItem[] {
       leavesDevice: '不会自动上传；在线能力只有在相应同意后才会把对应文本或音频发往第三方。',
       retention: '长期保留，直到用户修改配置或卸载/删除配置目录',
       controls: ['设置抽屉', '隐私与数据中心', '导出时包含脱敏副本'],
+    },
+    {
+      id: 'agent-skills',
+      label: 'Agent Skills',
+      stored: 'Installed skill packages, content-bound trust decisions, enablement state, and actual instruction/resource load evidence',
+      locations: [resolveSkillStateFile(), configDir],
+      leavesDevice: 'Skill packages and invocation evidence remain local unless their content is explicitly sent through an approved model or tool request.',
+      retention: 'Installed packages and trust decisions remain until changed by the user. One-click clear removes invocation evidence but preserves installed packages and explicit trust decisions.',
+      controls: ['Skill library approval', 'Enable or disable', 'Uninstall', 'Complete export', 'One-click activity clear'],
     },
     {
       id: 'search',

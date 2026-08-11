@@ -1474,6 +1474,60 @@ summary:focus-visible {
   margin-top: 8px;
 }
 
+.skill-library-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.skill-library-item {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--control-bg);
+}
+
+.skill-library-item-head,
+.skill-library-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 7px;
+}
+
+.skill-library-name {
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.skill-library-description,
+.skill-library-meta {
+  color: var(--text-dim);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.skill-library-actions {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+}
+
+.skill-library-actions button {
+  min-height: 28px;
+  padding: 0 9px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  color: var(--text-muted);
+  background: transparent;
+  cursor: pointer;
+}
+
 .agent-inline-form {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 34px;

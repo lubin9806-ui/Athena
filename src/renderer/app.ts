@@ -52,6 +52,11 @@ declare global {
       resumeAgentRun: (projectId: number, runId: string) => Promise<AgentRunnerResult | null>;
       cancelAgentRun: (projectId: number, runId: string) => Promise<AgentRunnerResult | null>;
       onAgentWorkspaceChanged: (callback: (event: { projectId: number; taskId?: string; runId?: string }) => void) => () => void;
+      getSkillLibrary: () => Promise<AgentSkillLibrarySnapshot | null>;
+      installSkillFromDirectory: (replace?: boolean) => Promise<AgentSkillSummary | null>;
+      setSkillTrust: (name: string, packageHash: string, trust: 'approved' | 'untrusted' | 'quarantined') => Promise<AgentSkillSummary | null>;
+      setSkillEnabled: (name: string, packageHash: string, enabled: boolean) => Promise<AgentSkillSummary | null>;
+      uninstallSkill: (name: string, packageHash: string) => Promise<boolean | null>;
       getToolCatalog: (mode?: AthenaMode) => Promise<ToolCatalog | null>;
       onChatStream: (callback: (data: { content: string; done: boolean }) => void) => () => void;
       onChatError: (callback: (error: string) => void) => () => void;
@@ -88,7 +93,7 @@ declare global {
       commitMemoryImport: (sourcePath: string, candidateIds: number[]) => Promise<MemoryImportCommitResult>;
       getPrivacyCenter: () => Promise<PrivacyCenterState | null>;
       exportPrivacyData: (format?: 'json' | 'markdown') => Promise<{ path: string; bytes: number } | null>;
-      clearLocalData: () => Promise<{ deletedTables: string[]; voiceCacheFilesDeleted: number } | null>;
+      clearLocalData: () => Promise<{ deletedTables: string[]; voiceCacheFilesDeleted: number; skillInvocationsDeleted: number } | null>;
       speakText: (text: string) => Promise<VoiceResult>;
       playAudioFile: (sourcePath: string) => Promise<VoiceResult>;
       chooseAudioFile: () => Promise<string | null>;
@@ -446,6 +451,26 @@ interface AgentRunnerResult {
   content: string;
   error: string | null;
   snapshot: AgentRunSnapshot;
+}
+
+interface AgentSkillSummary {
+  name: string;
+  description: string;
+  version: string | null;
+  source: 'builtin' | 'project' | 'user' | 'external';
+  packageHash: string;
+  trust: 'builtin' | 'approved' | 'untrusted' | 'quarantined';
+  enabled: boolean;
+  hasScripts: boolean;
+  resourceCount: number;
+  warnings: string[];
+}
+
+interface AgentSkillLibrarySnapshot {
+  skills: AgentSkillSummary[];
+  invocations: Array<{ skillName: string; runId: string; resourcePath: string; loadedAt: string }>;
+  roots: Array<{ source: string; path: string }>;
+  diagnostics: Array<{ source: string; path: string; error: string }>;
 }
 
 interface PersonalizationSettings {
@@ -823,6 +848,9 @@ const agentApprovalSection = mustGet<HTMLElement>('agent-approval-section');
 const agentApprovalList = mustGet<HTMLElement>('agent-approval-list');
 const agentPlanList = mustGet<HTMLElement>('agent-plan-list');
 const agentArtifactList = mustGet<HTMLElement>('agent-artifact-list');
+const skillInstall = mustGet<HTMLButtonElement>('skill-install');
+const skillLibrarySummary = mustGet<HTMLElement>('skill-library-summary');
+const skillLibraryList = mustGet<HTMLElement>('skill-library-list');
 const settingsOpenExecution = mustGet<HTMLButtonElement>('settings-open-execution');
 const memoryPanel = mustGet<HTMLElement>('memory-panel');
 const btnMemoryClose = mustGet<HTMLButtonElement>('btn-memory-close');
@@ -1001,6 +1029,7 @@ let executionTaskSequence = 0;
 let agentWorkspace: AgentProjectWorkspaceSnapshot | null = null;
 let selectedAgentTaskId: string | undefined;
 let agentWorkspaceLoading = false;
+let skillLibrarySnapshot: AgentSkillLibrarySnapshot | null = null;
 let currentAudio: HTMLAudioElement | null = null;
 let voiceInputState: VoiceInputState = 'idle';
 let voiceFeedbackTimer: number | undefined;
@@ -1068,7 +1097,10 @@ function setMode(mode: AthenaMode): void {
   workModeSwitch.setAttribute('aria-hidden', String(nextSpace !== 'work'));
   syncToolAccessHint();
   if (toolsPanel.dataset.open === 'true') void loadToolCatalog();
-  if (mode === 'execute') void refreshAgentWorkspace();
+  if (mode === 'execute') {
+    void refreshAgentWorkspace();
+    void refreshSkillLibrary();
+  }
 }
 
 function setModeSwitchDisabled(disabled: boolean): void {
@@ -1299,6 +1331,13 @@ function init(): void {
     if (button?.dataset.agentTaskId) void refreshAgentWorkspace(button.dataset.agentTaskId);
   });
   agentWorkspaceRefresh.addEventListener('click', () => void refreshAgentWorkspace(selectedAgentTaskId));
+  skillInstall.addEventListener('click', () => void installSkillFromDirectory());
+  skillLibraryList.addEventListener('click', (event) => {
+    const button = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('[data-skill-action]') : null;
+    const name = button?.dataset.skillName;
+    const packageHash = button?.dataset.skillHash;
+    if (button && name && packageHash) void handleSkillAction(button.dataset.skillAction || '', name, packageHash);
+  });
   agentRootForm.addEventListener('submit', (event) => {
     event.preventDefault();
     void addAgentWorkspaceRoot();
@@ -1612,6 +1651,117 @@ function webSearchProviderLabel(provider?: WebSearchStatus['provider']): string 
 function setAgentExecutionFeedback(message: string): void {
   agentExecutionFeedback.textContent = message;
   agentExecutionFeedback.hidden = !message;
+}
+
+async function refreshSkillLibrary(): Promise<void> {
+  try {
+    skillLibrarySnapshot = await window.athenaAPI.getSkillLibrary();
+    renderSkillLibrary();
+  } catch (error) {
+    skillLibrarySummary.textContent = `Skill 库读取失败：${error instanceof Error ? error.message : String(error)}`;
+  }
+}
+
+function renderSkillLibrary(): void {
+  const snapshot = skillLibrarySnapshot;
+  if (!snapshot) {
+    skillLibrarySummary.textContent = 'Skill 库不可用';
+    renderAgentEmpty(skillLibraryList, '没有可显示的 Skill');
+    return;
+  }
+  const trusted = snapshot.skills.filter(skill => skill.enabled && (skill.trust === 'approved' || skill.trust === 'builtin')).length;
+  skillLibrarySummary.textContent = `${snapshot.skills.length} 个已发现 · ${trusted} 个可调用 · ${snapshot.invocations.length} 条真实加载记录 · ${snapshot.diagnostics.length} 个无效包`;
+  if (snapshot.skills.length === 0) {
+    renderAgentEmpty(skillLibraryList, '可安装符合 Agent Skills 规范的 SKILL.md 文件夹');
+    return;
+  }
+  const items = snapshot.skills.map(skill => {
+    const item = document.createElement('div');
+    item.className = 'skill-library-item';
+    const head = document.createElement('div');
+    head.className = 'skill-library-item-head';
+    const name = document.createElement('div');
+    name.className = 'skill-library-name';
+    name.textContent = skill.name;
+    const trust = document.createElement('div');
+    trust.className = 'execution-state-badge';
+    trust.textContent = skillTrustLabel(skill.trust, skill.enabled);
+    head.append(name, trust);
+    const description = document.createElement('div');
+    description.className = 'skill-library-description';
+    description.textContent = skill.description;
+    const meta = document.createElement('div');
+    meta.className = 'skill-library-meta';
+    meta.textContent = `${skill.source} · ${skill.version || '无版本'} · ${skill.resourceCount} 个资源${skill.hasScripts ? ' · 含脚本' : ''}`;
+    const actions = document.createElement('div');
+    actions.className = 'skill-library-actions';
+    if (skill.trust !== 'builtin') {
+      if (skill.trust !== 'approved') actions.append(createSkillAction('approve', '批准', skill));
+      if (skill.trust !== 'quarantined') actions.append(createSkillAction('quarantine', '隔离', skill));
+      if (skill.trust === 'approved') actions.append(createSkillAction(skill.enabled ? 'disable' : 'enable', skill.enabled ? '停用' : '启用', skill));
+      if (skill.source === 'user') actions.append(createSkillAction('uninstall', '卸载', skill));
+    }
+    item.append(head, description, meta, actions);
+    return item;
+  });
+  for (const diagnostic of snapshot.diagnostics.slice(0, 10)) {
+    const item = document.createElement('div');
+    item.className = 'skill-library-item';
+    const name = document.createElement('div');
+    name.className = 'skill-library-name';
+    name.textContent = '无效 Skill 包';
+    const meta = document.createElement('div');
+    meta.className = 'skill-library-meta';
+    meta.textContent = `${diagnostic.source} · ${diagnostic.path}`;
+    const description = document.createElement('div');
+    description.className = 'skill-library-description';
+    description.textContent = diagnostic.error;
+    item.append(name, meta, description);
+    items.push(item);
+  }
+  skillLibraryList.replaceChildren(...items);
+}
+
+function createSkillAction(action: string, label: string, skill: AgentSkillSummary): HTMLButtonElement {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.dataset.skillAction = action;
+  button.dataset.skillName = skill.name;
+  button.dataset.skillHash = skill.packageHash;
+  button.textContent = label;
+  return button;
+}
+
+async function handleSkillAction(action: string, name: string, packageHash: string): Promise<void> {
+  try {
+    if (action === 'approve') await window.athenaAPI.setSkillTrust(name, packageHash, 'approved');
+    else if (action === 'quarantine') await window.athenaAPI.setSkillTrust(name, packageHash, 'quarantined');
+    else if (action === 'enable' || action === 'disable') await window.athenaAPI.setSkillEnabled(name, packageHash, action === 'enable');
+    else if (action === 'uninstall') await window.athenaAPI.uninstallSkill(name, packageHash);
+    await refreshSkillLibrary();
+  } catch (error) {
+    setAgentExecutionFeedback(`Skill 操作失败：${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+async function installSkillFromDirectory(): Promise<void> {
+  skillInstall.disabled = true;
+  try {
+    const installed = await window.athenaAPI.installSkillFromDirectory(false);
+    if (installed) setAgentExecutionFeedback(`已安装 ${installed.name}，请审查后批准；当前不会自动调用。`);
+    await refreshSkillLibrary();
+  } catch (error) {
+    setAgentExecutionFeedback(`Skill 安装失败：${error instanceof Error ? error.message : String(error)}`);
+  } finally {
+    skillInstall.disabled = false;
+  }
+}
+
+function skillTrustLabel(trust: AgentSkillSummary['trust'], enabled: boolean): string {
+  if (trust === 'builtin') return '内置可信';
+  if (trust === 'quarantined') return '已隔离';
+  if (trust === 'approved') return enabled ? '已启用' : '已批准';
+  return '待审查';
 }
 
 async function refreshAgentWorkspace(taskId = selectedAgentTaskId): Promise<void> {

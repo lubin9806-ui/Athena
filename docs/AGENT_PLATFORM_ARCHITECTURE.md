@@ -27,6 +27,17 @@ Each block must preserve the active desktop runtime and have a focused acceptanc
 - The execution workspace exposes durable task state, grouped approvals, checkpoints, runtime steps, artifacts, cancellation, and restart-resume controls. Permission settings are re-read before every start or resume.
 - Acceptance command: `npm.cmd run test:project-workspace`.
 
+## Block 05: Agent Skill Library
+
+Athena follows the [Agent Skills specification](https://github.com/agentskills/agentskills/blob/main/docs/specification.mdx): `SKILL.md` YAML frontmatter is parsed with a YAML parser, names match directory names, and instructions/resources use progressive disclosure.
+
+- `SkillLibrary` discovers built-in, Project (`.agents/skills`), user, and explicitly configured external roots. It validates package limits, rejects symlinks and path traversal, computes deterministic SHA-256 package hashes, and reports invalid packages as diagnostics.
+- Third-party packages are installed transactionally and start as untrusted and disabled. Approval and enablement are separate actions. Content changes produce a new hash and require a new review; quarantine removes runtime eligibility.
+- `allowed-tools` is retained as experimental metadata only. It never grants Athena capabilities or bypasses the Agent policy engine.
+- `SkillAgentToolBridge` exposes only trusted, enabled skills through `list_skills`, `load_skill`, and text-only `read_skill_resource`. Scripts are never auto-executed. Full instructions load only after model selection, and every actual instruction/resource load records run and step evidence.
+- Package hashes are rechecked immediately before instruction or resource access. Privacy export includes trust and invocation evidence; one-click clear removes invocation history while preserving installed packages and explicit trust decisions.
+- Acceptance command: `npm.cmd run test:skill-library`.
+
 ## Block 01: Durable Agent Domain
 
 The canonical implementation is under `src/core/agent`. SQLite schema v10 owns these records:

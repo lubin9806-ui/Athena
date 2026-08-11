@@ -101,7 +101,7 @@ function writeVoiceCache(name, ageHours) {
     assert.strictEqual(fs.existsSync(freshVoice), true);
 
     const center = getPrivacyCenterState();
-    const requiredMapIds = ['chat', 'long-term-memory', 'settings', 'search', 'voice', 'agent-work', 'tools', 'logs', 'temporary-files'];
+    const requiredMapIds = ['chat', 'long-term-memory', 'settings', 'agent-skills', 'search', 'voice', 'agent-work', 'tools', 'logs', 'temporary-files'];
     assert.deepStrictEqual(requiredMapIds.every(id => center.dataMap.some(item => item.id === id)), true);
     assert.strictEqual(center.staticProtection.status, 'plaintext-sqlite-with-compensating-controls');
     assert.match(center.staticProtection.claim, /未加密/);
@@ -143,7 +143,11 @@ function writeVoiceCache(name, ageHours) {
     const agentStep = agentStore.appendStep({ runId: agentRun.id, kind: 'verification', title: 'Verify privacy lifecycle' });
     agentStore.addArtifact({ taskId: agentTask.id, runId: agentRun.id, stepId: agentStep.id, kind: 'report', name: 'Privacy evidence' });
 
-    const exported = exportAllData('json');
+    const skillPrivacyData = {
+      packages: { 'fixture-hash': { trust: 'approved', enabled: true } },
+      invocations: [{ skillName: 'fixture-skill', runId: agentRun.id, stepId: agentStep.id }],
+    };
+    const exported = exportAllData('json', { agentSkills: skillPrivacyData });
     assert(fs.existsSync(exported.path), 'data export should exist');
     const exportedJson = JSON.parse(fs.readFileSync(exported.path, 'utf8'));
     assert.strictEqual(exportedJson.staticProtection.status, 'plaintext-sqlite-with-compensating-controls');
@@ -153,6 +157,8 @@ function writeVoiceCache(name, ageHours) {
     assert(exportedJson.database.agent_tasks.some(row => row.id === agentTask.id));
     assert(exportedJson.database.agent_runs.some(row => row.id === agentRun.id));
     assert(exportedJson.database.agent_artifacts.some(row => row.name === 'Privacy evidence'));
+    assert.strictEqual(exportedJson.agentSkills.packages['fixture-hash'].trust, 'approved');
+    assert.strictEqual(exportedJson.agentSkills.invocations[0].skillName, 'fixture-skill');
     assert(exportedJson.files.voiceCache.some(file => file.path === freshVoice && file.contentBase64));
 
     db.prepare("INSERT INTO profile (category, fact) VALUES ('preference', 'clear me')").run();
@@ -165,8 +171,17 @@ function writeVoiceCache(name, ageHours) {
     db.prepare("INSERT INTO memory_fact_sources (fact_id, source_table, quote) VALUES (?, 'manual', 'clear source')").run(clearFactId);
     db.prepare("INSERT INTO memory_review_queue (kind, title, content, payload_json) VALUES ('fact', 'clear review', 'clear review content', '{}')").run();
     db.prepare("INSERT INTO project_notes (project, title, note) VALUES ('Athena', 'clear project', 'clear note')").run();
-    const cleared = clearAllLocalData();
+    let skillInvocations = 1;
+    const cleared = clearAllLocalData({
+      clearSkillInvocationHistory: () => {
+        const deleted = skillInvocations;
+        skillInvocations = 0;
+        return deleted;
+      },
+    });
     assert(cleared.deletedTables.includes('messages'));
+    assert.strictEqual(cleared.skillInvocationsDeleted, 1);
+    assert.strictEqual(skillInvocations, 0);
     for (const table of ['agent_run_events', 'agent_approvals', 'agent_artifacts', 'agent_steps', 'agent_runs', 'agent_tasks', 'context_snapshots', 'chat_messages', 'chat_windows', 'projects', 'messages', 'profile', 'events', 'daily_memory_summaries', 'procedural_memories', 'memory_entities', 'memory_facts', 'memory_fact_sources', 'memory_review_queue', 'project_notes', 'memory_index', 'data_activity_records']) {
       assert.strictEqual(tableCount(db, table), 0, `${table} should be empty after clear`);
     }

@@ -13,6 +13,7 @@ import {
   type UpdateAgentWorkspaceInput,
 } from '../agent';
 import { ComputerAgentToolBridge } from '../tools/AgentComputerTools';
+import { SkillAgentToolBridge, SkillLibrary } from '../skills';
 import { evaluateSteamAiContent, steamAiGuardrailRefusal } from '../steam/SteamAiGuardrails';
 import { isSteamSku } from '../steam/SteamSkuPolicy';
 import {
@@ -49,6 +50,8 @@ import type {
   AgentProjectWorkspaceSnapshot,
   AgentRunSnapshot,
   AgentWorkspaceMetadata,
+  AgentSkillLibrarySnapshot,
+  AgentSkillSummary,
   ChatResponse,
   ConversationMode,
   MemorySettings,
@@ -83,6 +86,8 @@ export class AthenaController {
   private readonly agentTools: ToolRegistry;
   private readonly agentComputerTools: ComputerAgentToolBridge;
   private readonly projectWorkspace: ProjectWorkspaceService;
+  private readonly skillLibrary: SkillLibrary;
+  private readonly skillTools: SkillAgentToolBridge;
   private agentRunner: AgentRunner;
   private initialized = false;
   private initializePromise: Promise<void> | null = null;
@@ -103,6 +108,8 @@ export class AthenaController {
       getSettings: () => this.resolveAgentToolSettings(),
     });
     this.projectWorkspace = new ProjectWorkspaceService(this.agentStore);
+    this.skillLibrary = new SkillLibrary();
+    this.skillTools = new SkillAgentToolBridge(this.agentTools, this.skillLibrary);
     this.agentRunner = new AgentRunner(this.llm, this.agentTools, undefined, this.agentStore);
   }
 
@@ -363,8 +370,12 @@ export class AthenaController {
       throw new Error('当前聊天窗口尚未归属可执行的 Project。');
     }
     const toolNames = this.agentComputerTools.refresh();
-    if (toolNames.length === 0) {
-      throw new Error('执行模式的电脑工具权限处于关闭状态，请先在执行工作区设置权限。');
+    this.skillTools.refresh();
+    const trustedSkills = this.skillLibrary.snapshot().skills.filter(skill => skill.enabled && (
+      skill.trust === 'approved' || skill.trust === 'builtin'
+    ));
+    if (toolNames.length === 0 && trustedSkills.length === 0) {
+      throw new Error('执行模式没有可用电脑工具或可信 Skill，请先设置权限或在 Skill 库中批准技能。');
     }
     const savedUser = this.saveConversationMessage('user', goal, undefined, 'execute', chatWindow.id);
     this.persistExtractedMemory(goal, savedUser.messageId, chatWindow.id);
@@ -398,6 +409,43 @@ export class AthenaController {
       artifactCount: result.snapshot.artifacts.length,
     });
     return this.agentResultToChatResponse(result, true);
+  }
+
+  getSkillLibrary(): AgentSkillLibrarySnapshot {
+    this.skillLibrary.discover();
+    return this.skillLibrary.snapshot();
+  }
+
+  getSkillPrivacyData(): ReturnType<SkillLibrary['getPrivacyData']> {
+    return this.skillLibrary.getPrivacyData();
+  }
+
+  clearSkillInvocationHistory(): number {
+    return this.skillLibrary.clearInvocationHistory();
+  }
+
+  installSkillFromDirectory(sourceDirectory: string, replace = false): AgentSkillSummary {
+    const installed = this.skillLibrary.installFromDirectory(sourceDirectory, replace);
+    this.skillTools.refresh();
+    return installed;
+  }
+
+  setSkillTrust(name: string, packageHash: string, trust: 'approved' | 'untrusted' | 'quarantined'): AgentSkillSummary {
+    const skill = this.skillLibrary.setTrust(name, packageHash, trust);
+    this.skillTools.refresh();
+    return skill;
+  }
+
+  setSkillEnabled(name: string, packageHash: string, enabled: boolean): AgentSkillSummary {
+    const skill = this.skillLibrary.setEnabled(name, packageHash, enabled);
+    this.skillTools.refresh();
+    return skill;
+  }
+
+  uninstallSkill(name: string, packageHash: string): boolean {
+    const removed = this.skillLibrary.uninstall(name, packageHash);
+    this.skillTools.refresh();
+    return removed;
   }
 
   async resolveAgentApprovalGroup(
@@ -460,6 +508,7 @@ export class AthenaController {
     }
     this.conversation.shutdown();
     this.agentComputerTools.shutdown();
+    this.skillTools.shutdown();
     closeDatabase();
     this.initialized = false;
     logger.info('Athena shutdown complete.');

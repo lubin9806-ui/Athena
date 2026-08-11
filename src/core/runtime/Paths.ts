@@ -81,6 +81,32 @@ export function resolveSkillsFile(fileName: string): string | null {
   ]);
 }
 
+export function resolveUserSkillsRoot(): string {
+  if (process.env.ATHENA_SKILLS_HOME) return path.resolve(process.env.ATHENA_SKILLS_HOME);
+  return path.join(path.dirname(resolveWritableConfigFile('skills-state.json')), 'skills');
+}
+
+export function resolveSkillStateFile(): string {
+  return resolveWritableConfigFile('skills-state.json');
+}
+
+export function resolveSkillDiscoveryRoots(projectRoot = resolveProjectRoot()): Array<{
+  source: 'builtin' | 'project' | 'user' | 'external';
+  path: string;
+}> {
+  const roots: Array<{ source: 'builtin' | 'project' | 'user' | 'external'; path: string }> = [
+    { source: 'builtin', path: path.join(projectRoot, 'resources', 'skills') },
+    { source: 'project', path: path.join(projectRoot, '.agents', 'skills') },
+    { source: 'user', path: resolveUserSkillsRoot() },
+  ];
+  if (process.env.ATHENA_SKILLS_DIR) {
+    roots.push({ source: 'external', path: path.resolve(process.env.ATHENA_SKILLS_DIR) });
+  }
+  return roots.filter((item, index, all) => all.findIndex(candidate => (
+    candidate.path.toLowerCase() === item.path.toLowerCase()
+  )) === index);
+}
+
 export function resolveVoiceRootCandidates(): string[] {
   const projectRoot = resolveProjectRoot();
   const packagedResources = resourcesPath();
