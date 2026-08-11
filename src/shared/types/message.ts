@@ -5,6 +5,7 @@ import type { ContextSnapshotRecord, MemoryEvent, ProjectNote } from './memory';
 import type { ConversationMode } from './settings';
 import type { WebSearchSummary } from './search';
 import type { ToolExecutionRecord } from './tools';
+import type { AgentExecutionSummary } from './agent';
 
 export interface Message {
   id: number;
@@ -54,6 +55,7 @@ export interface ChatResponse {
   };
   contextSnapshot?: ContextSnapshotRecord;
   toolExecutions?: ToolExecutionRecord[];
+  agentExecution?: AgentExecutionSummary;
 }
 
 export interface ChatStreamChunk {

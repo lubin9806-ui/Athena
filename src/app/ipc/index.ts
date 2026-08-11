@@ -84,6 +84,11 @@ const INVOKE_CHANNELS = [
   'chatWindow:unpinFact',
   'chatWindow:contextSnapshots',
   'execution:cancel',
+  'agentWorkspace:get',
+  'agentWorkspace:update',
+  'agentRun:resolveApproval',
+  'agentRun:resume',
+  'agentRun:cancel',
   'tools:catalog',
   'system:info',
   'config:get',
@@ -158,7 +163,13 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     const { text: userMessage, mode, forceWebSearch, chatWindowId } = payload;
 
     try {
-      const response = await controller.processMessage(
+      const response = mode === 'execute'
+        ? await controller.executeAgentMessage(
+          userMessage,
+          chatWindowId,
+          snapshot => notifyAgentWorkspaceChanged(mainWindow, snapshot.task.projectId, snapshot.task.id, snapshot.run.id),
+        )
+        : await controller.processMessage(
         userMessage,
         mode,
         (chunk) => {
@@ -182,7 +193,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
           },
           onToolConfirm: (request: ToolConfirmationRequest) => confirmToolExecution(mainWindow, request),
         },
-      );
+        );
       if (!mainWindow.isDestroyed()) {
         mainWindow.webContents.send('chat:stream', { content: '', done: true });
       }
@@ -308,6 +319,61 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
   ipcMain.handle('execution:cancel', async (event) => {
     if (!isTrustedSender(event)) return false;
     return controller.cancelCurrentExecution() > 0;
+  });
+
+  ipcMain.handle('agentWorkspace:get', async (event, projectValue: unknown, taskValue?: unknown) => {
+    if (!isTrustedSender(event)) return null;
+    const projectId = cleanPositiveInteger(projectValue);
+    const taskId = cleanAgentId(taskValue);
+    return projectId ? controller.getAgentWorkspace(projectId, taskId || undefined) : null;
+  });
+
+  ipcMain.handle('agentWorkspace:update', async (event, projectValue: unknown, value: unknown) => {
+    if (!isTrustedSender(event)) return null;
+    const projectId = cleanPositiveInteger(projectValue);
+    if (!projectId || !isRecord(value)) return null;
+    const revision = cleanNonNegativeInteger(value.revision);
+    if (revision === null) return null;
+    const roots = value.roots === undefined ? undefined : cleanStringList(value.roots, 12, MAX_PATH_CHARS);
+    const goals = value.goals === undefined ? undefined : cleanWorkspaceGoals(value.goals);
+    const metadata = controller.updateAgentWorkspace(projectId, { roots, goals }, revision);
+    notifyAgentWorkspaceChanged(mainWindow, projectId);
+    return metadata;
+  });
+
+  ipcMain.handle('agentRun:resolveApproval', async (event, value: unknown) => {
+    if (!isTrustedSender(event)) return null;
+    if (!isRecord(value)) return null;
+    const runId = cleanAgentId(value.runId);
+    const approvalId = cleanAgentId(value.approvalId);
+    const projectId = cleanPositiveInteger(value.projectId);
+    const decision = value.decision === 'approved' || value.decision === 'denied' ? value.decision : null;
+    if (!projectId || !runId || !approvalId || !decision) return null;
+    return controller.resolveAgentApprovalGroup(projectId, runId, approvalId, decision, snapshot => {
+      notifyAgentWorkspaceChanged(mainWindow, snapshot.task.projectId, snapshot.task.id, snapshot.run.id);
+    });
+  });
+
+  ipcMain.handle('agentRun:resume', async (event, value: unknown) => {
+    if (!isTrustedSender(event)) return null;
+    if (!isRecord(value)) return null;
+    const projectId = cleanPositiveInteger(value.projectId);
+    const runId = cleanAgentId(value.runId);
+    if (!projectId || !runId) return null;
+    return controller.resumeAgentRun(projectId, runId, snapshot => {
+      notifyAgentWorkspaceChanged(mainWindow, snapshot.task.projectId, snapshot.task.id, snapshot.run.id);
+    });
+  });
+
+  ipcMain.handle('agentRun:cancel', async (event, value: unknown) => {
+    if (!isTrustedSender(event)) return null;
+    if (!isRecord(value)) return null;
+    const projectId = cleanPositiveInteger(value.projectId);
+    const runId = cleanAgentId(value.runId);
+    if (!projectId || !runId) return null;
+    return controller.cancelAgentRun(projectId, runId, snapshot => {
+      notifyAgentWorkspaceChanged(mainWindow, snapshot.task.projectId, snapshot.task.id, snapshot.run.id);
+    });
   });
 
   ipcMain.handle('tools:catalog', async (event, value: unknown) => {
@@ -749,6 +815,37 @@ function cleanStringList(value: unknown, maxItems: number, maxLength: number): s
     .map(item => item.trim().slice(0, maxLength))
     .slice(0, maxItems);
   return items.length > 0 ? items : [];
+}
+
+function cleanWorkspaceGoals(value: unknown): Array<{ id?: string; title: string; status: 'active' | 'achieved' | 'paused' }> | undefined {
+  if (!Array.isArray(value)) return undefined;
+  return value.slice(0, 30).flatMap(item => {
+    if (!isRecord(item)) return [];
+    const title = cleanString(item.title, 500);
+    if (!title) return [];
+    const id = cleanAgentId(item.id);
+    return [{
+      ...(id ? { id } : {}),
+      title,
+      status: item.status === 'achieved' || item.status === 'paused' ? item.status : 'active',
+    }];
+  });
+}
+
+function cleanAgentId(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const id = value.trim();
+  return /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(id) ? id : null;
+}
+
+function notifyAgentWorkspaceChanged(
+  mainWindow: BrowserWindow,
+  projectId: number | null,
+  taskId?: string,
+  runId?: string,
+): void {
+  if (mainWindow.isDestroyed() || !projectId) return;
+  mainWindow.webContents.send('agent:workspace-changed', { projectId, taskId, runId });
 }
 
 function toRendererPersonaState(resolved: ResolvedPersonaCard): ResolvedPersonaCard {

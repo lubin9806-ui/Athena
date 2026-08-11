@@ -25,6 +25,7 @@ declare global {
           error?: string;
         };
         toolExecutions?: ChatToolExecution[];
+        agentExecution?: { taskId: string; runId: string; status: AgentRunStatus };
       } | null>;
       listProjects: (includeArchived?: boolean) => Promise<AthenaProjectRecord[]>;
       createProject: (title?: string, instructions?: string) => Promise<AthenaProjectRecord | null>;
@@ -41,6 +42,16 @@ declare global {
       unpinChatWindowFact: (id: number, factId: string) => Promise<ChatWindowRecord | null>;
       getChatWindowContextSnapshots: (id: number, limit?: number) => Promise<ContextSnapshotRecord[]>;
       cancelExecution: () => Promise<boolean>;
+      getAgentWorkspace: (projectId: number, taskId?: string) => Promise<AgentProjectWorkspaceSnapshot | null>;
+      updateAgentWorkspace: (projectId: number, value: {
+        revision: number;
+        roots?: string[];
+        goals?: Array<{ id?: string; title: string; status: AgentWorkspaceGoal['status'] }>;
+      }) => Promise<AgentWorkspaceMetadata | null>;
+      resolveAgentApproval: (projectId: number, runId: string, approvalId: string, decision: 'approved' | 'denied') => Promise<AgentRunnerResult | null>;
+      resumeAgentRun: (projectId: number, runId: string) => Promise<AgentRunnerResult | null>;
+      cancelAgentRun: (projectId: number, runId: string) => Promise<AgentRunnerResult | null>;
+      onAgentWorkspaceChanged: (callback: (event: { projectId: number; taskId?: string; runId?: string }) => void) => () => void;
       getToolCatalog: (mode?: AthenaMode) => Promise<ToolCatalog | null>;
       onChatStream: (callback: (data: { content: string; done: boolean }) => void) => () => void;
       onChatError: (callback: (error: string) => void) => () => void;
@@ -351,6 +362,90 @@ interface ExecutionTask {
   events: ExecutionTimelineEvent[];
   executions: ChatToolExecution[];
   finalResponse?: string;
+}
+
+type AgentTaskStatus = 'draft' | 'ready' | 'active' | 'blocked' | 'completed' | 'failed' | 'cancelled' | 'archived';
+type AgentRunStatus = 'completed' | 'paused' | 'failed' | 'cancelled';
+
+interface AgentWorkspaceGoal {
+  id: string;
+  title: string;
+  status: 'active' | 'achieved' | 'paused';
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface AgentWorkspaceMetadata {
+  version: 1;
+  revision: number;
+  roots: string[];
+  goals: AgentWorkspaceGoal[];
+  updatedAt: string;
+}
+
+interface AgentTaskRecord {
+  id: string;
+  projectId: number | null;
+  chatWindowId: number | null;
+  title: string;
+  status: AgentTaskStatus;
+  spec: {
+    goal: string;
+    plan: Array<{ id: string; title: string; successCriteria: string[] }>;
+  };
+  revision: number;
+  activeRunId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface AgentRunRecord {
+  id: string;
+  taskId: string;
+  status: 'queued' | 'running' | 'paused' | 'completed' | 'failed' | 'cancelled';
+  phase: string;
+  state: Record<string, unknown>;
+  approvalGroupId: string | null;
+  error: string | null;
+  createdAt: string;
+  startedAt: string | null;
+  updatedAt: string;
+  completedAt: string | null;
+}
+
+interface AgentRunSnapshot {
+  task: AgentTaskRecord;
+  run: AgentRunRecord;
+  steps: Array<{ id: string; sequence: number; title: string; kind: string; status: string; error: string | null }>;
+  approvals: Array<{
+    id: string;
+    groupId: string;
+    status: 'pending' | 'approved' | 'denied' | 'cancelled';
+    capability: string;
+    riskLevel: string;
+    request: Record<string, unknown>;
+  }>;
+  artifacts: Array<{ id: string; name: string; kind: string; uri: string | null; validationStatus: string }>;
+  events: Array<{ id: number; type: string; payload: Record<string, unknown>; createdAt: string }>;
+}
+
+interface AgentProjectWorkspaceSnapshot {
+  project: { id: number; title: string; instructions: string };
+  metadata: AgentWorkspaceMetadata;
+  board: Record<AgentTaskStatus, AgentTaskRecord[]>;
+  tasks: AgentTaskRecord[];
+  selectedTask: AgentTaskRecord | null;
+  runs: AgentRunRecord[];
+  selectedRun: AgentRunSnapshot | null;
+  recoverableRunIds: string[];
+}
+
+interface AgentRunnerResult {
+  runId: string;
+  status: AgentRunStatus;
+  content: string;
+  error: string | null;
+  snapshot: AgentRunSnapshot;
 }
 
 interface PersonalizationSettings {
@@ -700,6 +795,7 @@ const toolsPanelSummary = mustGet<HTMLElement>('tools-panel-summary');
 const toolsPanelFilter = mustGet<HTMLElement>('tools-panel-filter');
 const toolsPanelList = mustGet<HTMLElement>('tools-panel-list');
 const executionPanel = mustGet<HTMLElement>('execution-panel');
+const agentExecutionFeedback = mustGet<HTMLElement>('agent-execution-feedback');
 const executionCurrentCard = mustGet<HTMLElement>('execution-current-card');
 const executionStateLabel = mustGet<HTMLElement>('execution-state-label');
 const executionCurrentGoal = mustGet<HTMLElement>('execution-current-goal');
@@ -708,10 +804,25 @@ const executionCurrentResult = mustGet<HTMLElement>('execution-current-result');
 const executionLiveLog = mustGet<HTMLOListElement>('execution-live-log');
 const executionHistory = mustGet<HTMLElement>('execution-history');
 const executionStop = mustGet<HTMLButtonElement>('execution-stop');
+const agentRunResume = mustGet<HTMLButtonElement>('agent-run-resume');
 const executionClear = mustGet<HTMLButtonElement>('execution-clear');
 const executionSettingsForm = mustGet<HTMLFormElement>('execution-settings-form');
 const executionSettingsFeedback = mustGet<HTMLElement>('execution-settings-feedback');
 const executionCurrentPermission = mustGet<HTMLElement>('execution-current-permission');
+const agentProjectTitle = mustGet<HTMLElement>('agent-project-title');
+const agentWorkspaceRevision = mustGet<HTMLElement>('agent-workspace-revision');
+const agentRootList = mustGet<HTMLElement>('agent-root-list');
+const agentRootForm = mustGet<HTMLFormElement>('agent-root-form');
+const agentRootInput = mustGet<HTMLInputElement>('agent-root-input');
+const agentGoalList = mustGet<HTMLElement>('agent-goal-list');
+const agentGoalForm = mustGet<HTMLFormElement>('agent-goal-form');
+const agentGoalInput = mustGet<HTMLInputElement>('agent-goal-input');
+const agentWorkspaceRefresh = mustGet<HTMLButtonElement>('agent-workspace-refresh');
+const agentTaskBoard = mustGet<HTMLElement>('agent-task-board');
+const agentApprovalSection = mustGet<HTMLElement>('agent-approval-section');
+const agentApprovalList = mustGet<HTMLElement>('agent-approval-list');
+const agentPlanList = mustGet<HTMLElement>('agent-plan-list');
+const agentArtifactList = mustGet<HTMLElement>('agent-artifact-list');
 const settingsOpenExecution = mustGet<HTMLButtonElement>('settings-open-execution');
 const memoryPanel = mustGet<HTMLElement>('memory-panel');
 const btnMemoryClose = mustGet<HTMLButtonElement>('btn-memory-close');
@@ -887,6 +998,9 @@ let pendingExecutionMode: AthenaMode = 'companion';
 let currentExecutionTask: ExecutionTask | null = null;
 let executionTasks: ExecutionTask[] = [];
 let executionTaskSequence = 0;
+let agentWorkspace: AgentProjectWorkspaceSnapshot | null = null;
+let selectedAgentTaskId: string | undefined;
+let agentWorkspaceLoading = false;
 let currentAudio: HTMLAudioElement | null = null;
 let voiceInputState: VoiceInputState = 'idle';
 let voiceFeedbackTimer: number | undefined;
@@ -954,6 +1068,7 @@ function setMode(mode: AthenaMode): void {
   workModeSwitch.setAttribute('aria-hidden', String(nextSpace !== 'work'));
   syncToolAccessHint();
   if (toolsPanel.dataset.open === 'true') void loadToolCatalog();
+  if (mode === 'execute') void refreshAgentWorkspace();
 }
 
 function setModeSwitchDisabled(disabled: boolean): void {
@@ -1039,7 +1154,10 @@ async function sendMessage(text: string): Promise<void> {
   toggleComposerTools(false);
   resizeInputBox();
   activeRequestMode = requestMode;
-  if (requestMode === 'execute') beginExecutionRequest(text);
+  if (requestMode === 'execute') {
+    setAgentExecutionFeedback('');
+    beginExecutionRequest(text);
+  }
   else {
     const userMessage = chatPanel.addMessage(text, 'user');
     motionSystem.animateSentMessage(userMessage, text);
@@ -1059,7 +1177,10 @@ async function sendMessage(text: string): Promise<void> {
     const response = await window.athenaAPI.sendMessage(text, requestMode, forceWebSearch, currentChatWindowId ?? undefined);
     if (response) modelConnected = true;
     if (requestMode === 'execute') {
+      if (response?.agentExecution?.taskId) selectedAgentTaskId = response.agentExecution.taskId;
+      setAgentExecutionFeedback(response?.agentExecution ? '' : response?.content || '任务未能启动。');
       finishExecutionTask(response?.toolExecutions ?? [], response?.content || currentContent);
+      await refreshAgentWorkspace(selectedAgentTaskId);
     } else {
       if (!currentContent && response?.content) {
         chatPanel.addMessage(response.content, 'assistant', response.emotion?.label);
@@ -1075,7 +1196,10 @@ async function sendMessage(text: string): Promise<void> {
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : '未知错误';
-    if (requestMode === 'execute') failActiveExecutionTask(message);
+    if (requestMode === 'execute') {
+      setAgentExecutionFeedback(`任务未启动：${message}`);
+      failActiveExecutionTask(message);
+    }
     else chatPanel.addMessage(`出错了：${message}`, 'assistant', '需要检查');
   } finally {
     await titleUpdate;
@@ -1168,7 +1292,40 @@ function init(): void {
   workModeSwitch.addEventListener('keydown', handleWorkModeSwitchKeydown);
 
   executionStop.addEventListener('click', cancelActiveExecution);
-  executionClear.addEventListener('click', clearExecutionHistory);
+  agentRunResume.addEventListener('click', () => void resumeSelectedAgentRun());
+  executionClear.addEventListener('click', () => void refreshAgentWorkspace(selectedAgentTaskId));
+  executionHistory.addEventListener('click', (event) => {
+    const button = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('[data-agent-task-id]') : null;
+    if (button?.dataset.agentTaskId) void refreshAgentWorkspace(button.dataset.agentTaskId);
+  });
+  agentWorkspaceRefresh.addEventListener('click', () => void refreshAgentWorkspace(selectedAgentTaskId));
+  agentRootForm.addEventListener('submit', (event) => {
+    event.preventDefault();
+    void addAgentWorkspaceRoot();
+  });
+  agentGoalForm.addEventListener('submit', (event) => {
+    event.preventDefault();
+    void addAgentWorkspaceGoal();
+  });
+  agentRootList.addEventListener('click', (event) => {
+    const button = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('[data-agent-root-index]') : null;
+    if (button) void removeAgentWorkspaceRoot(Number(button.dataset.agentRootIndex));
+  });
+  agentGoalList.addEventListener('click', (event) => {
+    const button = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('[data-agent-goal-id]') : null;
+    if (button?.dataset.agentGoalId) void cycleAgentWorkspaceGoal(button.dataset.agentGoalId);
+  });
+  agentTaskBoard.addEventListener('click', (event) => {
+    const button = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('[data-agent-task-id]') : null;
+    if (button?.dataset.agentTaskId) void refreshAgentWorkspace(button.dataset.agentTaskId);
+  });
+  agentApprovalList.addEventListener('click', (event) => {
+    const button = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('[data-agent-approval-id]') : null;
+    const decision = button?.dataset.decision;
+    if (button?.dataset.agentApprovalId && (decision === 'approved' || decision === 'denied')) {
+      void resolveAgentApproval(button.dataset.agentApprovalId, decision);
+    }
+  });
   executionSettingsForm.addEventListener('submit', (event) => {
     event.preventDefault();
     void saveExecutionSettings();
@@ -1429,6 +1586,18 @@ function init(): void {
     setStatus('提醒', 'ready');
   });
 
+  window.athenaAPI.onAgentWorkspaceChanged((event) => {
+    if (event.projectId !== currentProjectId) return;
+    if (event.taskId) selectedAgentTaskId = event.taskId;
+    void refreshAgentWorkspace(selectedAgentTaskId);
+  });
+
+  window.setInterval(() => {
+    if (currentMode !== 'execute' || !agentWorkspace?.selectedRun) return;
+    const status = agentWorkspace.selectedRun.run.status;
+    if (status === 'queued' || status === 'running') void refreshAgentWorkspace(selectedAgentTaskId);
+  }, 1_200);
+
   inputBar.focus();
   resizeInputBox();
 }
@@ -1438,6 +1607,309 @@ function webSearchProviderLabel(provider?: WebSearchStatus['provider']): string 
   if (provider === 'bing') return '必应 · ';
   if (provider === 'duckduckgo') return 'DuckDuckGo · ';
   return '';
+}
+
+function setAgentExecutionFeedback(message: string): void {
+  agentExecutionFeedback.textContent = message;
+  agentExecutionFeedback.hidden = !message;
+}
+
+async function refreshAgentWorkspace(taskId = selectedAgentTaskId): Promise<void> {
+  if (!currentProjectId || agentWorkspaceLoading) return;
+  const requestedProjectId = currentProjectId;
+  agentWorkspaceLoading = true;
+  try {
+    const snapshot = await window.athenaAPI.getAgentWorkspace(requestedProjectId, taskId);
+    if (currentProjectId !== requestedProjectId || !snapshot) return;
+    agentWorkspace = snapshot;
+    selectedAgentTaskId = snapshot.selectedTask?.id;
+    renderAgentWorkspace();
+    renderExecutionCenter();
+  } catch (error) {
+    console.error('Failed to refresh agent workspace', error);
+    if (taskId) {
+      selectedAgentTaskId = undefined;
+      try {
+        agentWorkspace = await window.athenaAPI.getAgentWorkspace(requestedProjectId);
+        renderAgentWorkspace();
+        renderExecutionCenter();
+      } catch (fallbackError) {
+        console.error('Failed to load default agent workspace selection', fallbackError);
+      }
+    }
+  } finally {
+    agentWorkspaceLoading = false;
+  }
+}
+
+function renderAgentWorkspace(): void {
+  const workspace = agentWorkspace;
+  if (!workspace) {
+    agentProjectTitle.textContent = '当前 Project';
+    agentWorkspaceRevision.textContent = 'rev 0';
+    renderAgentEmpty(agentRootList, '尚未设置工作目录');
+    renderAgentEmpty(agentGoalList, '尚未设置项目目标');
+    renderAgentEmpty(agentTaskBoard, '当前 Project 还没有任务');
+    renderAgentEmpty(agentPlanList, '选择任务后查看计划');
+    renderAgentEmpty(agentArtifactList, '还没有交付产物');
+    agentApprovalSection.hidden = true;
+    return;
+  }
+  agentProjectTitle.textContent = workspace.project.title;
+  agentWorkspaceRevision.textContent = `rev ${workspace.metadata.revision}`;
+  renderAgentRoots(workspace.metadata.roots);
+  renderAgentGoals(workspace.metadata.goals);
+  renderAgentTaskBoard(workspace);
+  renderAgentApprovals(workspace.selectedRun);
+  renderAgentPlan(workspace.selectedTask, workspace.selectedRun);
+  renderAgentArtifacts(workspace.selectedRun);
+}
+
+function renderAgentRoots(roots: string[]): void {
+  if (roots.length === 0) {
+    renderAgentEmpty(agentRootList, '尚未设置工作目录');
+    return;
+  }
+  agentRootList.replaceChildren(...roots.map((root, index) => {
+    const item = document.createElement('div');
+    item.className = 'agent-chip';
+    const text = document.createElement('span');
+    text.textContent = root;
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.dataset.agentRootIndex = String(index);
+    remove.title = '移除工作目录';
+    remove.setAttribute('aria-label', `移除工作目录 ${root}`);
+    remove.innerHTML = '<svg class="icon"><use href="#icon-close"></use></svg>';
+    item.append(text, remove);
+    return item;
+  }));
+}
+
+function renderAgentGoals(goals: AgentWorkspaceGoal[]): void {
+  if (goals.length === 0) {
+    renderAgentEmpty(agentGoalList, '尚未设置项目目标');
+    return;
+  }
+  agentGoalList.replaceChildren(...goals.map(goal => {
+    const item = document.createElement('div');
+    item.className = 'agent-goal';
+    item.dataset.status = goal.status;
+    const text = document.createElement('span');
+    text.textContent = `${agentGoalStatusLabel(goal.status)} · ${goal.title}`;
+    const toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.dataset.agentGoalId = goal.id;
+    toggle.title = '切换目标状态';
+    toggle.textContent = '切换';
+    item.append(text, toggle);
+    return item;
+  }));
+}
+
+function renderAgentTaskBoard(workspace: AgentProjectWorkspaceSnapshot): void {
+  const columns: Array<{ label: string; statuses: AgentTaskStatus[] }> = [
+    { label: '待执行', statuses: ['draft', 'ready'] },
+    { label: '进行中', statuses: ['active', 'blocked'] },
+    { label: '已完成', statuses: ['completed'] },
+    { label: '需处理', statuses: ['failed', 'cancelled'] },
+  ];
+  if (workspace.tasks.filter(task => task.status !== 'archived').length === 0) {
+    renderAgentEmpty(agentTaskBoard, '在执行模式发送目标后，任务会出现在这里');
+    return;
+  }
+  agentTaskBoard.replaceChildren(...columns.map(column => {
+    const container = document.createElement('div');
+    container.className = 'agent-task-column';
+    const title = document.createElement('div');
+    title.className = 'agent-task-column-title';
+    const tasks = column.statuses.flatMap(status => workspace.board[status]);
+    title.textContent = `${column.label} · ${tasks.length}`;
+    container.appendChild(title);
+    for (const task of tasks.slice(0, 20)) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'agent-task-button';
+      button.dataset.agentTaskId = task.id;
+      button.dataset.selected = String(task.id === workspace.selectedTask?.id);
+      button.textContent = task.title;
+      const meta = document.createElement('span');
+      meta.textContent = `${agentTaskStatusLabel(task.status)} · ${formatExecutionTime(task.updatedAt)}`;
+      button.appendChild(meta);
+      container.appendChild(button);
+    }
+    return container;
+  }));
+}
+
+function renderAgentApprovals(snapshot: AgentRunSnapshot | null): void {
+  const activeGroup = snapshot?.run.approvalGroupId;
+  const approvals = snapshot?.approvals.filter(item => item.status === 'pending' && item.groupId === activeGroup) || [];
+  agentApprovalSection.hidden = approvals.length === 0;
+  if (approvals.length === 0) {
+    agentApprovalList.replaceChildren();
+    return;
+  }
+  const representative = approvals[0];
+  const item = document.createElement('div');
+  item.className = 'agent-approval-item';
+  const content = document.createElement('div');
+  const tools = approvals.map(approval => String(approval.request.toolName || approval.capability)).join('、');
+  const explanation = approvals.map(approval => String(approval.request.explanation || '')).filter(Boolean).join('；');
+  content.textContent = `${approvals.length} 项 · ${tools}${explanation ? `\n${explanation}` : ''}`;
+  const actions = document.createElement('div');
+  actions.className = 'agent-approval-actions';
+  for (const decision of ['denied', 'approved'] as const) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.dataset.agentApprovalId = representative.id;
+    button.dataset.decision = decision;
+    button.textContent = decision === 'approved' ? '批准并继续' : '拒绝';
+    actions.appendChild(button);
+  }
+  item.append(content, actions);
+  agentApprovalList.replaceChildren(item);
+}
+
+function renderAgentPlan(task: AgentTaskRecord | null, snapshot: AgentRunSnapshot | null): void {
+  const items: HTMLElement[] = [];
+  for (const step of task?.spec.plan || []) {
+    items.push(createAgentDetailItem(step.title, step.successCriteria.join(' · ')));
+  }
+  for (const step of snapshot?.steps || []) {
+    items.push(createAgentDetailItem(`${step.sequence}. ${step.title}`, `${step.status}${step.error ? ` · ${step.error}` : ''}`));
+  }
+  if (items.length === 0) renderAgentEmpty(agentPlanList, '选择任务后查看计划与运行步骤');
+  else agentPlanList.replaceChildren(...items.slice(-30));
+}
+
+function renderAgentArtifacts(snapshot: AgentRunSnapshot | null): void {
+  const artifacts = snapshot?.artifacts || [];
+  if (artifacts.length === 0) {
+    renderAgentEmpty(agentArtifactList, '还没有登记交付产物');
+    return;
+  }
+  agentArtifactList.replaceChildren(...artifacts.map(artifact => (
+    createAgentDetailItem(artifact.name, `${artifact.kind} · ${artifact.validationStatus}${artifact.uri ? ` · ${artifact.uri}` : ''}`)
+  )));
+}
+
+function createAgentDetailItem(title: string, meta: string): HTMLElement {
+  const item = document.createElement('div');
+  item.className = 'agent-detail-item';
+  const text = document.createElement('span');
+  text.textContent = title;
+  const status = document.createElement('span');
+  status.textContent = meta;
+  item.append(text, status);
+  return item;
+}
+
+function renderAgentEmpty(container: HTMLElement, text: string): void {
+  const empty = document.createElement('div');
+  empty.className = 'execution-empty';
+  empty.textContent = text;
+  container.replaceChildren(empty);
+}
+
+async function addAgentWorkspaceRoot(): Promise<void> {
+  const root = agentRootInput.value.trim();
+  if (!root || !agentWorkspace || !currentProjectId) return;
+  await updateAgentWorkspaceMetadata({ roots: [...agentWorkspace.metadata.roots, root] });
+  agentRootInput.value = '';
+}
+
+async function removeAgentWorkspaceRoot(index: number): Promise<void> {
+  if (!agentWorkspace || !currentProjectId || !Number.isInteger(index)) return;
+  await updateAgentWorkspaceMetadata({ roots: agentWorkspace.metadata.roots.filter((_, itemIndex) => itemIndex !== index) });
+}
+
+async function addAgentWorkspaceGoal(): Promise<void> {
+  const title = agentGoalInput.value.trim();
+  if (!title || !agentWorkspace || !currentProjectId) return;
+  await updateAgentWorkspaceMetadata({
+    goals: [...agentWorkspace.metadata.goals, {
+      title,
+      status: 'active',
+    }],
+  });
+  agentGoalInput.value = '';
+}
+
+async function cycleAgentWorkspaceGoal(goalId: string): Promise<void> {
+  if (!agentWorkspace || !currentProjectId) return;
+  const goals = agentWorkspace.metadata.goals.map(goal => goal.id === goalId
+    ? { ...goal, status: nextAgentGoalStatus(goal.status) }
+    : goal);
+  await updateAgentWorkspaceMetadata({ goals });
+}
+
+async function updateAgentWorkspaceMetadata(patch: {
+  roots?: string[];
+  goals?: Array<{ id?: string; title: string; status: AgentWorkspaceGoal['status'] }>;
+}): Promise<void> {
+  if (!agentWorkspace || !currentProjectId) return;
+  try {
+    await window.athenaAPI.updateAgentWorkspace(currentProjectId, {
+      revision: agentWorkspace.metadata.revision,
+      ...patch,
+    });
+    await refreshAgentWorkspace(selectedAgentTaskId);
+  } catch (error) {
+    setStatus(`项目工作区更新失败：${error instanceof Error ? error.message : String(error)}`, 'error');
+    await refreshAgentWorkspace(selectedAgentTaskId);
+  }
+}
+
+async function resolveAgentApproval(approvalId: string, decision: 'approved' | 'denied'): Promise<void> {
+  const runId = agentWorkspace?.selectedRun?.run.id;
+  if (!runId || !currentProjectId) return;
+  agentApprovalList.querySelectorAll<HTMLButtonElement>('button').forEach(button => { button.disabled = true; });
+  setStatus(decision === 'approved' ? '正在继续已批准的任务' : '正在记录拒绝并继续', 'working');
+  try {
+    await window.athenaAPI.resolveAgentApproval(currentProjectId, runId, approvalId, decision);
+    await refreshAgentWorkspace(selectedAgentTaskId);
+  } catch (error) {
+    setStatus(`审批处理失败：${error instanceof Error ? error.message : String(error)}`, 'error');
+    await refreshAgentWorkspace(selectedAgentTaskId);
+  } finally {
+    restoreIdleStatus();
+  }
+}
+
+async function resumeSelectedAgentRun(): Promise<void> {
+  const runId = agentWorkspace?.selectedRun?.run.id;
+  if (!runId || !currentProjectId) return;
+  agentRunResume.disabled = true;
+  setStatus('正在从检查点继续任务', 'working');
+  try {
+    await window.athenaAPI.resumeAgentRun(currentProjectId, runId);
+    await refreshAgentWorkspace(selectedAgentTaskId);
+  } catch (error) {
+    setStatus(`继续任务失败：${error instanceof Error ? error.message : String(error)}`, 'error');
+  } finally {
+    restoreIdleStatus();
+  }
+}
+
+function nextAgentGoalStatus(status: AgentWorkspaceGoal['status']): AgentWorkspaceGoal['status'] {
+  if (status === 'active') return 'achieved';
+  if (status === 'achieved') return 'paused';
+  return 'active';
+}
+
+function agentGoalStatusLabel(status: AgentWorkspaceGoal['status']): string {
+  if (status === 'achieved') return '已达成';
+  if (status === 'paused') return '已暂停';
+  return '进行中';
+}
+
+function agentTaskStatusLabel(status: AgentTaskStatus): string {
+  const labels: Record<AgentTaskStatus, string> = {
+    draft: '草稿', ready: '待执行', active: '执行中', blocked: '等待确认',
+    completed: '已完成', failed: '失败', cancelled: '已停止', archived: '已归档',
+  };
+  return labels[status];
 }
 
 function beginExecutionRequest(goal: string): void {
@@ -1539,6 +2011,21 @@ function clearExecutionHistory(): void {
 }
 
 async function cancelActiveExecution(): Promise<void> {
+  const durableRun = agentWorkspace?.selectedRun?.run;
+  if (durableRun && !['completed', 'failed', 'cancelled'].includes(durableRun.status)) {
+    executionStop.disabled = true;
+    setStatus('正在停止持久化任务', 'working');
+    try {
+      if (!currentProjectId) return;
+      await window.athenaAPI.cancelAgentRun(currentProjectId, durableRun.id);
+      await refreshAgentWorkspace(selectedAgentTaskId);
+    } catch (error) {
+      setStatus(`停止请求失败：${error instanceof Error ? error.message : String(error)}`, 'error');
+    } finally {
+      restoreIdleStatus();
+    }
+    return;
+  }
   const task = currentExecutionTask;
   if (!task || !isExecutionTaskActive(task) || task.state === 'stopping') return;
   const previousState = task.state;
@@ -1562,11 +2049,16 @@ async function cancelActiveExecution(): Promise<void> {
 }
 
 function renderExecutionCenter(): void {
+  if (agentWorkspace) {
+    renderDurableExecutionCenter(agentWorkspace);
+    return;
+  }
   const task = currentExecutionTask;
   const active = Boolean(task && isExecutionTaskActive(task));
   modeExecuteButton.dataset.active = String(active);
   modeExecuteButton.dataset.hasRecords = String(executionTasks.length > 0 || Boolean(task && !active));
   executionStop.disabled = !active || task?.state === 'stopping';
+  agentRunResume.disabled = true;
 
   if (!task) {
     executionCurrentCard.dataset.state = 'idle';
@@ -1603,7 +2095,57 @@ function renderExecutionCenter(): void {
   renderExecutionHistory();
 }
 
+function renderDurableExecutionCenter(workspace: AgentProjectWorkspaceSnapshot): void {
+  const task = workspace.selectedTask;
+  const snapshot = workspace.selectedRun;
+  const run = snapshot?.run;
+  const active = Boolean(run && !['completed', 'failed', 'cancelled'].includes(run.status));
+  modeExecuteButton.dataset.active = String(active);
+  modeExecuteButton.dataset.hasRecords = String(workspace.tasks.length > 0);
+  executionStop.disabled = !active;
+  const pendingApproval = snapshot?.approvals.some(item => item.status === 'pending') === true;
+  agentRunResume.disabled = !run || !workspace.recoverableRunIds.includes(run.id) || pendingApproval;
+  if (!task) {
+    executionCurrentCard.dataset.state = 'idle';
+    executionStateLabel.dataset.state = 'idle';
+    executionStateLabel.textContent = '待命';
+    executionCurrentGoal.textContent = '当前 Project 还没有执行任务。';
+    executionCurrentMeta.textContent = '在输入框描述目标，或切回聊天完善方案后再切到执行。';
+    executionLiveLog.replaceChildren();
+    executionCurrentResult.textContent = '';
+    executionCurrentResult.dataset.visible = 'false';
+    renderExecutionHistory();
+    return;
+  }
+  const state = durableExecutionState(task, run);
+  executionCurrentCard.dataset.state = state;
+  executionStateLabel.dataset.state = state;
+  executionStateLabel.textContent = run ? agentRunPhaseLabel(run) : agentTaskStatusLabel(task.status);
+  executionCurrentGoal.textContent = task.spec.goal;
+  const runMeta = run
+    ? `${run.phase} · ${run.status} · ${formatExecutionTime(run.startedAt || run.createdAt)}`
+    : `任务已创建 · ${formatExecutionTime(task.createdAt)}`;
+  executionCurrentMeta.textContent = `${workspace.project.title} · ${runMeta}`;
+  const timeline = (snapshot?.events || []).slice(-16).map(event => {
+    const item = document.createElement('li');
+    item.className = 'execution-live-step';
+    item.dataset.phase = event.type;
+    item.textContent = `${formatExecutionTime(event.createdAt)} · ${agentEventLabel(event.type, event.payload)}`;
+    return item;
+  });
+  executionLiveLog.replaceChildren(...timeline);
+  const finalContent = run ? readAgentFinalContent(run.state) : '';
+  const result = finalContent || run?.error || '';
+  executionCurrentResult.textContent = result;
+  executionCurrentResult.dataset.visible = String(Boolean(result));
+  renderExecutionHistory();
+}
+
 function renderExecutionHistory(): void {
+  if (agentWorkspace) {
+    renderDurableExecutionHistory(agentWorkspace);
+    return;
+  }
   if (executionTasks.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'execution-empty';
@@ -1612,6 +2154,63 @@ function renderExecutionHistory(): void {
     return;
   }
   executionHistory.replaceChildren(...executionTasks.map(createExecutionTaskNode));
+}
+
+function renderDurableExecutionHistory(workspace: AgentProjectWorkspaceSnapshot): void {
+  if (workspace.tasks.length === 0) {
+    renderAgentEmpty(executionHistory, '当前 Project 还没有持久化执行记录。');
+    return;
+  }
+  executionHistory.replaceChildren(...workspace.tasks.slice(0, 50).map(task => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'agent-task-button';
+    button.dataset.agentTaskId = task.id;
+    button.dataset.selected = String(task.id === workspace.selectedTask?.id);
+    button.textContent = task.title;
+    const meta = document.createElement('span');
+    meta.textContent = `${agentTaskStatusLabel(task.status)} · ${formatExecutionTime(task.updatedAt)}`;
+    button.appendChild(meta);
+    return button;
+  }));
+}
+
+function durableExecutionState(task: AgentTaskRecord, run?: AgentRunRecord): ExecutionTaskState {
+  if (!run) return task.status === 'failed' ? 'failed' : task.status === 'cancelled' ? 'cancelled' : 'planning';
+  if (run.status === 'completed') return 'completed';
+  if (run.status === 'failed') return 'failed';
+  if (run.status === 'cancelled') return 'cancelled';
+  return 'running';
+}
+
+function agentRunPhaseLabel(run: AgentRunRecord): string {
+  if (run.phase === 'awaiting_approval') return '等待审批';
+  if (run.phase === 'planning') return '正在规划';
+  if (run.phase === 'executing') return '正在执行';
+  if (run.phase === 'verifying') return '正在验证';
+  if (run.phase === 'completed') return '已完成';
+  if (run.phase === 'failed') return '执行失败';
+  if (run.phase === 'cancelled') return '已停止';
+  return '准备中';
+}
+
+function agentEventLabel(type: string, payload: Record<string, unknown>): string {
+  const labels: Record<string, string> = {
+    'run.created': '已创建持久化运行',
+    'run.started': '运行已开始',
+    'run.phase_changed': `阶段变更为 ${String(payload.to || '')}`,
+    'run.checkpointed': '已保存恢复检查点',
+    'approval.requested': `请求审批 ${String(payload.capability || '')}`,
+    'approval.resolved': `审批已${payload.status === 'approved' ? '批准' : '拒绝'}`,
+    'runner.model_requested': '模型正在规划下一步',
+    'runner.tool_attempt_started': '工具调用已开始',
+    'artifact.created': '已登记交付产物',
+  };
+  return labels[type] || type;
+}
+
+function readAgentFinalContent(state: Record<string, unknown>): string {
+  return typeof state.finalContent === 'string' ? state.finalContent : '';
 }
 
 function createExecutionTaskNode(task: ExecutionTask): HTMLElement {
@@ -1860,6 +2459,8 @@ async function switchProject(id: number): Promise<void> {
     return;
   }
   currentProjectId = target.id;
+  selectedAgentTaskId = undefined;
+  agentWorkspace = null;
   currentChatWindowId = null;
   chatPanel.clear();
   await refreshChatWindows();
@@ -1870,6 +2471,7 @@ async function switchProject(id: number): Promise<void> {
     await loadCurrentChatWindowMessages();
   }
   await refreshWindowMemoryPanel();
+  if (currentMode === 'execute') await refreshAgentWorkspace();
   inputBar.focus();
 }
 
@@ -1883,6 +2485,7 @@ async function switchChatWindow(id: number): Promise<void> {
   currentChatWindowId = active.id;
   const mode = active.mode || currentMode;
   setMode(mode);
+  if (mode === 'execute') await refreshAgentWorkspace(selectedAgentTaskId);
   if (currentSettingsBundle) currentSettingsBundle.settings.conversation.activeMode = mode;
   await loadCurrentChatWindowMessages();
   await refreshChatWindows();

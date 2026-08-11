@@ -19,6 +19,14 @@ The agent platform is provider-neutral. Model providers, tools, skills, MCP serv
 
 Each block must preserve the active desktop runtime and have a focused acceptance command before the next block takes ownership of the same path.
 
+## Block 04: Project Workspace
+
+- `ProjectWorkspaceService` owns project-scoped roots, goals, task boards, plans, artifacts, history, and recoverable-run queries. Workspace metadata uses optimistic revisions and preserves unrelated Project memory state.
+- Execute-mode messages become durable tasks tied to the active Project and chat window. The execution handoff includes the agreed conversation context and Project instructions, then runs through the provider-neutral native-tool runtime from Block 03.
+- Main-process IPC validates Project, task, run, and approval identifiers. Task selection and chat-to-task creation enforce Project ownership.
+- The execution workspace exposes durable task state, grouped approvals, checkpoints, runtime steps, artifacts, cancellation, and restart-resume controls. Permission settings are re-read before every start or resume.
+- Acceptance command: `npm.cmd run test:project-workspace`.
+
 ## Block 01: Durable Agent Domain
 
 The canonical implementation is under `src/core/agent`. SQLite schema v10 owns these records:

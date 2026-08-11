@@ -58,6 +58,10 @@
     <symbol id="icon-tools" viewBox="0 0 24 24">
       <path d="M14.7 6.3a4 4 0 0 0-5 5L4 17v3h3l5.7-5.7a4 4 0 0 0 5-5l-2.4 2.4-3-3 2.4-2.4Z" />
     </symbol>
+    <symbol id="icon-refresh" viewBox="0 0 24 24">
+      <path d="M20 11a8 8 0 1 0 2 5.3" />
+      <path d="M20 4v7h-7" />
+    </symbol>
     <symbol id="icon-chat" viewBox="0 0 24 24">
       <path d="M5 5h14v11H9l-4 3V5Z" />
     </symbol>
@@ -308,15 +312,64 @@
           <div id="execution-panel-subtitle">直接描述目标，当前角色会调用工具并把真实过程留在这里</div>
         </div>
       </div>
+      <div id="agent-execution-feedback" class="agent-execution-feedback" role="status" aria-live="polite" hidden></div>
 
       <div id="execution-panel-body">
+        <section class="execution-card execution-project-card">
+          <div class="execution-card-head">
+            <div>
+              <div class="execution-section-label">PROJECT WORKSPACE</div>
+              <div id="agent-project-title" class="execution-card-title">当前 Project</div>
+            </div>
+            <div id="agent-workspace-revision" class="execution-current-meta">rev 0</div>
+          </div>
+          <div class="agent-workspace-grid">
+            <div class="agent-workspace-column">
+              <div class="execution-section-label">工作目录</div>
+              <div id="agent-root-list" class="agent-chip-list"></div>
+              <form id="agent-root-form" class="agent-inline-form">
+                <input id="agent-root-input" type="text" maxlength="2048" placeholder="例如 G:\\Athena" aria-label="添加工作目录" />
+                <button class="icon-button" type="submit" title="添加工作目录" aria-label="添加工作目录">
+                  <svg class="icon"><use href="#icon-plus"></use></svg>
+                </button>
+              </form>
+            </div>
+            <div class="agent-workspace-column">
+              <div class="execution-section-label">项目目标</div>
+              <div id="agent-goal-list" class="agent-goal-list"></div>
+              <form id="agent-goal-form" class="agent-inline-form">
+                <input id="agent-goal-input" type="text" maxlength="500" placeholder="添加项目目标" aria-label="添加项目目标" />
+                <button class="icon-button" type="submit" title="添加项目目标" aria-label="添加项目目标">
+                  <svg class="icon"><use href="#icon-plus"></use></svg>
+                </button>
+              </form>
+            </div>
+          </div>
+        </section>
+
+        <section class="execution-card">
+          <div class="execution-card-head">
+            <div>
+              <div class="execution-section-label">任务板</div>
+              <div class="execution-card-title">从讨论到交付</div>
+            </div>
+            <button id="agent-workspace-refresh" class="icon-button" type="button" title="刷新任务板" aria-label="刷新任务板">
+              <svg class="icon"><use href="#icon-refresh"></use></svg>
+            </button>
+          </div>
+          <div id="agent-task-board" class="agent-task-board"></div>
+        </section>
+
         <section id="execution-current-card" class="execution-card" data-state="idle">
           <div class="execution-card-head">
             <div>
               <div class="execution-section-label">当前任务</div>
               <div id="execution-state-label" class="execution-state-badge" data-state="idle">待命</div>
             </div>
-            <button id="execution-stop" class="execution-secondary-button" type="button" disabled>停止后续步骤</button>
+            <div class="execution-run-actions">
+              <button id="agent-run-resume" class="execution-secondary-button" type="button" disabled>继续任务</button>
+              <button id="execution-stop" class="execution-secondary-button" type="button" disabled>停止后续步骤</button>
+            </div>
           </div>
           <div id="execution-current-goal" class="execution-current-goal">还没有正在执行的电脑任务。</div>
           <div id="execution-current-meta" class="execution-current-meta">只有真实触发工具后，这里才会出现操作记录。</div>
@@ -324,16 +377,39 @@
           <div id="execution-current-result" class="execution-current-result" data-visible="false"></div>
         </section>
 
+        <section id="agent-approval-section" class="execution-card agent-approval-section" hidden>
+          <div class="execution-card-head">
+            <div>
+              <div class="execution-section-label">需要确认</div>
+              <div class="execution-card-title">本次操作审批</div>
+            </div>
+          </div>
+          <div id="agent-approval-list" class="agent-approval-list"></div>
+        </section>
+
+        <section class="execution-card agent-details-card">
+          <div class="agent-details-grid">
+            <div>
+              <div class="execution-section-label">计划与步骤</div>
+              <div id="agent-plan-list" class="agent-detail-list"></div>
+            </div>
+            <div>
+              <div class="execution-section-label">交付产物</div>
+              <div id="agent-artifact-list" class="agent-detail-list"></div>
+            </div>
+          </div>
+        </section>
+
         <section class="execution-card">
           <div class="execution-card-head">
             <div>
-              <div class="execution-section-label">本次会话</div>
-              <div class="execution-card-title">执行记录</div>
+              <div class="execution-section-label">PROJECT HISTORY</div>
+              <div class="execution-card-title">持久化执行记录</div>
             </div>
-            <button id="execution-clear" class="execution-secondary-button" type="button">清空记录</button>
+            <button id="execution-clear" class="execution-secondary-button" type="button">刷新记录</button>
           </div>
           <div id="execution-history" class="execution-history">
-            <div class="execution-empty">真实执行完成后，会在这里保留参数、结果与耗时。</div>
+            <div class="execution-empty">当前 Project 还没有持久化执行记录。</div>
           </div>
         </section>
 

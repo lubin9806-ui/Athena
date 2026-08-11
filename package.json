@@ -56,6 +56,7 @@
     "test:model-adapters": "tsc && node scripts/verify-model-adapters.js",
     "test:agent-foundation": "tsc && electron scripts/verify-agent-foundation.js",
     "test:agent-runtime": "tsc && electron scripts/verify-agent-runtime.js",
+    "test:project-workspace": "tsc && electron scripts/verify-project-workspace.js",
     "test:deepseek:live": "tsc && electron scripts/verify-deepseek-live-chat.js",
     "smoke:electron": "node scripts/clean-dist.js && vite build --config vite.config.mts && tsc && electron . --smoke-test",
     "clean:dist": "node scripts/clean-dist.js",

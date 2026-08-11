@@ -165,3 +165,51 @@ export interface AgentRunSnapshot {
   artifacts: AgentArtifactRecord[];
   events: AgentRunEventRecord[];
 }
+
+export interface AgentWorkspaceGoal {
+  id: string;
+  title: string;
+  status: 'active' | 'achieved' | 'paused';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AgentWorkspaceMetadata {
+  version: 1;
+  revision: number;
+  roots: string[];
+  goals: AgentWorkspaceGoal[];
+  updatedAt: string;
+}
+
+export interface AgentWorkspaceTaskBoard {
+  draft: AgentTaskRecord[];
+  ready: AgentTaskRecord[];
+  active: AgentTaskRecord[];
+  blocked: AgentTaskRecord[];
+  completed: AgentTaskRecord[];
+  failed: AgentTaskRecord[];
+  cancelled: AgentTaskRecord[];
+  archived: AgentTaskRecord[];
+}
+
+export interface AgentProjectWorkspaceSnapshot {
+  project: {
+    id: number;
+    title: string;
+    instructions: string;
+  };
+  metadata: AgentWorkspaceMetadata;
+  board: AgentWorkspaceTaskBoard;
+  tasks: AgentTaskRecord[];
+  selectedTask: AgentTaskRecord | null;
+  runs: AgentRunRecord[];
+  selectedRun: AgentRunSnapshot | null;
+  recoverableRunIds: string[];
+}
+
+export interface AgentExecutionSummary {
+  taskId: string;
+  runId: string;
+  status: 'completed' | 'paused' | 'failed' | 'cancelled';
+}

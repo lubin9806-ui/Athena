@@ -17,6 +17,16 @@ contextBridge.exposeInMainWorld('athenaAPI', {
   unpinChatWindowFact: (id: number, factId: string) => ipcRenderer.invoke('chatWindow:unpinFact', id, factId),
   getChatWindowContextSnapshots: (id: number, limit = 5) => ipcRenderer.invoke('chatWindow:contextSnapshots', id, limit),
   cancelExecution: () => ipcRenderer.invoke('execution:cancel'),
+  getAgentWorkspace: (projectId: number, taskId?: string) => ipcRenderer.invoke('agentWorkspace:get', projectId, taskId),
+  updateAgentWorkspace: (projectId: number, value: unknown) => ipcRenderer.invoke('agentWorkspace:update', projectId, value),
+  resolveAgentApproval: (projectId: number, runId: string, approvalId: string, decision: 'approved' | 'denied') => ipcRenderer.invoke('agentRun:resolveApproval', { projectId, runId, approvalId, decision }),
+  resumeAgentRun: (projectId: number, runId: string) => ipcRenderer.invoke('agentRun:resume', { projectId, runId }),
+  cancelAgentRun: (projectId: number, runId: string) => ipcRenderer.invoke('agentRun:cancel', { projectId, runId }),
+  onAgentWorkspaceChanged: (callback: (event: { projectId: number; taskId?: string; runId?: string }) => void) => {
+    const handler = (_: any, event: { projectId: number; taskId?: string; runId?: string }) => callback(event);
+    ipcRenderer.on('agent:workspace-changed', handler);
+    return () => ipcRenderer.removeListener('agent:workspace-changed', handler);
+  },
   getToolCatalog: (mode?: 'create' | 'companion' | 'reason' | 'execute') => ipcRenderer.invoke('tools:catalog', mode),
   onChatStream: (callback: (data: { content: string; done: boolean }) => void) => {
     const handler = (_: any, data: { content: string; done: boolean }) => callback(data);

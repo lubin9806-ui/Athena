@@ -4,6 +4,15 @@ import { Conversation } from '../ai/Conversation';
 import { EmotionEngine } from '../ai/Emotion';
 import { getAppSettings, resolveToolSettingsForMode, shouldSaveHistory } from '../config/SettingsStore';
 import { WebSearchService } from '../web/WebSearchService';
+import {
+  AgentRunner,
+  AgentStore,
+  ProjectWorkspaceService,
+  ToolRegistry,
+  type AgentRunnerResult,
+  type UpdateAgentWorkspaceInput,
+} from '../agent';
+import { ComputerAgentToolBridge } from '../tools/AgentComputerTools';
 import { evaluateSteamAiContent, steamAiGuardrailRefusal } from '../steam/SteamAiGuardrails';
 import { isSteamSku } from '../steam/SteamSkuPolicy';
 import {
@@ -19,6 +28,7 @@ import {
   applyMemoryRetentionPolicyWithRefiner,
   cleanupTemporaryChatWindows,
   ensureDefaultChatWindow,
+  ensureDefaultProject,
   getChatWindow,
   getChatWindowMessages,
   closeDatabase,
@@ -35,6 +45,10 @@ import { globalEventBus } from '../../engine/EventBus';
 import { createLogger } from '../../engine/Logger';
 import type { DailyMemoryRefinement, DailyMemoryRefinementInput, MemoryRetentionPolicyResult } from '../../memory';
 import type {
+  AgentCapabilityAccess,
+  AgentProjectWorkspaceSnapshot,
+  AgentRunSnapshot,
+  AgentWorkspaceMetadata,
   ChatResponse,
   ConversationMode,
   MemorySettings,
@@ -65,6 +79,11 @@ export class AthenaController {
   private reminder: Reminder;
   private workflows: WorkflowManager;
   private webSearch: WebSearchService;
+  private readonly agentStore: AgentStore;
+  private readonly agentTools: ToolRegistry;
+  private readonly agentComputerTools: ComputerAgentToolBridge;
+  private readonly projectWorkspace: ProjectWorkspaceService;
+  private agentRunner: AgentRunner;
   private initialized = false;
   private initializePromise: Promise<void> | null = null;
   private memoryMaintenanceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -77,6 +96,14 @@ export class AthenaController {
     this.reminder = new Reminder();
     this.workflows = new WorkflowManager();
     this.webSearch = new WebSearchService();
+    this.agentStore = new AgentStore();
+    this.agentTools = new ToolRegistry();
+    this.agentComputerTools = new ComputerAgentToolBridge({
+      registry: this.agentTools,
+      getSettings: () => this.resolveAgentToolSettings(),
+    });
+    this.projectWorkspace = new ProjectWorkspaceService(this.agentStore);
+    this.agentRunner = new AgentRunner(this.llm, this.agentTools, undefined, this.agentStore);
   }
 
   async initialize(): Promise<void> {
@@ -270,6 +297,7 @@ export class AthenaController {
     this.conversation.shutdown();
     this.llm = new LLMClient();
     this.conversation = new Conversation(this.llm);
+    this.agentRunner = new AgentRunner(this.llm, this.agentTools, undefined, this.agentStore);
     const settings = getAppSettings();
     this.applyToolPermission(settings.tools, settings.conversation.activeMode);
   }
@@ -296,12 +324,142 @@ export class AthenaController {
     return this.conversation.cancelCurrentExecution();
   }
 
+  getAgentWorkspace(projectId: number, selectedTaskId?: string): AgentProjectWorkspaceSnapshot {
+    return this.projectWorkspace.getSnapshot(projectId, selectedTaskId);
+  }
+
+  updateAgentWorkspace(
+    projectId: number,
+    input: UpdateAgentWorkspaceInput,
+    expectedRevision: number,
+  ): AgentWorkspaceMetadata {
+    return this.projectWorkspace.updateMetadata(projectId, input, expectedRevision);
+  }
+
+  async executeAgentMessage(
+    goal: string,
+    requestedChatWindowId?: number,
+    onState?: (snapshot: AgentRunSnapshot) => void,
+  ): Promise<ChatResponse> {
+    if (!this.initialized) await this.initialize();
+    if (!this.llm.capabilities.nativeToolCalls) {
+      throw new Error('当前模型不支持原生工具调用，不能启动可靠执行任务。');
+    }
+    const inputGuardrail = evaluateSteamAiContent(goal);
+    if (!inputGuardrail.allowed) {
+      const content = steamAiGuardrailRefusal();
+      return { content, emotion: this.emotion.analyzeResponse(content) };
+    }
+    if (!canRouteModelRequest(this.llm.providerName, canUseNetworkCapability('remoteModel'))) {
+      throw new Error(consentRequiredMessage('remoteModel'));
+    }
+    const chatWindow = (requestedChatWindowId ? getChatWindow(requestedChatWindowId) : null)
+      ?? ensureDefaultChatWindow();
+    if (chatWindow.is_temporary) {
+      throw new Error('临时聊天不会创建持久化任务，请切换到 Project 内的普通聊天窗口后再执行。');
+    }
+    const projectId = chatWindow.project_id || ensureDefaultProject().id;
+    if (chatWindow.project_id !== projectId) {
+      throw new Error('当前聊天窗口尚未归属可执行的 Project。');
+    }
+    const toolNames = this.agentComputerTools.refresh();
+    if (toolNames.length === 0) {
+      throw new Error('执行模式的电脑工具权限处于关闭状态，请先在执行工作区设置权限。');
+    }
+    const savedUser = this.saveConversationMessage('user', goal, undefined, 'execute', chatWindow.id);
+    this.persistExtractedMemory(goal, savedUser.messageId, chatWindow.id);
+    const task = this.projectWorkspace.createTask({
+      projectId,
+      chatWindowId: chatWindow.id,
+      goal,
+      capabilities: this.agentTools.list().map(tool => ({
+        id: tool.capability,
+        access: capabilityAccess(tool.capability),
+        reason: `${tool.label} is available under the current execute-mode permission tier`,
+      })),
+    });
+    const handle = this.agentRunner.start({
+      taskId: task.id,
+      messages: this.projectWorkspace.buildExecutionMessages(task.id),
+      allowedCapabilities: task.spec.requiredCapabilities.map(item => item.id),
+      approvalMode: 'risk_based',
+      scene: 'project-workspace',
+      strategy: 'native-tools',
+    });
+    onState?.(this.agentStore.getRunSnapshot(handle.run.id));
+    const result = this.materializeAgentResultArtifact(await handle.result);
+    onState?.(result.snapshot);
+    recordDataActivity('tool', 'durable-agent-run', {
+      projectId,
+      taskId: result.snapshot.task.id,
+      runId: result.runId,
+      status: result.status,
+      stepCount: result.snapshot.steps.length,
+      artifactCount: result.snapshot.artifacts.length,
+    });
+    return this.agentResultToChatResponse(result, true);
+  }
+
+  async resolveAgentApprovalGroup(
+    projectId: number,
+    runId: string,
+    approvalId: string,
+    decision: 'approved' | 'denied',
+    onState?: (snapshot: AgentRunSnapshot) => void,
+  ): Promise<AgentRunnerResult> {
+    const snapshot = this.requireAgentRunProject(runId, projectId);
+    const approval = snapshot.approvals.find(item => item.id === approvalId);
+    if (!approval || approval.status !== 'pending') throw new Error('待审批项不存在或已处理。');
+    if (approval.groupId !== snapshot.run.approvalGroupId) throw new Error('审批项不属于当前运行检查点。');
+    for (const item of snapshot.approvals.filter(candidate => (
+      candidate.groupId === approval.groupId && candidate.status === 'pending'
+    ))) {
+      this.agentStore.resolveApproval(item.id, decision, {
+        actor: 'user',
+        scope: 'approval-group',
+      }, item.revision);
+    }
+    this.agentComputerTools.refresh();
+    onState?.(this.agentStore.getRunSnapshot(runId));
+    const result = this.materializeAgentResultArtifact(await this.agentRunner.resume(runId));
+    onState?.(result.snapshot);
+    this.persistTerminalAgentResponse(result);
+    return result;
+  }
+
+  async resumeAgentRun(
+    projectId: number,
+    runId: string,
+    onState?: (snapshot: AgentRunSnapshot) => void,
+  ): Promise<AgentRunnerResult> {
+    const snapshot = this.requireAgentRunProject(runId, projectId);
+    if (['completed', 'failed', 'cancelled'].includes(snapshot.run.status)) {
+      throw new Error('已结束的运行不能继续。');
+    }
+    if (snapshot.approvals.some(item => item.status === 'pending')) {
+      throw new Error('当前运行仍有待审批操作，不能直接继续。');
+    }
+    this.agentComputerTools.refresh();
+    const result = this.materializeAgentResultArtifact(await this.agentRunner.resume(runId));
+    onState?.(result.snapshot);
+    this.persistTerminalAgentResponse(result);
+    return result;
+  }
+
+  async cancelAgentRun(projectId: number, runId: string, onState?: (snapshot: AgentRunSnapshot) => void): Promise<AgentRunnerResult> {
+    this.requireAgentRunProject(runId, projectId);
+    const result = await this.agentRunner.cancel(runId);
+    onState?.(result.snapshot);
+    return result;
+  }
+
   shutdown(): void {
     if (this.memoryMaintenanceTimer) {
       clearTimeout(this.memoryMaintenanceTimer);
       this.memoryMaintenanceTimer = null;
     }
     this.conversation.shutdown();
+    this.agentComputerTools.shutdown();
     closeDatabase();
     this.initialized = false;
     logger.info('Athena shutdown complete.');
@@ -497,6 +655,77 @@ export class AthenaController {
       : undefined;
     return { chatMessageId: saved?.id, messageId: globalMessage?.id };
   }
+
+  private resolveAgentToolSettings(): ToolSettings {
+    const settings = getAppSettings();
+    const resolved = resolveToolSettingsForMode(settings.tools, 'execute');
+    resolved.allowExternalNetwork = canUseNetworkCapability('externalToolNetwork');
+    return resolved;
+  }
+
+  private agentResultToChatResponse(result: AgentRunnerResult, persist: boolean): ChatResponse {
+    let content = result.status === 'paused'
+      ? '任务已暂停，执行工作区中有一组操作等待你审批。'
+      : result.content.trim()
+        || (result.status === 'cancelled'
+          ? '任务已停止。'
+          : result.status === 'failed'
+            ? `任务执行失败：${result.error || '未返回具体错误'}`
+            : '任务已完成。');
+    const outputGuardrail = evaluateSteamAiContent(content);
+    if (!outputGuardrail.allowed) content = steamAiGuardrailRefusal();
+    const emotion = this.emotion.analyzeResponse(content);
+    if (persist) {
+      const chatWindowId = result.snapshot.task.chatWindowId;
+      if (chatWindowId) this.saveConversationMessage('assistant', content, emotion.type, 'execute', chatWindowId);
+    }
+    return {
+      content,
+      emotion,
+      agentExecution: {
+        taskId: result.snapshot.task.id,
+        runId: result.runId,
+        status: result.status,
+      },
+    };
+  }
+
+  private persistTerminalAgentResponse(result: AgentRunnerResult): void {
+    if (result.status === 'paused') return;
+    this.agentResultToChatResponse(result, true);
+  }
+
+  private requireAgentRunProject(runId: string, projectId: number): AgentRunSnapshot {
+    const snapshot = this.agentStore.getRunSnapshot(runId);
+    if (snapshot.task.projectId !== projectId) {
+      throw new Error(`Run ${runId} does not belong to project ${projectId}`);
+    }
+    return snapshot;
+  }
+
+  private materializeAgentResultArtifact(result: AgentRunnerResult): AgentRunnerResult {
+    if (result.status !== 'completed' || !result.content.trim()) return result;
+    const exists = result.snapshot.artifacts.some(artifact => artifact.kind === 'final_response');
+    if (!exists) {
+      this.agentStore.addArtifact({
+        taskId: result.snapshot.task.id,
+        runId: result.runId,
+        kind: 'final_response',
+        name: `${result.snapshot.task.title} - final response`,
+        metadata: { content: result.content.slice(0, 20_000) },
+        validationStatus: 'not_applicable',
+      });
+    }
+    return { ...result, snapshot: this.agentStore.getRunSnapshot(result.runId) };
+  }
+}
+
+function capabilityAccess(capability: string): AgentCapabilityAccess {
+  if (capability.endsWith('.read')) return 'read';
+  if (capability.endsWith('.files')) return 'write';
+  if (capability.endsWith('.network')) return 'network';
+  if (capability.endsWith('.account')) return 'account';
+  return 'execute';
 }
 
 function msUntilNextLocalMaintenance(now: Date): number {
