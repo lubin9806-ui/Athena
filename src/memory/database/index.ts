@@ -7,7 +7,7 @@ import { ensureSufficientDiskSpace } from '../../core/runtime/DiskSpaceGuard';
 
 let db: Database.Database | null = null;
 let resolvedDbPath: string | null = null;
-export const DATABASE_SCHEMA_VERSION = 9;
+export const DATABASE_SCHEMA_VERSION = 10;
 const MIGRATION_BACKUP_RETENTION = 5;
 
 export interface MemoryStats {
@@ -372,6 +372,106 @@ function runMigrations(database: Database.Database, currentVersion: number): voi
       created_at DATETIME DEFAULT (datetime('now', 'localtime'))
     );
     CREATE INDEX IF NOT EXISTS idx_context_snapshots_window_created ON context_snapshots(window_id, created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS agent_tasks (
+      id TEXT PRIMARY KEY,
+      project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL,
+      chat_window_id INTEGER REFERENCES chat_windows(id) ON DELETE SET NULL,
+      title TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'draft' CHECK(status IN ('draft', 'ready', 'active', 'blocked', 'completed', 'failed', 'cancelled', 'archived')),
+      spec_json TEXT NOT NULL,
+      revision INTEGER NOT NULL DEFAULT 1 CHECK(revision > 0),
+      active_run_id TEXT,
+      created_at DATETIME DEFAULT (datetime('now', 'localtime')),
+      updated_at DATETIME DEFAULT (datetime('now', 'localtime')),
+      completed_at DATETIME,
+      archived_at DATETIME
+    );
+    CREATE INDEX IF NOT EXISTS idx_agent_tasks_project_status ON agent_tasks(project_id, status, updated_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_agent_tasks_window_status ON agent_tasks(chat_window_id, status, updated_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_agent_tasks_active_run ON agent_tasks(active_run_id);
+
+    CREATE TABLE IF NOT EXISTS agent_runs (
+      id TEXT PRIMARY KEY,
+      task_id TEXT NOT NULL REFERENCES agent_tasks(id) ON DELETE CASCADE,
+      status TEXT NOT NULL DEFAULT 'queued' CHECK(status IN ('queued', 'running', 'paused', 'completed', 'failed', 'cancelled')),
+      phase TEXT NOT NULL DEFAULT 'understanding' CHECK(phase IN ('understanding', 'researching', 'planning', 'awaiting_approval', 'executing', 'verifying', 'completed', 'failed', 'cancelled')),
+      scene TEXT NOT NULL DEFAULT 'work',
+      strategy TEXT NOT NULL DEFAULT 'reason',
+      provider TEXT,
+      model TEXT,
+      state_json TEXT NOT NULL DEFAULT '{}',
+      approval_group_id TEXT,
+      error TEXT,
+      revision INTEGER NOT NULL DEFAULT 1 CHECK(revision > 0),
+      created_at DATETIME DEFAULT (datetime('now', 'localtime')),
+      started_at DATETIME,
+      updated_at DATETIME DEFAULT (datetime('now', 'localtime')),
+      completed_at DATETIME
+    );
+    CREATE INDEX IF NOT EXISTS idx_agent_runs_task_created ON agent_runs(task_id, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_agent_runs_recoverable ON agent_runs(status, updated_at DESC);
+
+    CREATE TABLE IF NOT EXISTS agent_steps (
+      id TEXT PRIMARY KEY,
+      run_id TEXT NOT NULL REFERENCES agent_runs(id) ON DELETE CASCADE,
+      sequence INTEGER NOT NULL CHECK(sequence > 0),
+      kind TEXT NOT NULL,
+      title TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'running', 'waiting', 'completed', 'failed', 'cancelled', 'skipped')),
+      input_json TEXT NOT NULL DEFAULT '{}',
+      output_json TEXT NOT NULL DEFAULT '{}',
+      error TEXT,
+      revision INTEGER NOT NULL DEFAULT 1 CHECK(revision > 0),
+      created_at DATETIME DEFAULT (datetime('now', 'localtime')),
+      started_at DATETIME,
+      completed_at DATETIME,
+      UNIQUE(run_id, sequence)
+    );
+    CREATE INDEX IF NOT EXISTS idx_agent_steps_run_sequence ON agent_steps(run_id, sequence);
+
+    CREATE TABLE IF NOT EXISTS agent_approvals (
+      id TEXT PRIMARY KEY,
+      run_id TEXT NOT NULL REFERENCES agent_runs(id) ON DELETE CASCADE,
+      step_id TEXT REFERENCES agent_steps(id) ON DELETE SET NULL,
+      group_id TEXT NOT NULL,
+      capability TEXT NOT NULL,
+      risk_level TEXT NOT NULL CHECK(risk_level IN ('low', 'medium', 'high', 'critical')),
+      status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'approved', 'denied', 'cancelled')),
+      request_json TEXT NOT NULL DEFAULT '{}',
+      decision_json TEXT NOT NULL DEFAULT '{}',
+      revision INTEGER NOT NULL DEFAULT 1 CHECK(revision > 0),
+      created_at DATETIME DEFAULT (datetime('now', 'localtime')),
+      decided_at DATETIME
+    );
+    CREATE INDEX IF NOT EXISTS idx_agent_approvals_run_group ON agent_approvals(run_id, group_id, status);
+
+    CREATE TABLE IF NOT EXISTS agent_artifacts (
+      id TEXT PRIMARY KEY,
+      task_id TEXT NOT NULL REFERENCES agent_tasks(id) ON DELETE CASCADE,
+      run_id TEXT REFERENCES agent_runs(id) ON DELETE SET NULL,
+      step_id TEXT REFERENCES agent_steps(id) ON DELETE SET NULL,
+      kind TEXT NOT NULL,
+      name TEXT NOT NULL,
+      uri TEXT,
+      metadata_json TEXT NOT NULL DEFAULT '{}',
+      validation_status TEXT NOT NULL DEFAULT 'pending' CHECK(validation_status IN ('pending', 'passed', 'failed', 'not_applicable')),
+      created_at DATETIME DEFAULT (datetime('now', 'localtime')),
+      updated_at DATETIME DEFAULT (datetime('now', 'localtime'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_agent_artifacts_task_created ON agent_artifacts(task_id, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_agent_artifacts_run_created ON agent_artifacts(run_id, created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS agent_run_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      run_id TEXT NOT NULL REFERENCES agent_runs(id) ON DELETE CASCADE,
+      sequence INTEGER NOT NULL CHECK(sequence > 0),
+      type TEXT NOT NULL,
+      payload_json TEXT NOT NULL DEFAULT '{}',
+      created_at DATETIME DEFAULT (datetime('now', 'localtime')),
+      UNIQUE(run_id, sequence)
+    );
+    CREATE INDEX IF NOT EXISTS idx_agent_run_events_run_sequence ON agent_run_events(run_id, sequence);
     `);
 
     const messageColumns = database.prepare('PRAGMA table_info(messages)').all() as Array<{ name: string }>;

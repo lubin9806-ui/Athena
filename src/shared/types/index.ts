@@ -9,3 +9,4 @@ export * from './tools';
 export * from './commercial';
 export * from './steam';
 export * from './store';
+export * from './agent';

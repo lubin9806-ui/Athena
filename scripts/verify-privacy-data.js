@@ -30,6 +30,7 @@ const {
   getDatabaseFilePath,
 } = require('../dist/memory/database/index.js');
 const { ComputerToolService } = require('../dist/core/tools/ComputerTools.js');
+const { AgentStore } = require('../dist/core/agent/index.js');
 
 function tableCount(db, table) {
   return db.prepare(`SELECT COUNT(*) AS c FROM ${table}`).get().c;
@@ -100,7 +101,7 @@ function writeVoiceCache(name, ageHours) {
     assert.strictEqual(fs.existsSync(freshVoice), true);
 
     const center = getPrivacyCenterState();
-    const requiredMapIds = ['chat', 'long-term-memory', 'settings', 'search', 'voice', 'tools', 'logs', 'temporary-files'];
+    const requiredMapIds = ['chat', 'long-term-memory', 'settings', 'search', 'voice', 'agent-work', 'tools', 'logs', 'temporary-files'];
     assert.deepStrictEqual(requiredMapIds.every(id => center.dataMap.some(item => item.id === id)), true);
     assert.strictEqual(center.staticProtection.status, 'plaintext-sqlite-with-compensating-controls');
     assert.match(center.staticProtection.claim, /未加密/);
@@ -119,11 +120,39 @@ function writeVoiceCache(name, ageHours) {
     assert.strictEqual(denied.status, 'denied');
     assert.match(denied.output, /external_tool_network_consent_required/);
 
+    const projectId = db.prepare('SELECT id FROM projects ORDER BY id LIMIT 1').get().id;
+    const windowId = db.prepare(`
+      INSERT INTO chat_windows (title, mode, project_id) VALUES ('Privacy export window', 'reason', ?)
+    `).run(projectId).lastInsertRowid;
+    const chatMessageId = db.prepare(`
+      INSERT INTO chat_messages (window_id, role, content, mode) VALUES (?, 'user', 'export this task context', 'reason')
+    `).run(windowId).lastInsertRowid;
+    db.prepare(`
+      INSERT INTO context_snapshots (window_id, user_message_id, mode) VALUES (?, ?, 'reason')
+    `).run(windowId, chatMessageId);
+    const agentStore = new AgentStore(db);
+    let agentTask = agentStore.createTask({
+      title: 'Privacy export task',
+      goal: 'Prove agent work is exported and cleared.',
+      projectId,
+      chatWindowId: Number(windowId),
+    });
+    agentTask = agentStore.transitionTask(agentTask.id, 'ready', agentTask.revision);
+    let agentRun = agentStore.createRun({ taskId: agentTask.id });
+    agentRun = agentStore.startRun(agentRun.id, agentRun.revision);
+    const agentStep = agentStore.appendStep({ runId: agentRun.id, kind: 'verification', title: 'Verify privacy lifecycle' });
+    agentStore.addArtifact({ taskId: agentTask.id, runId: agentRun.id, stepId: agentStep.id, kind: 'report', name: 'Privacy evidence' });
+
     const exported = exportAllData('json');
     assert(fs.existsSync(exported.path), 'data export should exist');
     const exportedJson = JSON.parse(fs.readFileSync(exported.path, 'utf8'));
     assert.strictEqual(exportedJson.staticProtection.status, 'plaintext-sqlite-with-compensating-controls');
     assert(exportedJson.database.messages.some(row => row.content === 'new'));
+    assert(exportedJson.database.projects.some(row => row.id === projectId));
+    assert(exportedJson.database.chat_windows.some(row => row.id === Number(windowId)));
+    assert(exportedJson.database.agent_tasks.some(row => row.id === agentTask.id));
+    assert(exportedJson.database.agent_runs.some(row => row.id === agentRun.id));
+    assert(exportedJson.database.agent_artifacts.some(row => row.name === 'Privacy evidence'));
     assert(exportedJson.files.voiceCache.some(file => file.path === freshVoice && file.contentBase64));
 
     db.prepare("INSERT INTO profile (category, fact) VALUES ('preference', 'clear me')").run();
@@ -138,7 +167,7 @@ function writeVoiceCache(name, ageHours) {
     db.prepare("INSERT INTO project_notes (project, title, note) VALUES ('Athena', 'clear project', 'clear note')").run();
     const cleared = clearAllLocalData();
     assert(cleared.deletedTables.includes('messages'));
-    for (const table of ['messages', 'profile', 'events', 'daily_memory_summaries', 'procedural_memories', 'memory_entities', 'memory_facts', 'memory_fact_sources', 'memory_review_queue', 'project_notes', 'memory_index', 'data_activity_records']) {
+    for (const table of ['agent_run_events', 'agent_approvals', 'agent_artifacts', 'agent_steps', 'agent_runs', 'agent_tasks', 'context_snapshots', 'chat_messages', 'chat_windows', 'projects', 'messages', 'profile', 'events', 'daily_memory_summaries', 'procedural_memories', 'memory_entities', 'memory_facts', 'memory_fact_sources', 'memory_review_queue', 'project_notes', 'memory_index', 'data_activity_records']) {
       assert.strictEqual(tableCount(db, table), 0, `${table} should be empty after clear`);
     }
     assert.strictEqual(fs.existsSync(freshVoice), false);

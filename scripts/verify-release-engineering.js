@@ -14,6 +14,7 @@ const {
   writeJson,
 } = require('./release-common');
 const { rollback, setPaused, stageCandidate } = require('./channel-control');
+const { DATABASE_SCHEMA_VERSION } = require(path.join(ROOT, 'dist', 'memory', 'database', 'index.js'));
 
 function verifyVersionIdentity() {
   const pkg = packageMetadata();
@@ -114,7 +115,7 @@ function verifyMigrationRecovery(scratch) {
     env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', ATHENA_DB_DIR: databaseDir },
   });
   assert.strictEqual(succeeded.status, 0, `migration should recover: ${succeeded.stdout} ${succeeded.stderr}`);
-  assert.match(succeeded.stdout, /schema=8/);
+  assert.match(succeeded.stdout, new RegExp(`schema=${DATABASE_SCHEMA_VERSION}`));
   const backups = fs.readdirSync(path.join(databaseDir, 'backups')).filter(name => name.endsWith('.bak'));
   assert(backups.length >= 1, 'at least one pre-migration backup must remain');
 }
@@ -163,7 +164,7 @@ function verifyVersion3ChatWindowMigration(scratch) {
     env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', ATHENA_DB_DIR: databaseDir },
   });
   assert.strictEqual(migrated.status, 0, `v3 chat window migration should recover: ${migrated.stdout} ${migrated.stderr}`);
-  assert.match(migrated.stdout, /schema=8/);
+  assert.match(migrated.stdout, new RegExp(`schema=${DATABASE_SCHEMA_VERSION}`));
   assert.match(migrated.stdout, /project_id/);
   assert.match(migrated.stdout, /is_temporary/);
 }

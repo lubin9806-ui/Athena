@@ -9,6 +9,8 @@ Athena now has one active desktop runtime path:
 5. `src/memory/*` is the canonical SQLite-backed memory system. The old file-backed memory flow is not part of the active runtime.
 6. `src/renderer/*` owns the UI, Three.js scene, chat panel, memory drawer, and voice controls.
 
+The durable agent domain is under `src/core/agent` and uses the canonical SQLite database. It owns task specifications, run checkpoints, guarded phases, scoped approvals, artifacts, and append-only run events. During the staged migration it is not yet the active chat/tool dispatcher; `docs/AGENT_PLATFORM_ARCHITECTURE.md` defines the ownership transfer blocks.
+
 ## Runtime Paths
 
 Runtime path resolution is centralized in `src/core/runtime/Paths.ts`.
