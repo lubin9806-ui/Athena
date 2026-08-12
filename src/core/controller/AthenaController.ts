@@ -14,7 +14,7 @@ import {
 } from '../agent';
 import { ComputerAgentToolBridge } from '../tools/AgentComputerTools';
 import { SkillAgentToolBridge, SkillLibrary } from '../skills';
-import { McpIntegrationHost } from '../integrations';
+import { McpIntegrationHost, ResearchAgentToolBridge } from '../integrations';
 import { evaluateSteamAiContent, steamAiGuardrailRefusal } from '../steam/SteamAiGuardrails';
 import { isSteamSku } from '../steam/SteamSkuPolicy';
 import {
@@ -93,6 +93,7 @@ export class AthenaController {
   private readonly skillLibrary: SkillLibrary;
   private readonly skillTools: SkillAgentToolBridge;
   private readonly mcpIntegrations: McpIntegrationHost;
+  private readonly researchTools: ResearchAgentToolBridge;
   private agentRunner: AgentRunner;
   private initialized = false;
   private initializePromise: Promise<void> | null = null;
@@ -117,6 +118,14 @@ export class AthenaController {
     this.skillTools = new SkillAgentToolBridge(this.agentTools, this.skillLibrary);
     this.mcpIntegrations = new McpIntegrationHost(this.agentTools, {
       allowExternalNetwork: () => canUseNetworkCapability('externalToolNetwork'),
+    });
+    this.researchTools = new ResearchAgentToolBridge({
+      registry: this.agentTools,
+      webSearch: this.webSearch,
+      getWebSearchSettings: () => getAppSettings().webSearch,
+      canUseWebSearch: () => canUseNetworkCapability('webSearch'),
+      canInspectProject: () => this.resolveAgentToolSettings().permissionLevel !== 'off',
+      resolveProjectRoots: runId => this.resolveProjectRootsForRun(runId),
     });
     this.agentRunner = new AgentRunner(this.llm, this.agentTools, undefined, this.agentStore);
   }
@@ -379,12 +388,13 @@ export class AthenaController {
     }
     const toolNames = this.agentComputerTools.refresh();
     this.skillTools.refresh();
+    const researchToolNames = this.researchTools.refresh();
     const mcp = await this.mcpIntegrations.refreshEnabled();
     const trustedSkills = this.skillLibrary.snapshot().skills.filter(skill => skill.enabled && (
       skill.trust === 'approved' || skill.trust === 'builtin'
     ));
-    if (toolNames.length === 0 && trustedSkills.length === 0 && mcp.registeredToolCount === 0) {
-      throw new Error('执行模式没有可用电脑工具或可信 Skill，请先设置权限或在 Skill 库中批准技能。');
+    if (toolNames.length === 0 && researchToolNames.length === 0 && trustedSkills.length === 0 && mcp.registeredToolCount === 0) {
+      throw new Error('执行模式没有可用工具。请开启所需权限、联网搜索，或批准可信 Skill/MCP Server。');
     }
     const savedUser = this.saveConversationMessage('user', goal, undefined, 'execute', chatWindow.id);
     this.persistExtractedMemory(goal, savedUser.messageId, chatWindow.id);
@@ -511,6 +521,7 @@ export class AthenaController {
       }, item.revision);
     }
     this.agentComputerTools.refresh();
+    this.researchTools.refresh();
     await this.mcpIntegrations.refreshEnabled();
     onState?.(this.agentStore.getRunSnapshot(runId));
     const result = this.materializeAgentResultArtifact(await this.agentRunner.resume(runId));
@@ -532,6 +543,7 @@ export class AthenaController {
       throw new Error('当前运行仍有待审批操作，不能直接继续。');
     }
     this.agentComputerTools.refresh();
+    this.researchTools.refresh();
     await this.mcpIntegrations.refreshEnabled();
     const result = this.materializeAgentResultArtifact(await this.agentRunner.resume(runId));
     onState?.(result.snapshot);
@@ -554,6 +566,7 @@ export class AthenaController {
     this.conversation.shutdown();
     this.agentComputerTools.shutdown();
     this.skillTools.shutdown();
+    this.researchTools.shutdown();
     await this.mcpIntegrations.shutdown();
     closeDatabase();
     this.initialized = false;
@@ -788,6 +801,14 @@ export class AthenaController {
   private persistTerminalAgentResponse(result: AgentRunnerResult): void {
     if (result.status === 'paused') return;
     this.agentResultToChatResponse(result, true);
+  }
+
+  private resolveProjectRootsForRun(runId: string): string[] {
+    const run = this.agentStore.getRun(runId);
+    if (!run) throw new Error(`Agent run not found: ${runId}`);
+    const task = this.agentStore.getTask(run.taskId);
+    if (!task?.projectId) throw new Error(`Agent run ${runId} has no active Project`);
+    return this.projectWorkspace.getSnapshot(task.projectId, task.id).metadata.roots;
   }
 
   private requireAgentRunProject(runId: string, projectId: number): AgentRunSnapshot {

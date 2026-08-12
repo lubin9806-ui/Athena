@@ -49,6 +49,16 @@ Athena uses the official `@modelcontextprotocol/client` SDK and supports stdio p
 - A failed Server is isolated. Configuration revocation, disconnect, process exit, shutdown, and partial connection failure unregister owned tools immediately. Server-driven elicitation is not silently fulfilled.
 - Acceptance command: `npm.cmd run test:mcp-integrations`.
 
+## Block 06B: Native Research and Project Analysis
+
+Execution mode exposes research and project understanding through the same provider-neutral `ToolRegistry` used for files, Skills, and MCP. The model can choose these tools from the confirmed task context; keyword routing is not required.
+
+- `web_research` reuses Athena's governed search and deep-read pipeline. It is registered only while web search is enabled and its specific network consent is active. Every result carries source URLs and collection timestamps and is marked as untrusted external evidence.
+- `github_search_repositories` and `github_get_repository` use only the official GitHub REST API origin. Requests pin API version `2026-03-10`, expose rate-limit evidence, stop after rate-limit responses, and optionally read `ATHENA_GITHUB_TOKEN` from the process environment without storing or returning it.
+- `project_inspect` is a read-only Project tool. It accepts only roots already registered to the active durable task's Project, skips dependency/build directories and symlinked files, summarizes known manifests and README content within byte limits, and runs non-interactive read-only Git inspection without a shell.
+- Network and computer-read revocation is checked again immediately before execution. Resume refreshes the research tool set before the model receives definitions, so stale checkpoints cannot retain revoked capabilities.
+- Acceptance command: `npm.cmd run test:research-tools`.
+
 ## Block 01: Durable Agent Domain
 
 The canonical implementation is under `src/core/agent`. SQLite schema v10 owns these records:

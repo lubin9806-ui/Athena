@@ -6,7 +6,7 @@ import type {
   WebSearchSource,
   WebSearchStatus,
 } from '../../shared/types';
-import { PageContentExtractor } from './PageContentExtractor';
+import { assertPublicUrl, PageContentExtractor } from './PageContentExtractor';
 
 type ActiveSearchProvider = Exclude<WebSearchProvider, 'none'>;
 
@@ -66,6 +66,7 @@ const SEARCH_ENDPOINTS: readonly SearchEndpoint[] = [
   },
 ] as const;
 const MAX_SEARCH_HTML_BYTES = 2 * 1024 * 1024;
+const MAX_SEARCH_REDIRECTS = 3;
 const MAX_QUERY_CHARS = 500;
 const PROVIDER_MIN_INTERVAL_MS = 1_250;
 const PROVIDER_MAX_REQUESTS_PER_MINUTE = 8;
@@ -81,13 +82,13 @@ export class ProviderRequestGovernor {
   private readonly requestedAt = new Map<ActiveSearchProvider, number[]>();
   private readonly nextAllowedAt = new Map<ActiveSearchProvider, number>();
 
-  async acquire(provider: ActiveSearchProvider, now = Date.now()): Promise<void> {
+  async acquire(provider: ActiveSearchProvider, now = Date.now(), signal?: AbortSignal): Promise<void> {
     const recent = (this.requestedAt.get(provider) || []).filter(value => now - value < 60_000);
     if (recent.length >= PROVIDER_MAX_REQUESTS_PER_MINUTE) {
       throw new SearchProviderError('rate_limited', '搜索请求过于频繁，请稍后再试。', 60_000 - (now - recent[0]));
     }
     const delay = Math.max(0, (this.nextAllowedAt.get(provider) || 0) - now);
-    if (delay > 0) await new Promise(resolve => setTimeout(resolve, delay));
+    if (delay > 0) await abortableDelay(delay, signal);
     const acquiredAt = Date.now();
     recent.push(acquiredAt);
     this.requestedAt.set(provider, recent);
@@ -163,13 +164,14 @@ export class WebSearchService {
     query: string,
     maxResults: number,
     onStatus?: (status: WebSearchStatus) => void,
+    signal?: AbortSignal,
   ): Promise<WebSearchContext> {
     const cleanedQuery = cleanQuery(query);
     if (!cleanedQuery) throw new Error('搜索词为空。');
 
     onStatus?.({ phase: 'searching', query: cleanedQuery });
     try {
-      const context = await this.searchAcrossProviders(cleanedQuery, clamp(maxResults, 3, 8));
+      const context = await this.searchAcrossProviders(cleanedQuery, clamp(maxResults, 3, 8), undefined, signal);
       onStatus?.({
         phase: 'done',
         query: cleanedQuery,
@@ -189,6 +191,7 @@ export class WebSearchService {
     query: string,
     settings: WebSearchSettings,
     onStatus?: (status: WebSearchStatus) => void,
+    signal?: AbortSignal,
   ): Promise<WebSearchContext> {
     const cleanedQuery = cleanQuery(query);
     if (!cleanedQuery) throw new Error('搜索词为空。');
@@ -203,7 +206,7 @@ export class WebSearchService {
     onStatus?.({ phase: 'searching', query: cleanedQuery, searchRound: 1 });
     let initial: WebSearchContext;
     try {
-      initial = await this.searchAcrossProviders(cleanedQuery, initialLimit);
+      initial = await this.searchAcrossProviders(cleanedQuery, initialLimit, undefined, signal);
     } catch (error) {
       const message = error instanceof Error ? error.message : '联网搜索失败。';
       onStatus?.({ phase: 'failed', query: cleanedQuery, message });
@@ -225,7 +228,7 @@ export class WebSearchService {
         searchRound: 1,
         provider: initial.provider,
       });
-      pages = await this.readSources(sources, cleanedQuery, firstReadLimit);
+      pages = await this.readSources(sources, cleanedQuery, firstReadLimit, signal);
     }
 
     if (useSecondarySearch) {
@@ -241,7 +244,7 @@ export class WebSearchService {
 
       const remainingResults = Math.max(1, maxResults - sources.length);
       try {
-        const secondary = await this.searchAcrossProviders(secondaryQuery, remainingResults, initial.provider);
+        const secondary = await this.searchAcrossProviders(secondaryQuery, remainingResults, initial.provider, signal);
         searchRounds = 2;
         if (!providers.includes(secondary.provider)) providers.push(secondary.provider);
         const previousUrls = new Set(sources.map(source => canonicalUrlKey(source.url)));
@@ -258,10 +261,11 @@ export class WebSearchService {
               searchRound: 2,
               provider: secondary.provider,
             });
-            pages.push(...await this.readSources(newSources, secondaryQuery, remainingPages));
+            pages.push(...await this.readSources(newSources, secondaryQuery, remainingPages, signal));
           }
         }
-      } catch {
+      } catch (error) {
+        if (signal?.aborted) throw signal.reason || error;
         // A failed refinement must not discard the useful first-round evidence.
       }
     }
@@ -291,6 +295,7 @@ export class WebSearchService {
     query: string,
     maxResults: number,
     deprioritizeProvider?: WebSearchProvider,
+    signal?: AbortSignal,
   ): Promise<WebSearchContext> {
     const orderedEndpoints = deprioritizeProvider && deprioritizeProvider !== 'none'
       ? [
@@ -304,8 +309,9 @@ export class WebSearchService {
     for (const endpoint of orderedEndpoints) {
       this.recordAttempt(endpoint.provider);
       try {
-        await this.governor.acquire(endpoint.provider);
-        const html = await fetchSearchHtml(endpoint, query, maxResults);
+        throwIfAborted(signal);
+        await this.governor.acquire(endpoint.provider, Date.now(), signal);
+        const html = await fetchSearchHtml(endpoint, query, maxResults, signal);
         detectSearchFailurePage(html);
         const sources = endpoint.parser(html, maxResults);
         if (sources.length === 0) throw new SearchProviderError('no_results', '搜索服务没有返回可用结果。');
@@ -321,6 +327,7 @@ export class WebSearchService {
           searchRounds: 1,
         };
       } catch (error) {
+        if (signal?.aborted) throw signal.reason || new Error('Web research cancelled');
         const classified = classifySearchError(error);
         if (classified.retryAfterMs > 0) this.governor.cooldown(endpoint.provider, classified.retryAfterMs);
         this.recordFailure(endpoint.provider, classified.code);
@@ -336,6 +343,7 @@ export class WebSearchService {
     sources: WebSearchSource[],
     query: string,
     maxPages: number,
+    signal?: AbortSignal,
   ): Promise<WebPageEvidence[]> {
     const selected: WebSearchSource[] = [];
     const deferred: WebSearchSource[] = [];
@@ -352,8 +360,10 @@ export class WebSearchService {
     const limited = selected.slice(0, Math.max(0, maxPages));
     const settled: PromiseSettledResult<WebPageEvidence | null>[] = [];
     for (let index = 0; index < limited.length; index += 2) {
-      settled.push(...await Promise.allSettled(limited.slice(index, index + 2).map(source => this.pageExtractor.read(source, query))));
+      throwIfAborted(signal);
+      settled.push(...await Promise.allSettled(limited.slice(index, index + 2).map(source => this.pageExtractor.read(source, query, signal))));
     }
+    throwIfAborted(signal);
     return settled
       .filter((item): item is PromiseFulfilledResult<WebPageEvidence | null> => item.status === 'fulfilled')
       .map(item => item.value)
@@ -498,7 +508,7 @@ export function parseBingHtml(html: string, maxResults = 5): WebSearchSource[] {
   return sources;
 }
 
-async function fetchSearchHtml(endpoint: SearchEndpoint, query: string, maxResults: number): Promise<string> {
+async function fetchSearchHtml(endpoint: SearchEndpoint, query: string, maxResults: number, signal?: AbortSignal): Promise<string> {
   const url = new URL(endpoint.url);
   url.searchParams.set(endpoint.queryParam, query);
   if (endpoint.provider === 'bing') {
@@ -507,17 +517,30 @@ async function fetchSearchHtml(endpoint: SearchEndpoint, query: string, maxResul
   }
   if (endpoint.provider === 'duckduckgo') url.searchParams.set('kl', 'cn-zh');
 
-  const response = await fetch(url, {
-    headers: {
-      'Accept': 'text/html,application/xhtml+xml',
-      'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.6',
-      'User-Agent': endpoint.mobile
-        ? 'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 Chrome/123 Mobile Safari/537.36 Athena/1.0'
-        : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Athena/1.0',
-    },
-    redirect: 'follow',
-    signal: AbortSignal.timeout(endpoint.timeoutMs),
-  });
+  const deadline = Date.now() + endpoint.timeoutMs;
+  let currentUrl = url;
+  let response: Response | null = null;
+  for (let redirectCount = 0; redirectCount <= MAX_SEARCH_REDIRECTS; redirectCount += 1) {
+    const remainingMs = deadline - Date.now();
+    if (remainingMs < 250) throw new SearchProviderError('timeout', '搜索服务响应超时，已自动尝试其他来源。');
+    response = await fetch(currentUrl, {
+      headers: {
+        'Accept': 'text/html,application/xhtml+xml',
+        'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.6',
+        'User-Agent': endpoint.mobile
+          ? 'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 Chrome/123 Mobile Safari/537.36 Athena/1.0'
+          : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Athena/1.0',
+      },
+      redirect: 'manual',
+      signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(remainingMs)]) : AbortSignal.timeout(remainingMs),
+    });
+    if (response.status < 300 || response.status >= 400) break;
+    const location = response.headers.get('location');
+    if (!location || redirectCount === MAX_SEARCH_REDIRECTS) throw new Error('搜索服务重定向过多。');
+    currentUrl = new URL(location, currentUrl);
+    await assertPublicUrl(currentUrl);
+  }
+  if (!response) throw new Error('搜索服务没有返回响应。');
 
   if (!response.ok) {
     const retryAfter = parseRetryAfter(response.headers.get('retry-after'));
@@ -531,9 +554,25 @@ async function fetchSearchHtml(endpoint: SearchEndpoint, query: string, maxResul
     throw new Error('搜索结果页面过大。');
   }
 
-  const html = await response.text();
-  if (html.length > MAX_SEARCH_HTML_BYTES) throw new Error('搜索结果页面过大。');
-  return html;
+  return readBoundedSearchHtml(response, MAX_SEARCH_HTML_BYTES);
+}
+
+async function readBoundedSearchHtml(response: Response, maxBytes: number): Promise<string> {
+  if (!response.body) return '';
+  const reader = response.body.getReader();
+  const chunks: Buffer[] = [];
+  let total = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > maxBytes) {
+      await reader.cancel();
+      throw new Error('搜索结果页面过大。');
+    }
+    chunks.push(Buffer.from(value));
+  }
+  return Buffer.concat(chunks, total).toString('utf8');
 }
 
 export function detectSearchFailurePage(html: string): void {
@@ -568,6 +607,26 @@ function parseRetryAfter(value: string | null): number {
   if (Number.isFinite(seconds)) return Math.max(0, seconds * 1_000);
   const date = Date.parse(value);
   return Number.isFinite(date) ? Math.max(0, date - Date.now()) : 0;
+}
+
+function throwIfAborted(signal?: AbortSignal): void {
+  if (signal?.aborted) throw signal.reason || new Error('Web research cancelled');
+}
+
+function abortableDelay(delayMs: number, signal?: AbortSignal): Promise<void> {
+  if (!signal) return new Promise(resolve => setTimeout(resolve, delayMs));
+  throwIfAborted(signal);
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      signal.removeEventListener('abort', onAbort);
+      resolve();
+    }, delayMs);
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(signal.reason || new Error('Web research cancelled'));
+    };
+    signal.addEventListener('abort', onAbort, { once: true });
+  });
 }
 
 function normalizeSogouResultUrl(rawHref: string): string | null {

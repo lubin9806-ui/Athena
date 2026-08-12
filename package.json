@@ -59,6 +59,7 @@
     "test:project-workspace": "tsc && electron scripts/verify-project-workspace.js",
     "test:skill-library": "tsc && node scripts/verify-skill-library.js",
     "test:mcp-integrations": "tsc && node scripts/verify-mcp-integrations.js",
+    "test:research-tools": "tsc && node scripts/verify-research-tools.js",
     "test:deepseek:live": "tsc && electron scripts/verify-deepseek-live-chat.js",
     "smoke:electron": "node scripts/clean-dist.js && vite build --config vite.config.mts && tsc && electron . --smoke-test",
     "clean:dist": "node scripts/clean-dist.js",

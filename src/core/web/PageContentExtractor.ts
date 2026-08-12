@@ -38,9 +38,9 @@ export interface ReadablePageContent {
 }
 
 export class PageContentExtractor {
-  async read(source: WebSearchSource, query: string): Promise<WebPageEvidence | null> {
+  async read(source: WebSearchSource, query: string, signal?: AbortSignal): Promise<WebPageEvidence | null> {
     try {
-      const document = await fetchPublicDocument(source.url);
+      const document = await fetchPublicDocument(source.url, signal);
       const extracted = extractDocument(document, source.title, query);
       if (!extracted || extracted.excerpt.length < 100) return null;
 
@@ -55,6 +55,7 @@ export class PageContentExtractor {
         publishedAt: extracted.publishedAt,
       };
     } catch {
+      if (signal?.aborted) throw signal.reason || new Error('Web page read cancelled');
       return null;
     }
   }
@@ -187,7 +188,7 @@ export function isPrivateIpAddress(address: string): boolean {
   return true;
 }
 
-async function fetchPublicDocument(initialUrl: string): Promise<FetchedDocument> {
+async function fetchPublicDocument(initialUrl: string, signal?: AbortSignal): Promise<FetchedDocument> {
   let currentUrl = new URL(initialUrl);
   const deadline = Date.now() + PAGE_TIMEOUT_MS;
 
@@ -203,7 +204,7 @@ async function fetchPublicDocument(initialUrl: string): Promise<FetchedDocument>
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 AthenaResearch/1.0',
       },
       redirect: 'manual',
-      signal: AbortSignal.timeout(remainingMs),
+      signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(remainingMs)]) : AbortSignal.timeout(remainingMs),
     });
 
     if (response.status >= 300 && response.status < 400) {
@@ -223,7 +224,7 @@ async function fetchPublicDocument(initialUrl: string): Promise<FetchedDocument>
   throw new Error('网页重定向失败。');
 }
 
-async function assertPublicUrl(url: URL): Promise<void> {
+export async function assertPublicUrl(url: URL): Promise<void> {
   if (url.protocol !== 'http:' && url.protocol !== 'https:') throw new Error('只允许读取 HTTP 网页。');
   if (url.username || url.password) throw new Error('网页地址不能包含认证信息。');
   if (url.port && url.port !== '80' && url.port !== '443') throw new Error('网页端口不在允许范围内。');

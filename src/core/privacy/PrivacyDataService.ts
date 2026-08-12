@@ -397,7 +397,7 @@ function buildNetworkCapabilityNotices(consent: NetworkConsentSettings): Network
     {
       id: 'remoteModel',
       label: '远程模型服务',
-      sends: '当前请求、系统提示、相关对话、检索到的记忆上下文和工具规划内容',
+      sends: '当前请求、系统提示、相关对话、检索到的记忆上下文、工具规划及工具结果；工具结果可能包含用户授权读取的本地 Project 元数据和文件片段',
       destinations: '用户明确选择并配置的 OpenAI、DeepSeek、Athena Cloud 或自定义 API 地址',
       defaultState: 'off-until-consent',
       consented: consent.remoteModel,
@@ -406,7 +406,7 @@ function buildNetworkCapabilityNotices(consent: NetworkConsentSettings): Network
       id: 'webSearch',
       label: '联网搜索和网页深读',
       sends: '搜索词、搜索结果 URL 和网页请求元数据',
-      destinations: 'Sogou、Bing、DuckDuckGo 以及搜索结果网页域名',
+      destinations: 'Sogou、Bing、DuckDuckGo、api.github.com 以及搜索结果网页域名',
       defaultState: 'off-until-consent',
       consented: consent.webSearch,
     },
