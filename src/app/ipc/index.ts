@@ -58,7 +58,7 @@ import {
   updateMemory,
 } from '../../memory';
 import type { MemoryKind, MemoryListOptions, MemoryReviewListOptions, MemoryUpdatePatch } from '../../memory';
-import type { RemoteModelProvider, SettingsBundle, SettingsPatch, ToolConfirmationRequest, ToolStatusEvent, WebSearchStatus } from '../../shared/types';
+import type { McpServerInput, RemoteModelProvider, SettingsBundle, SettingsPatch, ToolConfirmationRequest, ToolStatusEvent, WebSearchStatus } from '../../shared/types';
 import { armMicrophoneGrant, revokeMicrophoneGrant } from '../security/PermissionGate';
 import { applyDesktopSettings, showReminderNotification } from '../DesktopSettings';
 import { cleanChatPayload, cleanExistingFilePath, isTrustedIpcSender } from './validation';
@@ -94,6 +94,13 @@ const INVOKE_CHANNELS = [
   'skill:setTrust',
   'skill:setEnabled',
   'skill:uninstall',
+  'mcp:list',
+  'mcp:upsert',
+  'mcp:approve',
+  'mcp:setEnabled',
+  'mcp:connect',
+  'mcp:disconnect',
+  'mcp:remove',
   'tools:catalog',
   'system:info',
   'config:get',
@@ -138,7 +145,7 @@ const INVOKE_CHANNELS = [
 const EVENT_CHANNELS = ['window:minimize', 'window:close'] as const;
 const MEMORY_KINDS = new Set<MemoryKind>(['profile', 'procedure', 'fact', 'event', 'daily', 'project', 'message']);
 
-export function registerIpcHandlers(mainWindow: BrowserWindow): void {
+export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<void> {
   clearIpcHandlers();
 
   const controller = new AthenaController();
@@ -425,6 +432,57 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     return name && packageHash ? controller.uninstallSkill(name, packageHash) : null;
   });
 
+  ipcMain.handle('mcp:list', async (event) => {
+    if (!isTrustedSender(event)) return null;
+    return controller.getMcpIntegrations();
+  });
+
+  ipcMain.handle('mcp:upsert', async (event, value: unknown) => {
+    if (!isTrustedSender(event)) return null;
+    const input = cleanMcpServerInput(value);
+    return input ? controller.upsertMcpServer(input) : null;
+  });
+
+  ipcMain.handle('mcp:approve', async (event, value: unknown) => {
+    if (!isTrustedSender(event)) return null;
+    if (!isRecord(value)) return null;
+    const id = cleanMcpId(value.id);
+    const fingerprint = cleanSha256(value.fingerprint);
+    return id && fingerprint && typeof value.approved === 'boolean'
+      ? controller.approveMcpServer(id, fingerprint, value.approved)
+      : null;
+  });
+
+  ipcMain.handle('mcp:setEnabled', async (event, value: unknown) => {
+    if (!isTrustedSender(event)) return null;
+    if (!isRecord(value)) return null;
+    const id = cleanMcpId(value.id);
+    const fingerprint = cleanSha256(value.fingerprint);
+    return id && fingerprint && typeof value.enabled === 'boolean'
+      ? controller.setMcpServerEnabled(id, fingerprint, value.enabled)
+      : null;
+  });
+
+  ipcMain.handle('mcp:connect', async (event, value: unknown) => {
+    if (!isTrustedSender(event)) return null;
+    const id = cleanMcpId(value);
+    return id ? controller.connectMcpServer(id) : null;
+  });
+
+  ipcMain.handle('mcp:disconnect', async (event, value: unknown) => {
+    if (!isTrustedSender(event)) return null;
+    const id = cleanMcpId(value);
+    return id ? controller.disconnectMcpServer(id) : null;
+  });
+
+  ipcMain.handle('mcp:remove', async (event, value: unknown) => {
+    if (!isTrustedSender(event)) return null;
+    if (!isRecord(value)) return null;
+    const id = cleanMcpId(value.id);
+    const fingerprint = cleanSha256(value.fingerprint);
+    return id && fingerprint ? controller.removeMcpServer(id, fingerprint) : null;
+  });
+
   ipcMain.handle('tools:catalog', async (event, value: unknown) => {
     if (!isTrustedSender(event)) return null;
     const mode = value === 'create' || value === 'companion' || value === 'reason' || value === 'execute'
@@ -672,6 +730,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     if (!isTrustedSender(event)) return null;
     return exportAllData(format === 'markdown' ? 'markdown' : 'json', {
       agentSkills: controller.getSkillPrivacyData(),
+      integrations: controller.getMcpPrivacyData(),
     });
   });
 
@@ -760,11 +819,17 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     if (isTrustedSender(event)) mainWindow.close();
   });
 
-  mainWindow.once('closed', () => {
-    clearIpcHandlers();
-    removeReminderListener();
-    controller.shutdown();
-  });
+  let shutdownPromise: Promise<void> | null = null;
+  const shutdown = (): Promise<void> => {
+    shutdownPromise ||= (async () => {
+      clearIpcHandlers();
+      removeReminderListener();
+      await controller.shutdown();
+    })();
+    return shutdownPromise;
+  };
+  mainWindow.once('closed', () => { void shutdown(); });
+  return shutdown;
 }
 
 async function confirmToolExecution(mainWindow: BrowserWindow, request: ToolConfirmationRequest): Promise<boolean> {
@@ -870,6 +935,14 @@ function cleanStringList(value: unknown, maxItems: number, maxLength: number): s
   return items.length > 0 ? items : [];
 }
 
+function cleanMcpArgumentList(value: unknown, maxItems: number, maxLength: number): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  return value
+    .filter((item): item is string => typeof item === 'string' && item.length > 0)
+    .map(item => item.slice(0, maxLength))
+    .slice(0, maxItems);
+}
+
 function cleanWorkspaceGoals(value: unknown): Array<{ id?: string; title: string; status: 'active' | 'achieved' | 'paused' }> | undefined {
   if (!Array.isArray(value)) return undefined;
   return value.slice(0, 30).flatMap(item => {
@@ -899,6 +972,49 @@ function cleanSkillName(value: unknown): string | null {
 
 function cleanSha256(value: unknown): string | null {
   return typeof value === 'string' && /^[a-f0-9]{64}$/.test(value) ? value : null;
+}
+
+function cleanMcpId(value: unknown): string | null {
+  return typeof value === 'string' && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value) && value.length <= 48
+    ? value
+    : null;
+}
+
+function cleanMcpServerInput(value: unknown): McpServerInput | null {
+  if (!isRecord(value)) return null;
+  const transport = value.transport === 'stdio' || value.transport === 'streamable-http' ? value.transport : null;
+  const name = cleanString(value.name, 120).trim();
+  if (!transport || !name) return null;
+  const id = value.id === undefined ? undefined : cleanMcpId(value.id) || undefined;
+  const protocolMode = value.protocolMode === 'legacy' || value.protocolMode === 'auto' || value.protocolMode === '2026-07-28'
+    ? value.protocolMode
+    : 'auto';
+  if (transport === 'stdio') {
+    const stdio = isRecord(value.stdio) ? value.stdio : {};
+    return {
+      id,
+      name,
+      transport,
+      protocolMode,
+      stdio: {
+        command: cleanString(stdio.command, 1_024),
+        args: cleanMcpArgumentList(stdio.args, 64, 2_000) || [],
+        cwd: cleanString(stdio.cwd, 2_048) || null,
+        envKeys: cleanStringList(stdio.envKeys, 64, 128) || [],
+      },
+    };
+  }
+  const http = isRecord(value.http) ? value.http : {};
+  return {
+    id,
+    name,
+    transport,
+    protocolMode,
+    http: {
+      url: cleanString(http.url, 2_048),
+      bearerTokenEnv: cleanString(http.bearerTokenEnv, 128) || null,
+    },
+  };
 }
 
 function notifyAgentWorkspaceChanged(

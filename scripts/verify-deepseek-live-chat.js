@@ -76,7 +76,7 @@ async function main() {
       response: content.slice(0, 240),
     }));
   } finally {
-    controller?.shutdown();
+    await controller?.shutdown();
     delete process.env.DEEPSEEK_API_KEY;
     fs.rmSync(scratchPath, { recursive: true, force: true });
     app.quit();

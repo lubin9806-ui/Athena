@@ -14,6 +14,7 @@ import {
 } from '../agent';
 import { ComputerAgentToolBridge } from '../tools/AgentComputerTools';
 import { SkillAgentToolBridge, SkillLibrary } from '../skills';
+import { McpIntegrationHost } from '../integrations';
 import { evaluateSteamAiContent, steamAiGuardrailRefusal } from '../steam/SteamAiGuardrails';
 import { isSteamSku } from '../steam/SteamSkuPolicy';
 import {
@@ -52,6 +53,9 @@ import type {
   AgentWorkspaceMetadata,
   AgentSkillLibrarySnapshot,
   AgentSkillSummary,
+  McpIntegrationSnapshot,
+  McpServerConfig,
+  McpServerInput,
   ChatResponse,
   ConversationMode,
   MemorySettings,
@@ -88,6 +92,7 @@ export class AthenaController {
   private readonly projectWorkspace: ProjectWorkspaceService;
   private readonly skillLibrary: SkillLibrary;
   private readonly skillTools: SkillAgentToolBridge;
+  private readonly mcpIntegrations: McpIntegrationHost;
   private agentRunner: AgentRunner;
   private initialized = false;
   private initializePromise: Promise<void> | null = null;
@@ -110,6 +115,9 @@ export class AthenaController {
     this.projectWorkspace = new ProjectWorkspaceService(this.agentStore);
     this.skillLibrary = new SkillLibrary();
     this.skillTools = new SkillAgentToolBridge(this.agentTools, this.skillLibrary);
+    this.mcpIntegrations = new McpIntegrationHost(this.agentTools, {
+      allowExternalNetwork: () => canUseNetworkCapability('externalToolNetwork'),
+    });
     this.agentRunner = new AgentRunner(this.llm, this.agentTools, undefined, this.agentStore);
   }
 
@@ -371,10 +379,11 @@ export class AthenaController {
     }
     const toolNames = this.agentComputerTools.refresh();
     this.skillTools.refresh();
+    const mcp = await this.mcpIntegrations.refreshEnabled();
     const trustedSkills = this.skillLibrary.snapshot().skills.filter(skill => skill.enabled && (
       skill.trust === 'approved' || skill.trust === 'builtin'
     ));
-    if (toolNames.length === 0 && trustedSkills.length === 0) {
+    if (toolNames.length === 0 && trustedSkills.length === 0 && mcp.registeredToolCount === 0) {
       throw new Error('执行模式没有可用电脑工具或可信 Skill，请先设置权限或在 Skill 库中批准技能。');
     }
     const savedUser = this.saveConversationMessage('user', goal, undefined, 'execute', chatWindow.id);
@@ -448,6 +457,40 @@ export class AthenaController {
     return removed;
   }
 
+  getMcpIntegrations(): McpIntegrationSnapshot {
+    return this.mcpIntegrations.snapshot();
+  }
+
+  getMcpPrivacyData(): ReturnType<McpIntegrationHost['getPrivacyData']> {
+    return this.mcpIntegrations.getPrivacyData();
+  }
+
+  upsertMcpServer(input: McpServerInput): Promise<McpServerConfig> {
+    return this.mcpIntegrations.upsert(input);
+  }
+
+  approveMcpServer(id: string, fingerprint: string, approved: boolean): Promise<McpServerConfig> {
+    return this.mcpIntegrations.approve(id, fingerprint, approved);
+  }
+
+  setMcpServerEnabled(id: string, fingerprint: string, enabled: boolean): Promise<McpServerConfig> {
+    return this.mcpIntegrations.setEnabled(id, fingerprint, enabled);
+  }
+
+  async connectMcpServer(id: string): Promise<McpIntegrationSnapshot> {
+    await this.mcpIntegrations.connect(id);
+    return this.mcpIntegrations.snapshot();
+  }
+
+  async disconnectMcpServer(id: string): Promise<McpIntegrationSnapshot> {
+    await this.mcpIntegrations.disconnect(id);
+    return this.mcpIntegrations.snapshot();
+  }
+
+  removeMcpServer(id: string, fingerprint: string): Promise<boolean> {
+    return this.mcpIntegrations.remove(id, fingerprint);
+  }
+
   async resolveAgentApprovalGroup(
     projectId: number,
     runId: string,
@@ -468,6 +511,7 @@ export class AthenaController {
       }, item.revision);
     }
     this.agentComputerTools.refresh();
+    await this.mcpIntegrations.refreshEnabled();
     onState?.(this.agentStore.getRunSnapshot(runId));
     const result = this.materializeAgentResultArtifact(await this.agentRunner.resume(runId));
     onState?.(result.snapshot);
@@ -488,6 +532,7 @@ export class AthenaController {
       throw new Error('当前运行仍有待审批操作，不能直接继续。');
     }
     this.agentComputerTools.refresh();
+    await this.mcpIntegrations.refreshEnabled();
     const result = this.materializeAgentResultArtifact(await this.agentRunner.resume(runId));
     onState?.(result.snapshot);
     this.persistTerminalAgentResponse(result);
@@ -501,7 +546,7 @@ export class AthenaController {
     return result;
   }
 
-  shutdown(): void {
+  async shutdown(): Promise<void> {
     if (this.memoryMaintenanceTimer) {
       clearTimeout(this.memoryMaintenanceTimer);
       this.memoryMaintenanceTimer = null;
@@ -509,6 +554,7 @@ export class AthenaController {
     this.conversation.shutdown();
     this.agentComputerTools.shutdown();
     this.skillTools.shutdown();
+    await this.mcpIntegrations.shutdown();
     closeDatabase();
     this.initialized = false;
     logger.info('Athena shutdown complete.');

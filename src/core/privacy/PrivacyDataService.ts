@@ -62,6 +62,10 @@ export interface SupplementalPrivacyData {
     packages: Record<string, unknown>;
     invocations: unknown[];
   };
+  integrations?: {
+    version: number;
+    servers: unknown[];
+  };
 }
 
 export interface LocalDataClearHooks {
@@ -242,6 +246,7 @@ function buildExportPayload(supplemental: SupplementalPrivacyData): Record<strin
     staticProtection: buildStaticProtectionDecision(),
     settings: redactSettingsBundle(),
     agentSkills: supplemental.agentSkills || { packages: {}, invocations: [] },
+    integrations: supplemental.integrations || { version: 1, servers: [] },
     database: {
       path: getDatabaseFilePath(),
       stats: getStats(),
@@ -320,6 +325,15 @@ function buildDataMap(settings: AppSettings): DataMapItem[] {
       leavesDevice: 'Skill packages and invocation evidence remain local unless their content is explicitly sent through an approved model or tool request.',
       retention: 'Installed packages and trust decisions remain until changed by the user. One-click clear removes invocation evidence but preserves installed packages and explicit trust decisions.',
       controls: ['Skill library approval', 'Enable or disable', 'Uninstall', 'Complete export', 'One-click activity clear'],
+    },
+    {
+      id: 'integrations',
+      label: 'MCP integrations',
+      stored: 'Server names, exact local launch commands or remote URLs, environment variable names, protocol mode, content-bound approval, and enablement state',
+      locations: [path.join(configDir, 'mcp-servers.json')],
+      leavesDevice: 'Remote MCP requests leave the device only after external-tool network consent. Local stdio servers run with the desktop user privileges after exact-command approval.',
+      retention: 'Integration configuration remains until disabled or removed. Secret values are read from process environment and are never stored in the configuration file or export.',
+      controls: ['Exact configuration approval', 'Enable or disable', 'Connect or disconnect', 'Remove', 'Complete export'],
     },
     {
       id: 'search',

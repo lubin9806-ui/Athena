@@ -22,6 +22,7 @@ memory/*.json
 config/personas/
 config/skills/
 config/skills-state.json
+config/mcp-servers.json
 personality/private/
 
 # Environment

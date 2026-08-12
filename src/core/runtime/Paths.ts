@@ -90,6 +90,10 @@ export function resolveSkillStateFile(): string {
   return resolveWritableConfigFile('skills-state.json');
 }
 
+export function resolveMcpServersFile(): string {
+  return resolveWritableConfigFile('mcp-servers.json');
+}
+
 export function resolveSkillDiscoveryRoots(projectRoot = resolveProjectRoot()): Array<{
   source: 'builtin' | 'project' | 'user' | 'external';
   path: string;

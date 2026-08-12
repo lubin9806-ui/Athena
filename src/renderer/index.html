@@ -362,6 +362,72 @@
         <section class="execution-card">
           <div class="execution-card-head">
             <div>
+              <div class="execution-section-label">INTEGRATIONS</div>
+              <div class="execution-card-title">MCP Servers</div>
+            </div>
+            <button id="mcp-add-toggle" class="execution-secondary-button" type="button">添加 Server</button>
+          </div>
+          <div id="mcp-integration-summary" class="execution-current-meta">正在读取 MCP 配置...</div>
+          <form id="mcp-server-form" class="mcp-server-form" hidden>
+            <input id="mcp-server-id" type="hidden" />
+            <label>
+              <span>名称</span>
+              <input id="mcp-server-name" type="text" maxlength="120" required />
+            </label>
+            <label>
+              <span>传输</span>
+              <select id="mcp-server-transport">
+                <option value="stdio">stdio</option>
+                <option value="streamable-http">Streamable HTTP</option>
+              </select>
+            </label>
+            <label>
+              <span>协议</span>
+              <select id="mcp-server-protocol">
+                <option value="auto">自动协商</option>
+                <option value="legacy">2025 兼容</option>
+                <option value="2026-07-28">2026-07-28</option>
+              </select>
+            </label>
+            <div id="mcp-stdio-fields" class="mcp-transport-fields">
+              <label>
+                <span>可执行命令</span>
+                <input id="mcp-server-command" type="text" maxlength="1024" />
+              </label>
+              <label>
+                <span>工作目录</span>
+                <input id="mcp-server-cwd" type="text" maxlength="2048" />
+              </label>
+              <label class="mcp-wide-field">
+                <span>参数</span>
+                <textarea id="mcp-server-args" rows="3" maxlength="12000"></textarea>
+              </label>
+              <label class="mcp-wide-field">
+                <span>环境变量名</span>
+                <textarea id="mcp-server-env" rows="2" maxlength="4000"></textarea>
+              </label>
+            </div>
+            <div id="mcp-http-fields" class="mcp-transport-fields" hidden>
+              <label class="mcp-wide-field">
+                <span>MCP URL</span>
+                <input id="mcp-server-url" type="url" maxlength="2048" />
+              </label>
+              <label class="mcp-wide-field">
+                <span>Bearer Token 环境变量名</span>
+                <input id="mcp-server-token-env" type="text" maxlength="128" />
+              </label>
+            </div>
+            <div class="mcp-form-actions">
+              <button class="execution-secondary-button" type="submit">保存配置</button>
+              <button id="mcp-form-cancel" class="execution-secondary-button" type="button">取消</button>
+            </div>
+          </form>
+          <div id="mcp-integration-list" class="mcp-integration-list"></div>
+        </section>
+
+        <section class="execution-card">
+          <div class="execution-card-head">
+            <div>
               <div class="execution-section-label">任务板</div>
               <div class="execution-card-title">从讨论到交付</div>
             </div>

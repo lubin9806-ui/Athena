@@ -38,6 +38,17 @@ Athena follows the [Agent Skills specification](https://github.com/agentskills/a
 - Package hashes are rechecked immediately before instruction or resource access. Privacy export includes trust and invocation evidence; one-click clear removes invocation history while preserving installed packages and explicit trust decisions.
 - Acceptance command: `npm.cmd run test:skill-library`.
 
+## Block 06A: MCP Integration Host
+
+Athena uses the official `@modelcontextprotocol/client` SDK and supports stdio plus Streamable HTTP with legacy, automatic, or pinned `2026-07-28` protocol negotiation.
+
+- MCP configurations are stored separately from settings. Local commands, arguments, working directories, environment variable names, remote URLs, and protocol mode are bound to a SHA-256 approval fingerprint. Configuration changes disable the Server and revoke approval.
+- Secret values are never accepted in configuration. Stdio receives only the SDK safe environment plus explicitly named variables; HTTP bearer tokens are read from a named process environment variable before each request.
+- Local commands are spawned directly without a shell and require exact-command consent before enablement. Remote non-local URLs require HTTPS and the existing external-tool network consent.
+- Tool annotations are treated as risk hints from an explicitly approved Server. Missing annotations use the MCP conservative defaults. Read-only calls remain policy-gated; mutating calls always require Agent approval, and potentially destructive calls are critical risk.
+- A failed Server is isolated. Configuration revocation, disconnect, process exit, shutdown, and partial connection failure unregister owned tools immediately. Server-driven elicitation is not silently fulfilled.
+- Acceptance command: `npm.cmd run test:mcp-integrations`.
+
 ## Block 01: Durable Agent Domain
 
 The canonical implementation is under `src/core/agent`. SQLite schema v10 owns these records:

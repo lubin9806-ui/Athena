@@ -62,22 +62,30 @@ function rel(filePath) {
   return path.relative(repoRoot, filePath).replace(/\\/g, "/");
 }
 
-function packageDirFor(name) {
-  return path.join(repoRoot, "node_modules", ...name.split("/"));
-}
+let packageLockCache = null;
 
-function readPackageLockMeta(name) {
+function readPackageLockMeta(name, version) {
   const lockPath = path.join(repoRoot, "package-lock.json");
   if (!exists(lockPath)) {
     return null;
   }
-  const lock = readJson(lockPath);
-  return lock.packages ? lock.packages[`node_modules/${name}`] || null : null;
+  packageLockCache ||= readJson(lockPath);
+  const suffix = `node_modules/${name}`;
+  const candidates = Object.entries(packageLockCache.packages || {}).filter(([packagePath, meta]) => (
+    packagePath === suffix || packagePath.endsWith(`/${suffix}`)
+  ) && (!version || meta.version === version));
+  if (candidates.length === 0) return null;
+  candidates.sort(([left], [right]) => left.length - right.length || left.localeCompare(right));
+  const [packagePath, meta] = candidates[0];
+  return { packagePath, meta };
 }
 
 function readPackageMeta(name, version, resolved) {
-  const packageJsonPath = path.join(packageDirFor(name), "package.json");
-  const lockMeta = readPackageLockMeta(name);
+  const lockEntry = readPackageLockMeta(name, version);
+  const lockMeta = lockEntry && lockEntry.meta;
+  const packageJsonPath = lockEntry
+    ? path.join(repoRoot, lockEntry.packagePath, "package.json")
+    : path.join(repoRoot, "node_modules", ...name.split("/"), "package.json");
   if (!exists(packageJsonPath)) {
     return {
       name,
@@ -96,7 +104,7 @@ function readPackageMeta(name, version, resolved) {
         : null;
   return {
     name,
-    version: pkg.version || version,
+    version: version || pkg.version,
     resolved: resolved || (lockMeta && lockMeta.resolved) || null,
     license: normalizeLicense(pkg.license || pkg.licenses || (lockMeta && lockMeta.license)),
     repository,

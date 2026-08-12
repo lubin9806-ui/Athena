@@ -57,6 +57,13 @@ declare global {
       setSkillTrust: (name: string, packageHash: string, trust: 'approved' | 'untrusted' | 'quarantined') => Promise<AgentSkillSummary | null>;
       setSkillEnabled: (name: string, packageHash: string, enabled: boolean) => Promise<AgentSkillSummary | null>;
       uninstallSkill: (name: string, packageHash: string) => Promise<boolean | null>;
+      getMcpIntegrations: () => Promise<McpIntegrationSnapshot | null>;
+      upsertMcpServer: (input: McpServerInput) => Promise<McpServerConfig | null>;
+      approveMcpServer: (id: string, fingerprint: string, approved: boolean) => Promise<McpServerConfig | null>;
+      setMcpServerEnabled: (id: string, fingerprint: string, enabled: boolean) => Promise<McpServerConfig | null>;
+      connectMcpServer: (id: string) => Promise<McpIntegrationSnapshot | null>;
+      disconnectMcpServer: (id: string) => Promise<McpIntegrationSnapshot | null>;
+      removeMcpServer: (id: string, fingerprint: string) => Promise<boolean | null>;
       getToolCatalog: (mode?: AthenaMode) => Promise<ToolCatalog | null>;
       onChatStream: (callback: (data: { content: string; done: boolean }) => void) => () => void;
       onChatError: (callback: (error: string) => void) => () => void;
@@ -473,6 +480,52 @@ interface AgentSkillLibrarySnapshot {
   diagnostics: Array<{ source: string; path: string; error: string }>;
 }
 
+type McpTransportKind = 'stdio' | 'streamable-http';
+type McpProtocolMode = 'legacy' | 'auto' | '2026-07-28';
+
+interface McpServerInput {
+  id?: string;
+  name: string;
+  transport: McpTransportKind;
+  protocolMode: McpProtocolMode;
+  stdio?: { command: string; args: string[]; cwd: string | null; envKeys: string[] };
+  http?: { url: string; bearerTokenEnv: string | null };
+}
+
+interface McpServerConfig extends McpServerInput {
+  id: string;
+  configFingerprint: string;
+  approvedFingerprint: string | null;
+  enabled: boolean;
+}
+
+interface McpServerSnapshot extends McpServerConfig {
+  status: 'disabled' | 'approval-required' | 'disconnected' | 'connecting' | 'connected' | 'error';
+  error: string | null;
+  serverName: string | null;
+  serverVersion: string | null;
+  protocolVersion: string | null;
+  instructions: string | null;
+  tools: Array<{
+    name: string;
+    registeredName: string;
+    title: string | null;
+    description: string;
+    readOnlyHint: boolean;
+    destructiveHint: boolean;
+    idempotentHint: boolean;
+    openWorldHint: boolean;
+  }>;
+  diagnostics: string[];
+  connectedAt: string | null;
+}
+
+interface McpIntegrationSnapshot {
+  servers: McpServerSnapshot[];
+  connectedCount: number;
+  registeredToolCount: number;
+}
+
 interface PersonalizationSettings {
   userName: string;
   preferredAddress: string;
@@ -851,6 +904,23 @@ const agentArtifactList = mustGet<HTMLElement>('agent-artifact-list');
 const skillInstall = mustGet<HTMLButtonElement>('skill-install');
 const skillLibrarySummary = mustGet<HTMLElement>('skill-library-summary');
 const skillLibraryList = mustGet<HTMLElement>('skill-library-list');
+const mcpAddToggle = mustGet<HTMLButtonElement>('mcp-add-toggle');
+const mcpIntegrationSummary = mustGet<HTMLElement>('mcp-integration-summary');
+const mcpIntegrationList = mustGet<HTMLElement>('mcp-integration-list');
+const mcpServerForm = mustGet<HTMLFormElement>('mcp-server-form');
+const mcpServerId = mustGet<HTMLInputElement>('mcp-server-id');
+const mcpServerName = mustGet<HTMLInputElement>('mcp-server-name');
+const mcpServerTransport = mustGet<HTMLSelectElement>('mcp-server-transport');
+const mcpServerProtocol = mustGet<HTMLSelectElement>('mcp-server-protocol');
+const mcpStdioFields = mustGet<HTMLElement>('mcp-stdio-fields');
+const mcpHttpFields = mustGet<HTMLElement>('mcp-http-fields');
+const mcpServerCommand = mustGet<HTMLInputElement>('mcp-server-command');
+const mcpServerCwd = mustGet<HTMLInputElement>('mcp-server-cwd');
+const mcpServerArgs = mustGet<HTMLTextAreaElement>('mcp-server-args');
+const mcpServerEnv = mustGet<HTMLTextAreaElement>('mcp-server-env');
+const mcpServerUrl = mustGet<HTMLInputElement>('mcp-server-url');
+const mcpServerTokenEnv = mustGet<HTMLInputElement>('mcp-server-token-env');
+const mcpFormCancel = mustGet<HTMLButtonElement>('mcp-form-cancel');
 const settingsOpenExecution = mustGet<HTMLButtonElement>('settings-open-execution');
 const memoryPanel = mustGet<HTMLElement>('memory-panel');
 const btnMemoryClose = mustGet<HTMLButtonElement>('btn-memory-close');
@@ -1030,6 +1100,7 @@ let agentWorkspace: AgentProjectWorkspaceSnapshot | null = null;
 let selectedAgentTaskId: string | undefined;
 let agentWorkspaceLoading = false;
 let skillLibrarySnapshot: AgentSkillLibrarySnapshot | null = null;
+let mcpIntegrationSnapshot: McpIntegrationSnapshot | null = null;
 let currentAudio: HTMLAudioElement | null = null;
 let voiceInputState: VoiceInputState = 'idle';
 let voiceFeedbackTimer: number | undefined;
@@ -1100,6 +1171,7 @@ function setMode(mode: AthenaMode): void {
   if (mode === 'execute') {
     void refreshAgentWorkspace();
     void refreshSkillLibrary();
+    void refreshMcpIntegrations();
   }
 }
 
@@ -1337,6 +1409,18 @@ function init(): void {
     const name = button?.dataset.skillName;
     const packageHash = button?.dataset.skillHash;
     if (button && name && packageHash) void handleSkillAction(button.dataset.skillAction || '', name, packageHash);
+  });
+  mcpAddToggle.addEventListener('click', () => openMcpServerForm());
+  mcpFormCancel.addEventListener('click', closeMcpServerForm);
+  mcpServerTransport.addEventListener('change', syncMcpTransportFields);
+  mcpServerForm.addEventListener('submit', (event) => {
+    event.preventDefault();
+    void saveMcpServer();
+  });
+  mcpIntegrationList.addEventListener('click', (event) => {
+    const button = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('[data-mcp-action]') : null;
+    const id = button?.dataset.mcpId;
+    if (button && id) void handleMcpAction(button.dataset.mcpAction || '', id, button.dataset.mcpFingerprint || '');
   });
   agentRootForm.addEventListener('submit', (event) => {
     event.preventDefault();
@@ -1762,6 +1846,203 @@ function skillTrustLabel(trust: AgentSkillSummary['trust'], enabled: boolean): s
   if (trust === 'quarantined') return '已隔离';
   if (trust === 'approved') return enabled ? '已启用' : '已批准';
   return '待审查';
+}
+
+async function refreshMcpIntegrations(): Promise<void> {
+  try {
+    mcpIntegrationSnapshot = await window.athenaAPI.getMcpIntegrations();
+    renderMcpIntegrations();
+  } catch (error) {
+    mcpIntegrationSummary.textContent = `MCP 配置读取失败：${error instanceof Error ? error.message : String(error)}`;
+  }
+}
+
+function renderMcpIntegrations(): void {
+  const snapshot = mcpIntegrationSnapshot;
+  if (!snapshot) {
+    mcpIntegrationSummary.textContent = 'MCP 集成不可用';
+    renderAgentEmpty(mcpIntegrationList, '尚未配置 MCP Server');
+    return;
+  }
+  const approvalRequired = snapshot.servers.filter(server => server.status === 'approval-required').length;
+  mcpIntegrationSummary.textContent = `${snapshot.servers.length} 个 Server · ${snapshot.connectedCount} 个已连接 · ${snapshot.registeredToolCount} 个已注册工具 · ${approvalRequired} 个待批准`;
+  if (snapshot.servers.length === 0) {
+    renderAgentEmpty(mcpIntegrationList, '尚未配置 MCP Server');
+    return;
+  }
+  mcpIntegrationList.replaceChildren(...snapshot.servers.map(server => {
+    const item = document.createElement('div');
+    item.className = 'mcp-integration-item';
+    const head = document.createElement('div');
+    head.className = 'mcp-integration-head';
+    const identity = document.createElement('div');
+    const name = document.createElement('div');
+    name.className = 'skill-library-name';
+    name.textContent = server.name;
+    const meta = document.createElement('div');
+    meta.className = 'skill-library-meta';
+    meta.textContent = `${server.transport} · ${server.protocolMode}${server.serverName ? ` · ${server.serverName} ${server.serverVersion || ''}` : ''}`;
+    identity.append(name, meta);
+    const status = document.createElement('div');
+    status.className = 'execution-state-badge';
+    status.dataset.state = server.status === 'connected' ? 'completed' : server.status === 'error' ? 'failed' : 'idle';
+    status.textContent = mcpStatusLabel(server.status);
+    head.append(identity, status);
+
+    const launch = document.createElement('pre');
+    launch.className = 'mcp-launch-command';
+    launch.textContent = mcpLaunchText(server);
+
+    const toolMeta = document.createElement('div');
+    toolMeta.className = 'skill-library-description';
+    const mutating = server.tools.filter(tool => !tool.readOnlyHint).length;
+    toolMeta.textContent = `${server.tools.length} 个工具${mutating ? ` · ${mutating} 个写入/高风险工具` : ''}${server.protocolVersion ? ` · ${server.protocolVersion}` : ''}`;
+
+    const diagnostics = document.createElement('div');
+    diagnostics.className = 'mcp-diagnostics';
+    diagnostics.textContent = server.error || server.diagnostics.slice(0, 3).join('\n');
+    diagnostics.hidden = !diagnostics.textContent;
+
+    const actions = document.createElement('div');
+    actions.className = 'skill-library-actions';
+    actions.append(createMcpAction('edit', '编辑', server));
+    if (server.approvedFingerprint !== server.configFingerprint) {
+      actions.append(createMcpAction('approve', '审查并批准', server));
+    } else {
+      actions.append(createMcpAction('revoke', '撤销批准', server));
+      actions.append(createMcpAction(server.enabled ? 'disable' : 'enable', server.enabled ? '停用' : '启用', server));
+      if (server.enabled) actions.append(createMcpAction(server.status === 'connected' ? 'disconnect' : 'connect', server.status === 'connected' ? '断开' : '连接', server));
+    }
+    actions.append(createMcpAction('remove', '移除', server));
+    item.append(head, launch, toolMeta, diagnostics, actions);
+    return item;
+  }));
+}
+
+function createMcpAction(action: string, label: string, server: McpServerSnapshot): HTMLButtonElement {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.dataset.mcpAction = action;
+  button.dataset.mcpId = server.id;
+  button.dataset.mcpFingerprint = server.configFingerprint;
+  button.textContent = label;
+  return button;
+}
+
+async function handleMcpAction(action: string, id: string, fingerprint: string): Promise<void> {
+  const server = mcpIntegrationSnapshot?.servers.find(item => item.id === id);
+  if (!server) return;
+  try {
+    if (action === 'edit') {
+      openMcpServerForm(server);
+      return;
+    }
+    if (action === 'approve') {
+      const warning = server.transport === 'stdio'
+        ? `将以 Athena 当前 Windows 用户权限启动以下命令：\n\n${mcpLaunchText(server)}\n\n批准仅绑定当前配置指纹，任何修改都会撤销批准。`
+        : `将连接以下 MCP 地址：\n\n${mcpLaunchText(server)}\n\n远程请求仍受外部工具联网同意控制。`;
+      if (!window.confirm(warning)) return;
+      await window.athenaAPI.approveMcpServer(id, fingerprint, true);
+    } else if (action === 'revoke') {
+      await window.athenaAPI.approveMcpServer(id, fingerprint, false);
+    } else if (action === 'enable' || action === 'disable') {
+      await window.athenaAPI.setMcpServerEnabled(id, fingerprint, action === 'enable');
+    } else if (action === 'connect') {
+      await window.athenaAPI.connectMcpServer(id);
+    } else if (action === 'disconnect') {
+      await window.athenaAPI.disconnectMcpServer(id);
+    } else if (action === 'remove') {
+      if (!window.confirm(`移除 MCP Server“${server.name}”？`)) return;
+      await window.athenaAPI.removeMcpServer(id, fingerprint);
+    }
+    await refreshMcpIntegrations();
+  } catch (error) {
+    setAgentExecutionFeedback(`MCP 操作失败：${error instanceof Error ? error.message : String(error)}`);
+    await refreshMcpIntegrations();
+  }
+}
+
+function openMcpServerForm(server?: McpServerSnapshot): void {
+  mcpServerForm.hidden = false;
+  mcpServerId.value = server?.id || '';
+  mcpServerName.value = server?.name || '';
+  mcpServerTransport.value = server?.transport || 'stdio';
+  mcpServerProtocol.value = server?.protocolMode || 'auto';
+  mcpServerCommand.value = server?.stdio?.command || '';
+  mcpServerCwd.value = server?.stdio?.cwd || '';
+  mcpServerArgs.value = server?.stdio?.args.join('\n') || '';
+  mcpServerEnv.value = server?.stdio?.envKeys.join('\n') || '';
+  mcpServerUrl.value = server?.http?.url || '';
+  mcpServerTokenEnv.value = server?.http?.bearerTokenEnv || '';
+  syncMcpTransportFields();
+  mcpServerName.focus();
+}
+
+function closeMcpServerForm(): void {
+  mcpServerForm.hidden = true;
+  mcpServerForm.reset();
+  mcpServerId.value = '';
+}
+
+function syncMcpTransportFields(): void {
+  const stdio = mcpServerTransport.value === 'stdio';
+  mcpStdioFields.hidden = !stdio;
+  mcpHttpFields.hidden = stdio;
+  mcpServerCommand.required = stdio;
+  mcpServerUrl.required = !stdio;
+}
+
+async function saveMcpServer(): Promise<void> {
+  const transport = mcpServerTransport.value as McpTransportKind;
+  const argumentLines = (value: string) => value.split(/\r?\n/).filter(item => item.length > 0);
+  const normalizedLines = (value: string) => value.split(/\r?\n/).map(item => item.trim()).filter(Boolean);
+  const input: McpServerInput = {
+    ...(mcpServerId.value ? { id: mcpServerId.value } : {}),
+    name: mcpServerName.value.trim(),
+    transport,
+    protocolMode: mcpServerProtocol.value as McpProtocolMode,
+    ...(transport === 'stdio' ? {
+      stdio: {
+        command: mcpServerCommand.value.trim(),
+        args: argumentLines(mcpServerArgs.value),
+        cwd: mcpServerCwd.value.trim() || null,
+        envKeys: normalizedLines(mcpServerEnv.value),
+      },
+    } : {
+      http: {
+        url: mcpServerUrl.value.trim(),
+        bearerTokenEnv: mcpServerTokenEnv.value.trim() || null,
+      },
+    }),
+  };
+  try {
+    const saved = await window.athenaAPI.upsertMcpServer(input);
+    if (!saved) throw new Error('配置被拒绝');
+    closeMcpServerForm();
+    setAgentExecutionFeedback(`MCP Server“${saved.name}”已保存，当前待审查且不会自动启动。`);
+    await refreshMcpIntegrations();
+  } catch (error) {
+    setAgentExecutionFeedback(`MCP 配置保存失败：${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+function mcpLaunchText(server: McpServerSnapshot): string {
+  if (server.transport === 'streamable-http') return server.http?.url || '';
+  const quote = (value: string) => /[\s"]/u.test(value) ? `"${value.replace(/"/g, '\\"')}"` : value;
+  const command = [server.stdio?.command || '', ...(server.stdio?.args || [])].map(quote).join(' ');
+  const details = [command];
+  if (server.stdio?.cwd) details.push(`cwd: ${server.stdio.cwd}`);
+  if (server.stdio?.envKeys.length) details.push(`env: ${server.stdio.envKeys.join(', ')}`);
+  return details.join('\n');
+}
+
+function mcpStatusLabel(status: McpServerSnapshot['status']): string {
+  if (status === 'connected') return '已连接';
+  if (status === 'connecting') return '连接中';
+  if (status === 'approval-required') return '待批准';
+  if (status === 'disconnected') return '已断开';
+  if (status === 'error') return '连接失败';
+  return '已停用';
 }
 
 async function refreshAgentWorkspace(taskId = selectedAgentTaskId): Promise<void> {

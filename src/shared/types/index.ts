@@ -11,3 +11,4 @@ export * from './steam';
 export * from './store';
 export * from './agent';
 export * from './skills';
+export * from './integrations';

@@ -58,6 +58,7 @@
     "test:agent-runtime": "tsc && electron scripts/verify-agent-runtime.js",
     "test:project-workspace": "tsc && electron scripts/verify-project-workspace.js",
     "test:skill-library": "tsc && node scripts/verify-skill-library.js",
+    "test:mcp-integrations": "tsc && node scripts/verify-mcp-integrations.js",
     "test:deepseek:live": "tsc && electron scripts/verify-deepseek-live-chat.js",
     "smoke:electron": "node scripts/clean-dist.js && vite build --config vite.config.mts && tsc && electron . --smoke-test",
     "clean:dist": "node scripts/clean-dist.js",
@@ -69,6 +70,7 @@
     "desktop": "electron ."
   },
   "dependencies": {
+    "@modelcontextprotocol/client": "2.0.0",
     "ajv": "8.20.0",
     "better-sqlite3": "12.11.1",
     "cheerio": "1.2.0",

@@ -22,6 +22,9 @@ installCrashDiagnostics();
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let isQuitting = false;
+let quitFinalized = false;
+let shutdownServices: (() => Promise<void>) | null = null;
+let quitCleanupPromise: Promise<void> | null = null;
 const isSmokeTest = process.argv.includes('--smoke-test') || process.env.ATHENA_SMOKE_TEST === '1';
 const steamPlatform = initializeSteamPlatform();
 const isSteamBuild = steamPlatform.state.sku === 'steam';
@@ -924,7 +927,7 @@ function createWindow(): void {
     app.exit(1);
   });
 
-  registerIpcHandlers(mainWindow);
+  shutdownServices = registerIpcHandlers(mainWindow);
 
   mainWindow.center();
 
@@ -986,6 +989,20 @@ app.whenReady().then(() => {
 });
 
 app.on('before-quit', () => { isQuitting = true; });
+app.on('will-quit', (event) => {
+  if (quitFinalized) return;
+  event.preventDefault();
+  quitCleanupPromise ||= (async () => {
+    const shutdown = shutdownServices;
+    shutdownServices = null;
+    if (shutdown) await shutdown();
+  })().catch(error => {
+    console.error('ATHENA_SHUTDOWN_ERROR', error);
+  }).finally(() => {
+    quitFinalized = true;
+    app.quit();
+  });
+});
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 
 const gotTheLock = isSmokeTest || app.requestSingleInstanceLock();

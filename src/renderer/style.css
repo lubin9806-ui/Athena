@@ -1528,6 +1528,125 @@ summary:focus-visible {
   cursor: pointer;
 }
 
+.mcp-server-form {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 9px;
+  margin-top: 12px;
+  padding: 12px 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.mcp-server-form[hidden],
+.mcp-transport-fields[hidden] {
+  display: none;
+}
+
+.mcp-server-form label,
+.mcp-transport-fields label {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  color: var(--text-dim);
+  font-size: 10px;
+}
+
+.mcp-server-form input,
+.mcp-server-form select,
+.mcp-server-form textarea {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--control-bg);
+  color: var(--text);
+  font: inherit;
+}
+
+.mcp-server-form input,
+.mcp-server-form select {
+  min-height: 34px;
+  padding: 0 9px;
+}
+
+.mcp-server-form textarea {
+  resize: vertical;
+  padding: 8px 9px;
+  line-height: 1.45;
+}
+
+.mcp-transport-fields {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.mcp-wide-field,
+.mcp-form-actions {
+  grid-column: 1 / -1;
+}
+
+.mcp-form-actions,
+.mcp-integration-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mcp-integration-list {
+  display: grid;
+  gap: 0;
+  margin-top: 10px;
+}
+
+.mcp-integration-item {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  padding: 11px 0;
+  border-top: 1px solid var(--border);
+}
+
+.mcp-integration-item:first-child {
+  border-top: 0;
+}
+
+.mcp-integration-head {
+  justify-content: space-between;
+}
+
+.mcp-launch-command {
+  max-width: 100%;
+  margin: 0;
+  padding: 8px;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--control-bg);
+  color: var(--text);
+  font-family: Consolas, "Cascadia Mono", monospace;
+  font-size: 10px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.mcp-diagnostics {
+  color: var(--danger);
+  font-size: 10px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+@media (max-width: 880px) {
+  .mcp-server-form,
+  .mcp-transport-fields {
+    grid-template-columns: 1fr;
+  }
+}
+
 .agent-inline-form {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 34px;

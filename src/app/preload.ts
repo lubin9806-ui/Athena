@@ -32,6 +32,13 @@ contextBridge.exposeInMainWorld('athenaAPI', {
   setSkillTrust: (name: string, packageHash: string, trust: 'approved' | 'untrusted' | 'quarantined') => ipcRenderer.invoke('skill:setTrust', { name, packageHash, trust }),
   setSkillEnabled: (name: string, packageHash: string, enabled: boolean) => ipcRenderer.invoke('skill:setEnabled', { name, packageHash, enabled }),
   uninstallSkill: (name: string, packageHash: string) => ipcRenderer.invoke('skill:uninstall', { name, packageHash }),
+  getMcpIntegrations: () => ipcRenderer.invoke('mcp:list'),
+  upsertMcpServer: (input: unknown) => ipcRenderer.invoke('mcp:upsert', input),
+  approveMcpServer: (id: string, fingerprint: string, approved: boolean) => ipcRenderer.invoke('mcp:approve', { id, fingerprint, approved }),
+  setMcpServerEnabled: (id: string, fingerprint: string, enabled: boolean) => ipcRenderer.invoke('mcp:setEnabled', { id, fingerprint, enabled }),
+  connectMcpServer: (id: string) => ipcRenderer.invoke('mcp:connect', id),
+  disconnectMcpServer: (id: string) => ipcRenderer.invoke('mcp:disconnect', id),
+  removeMcpServer: (id: string, fingerprint: string) => ipcRenderer.invoke('mcp:remove', { id, fingerprint }),
   getToolCatalog: (mode?: 'create' | 'companion' | 'reason' | 'execute') => ipcRenderer.invoke('tools:catalog', mode),
   onChatStream: (callback: (data: { content: string; done: boolean }) => void) => {
     const handler = (_: any, data: { content: string; done: boolean }) => callback(data);

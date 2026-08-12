@@ -101,7 +101,7 @@ function writeVoiceCache(name, ageHours) {
     assert.strictEqual(fs.existsSync(freshVoice), true);
 
     const center = getPrivacyCenterState();
-    const requiredMapIds = ['chat', 'long-term-memory', 'settings', 'agent-skills', 'search', 'voice', 'agent-work', 'tools', 'logs', 'temporary-files'];
+    const requiredMapIds = ['chat', 'long-term-memory', 'settings', 'agent-skills', 'integrations', 'search', 'voice', 'agent-work', 'tools', 'logs', 'temporary-files'];
     assert.deepStrictEqual(requiredMapIds.every(id => center.dataMap.some(item => item.id === id)), true);
     assert.strictEqual(center.staticProtection.status, 'plaintext-sqlite-with-compensating-controls');
     assert.match(center.staticProtection.claim, /未加密/);
@@ -147,7 +147,8 @@ function writeVoiceCache(name, ageHours) {
       packages: { 'fixture-hash': { trust: 'approved', enabled: true } },
       invocations: [{ skillName: 'fixture-skill', runId: agentRun.id, stepId: agentStep.id }],
     };
-    const exported = exportAllData('json', { agentSkills: skillPrivacyData });
+    const integrations = { version: 1, servers: [{ id: 'fixture-mcp', bearerTokenEnv: 'MCP_TOKEN_ENV', approvedFingerprint: 'fixture' }] };
+    const exported = exportAllData('json', { agentSkills: skillPrivacyData, integrations });
     assert(fs.existsSync(exported.path), 'data export should exist');
     const exportedJson = JSON.parse(fs.readFileSync(exported.path, 'utf8'));
     assert.strictEqual(exportedJson.staticProtection.status, 'plaintext-sqlite-with-compensating-controls');
@@ -159,6 +160,8 @@ function writeVoiceCache(name, ageHours) {
     assert(exportedJson.database.agent_artifacts.some(row => row.name === 'Privacy evidence'));
     assert.strictEqual(exportedJson.agentSkills.packages['fixture-hash'].trust, 'approved');
     assert.strictEqual(exportedJson.agentSkills.invocations[0].skillName, 'fixture-skill');
+    assert.strictEqual(exportedJson.integrations.servers[0].bearerTokenEnv, 'MCP_TOKEN_ENV');
+    assert.equal(JSON.stringify(exportedJson.integrations).includes('secret-token-value'), false);
     assert(exportedJson.files.voiceCache.some(file => file.path === freshVoice && file.contentBase64));
 
     db.prepare("INSERT INTO profile (category, fact) VALUES ('preference', 'clear me')").run();
