@@ -1,4 +1,8 @@
 import { LLMClient } from '../ai/Client';
+import { nativeImage } from 'electron';
+import * as fs from 'fs';
+import * as path from 'path';
+import { getModelCredentialStatus, resolveModelCredential } from '../ai/CredentialStore';
 import { canRouteModelRequest } from '../ai/ModelNetworkPolicy';
 import { Conversation } from '../ai/Conversation';
 import { EmotionEngine } from '../ai/Emotion';
@@ -15,6 +19,13 @@ import {
 import { ComputerAgentToolBridge } from '../tools/AgentComputerTools';
 import { SkillAgentToolBridge, SkillLibrary } from '../skills';
 import { McpIntegrationHost, ResearchAgentToolBridge } from '../integrations';
+import {
+  ArtifactAgentToolBridge,
+  ArtifactWorkspaceService,
+  DocumentArtifactService,
+  ElectronPdfRenderer,
+  OpenAIImageGenerationProvider,
+} from '../artifacts';
 import { evaluateSteamAiContent, steamAiGuardrailRefusal } from '../steam/SteamAiGuardrails';
 import { isSteamSku } from '../steam/SteamSkuPolicy';
 import {
@@ -94,6 +105,7 @@ export class AthenaController {
   private readonly skillTools: SkillAgentToolBridge;
   private readonly mcpIntegrations: McpIntegrationHost;
   private readonly researchTools: ResearchAgentToolBridge;
+  private readonly artifactTools: ArtifactAgentToolBridge;
   private agentRunner: AgentRunner;
   private initialized = false;
   private initializePromise: Promise<void> | null = null;
@@ -126,6 +138,25 @@ export class AthenaController {
       canUseWebSearch: () => canUseNetworkCapability('webSearch'),
       canInspectProject: () => this.resolveAgentToolSettings().permissionLevel !== 'off',
       resolveProjectRoots: runId => this.resolveProjectRootsForRun(runId),
+    });
+    this.artifactTools = new ArtifactAgentToolBridge({
+      registry: this.agentTools,
+      workspace: new ArtifactWorkspaceService({
+        store: this.agentStore,
+        resolveProjectRoots: runId => this.resolveProjectRootsForRun(runId),
+      }),
+      documents: new DocumentArtifactService(new ElectronPdfRenderer()),
+      images: new OpenAIImageGenerationProvider({
+        credentialResolver: () => resolveModelCredential('openai'),
+        decodeValidator: bytes => {
+          const image = nativeImage.createFromBuffer(bytes);
+          if (image.isEmpty()) throw new Error('Generated image could not be decoded by Electron');
+          return image.getSize();
+        },
+      }),
+      canWriteArtifacts: () => ['files', 'full'].includes(this.resolveAgentToolSettings().permissionLevel),
+      canGenerateImages: () => canUseNetworkCapability('imageGeneration'),
+      hasImageCredential: () => getModelCredentialStatus('openai').configured,
     });
     this.agentRunner = new AgentRunner(this.llm, this.agentTools, undefined, this.agentStore);
   }
@@ -360,6 +391,28 @@ export class AthenaController {
     return this.projectWorkspace.updateMetadata(projectId, input, expectedRevision);
   }
 
+  resolveOpenableAgentArtifact(projectId: number, artifactId: string): string {
+    const artifact = this.agentStore.getArtifact(artifactId);
+    if (!artifact?.uri) throw new Error('Artifact file is not available');
+    const task = this.agentStore.getTask(artifact.taskId);
+    if (!task || task.projectId !== projectId) throw new Error('Artifact does not belong to the active Project');
+    const roots = this.projectWorkspace.getSnapshot(projectId, task.id).metadata.roots;
+    const stat = fs.lstatSync(artifact.uri);
+    if (!stat.isFile() || stat.isSymbolicLink()) throw new Error('Artifact path is not a regular file');
+    const realArtifact = fs.realpathSync.native(artifact.uri);
+    const allowed = roots.some(root => {
+      try {
+        const realRoot = fs.realpathSync.native(path.resolve(root));
+        const relative = path.relative(realRoot, realArtifact);
+        return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
+      } catch {
+        return false;
+      }
+    });
+    if (!allowed) throw new Error('Artifact path is outside the active Project workspace');
+    return realArtifact;
+  }
+
   async executeAgentMessage(
     goal: string,
     requestedChatWindowId?: number,
@@ -389,11 +442,12 @@ export class AthenaController {
     const toolNames = this.agentComputerTools.refresh();
     this.skillTools.refresh();
     const researchToolNames = this.researchTools.refresh();
+    const artifactToolNames = this.artifactTools.refresh();
     const mcp = await this.mcpIntegrations.refreshEnabled();
     const trustedSkills = this.skillLibrary.snapshot().skills.filter(skill => skill.enabled && (
       skill.trust === 'approved' || skill.trust === 'builtin'
     ));
-    if (toolNames.length === 0 && researchToolNames.length === 0 && trustedSkills.length === 0 && mcp.registeredToolCount === 0) {
+    if (toolNames.length === 0 && researchToolNames.length === 0 && artifactToolNames.length === 0 && trustedSkills.length === 0 && mcp.registeredToolCount === 0) {
       throw new Error('执行模式没有可用工具。请开启所需权限、联网搜索，或批准可信 Skill/MCP Server。');
     }
     const savedUser = this.saveConversationMessage('user', goal, undefined, 'execute', chatWindow.id);
@@ -522,6 +576,7 @@ export class AthenaController {
     }
     this.agentComputerTools.refresh();
     this.researchTools.refresh();
+    this.artifactTools.refresh();
     await this.mcpIntegrations.refreshEnabled();
     onState?.(this.agentStore.getRunSnapshot(runId));
     const result = this.materializeAgentResultArtifact(await this.agentRunner.resume(runId));
@@ -544,6 +599,7 @@ export class AthenaController {
     }
     this.agentComputerTools.refresh();
     this.researchTools.refresh();
+    this.artifactTools.refresh();
     await this.mcpIntegrations.refreshEnabled();
     const result = this.materializeAgentResultArtifact(await this.agentRunner.resume(runId));
     onState?.(result.snapshot);
@@ -567,6 +623,7 @@ export class AthenaController {
     this.agentComputerTools.shutdown();
     this.skillTools.shutdown();
     this.researchTools.shutdown();
+    this.artifactTools.shutdown();
     await this.mcpIntegrations.shutdown();
     closeDatabase();
     this.initialized = false;

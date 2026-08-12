@@ -50,6 +50,7 @@ function writeVoiceCache(name, ageHours) {
     let bundle = getSettingsBundle();
     assert.strictEqual(bundle.settings.privacy.networkConsent.remoteModel, false);
     assert.strictEqual(bundle.settings.privacy.networkConsent.webSearch, false);
+    assert.strictEqual(bundle.settings.privacy.networkConsent.imageGeneration, false);
     assert.strictEqual(canUseNetworkCapability('remoteModel'), false);
     assert.strictEqual(canUseNetworkCapability('webSearch'), false);
 
@@ -62,6 +63,7 @@ function writeVoiceCache(name, ageHours) {
           networkConsent: {
             remoteModel: true,
             webSearch: true,
+            imageGeneration: true,
             onlineSpeechToText: true,
             onlineTextToSpeech: true,
             externalToolNetwork: false,
@@ -72,6 +74,7 @@ function writeVoiceCache(name, ageHours) {
     assert.strictEqual(bundle.settings.conversation.saveHistory, false);
     assert.strictEqual(canUseNetworkCapability('remoteModel'), true);
     assert.strictEqual(canUseNetworkCapability('webSearch'), true);
+    assert.strictEqual(canUseNetworkCapability('imageGeneration'), true);
 
     const db = getDatabase();
     recordDataActivity('search', 'should-not-persist-while-history-off', { query: 'secret' });

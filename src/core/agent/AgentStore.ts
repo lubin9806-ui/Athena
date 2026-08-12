@@ -495,6 +495,11 @@ export class AgentStore {
     return (rows as unknown[]).map(rowToArtifact);
   }
 
+  getArtifact(id: string): AgentArtifactRecord | null {
+    const row = this.database.prepare('SELECT * FROM agent_artifacts WHERE id = ?').get(id);
+    return row ? rowToArtifact(row) : null;
+  }
+
   updateArtifactValidation(id: string, status: AgentValidationStatus): AgentArtifactRecord {
     return this.database.transaction(() => {
       const artifact = this.requireArtifact(id);

@@ -1,6 +1,6 @@
 /** IPC handler registration. */
 
-import { ipcMain, BrowserWindow, dialog, IpcMainEvent, IpcMainInvokeEvent } from 'electron';
+import { ipcMain, BrowserWindow, dialog, IpcMainEvent, IpcMainInvokeEvent, shell } from 'electron';
 import { AthenaController } from '../../core/controller/AthenaController';
 import { getAppSettings, getSettingsBundle, saveSettingsBundle } from '../../core/config/SettingsStore';
 import {
@@ -85,6 +85,7 @@ const INVOKE_CHANNELS = [
   'chatWindow:contextSnapshots',
   'execution:cancel',
   'agentWorkspace:get',
+  'agentArtifact:open',
   'agentWorkspace:update',
   'agentRun:resolveApproval',
   'agentRun:resume',
@@ -338,6 +339,17 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<vo
     const projectId = cleanPositiveInteger(projectValue);
     const taskId = cleanAgentId(taskValue);
     return projectId ? controller.getAgentWorkspace(projectId, taskId || undefined) : null;
+  });
+
+  ipcMain.handle('agentArtifact:open', async (event, value: unknown) => {
+    if (!isTrustedSender(event)) return false;
+    if (!isRecord(value)) return false;
+    const projectId = cleanPositiveInteger(value.projectId);
+    const artifactId = cleanAgentId(value.artifactId);
+    if (!projectId || !artifactId) return false;
+    const error = await shell.openPath(controller.resolveOpenableAgentArtifact(projectId, artifactId));
+    if (error) throw new Error(`Unable to open artifact: ${error}`);
+    return true;
   });
 
   ipcMain.handle('agentWorkspace:update', async (event, projectValue: unknown, value: unknown) => {

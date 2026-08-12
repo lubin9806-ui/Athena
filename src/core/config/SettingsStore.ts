@@ -116,6 +116,7 @@ const DEFAULT_SETTINGS: AppSettings = {
     networkConsent: {
       remoteModel: false,
       webSearch: false,
+      imageGeneration: false,
       onlineSpeechToText: false,
       onlineTextToSpeech: false,
       externalToolNetwork: false,
@@ -538,6 +539,7 @@ function sanitizePrivacy(value: unknown): PrivacySettings {
     networkConsent: {
       remoteModel: cleanBoolean(consent.remoteModel, DEFAULT_SETTINGS.privacy.networkConsent.remoteModel),
       webSearch: cleanBoolean(consent.webSearch, DEFAULT_SETTINGS.privacy.networkConsent.webSearch),
+      imageGeneration: cleanBoolean(consent.imageGeneration, DEFAULT_SETTINGS.privacy.networkConsent.imageGeneration),
       onlineSpeechToText: cleanBoolean(consent.onlineSpeechToText, DEFAULT_SETTINGS.privacy.networkConsent.onlineSpeechToText),
       onlineTextToSpeech: cleanBoolean(consent.onlineTextToSpeech, DEFAULT_SETTINGS.privacy.networkConsent.onlineTextToSpeech),
       externalToolNetwork: cleanBoolean(consent.externalToolNetwork, DEFAULT_SETTINGS.privacy.networkConsent.externalToolNetwork),

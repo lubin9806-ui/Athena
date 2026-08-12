@@ -105,6 +105,7 @@ export function consentRequiredMessage(capability: keyof NetworkConsentSettings)
   const labels: Record<keyof NetworkConsentSettings, string> = {
     remoteModel: '远程模型服务',
     webSearch: '联网搜索',
+    imageGeneration: 'OpenAI 生图服务',
     onlineSpeechToText: '在线语音识别',
     onlineTextToSpeech: '在线语音合成',
     externalToolNetwork: '执行模式外部网络工具',
@@ -357,10 +358,10 @@ function buildDataMap(settings: AppSettings): DataMapItem[] {
       id: 'agent-work',
       label: '任务、执行记录与产物',
       stored: '任务目标、计划、步骤、审批决定、执行检查点、产物元数据与验证状态保存在 SQLite',
-      locations: [database],
+      locations: [database, '<Project root>/.athena/artifacts/<task-id>'],
       leavesDevice: '默认保存在本机；使用远程模型、联网工具或第三方连接器时，仅在相应能力已获同意后发送完成当前任务所需的数据。',
-      retention: '持续保留，直到用户归档或通过一键清除删除；完整导出包含任务、运行、审批、事件与产物记录。',
-      controls: ['任务与运行历史', '高风险操作审批', '完整导出', '一键清除'],
+      retention: '任务记录持续保留，直到用户归档或通过一键清除删除；已生成的产物文件由用户在 Project 工作目录中保留或删除。',
+      controls: ['任务与运行历史', '高风险操作审批', '产物目录透明显示', '完整导出', '一键清除任务记录'],
     },
     {
       id: 'tools',
@@ -409,6 +410,14 @@ function buildNetworkCapabilityNotices(consent: NetworkConsentSettings): Network
       destinations: 'Sogou、Bing、DuckDuckGo、api.github.com 以及搜索结果网页域名',
       defaultState: 'off-until-consent',
       consented: consent.webSearch,
+    },
+    {
+      id: 'imageGeneration',
+      label: 'OpenAI 生图服务',
+      sends: '用户逐次批准的生图提示词和输出尺寸、质量、格式设置',
+      destinations: 'https://api.openai.com/v1/images/generations',
+      defaultState: 'off-until-consent',
+      consented: consent.imageGeneration,
     },
     {
       id: 'onlineSpeechToText',

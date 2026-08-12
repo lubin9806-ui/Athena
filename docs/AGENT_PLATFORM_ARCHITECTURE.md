@@ -59,6 +59,19 @@ Execution mode exposes research and project understanding through the same provi
 - Network and computer-read revocation is checked again immediately before execution. Resume refreshes the research tool set before the model receives definitions, so stale checkpoints cannot retain revoked capabilities.
 - Acceptance command: `npm.cmd run test:research-tools`.
 
+## Block 06C: Document and Image Artifacts
+
+Execution mode can now create inspectable files through the same durable tool and approval runtime. Generated files are written only below the active Project's primary root at `.athena/artifacts/<task-id>`.
+
+- `create_document_artifact` renders structured content locally as Markdown, HTML, DOCX, or PDF. HTML escapes model-provided text, DOCX uses the pinned `docx` package, and PDF uses a sandboxed hidden Electron renderer with networking and JavaScript disabled.
+- `generate_image_artifact` uses a provider-neutral interface backed by the official OpenAI Image API generation endpoint and current `gpt-image-2` default. The API key comes from the existing encrypted/environment credential resolver and is never returned to the model or artifact metadata.
+- Image generation has a separate default-off `privacy.networkConsent.imageGeneration` gate. Every image request also requires scoped approval because the prompt leaves the device and the call can incur charges. External generation is not treated as replay-safe after an interrupted process.
+- Artifact writes reject missing roots, symlinked storage directories, path traversal, Windows reserved filenames, oversized payloads, and cross-Project access. Files are atomically persisted, format-checked, decoded where applicable, hashed with SHA-256, and only then registered with passed validation evidence.
+- The execution panel can open a registered artifact only after the main process revalidates its Project ownership, regular-file status, and real path against current workspace roots.
+- Task-record clearing does not silently delete generated files from a user's Project. The privacy center names the artifact directory and states that those files remain under user control.
+- This block provides one-shot image generation. Reference-image input, conversational editing, and attachment-aware routing remain Block 07 work and are not advertised as complete.
+- Acceptance command: `npm.cmd run test:artifact-tools`.
+
 ## Block 01: Durable Agent Domain
 
 The canonical implementation is under `src/core/agent`. SQLite schema v10 owns these records:

@@ -43,6 +43,7 @@ declare global {
       getChatWindowContextSnapshots: (id: number, limit?: number) => Promise<ContextSnapshotRecord[]>;
       cancelExecution: () => Promise<boolean>;
       getAgentWorkspace: (projectId: number, taskId?: string) => Promise<AgentProjectWorkspaceSnapshot | null>;
+      openAgentArtifact: (projectId: number, artifactId: string) => Promise<boolean>;
       updateAgentWorkspace: (projectId: number, value: {
         revision: number;
         roots?: string[];
@@ -617,6 +618,7 @@ interface DataSettings {
 interface NetworkConsentSettings {
   remoteModel: boolean;
   webSearch: boolean;
+  imageGeneration: boolean;
   onlineSpeechToText: boolean;
   onlineTextToSpeech: boolean;
   externalToolNetwork: boolean;
@@ -1052,6 +1054,7 @@ const settingHistoryRetention = mustGet<HTMLInputElement>('setting-history-reten
 const settingVoiceCacheRetention = mustGet<HTMLInputElement>('setting-voice-cache-retention');
 const settingExportFormat = mustGet<HTMLSelectElement>('setting-export-format');
 const settingConsentWebSearch = mustGet<HTMLInputElement>('setting-consent-web-search');
+const settingConsentImageGeneration = mustGet<HTMLInputElement>('setting-consent-image-generation');
 const settingConsentExternalToolNetwork = mustGet<HTMLInputElement>('setting-consent-external-tool-network');
 const privacyDataMap = mustGet<HTMLElement>('privacy-data-map');
 const privacyStaticDecision = mustGet<HTMLElement>('privacy-static-decision');
@@ -2220,9 +2223,29 @@ function renderAgentArtifacts(snapshot: AgentRunSnapshot | null): void {
     renderAgentEmpty(agentArtifactList, '还没有登记交付产物');
     return;
   }
-  agentArtifactList.replaceChildren(...artifacts.map(artifact => (
-    createAgentDetailItem(artifact.name, `${artifact.kind} · ${artifact.validationStatus}${artifact.uri ? ` · ${artifact.uri}` : ''}`)
-  )));
+  agentArtifactList.replaceChildren(...artifacts.map(artifact => {
+    const item = createAgentDetailItem(artifact.name, `${artifact.kind} · ${artifact.validationStatus}${artifact.uri ? ` · ${artifact.uri}` : ''}`);
+    if (!artifact.uri) return item;
+    const button = document.createElement('button');
+    button.className = 'agent-artifact-open icon-button';
+    button.type = 'button';
+    button.title = '打开产物';
+    button.setAttribute('aria-label', `打开 ${artifact.name}`);
+    button.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#icon-file"></use></svg>';
+    button.addEventListener('click', async () => {
+      if (!currentProjectId) return;
+      button.disabled = true;
+      try {
+        await window.athenaAPI.openAgentArtifact(currentProjectId, artifact.id);
+      } catch (error) {
+        setStatus(`打开产物失败：${error instanceof Error ? error.message : String(error)}`, 'error');
+      } finally {
+        button.disabled = false;
+      }
+    });
+    item.append(button);
+    return item;
+  }));
 }
 
 function createAgentDetailItem(title: string, meta: string): HTMLElement {
@@ -3982,6 +4005,7 @@ function populateSettingsForm(bundle: SettingsBundle): void {
   settingVoiceCacheRetention.value = String(data.voiceCacheRetentionHours);
   settingExportFormat.value = data.exportFormat;
   settingConsentWebSearch.checked = privacy.networkConsent.webSearch;
+  settingConsentImageGeneration.checked = privacy.networkConsent.imageGeneration;
   settingConsentRemoteModel.checked = privacy.networkConsent.remoteModel;
   settingConsentExternalToolNetwork.checked = privacy.networkConsent.externalToolNetwork;
   applySkuRuntimeProfile(bundle.sku);
@@ -4089,6 +4113,7 @@ function applySkuRuntimeProfile(sku: SettingsBundle['sku']): void {
     settingWebSearchSecondary,
     settingWebSearchMaxPages,
     settingConsentWebSearch,
+    settingConsentImageGeneration,
     settingConsentRemoteModel,
     settingConsentExternalToolNetwork,
   ]) {
@@ -4231,6 +4256,7 @@ async function saveSettingsForm(): Promise<void> {
           networkConsent: {
             remoteModel: settingConsentRemoteModel.checked,
             webSearch: settingConsentWebSearch.checked,
+            imageGeneration: settingConsentImageGeneration.checked,
             onlineSpeechToText: currentSettingsBundle?.settings.privacy.networkConsent.onlineSpeechToText ?? false,
             onlineTextToSpeech: currentSettingsBundle?.settings.privacy.networkConsent.onlineTextToSpeech ?? false,
             externalToolNetwork: settingConsentExternalToolNetwork.checked,

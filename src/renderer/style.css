@@ -1691,12 +1691,19 @@ summary:focus-visible {
 }
 
 .agent-chip button,
-.agent-goal button {
+.agent-goal button,
+.agent-artifact-open {
   flex: 0 0 auto;
   border: 0;
   color: var(--text-dim);
   background: transparent;
   cursor: pointer;
+}
+
+.agent-artifact-open {
+  width: 28px;
+  height: 28px;
+  padding: 5px;
 }
 
 .agent-task-board {

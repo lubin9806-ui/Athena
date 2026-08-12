@@ -60,6 +60,7 @@
     "test:skill-library": "tsc && node scripts/verify-skill-library.js",
     "test:mcp-integrations": "tsc && node scripts/verify-mcp-integrations.js",
     "test:research-tools": "tsc && node scripts/verify-research-tools.js",
+    "test:artifact-tools": "tsc && electron scripts/verify-artifact-tools.js",
     "test:deepseek:live": "tsc && electron scripts/verify-deepseek-live-chat.js",
     "smoke:electron": "node scripts/clean-dist.js && vite build --config vite.config.mts && tsc && electron . --smoke-test",
     "clean:dist": "node scripts/clean-dist.js",
@@ -75,6 +76,7 @@
     "ajv": "8.20.0",
     "better-sqlite3": "12.11.1",
     "cheerio": "1.2.0",
+    "docx": "9.7.1",
     "electron-updater": "6.8.9",
     "yaml": "2.9.0"
   },

@@ -80,6 +80,7 @@ export interface DataSettings {
 export interface NetworkConsentSettings {
   remoteModel: boolean;
   webSearch: boolean;
+  imageGeneration: boolean;
   onlineSpeechToText: boolean;
   onlineTextToSpeech: boolean;
   externalToolNetwork: boolean;

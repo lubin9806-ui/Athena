@@ -78,6 +78,7 @@ export function applySteamSettingsPolicy(settings: AppSettings): AppSettings {
       networkConsent: {
         ...settings.privacy.networkConsent,
         webSearch: false,
+        imageGeneration: false,
         onlineSpeechToText: false,
         onlineTextToSpeech: false,
         externalToolNetwork: false,
