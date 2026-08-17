@@ -12,6 +12,7 @@ import {
 import type { AppSettings, NetworkConsentSettings, PrivacySettings } from '../../shared/types';
 import { APP_VERSION } from '../../shared/constants';
 import { resolveAttachmentRoot } from '../attachments';
+import { resolveProjectDocumentRoot } from '../documents';
 
 export type DataActivityCategory = 'search' | 'voice' | 'tool' | 'settings' | 'maintenance';
 export type ExportFormat = 'json' | 'markdown';
@@ -56,6 +57,7 @@ export interface PrivacyCenterState {
     voiceTemp: string;
     backups: string;
     attachments: string;
+    documents: string;
   };
 }
 
@@ -73,6 +75,7 @@ export interface SupplementalPrivacyData {
 export interface LocalDataClearHooks {
   clearSkillInvocationHistory?: () => number;
   clearAttachmentFiles?: () => number;
+  clearProjectDocumentFiles?: () => number;
 }
 
 const VOICE_EXPORT_MAX_BYTES = 12 * 1024 * 1024;
@@ -97,6 +100,7 @@ export function getPrivacyCenterState(): PrivacyCenterState {
       voiceTemp: getVoiceTempDir(),
       backups: getDatabaseBackupDir(),
       attachments: resolveAttachmentRoot(),
+      documents: resolveProjectDocumentRoot(),
     },
   };
 }
@@ -175,9 +179,11 @@ export function clearAllLocalData(hooks: LocalDataClearHooks = {}): {
   voiceCacheFilesDeleted: number;
   skillInvocationsDeleted: number;
   attachmentFilesDeleted: number;
+  projectDocumentFilesDeleted: number;
 } {
   const db = getDatabase();
   const attachmentFilesDeleted = hooks.clearAttachmentFiles?.() ?? 0;
+  const projectDocumentFilesDeleted = hooks.clearProjectDocumentFiles?.() ?? 0;
   const deletedTables = [
     'agent_run_events',
     'agent_approvals',
@@ -187,6 +193,8 @@ export function clearAllLocalData(hooks: LocalDataClearHooks = {}): {
     'agent_tasks',
     'context_snapshots',
     'chat_attachments',
+    'project_document_chunks',
+    'project_documents',
     'chat_messages',
     'chat_windows',
     'projects',
@@ -213,7 +221,7 @@ export function clearAllLocalData(hooks: LocalDataClearHooks = {}): {
   }
   const voiceCacheFilesDeleted = cleanupVoiceCache(1, new Date(Date.now() + 3650 * 24 * 60 * 60 * 1000));
   const skillInvocationsDeleted = hooks.clearSkillInvocationHistory?.() ?? 0;
-  return { deletedTables, voiceCacheFilesDeleted, skillInvocationsDeleted, attachmentFilesDeleted };
+  return { deletedTables, voiceCacheFilesDeleted, skillInvocationsDeleted, attachmentFilesDeleted, projectDocumentFilesDeleted };
 }
 
 export function exportAllData(
@@ -262,6 +270,8 @@ function buildExportPayload(supplemental: SupplementalPrivacyData): Record<strin
       chat_windows: selectAll(db, 'chat_windows'),
       chat_messages: selectAll(db, 'chat_messages'),
       chat_attachments: selectAll(db, 'chat_attachments'),
+      project_documents: selectAll(db, 'project_documents'),
+      project_document_chunks: selectAll(db, 'project_document_chunks'),
       context_snapshots: selectAll(db, 'context_snapshots'),
       agent_tasks: selectAll(db, 'agent_tasks'),
       agent_runs: selectAll(db, 'agent_runs'),
@@ -325,6 +335,15 @@ function buildDataMap(settings: AppSettings): DataMapItem[] {
       leavesDevice: '不会自动上传；会作为模型上下文参与回复。选择远程 Provider 并明确同意后，相关记忆可能随当前请求发送。历史关闭后停止自动提取。',
       retention: '不随聊天保留期自动删除；用户可在记忆面板或一键清除中删除',
       controls: ['启用记忆检索', '自动提取记忆', '记忆管理面板', '完整导出', '一键清除'],
+    },
+    {
+      id: 'project-documents',
+      label: 'Project 文档库',
+      stored: 'TXT、Markdown、PDF 或 DOCX 原文件副本保存在 Athena 受管目录；本地提取的文本块、页码/段落定位、Project 归属和 SHA-256 保存在 SQLite。',
+      locations: [database, resolveProjectDocumentRoot()],
+      leavesDevice: '本地模型只在本机接收相关文本片段。选择远程 Provider 并同意远程模型联网后，当前问题召回的相关片段可能随请求发送；原文件不会整份自动上传。',
+      retention: '持续保留到用户在 Project 文档列表中删除或使用一键清除；Temporary Chat 不允许创建持久文档。',
+      controls: ['Project 文档列表', '逐份删除', '完整导出元数据和提取文本', '一键清除'],
     },
     {
       id: 'settings',

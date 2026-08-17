@@ -97,9 +97,22 @@ Durable Project memory now uses Project IDs as the authority. Human-readable tit
 - The memory panel reports the number of distinct retained sources. Privacy export already includes the underlying review, fact-source, Project, index, and snapshot records.
 - Acceptance command: `npm.cmd run test:project-memory`.
 
+## Block 07C: Local Project Document Grounding
+
+Project documents are persistent, local assets rather than oversized chat messages. SQLite schema v13 stores validated source metadata separately from bounded retrieval chunks.
+
+- The composer imports up to five TXT, Markdown, PDF, or DOCX files into the active non-temporary Project. Originals are copied to Athena-managed storage with regular-file, path-containment, byte, format, page, extracted-character, chunk-count, and SHA-256 checks.
+- DOCX archives are preflighted for encryption, unsafe paths, malformed directories, excessive entry counts, decompressed size, and abnormal compression ratios before parsing. Multi-file imports are atomic for newly created records: a later failure removes earlier files, rows, chunks, and index entries from that batch.
+- DOCX text uses Mammoth's documented `extractRawText({buffer})` API. PDF selectable text uses Mozilla PDF.js' packaged legacy build and per-page `getTextContent()` API. Parsing never invokes Office, Python, a shell, or a remote service. [Mammoth API](https://github.com/mwilliamson/mammoth.js#extractrawtextinput), [PDF.js Node example](https://github.com/mozilla/pdf.js/blob/master/examples/node/getinfo.mjs)
+- Image-only/scanned PDFs are rejected with an explicit OCR-required error. Athena does not advertise OCR until a separately governed local or consented provider exists.
+- Local keyword/vector index rows are Project-filtered before ranking. ContextManager receives only relevant chunks, labels each excerpt with document name and page/section locator, and asks the model to cite that locator.
+- Retrieval evidence links each chunk back to the source `project_documents` record and bounded SHA-256 evidence. The Project panel lists documents and supports per-file deletion; one-click privacy clear deletes managed source files before database records.
+- Temporary Chat cannot create persistent Project documents. Remote models may receive only the retrieved excerpts after the existing remote-model consent; source files are not automatically uploaded wholesale.
+- Acceptance command: `npm.cmd run test:project-documents`.
+
 ## Block 01: Durable Agent Domain
 
-The canonical implementation is under `src/core/agent`. These records were introduced in SQLite schema v10; current schema v12 adds governed attachments and Project-isolated memory without changing their contracts:
+The canonical implementation is under `src/core/agent`. These records were introduced in SQLite schema v10; current schema v13 adds governed attachments, Project-isolated memory, and local document grounding without changing their contracts:
 
 - `agent_tasks`: durable user intent and the normalized `TaskSpec`.
 - `agent_runs`: one execution attempt with scene, strategy, provider, model, checkpoint state, phase, and revision.

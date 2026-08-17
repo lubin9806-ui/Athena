@@ -28,7 +28,7 @@ try {
   const memory = require(path.join(root, 'dist', 'memory', 'index.js'));
   const now = new Date('2026-08-10T12:00:00.000Z');
   const db = memory.getDatabase();
-  assert.equal(db.pragma('user_version', { simple: true }), 12, 'memory schema should match the current Project-isolated schema');
+  assert.equal(db.pragma('user_version', { simple: true }), 13, 'memory schema should match the current document-aware schema');
 
   const cases = [
     addEvent(db, now, 100, 2, 'fresh-low-kept'),

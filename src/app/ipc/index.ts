@@ -71,6 +71,9 @@ const INVOKE_CHANNELS = [
   'attachment:chooseImages',
   'attachment:preview',
   'attachment:removePending',
+  'document:choose',
+  'document:list',
+  'document:delete',
   'project:list',
   'project:create',
   'project:update',
@@ -254,6 +257,33 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<vo
     const chatWindowId = cleanPositiveInteger(value.chatWindowId);
     const attachmentId = cleanAttachmentIds([value.attachmentId])[0];
     return Boolean(chatWindowId && attachmentId && controller.removePendingChatAttachment(chatWindowId, attachmentId));
+  });
+
+  ipcMain.handle('document:choose', async (event, value: unknown) => {
+    if (!isTrustedSender(event)) return [];
+    const chatWindowId = cleanPositiveInteger(value);
+    if (!chatWindowId) return [];
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: '选择 Project 文档',
+      properties: ['openFile', 'multiSelections'],
+      filters: [{ name: '文档', extensions: ['txt', 'md', 'markdown', 'pdf', 'docx'] }],
+    });
+    if (result.canceled || result.filePaths.length === 0) return [];
+    return controller.importProjectDocuments(chatWindowId, result.filePaths.slice(0, 5));
+  });
+
+  ipcMain.handle('document:list', async (event, value: unknown) => {
+    if (!isTrustedSender(event)) return [];
+    const projectId = cleanPositiveInteger(value);
+    return projectId ? controller.listProjectDocuments(projectId) : [];
+  });
+
+  ipcMain.handle('document:delete', async (event, value: unknown) => {
+    if (!isTrustedSender(event)) return false;
+    if (!isRecord(value)) return false;
+    const projectId = cleanPositiveInteger(value.projectId);
+    const documentId = cleanPositiveInteger(value.documentId);
+    return Boolean(projectId && documentId && controller.deleteProjectDocument(projectId, documentId));
   });
 
   ipcMain.handle('chatWindow:list', async (event, includeArchived: unknown, projectValue?: unknown) => {
@@ -787,6 +817,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<vo
     return clearAllLocalData({
       clearSkillInvocationHistory: () => controller.clearSkillInvocationHistory(),
       clearAttachmentFiles: () => controller.clearAttachmentFiles(),
+      clearProjectDocumentFiles: () => controller.clearProjectDocumentFiles(),
     });
   });
 

@@ -7,6 +7,7 @@ import { searchProfileFacts, getHighConfidenceProfile } from '../profile';
 import { searchProjectNotes, getImportantProjectNotes } from '../projects';
 import { buildMemoryRetrievalEvidence, type MemoryEvidenceTarget } from '../provenance';
 import { getChatWindow, getChatWindowMessages, getRecentMessages } from '../working';
+import { searchProjectDocumentChunks } from '../documents';
 
 export interface RetrieveOptions {
   query: string;
@@ -16,6 +17,7 @@ export interface RetrieveOptions {
   maxEvents?: number;
   maxDailySummaries?: number;
   maxProjectNotes?: number;
+  maxDocumentChunks?: number;
   recentMessageCount?: number;
   conversationMode?: ConversationMode;
   chatWindowId?: number;
@@ -36,6 +38,7 @@ export function retrieveContext(options: RetrieveOptions): RetrievedContext {
     maxEvents = 8,
     maxDailySummaries = maxEvents,
     maxProjectNotes = 8,
+    maxDocumentChunks = 8,
     recentMessageCount = 20,
     conversationMode,
     chatWindowId,
@@ -57,6 +60,9 @@ export function retrieveContext(options: RetrieveOptions): RetrievedContext {
   const relatedEvents = collectEvents(keywords, maxEvents);
   const dailySummaries = collectDailySummaries(keywords, maxDailySummaries);
   const projectNotes = collectProjectNotes(keywords, maxProjectNotes, activeProjectId);
+  const documentChunks = activeProjectId && maxDocumentChunks > 0
+    ? searchProjectDocumentChunks(activeProjectId, query, maxDocumentChunks)
+    : [];
   const evidence = buildMemoryRetrievalEvidence(buildEvidenceTargets({
     profileFacts,
     proceduralMemories,
@@ -64,6 +70,7 @@ export function retrieveContext(options: RetrieveOptions): RetrievedContext {
     relatedEvents,
     dailySummaries,
     projectNotes,
+    documentChunks,
   }));
 
   return {
@@ -73,6 +80,7 @@ export function retrieveContext(options: RetrieveOptions): RetrievedContext {
     relatedEvents,
     dailySummaries,
     projectNotes,
+    documentChunks,
     recentMessages,
     chatWindow: chatWindow ? {
       id: chatWindow.id,
@@ -88,7 +96,7 @@ export function retrieveContext(options: RetrieveOptions): RetrievedContext {
       projectInstructionsSnapshot: chatWindow.projectInstructionsSnapshot,
     } : undefined,
     evidence,
-    relevanceScore: calculateRelevanceScore(profileFacts, proceduralMemories, temporalFacts, relatedEvents, dailySummaries, projectNotes, keywords),
+    relevanceScore: calculateRelevanceScore(profileFacts, proceduralMemories, temporalFacts, relatedEvents, dailySummaries, projectNotes, documentChunks, keywords),
   };
 }
 
@@ -299,6 +307,7 @@ function buildEvidenceTargets(context: {
   relatedEvents: MemoryEvent[];
   dailySummaries: DailyMemorySummary[];
   projectNotes: ProjectNote[];
+  documentChunks: import('../../shared/types').ProjectDocumentChunk[];
 }): MemoryEvidenceTarget[] {
   return [
     ...context.profileFacts.filter(fact => fact.id).map(fact => ({
@@ -320,6 +329,10 @@ function buildEvidenceTargets(context: {
     ...context.projectNotes.map(note => ({
       memoryTable: 'project_notes', memoryId: note.id, memoryKind: 'project' as const,
       projectId: note.project_id, excerpt: note.note, legacy: !note.project_id,
+    })),
+    ...context.documentChunks.map(chunk => ({
+      memoryTable: 'project_document_chunks', memoryId: chunk.id, memoryKind: 'document' as const,
+      projectId: chunk.project_id, excerpt: `${chunk.document_name} ${chunk.locator}: ${chunk.text}`,
     })),
   ];
 }
@@ -358,6 +371,7 @@ function calculateRelevanceScore(
   events: MemoryEvent[],
   dailySummaries: DailyMemorySummary[],
   projectNotes: ProjectNote[],
+  documentChunks: import('../../shared/types').ProjectDocumentChunk[],
   keywords: string[]
 ): number {
   const profileScore = profileFacts.reduce((sum, fact) => sum + keywordMatchScore(fact.fact, keywords) * fact.confidence, 0);
@@ -366,5 +380,6 @@ function calculateRelevanceScore(
   const eventScore = events.reduce((sum, event) => sum + keywordMatchScore(`${event.summary} ${event.detail || ''}`, keywords) * 0.8, 0);
   const dailyScore = dailySummaries.reduce((sum, summary) => sum + keywordMatchScore(`${summary.summary} ${summary.highlights.join(' ')}`, keywords) * 0.6, 0);
   const projectScore = projectNotes.reduce((sum, note) => sum + keywordMatchScore(`${note.project} ${note.title} ${note.note}`, keywords), 0);
-  return Math.min(1, (profileScore + proceduralScore + temporalScore + eventScore + dailyScore + projectScore) / 10);
+  const documentScore = documentChunks.reduce((sum, chunk) => sum + keywordMatchScore(`${chunk.document_name} ${chunk.locator} ${chunk.text}`, keywords), 0);
+  return Math.min(1, (profileScore + proceduralScore + temporalScore + eventScore + dailyScore + projectScore + documentScore) / 10);
 }

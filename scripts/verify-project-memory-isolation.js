@@ -70,7 +70,7 @@ const { buildManagedContext } = require(path.join(root, 'dist', 'core', 'ai', 'C
 let exitCode = 0;
 try {
   const db = memory.getDatabase();
-  assert.equal(db.pragma('user_version', { simple: true }), 12);
+  assert.equal(db.pragma('user_version', { simple: true }), 13);
   assert.deepEqual(db.pragma('foreign_key_check'), []);
   assert.equal(db.prepare("SELECT project_id FROM project_notes WHERE title = 'unique legacy note'").get().project_id, 1);
   assert.equal(db.prepare("SELECT project_id FROM project_notes WHERE title = 'ambiguous legacy note'").get().project_id, null);
@@ -242,7 +242,7 @@ try {
   assert(savedSnapshot.included.some(item => item.evidence?.some(source => source.origin === 'review')));
   assert.throws(() => memory.retrieveContext({ query: 'mismatch', chatWindowId: windowA.id, projectId: beta.id }), /does not match/);
 
-  console.log('ATHENA_PROJECT_MEMORY_OK schema=12 isolation=project-id legacy=conservative provenance=snapshot');
+  console.log('ATHENA_PROJECT_MEMORY_OK schema=13 isolation=project-id legacy=conservative provenance=snapshot');
 } catch (error) {
   exitCode = 1;
   console.error(error);

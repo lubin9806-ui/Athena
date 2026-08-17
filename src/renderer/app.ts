@@ -30,6 +30,9 @@ declare global {
       chooseChatImages: (chatWindowId: number) => Promise<ChatAttachmentSnapshot[]>;
       getChatAttachmentPreview: (chatWindowId: number, attachmentId: string) => Promise<string | null>;
       removePendingChatAttachment: (chatWindowId: number, attachmentId: string) => Promise<boolean>;
+      chooseProjectDocuments: (chatWindowId: number) => Promise<ProjectDocumentRecord[]>;
+      listProjectDocuments: (projectId: number) => Promise<ProjectDocumentRecord[]>;
+      deleteProjectDocument: (projectId: number, documentId: number) => Promise<boolean>;
       listProjects: (includeArchived?: boolean) => Promise<AthenaProjectRecord[]>;
       createProject: (title?: string, instructions?: string) => Promise<AthenaProjectRecord | null>;
       updateProject: (id: number, patch: { title?: string; instructions?: string }) => Promise<AthenaProjectRecord | null>;
@@ -280,6 +283,21 @@ interface ContextSnapshotRecord {
   prompt_chars: number;
   estimated_prompt_tokens: number;
   created_at: string;
+}
+
+interface ProjectDocumentRecord {
+  id: number;
+  project_id: number;
+  name: string;
+  mime_type: string;
+  bytes: number;
+  sha256: string;
+  parser: string;
+  page_count?: number;
+  char_count: number;
+  chunk_count: number;
+  status: 'ready' | 'error';
+  error?: string;
 }
 
 interface MemoryUpdatePatch {
@@ -882,6 +900,7 @@ const composerSecondaryTools = mustGet<HTMLElement>('composer-secondary-tools');
 const webSearchBtn = mustGet<HTMLButtonElement>('web-search-btn');
 const availableToolsBtn = mustGet<HTMLButtonElement>('available-tools-btn');
 const chatImageBtn = mustGet<HTMLButtonElement>('chat-image-btn');
+const projectDocumentBtn = mustGet<HTMLButtonElement>('project-document-btn');
 const composerAttachments = mustGet<HTMLElement>('composer-attachments');
 const webSearchLabel = mustGet<HTMLElement>('web-search-label');
 const modeHint = mustGet<HTMLElement>('mode-hint');
@@ -973,6 +992,7 @@ const windowContextGoal = mustGet<HTMLElement>('window-context-goal');
 const windowContextConclusions = mustGet<HTMLUListElement>('window-context-conclusions');
 const windowContextTodos = mustGet<HTMLUListElement>('window-context-todos');
 const windowPinnedFacts = mustGet<HTMLElement>('window-pinned-facts');
+const windowProjectDocuments = mustGet<HTMLElement>('window-project-documents');
 const windowContextSummary = mustGet<HTMLElement>('window-context-summary');
 const windowContextBudget = mustGet<HTMLElement>('window-context-budget');
 const settingsPanel = mustGet<HTMLElement>('settings-panel');
@@ -1594,6 +1614,7 @@ function init(): void {
   inputBox.addEventListener('input', resizeInputBox);
   composerMoreBtn.addEventListener('click', () => toggleComposerTools());
   chatImageBtn.addEventListener('click', () => void chooseChatImages());
+  projectDocumentBtn.addEventListener('click', () => void chooseProjectDocuments());
   window.addEventListener('resize', () => positionComposerTools());
   webSearchBtn.addEventListener('click', () => {
     if (webSearchBtn.disabled) return;
@@ -2938,6 +2959,8 @@ function renderChatWindowPicker(): void {
   chatWindowDelete.disabled = disabled || !currentChatWindowId;
   chatWindowNew.disabled = isStreaming;
   chatWindowTemporary.disabled = isStreaming;
+  projectDocumentBtn.disabled = disabled || temporary;
+  projectDocumentBtn.title = temporary ? '临时对话不保存 Project 文档' : '导入 Project 文档';
   chatWindowDelete.textContent = temporary ? '关闭' : '删除';
   activeChatTitle.textContent = current?.title || '新对话';
   activeProjectTitle.textContent = current?.projectTitle || getCurrentProject()?.title || 'General Project';
@@ -3148,12 +3171,14 @@ async function refreshWindowMemoryPanel(): Promise<void> {
   }
 
   let snapshots: ContextSnapshotRecord[] = [];
+  let documents: ProjectDocumentRecord[] = [];
   try {
     snapshots = await window.athenaAPI.getChatWindowContextSnapshots(current.id, 1);
+    if (current.project_id) documents = await window.athenaAPI.listProjectDocuments(current.project_id);
   } catch (error) {
     console.error('Failed to load chat window context snapshot', error);
   }
-  renderWindowMemoryPanel(current, currentChatWindowMessages, snapshots[0]);
+  renderWindowMemoryPanel(current, currentChatWindowMessages, snapshots[0], documents);
 }
 
 function renderEmptyWindowMemoryPanel(): void {
@@ -3163,6 +3188,7 @@ function renderEmptyWindowMemoryPanel(): void {
   renderTextList(windowContextConclusions, []);
   renderTextList(windowContextTodos, []);
   renderPinnedFacts([]);
+  renderProjectDocuments(null, []);
   windowContextSummary.textContent = '暂无摘要';
   renderContextBudget(null, 0);
 }
@@ -3171,6 +3197,7 @@ function renderWindowMemoryPanel(
   windowRecord: ChatWindowRecord,
   messages: ChatMessageSnapshot[],
   snapshot?: ContextSnapshotRecord,
+  documents: ProjectDocumentRecord[] = [],
 ): void {
   const workingState = parseWindowWorkingState(windowRecord.working_state_json || windowRecord.working_state);
   const insights = deriveWindowInsights(windowRecord, workingState, messages);
@@ -3186,6 +3213,7 @@ function renderWindowMemoryPanel(
   renderTextList(windowContextConclusions, insights.conclusions);
   renderTextList(windowContextTodos, insights.todos);
   renderPinnedFacts(insights.pinnedFacts);
+  renderProjectDocuments(windowRecord, documents);
   windowContextSummary.textContent = windowRecord.summary?.trim() || '暂无摘要';
   renderContextBudget(snapshot || null, messages.length);
 }
@@ -3233,6 +3261,43 @@ function renderPinnedFacts(facts: ChatWindowPinnedFact[]): void {
   }
 }
 
+function renderProjectDocuments(windowRecord: ChatWindowRecord | null, documents: ProjectDocumentRecord[]): void {
+  windowProjectDocuments.replaceChildren();
+  if (documents.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'window-context-empty';
+    empty.textContent = windowRecord?.is_temporary ? '临时对话不保存文档' : '暂无 Project 文档';
+    windowProjectDocuments.appendChild(empty);
+    return;
+  }
+  for (const record of documents) {
+    const item = document.createElement('div');
+    item.className = 'window-project-document';
+    const body = document.createElement('div');
+    const name = document.createElement('strong');
+    name.textContent = record.name;
+    const meta = document.createElement('span');
+    meta.textContent = [record.page_count ? `${record.page_count} 页` : '', `${record.chunk_count} 块`].filter(Boolean).join(' · ');
+    body.append(name, meta);
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'icon-button';
+    remove.title = `删除 ${record.name}`;
+    remove.setAttribute('aria-label', `删除 ${record.name}`);
+    remove.innerHTML = '<svg class="icon"><use href="#icon-close"></use></svg>';
+    remove.addEventListener('click', () => void deleteCurrentProjectDocument(record.id));
+    item.append(body, remove);
+    windowProjectDocuments.appendChild(item);
+  }
+}
+
+async function deleteCurrentProjectDocument(documentId: number): Promise<void> {
+  const projectId = getCurrentChatWindow()?.project_id;
+  if (!projectId) return;
+  if (!window.confirm('删除这份 Project 文档及其本地检索文本？')) return;
+  if (await window.athenaAPI.deleteProjectDocument(projectId, documentId)) await refreshWindowMemoryPanel();
+}
+
 function renderContextBudget(snapshot: ContextSnapshotRecord | null, visibleMessageCount: number): void {
   windowContextBudget.replaceChildren();
   if (!snapshot) {
@@ -3255,6 +3320,7 @@ function renderContextBudget(snapshot: ContextSnapshotRecord | null, visibleMess
     item.kind === 'pinned_fact'
     || item.kind === 'procedural_memory'
     || item.kind === 'project_memory'
+    || item.kind === 'project_document'
     || item.kind === 'global_memory'
   )).length;
   const sourceCount = new Set(included.flatMap(item => item.evidence || []).map(item => (
@@ -3715,6 +3781,25 @@ async function chooseChatImages(): Promise<void> {
   } catch (error) {
     setStatus(error instanceof Error ? error.message : '图片添加失败', 'error');
     window.setTimeout(restoreIdleStatus, 2400);
+  }
+}
+
+async function chooseProjectDocuments(): Promise<void> {
+  if (!currentChatWindowId || isStreaming) return;
+  toggleComposerTools(false);
+  try {
+    setStatus('正在本地解析文档...', 'working');
+    const imported = await window.athenaAPI.chooseProjectDocuments(currentChatWindowId);
+    if (imported.length > 0) {
+      setStatus(`已加入 Project：${imported.map(item => item.name).join('、')}`, 'ready');
+      await refreshWindowMemoryPanel();
+      window.setTimeout(restoreIdleStatus, 2400);
+    } else {
+      restoreIdleStatus();
+    }
+  } catch (error) {
+    setStatus(error instanceof Error ? error.message : '文档导入失败', 'error');
+    window.setTimeout(restoreIdleStatus, 3200);
   }
 }
 

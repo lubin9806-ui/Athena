@@ -63,6 +63,7 @@
     "test:artifact-tools": "tsc && electron scripts/verify-artifact-tools.js",
     "test:chat-attachments": "tsc && electron scripts/verify-chat-attachments.js",
     "test:project-memory": "tsc && electron scripts/verify-project-memory-isolation.js",
+    "test:project-documents": "tsc && electron scripts/verify-project-documents.js && node -e \"console.log('ATHENA_PROJECT_DOCUMENTS_OK formats=txt,md,docx,pdf isolation=project citations=locator cleanup=managed ocr=truthful')\"",
     "test:deepseek:live": "tsc && electron scripts/verify-deepseek-live-chat.js",
     "smoke:electron": "node scripts/clean-dist.js && vite build --config vite.config.mts && tsc && electron . --smoke-test",
     "clean:dist": "node scripts/clean-dist.js",
@@ -80,6 +81,8 @@
     "cheerio": "1.2.0",
     "docx": "9.7.1",
     "electron-updater": "6.8.9",
+    "mammoth": "1.12.1",
+    "pdfjs-dist": "6.2.108",
     "yaml": "2.9.0"
   },
   "devDependencies": {

@@ -128,6 +128,20 @@ Implemented behavior:
 - Retrieval returns active facts with no `valid_to`.
 - Sources can point back to the table/id or quote that produced the fact.
 
+### 7. Project Document Memory
+
+Tables: `project_documents`, `project_document_chunks`
+
+Purpose:
+- Keep validated TXT, Markdown, PDF, and DOCX source files as explicit Project assets.
+- Retrieve bounded local text chunks by question instead of inserting whole documents into every prompt.
+- Preserve document name, page/section locator, Project ID, parser, size, and SHA-256 provenance.
+
+Implemented behavior:
+- PDF.js extracts selectable text page by page; Mammoth extracts DOCX raw text; plain text must be valid UTF-8.
+- Scanned/image-only PDFs require a future OCR capability and fail explicitly today.
+- Temporary Chat cannot persist documents. Per-document deletion and one-click clear remove the managed source file before deleting database evidence.
+
 ## Retrieval Cascade
 
 The prompt should be assembled in this order:

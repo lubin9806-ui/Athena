@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-08-12T04:20:14.678Z",
+  "generatedAt": "2026-08-17T12:23:12.872Z",
   "project": {
     "name": "athena",
     "version": "0.9.5",
@@ -38,6 +38,92 @@
       "homepage": "https://modelcontextprotocol.io"
     },
     {
+      "name": "@napi-rs/canvas-android-arm64",
+      "version": null,
+      "resolved": "https://registry.npmmirror.com/@napi-rs/canvas-android-arm64/-/canvas-android-arm64-1.0.6.tgz",
+      "license": "MIT",
+      "notice": "package.json not found in node_modules"
+    },
+    {
+      "name": "@napi-rs/canvas-darwin-arm64",
+      "version": null,
+      "resolved": "https://registry.npmmirror.com/@napi-rs/canvas-darwin-arm64/-/canvas-darwin-arm64-1.0.6.tgz",
+      "license": "MIT",
+      "notice": "package.json not found in node_modules"
+    },
+    {
+      "name": "@napi-rs/canvas-darwin-x64",
+      "version": null,
+      "resolved": "https://registry.npmmirror.com/@napi-rs/canvas-darwin-x64/-/canvas-darwin-x64-1.0.6.tgz",
+      "license": "MIT",
+      "notice": "package.json not found in node_modules"
+    },
+    {
+      "name": "@napi-rs/canvas-linux-arm-gnueabihf",
+      "version": null,
+      "resolved": "https://registry.npmmirror.com/@napi-rs/canvas-linux-arm-gnueabihf/-/canvas-linux-arm-gnueabihf-1.0.6.tgz",
+      "license": "MIT",
+      "notice": "package.json not found in node_modules"
+    },
+    {
+      "name": "@napi-rs/canvas-linux-arm64-gnu",
+      "version": null,
+      "resolved": "https://registry.npmmirror.com/@napi-rs/canvas-linux-arm64-gnu/-/canvas-linux-arm64-gnu-1.0.6.tgz",
+      "license": "MIT",
+      "notice": "package.json not found in node_modules"
+    },
+    {
+      "name": "@napi-rs/canvas-linux-arm64-musl",
+      "version": null,
+      "resolved": "https://registry.npmmirror.com/@napi-rs/canvas-linux-arm64-musl/-/canvas-linux-arm64-musl-1.0.6.tgz",
+      "license": "MIT",
+      "notice": "package.json not found in node_modules"
+    },
+    {
+      "name": "@napi-rs/canvas-linux-riscv64-gnu",
+      "version": null,
+      "resolved": "https://registry.npmmirror.com/@napi-rs/canvas-linux-riscv64-gnu/-/canvas-linux-riscv64-gnu-1.0.6.tgz",
+      "license": "MIT",
+      "notice": "package.json not found in node_modules"
+    },
+    {
+      "name": "@napi-rs/canvas-linux-x64-gnu",
+      "version": null,
+      "resolved": "https://registry.npmmirror.com/@napi-rs/canvas-linux-x64-gnu/-/canvas-linux-x64-gnu-1.0.6.tgz",
+      "license": "MIT",
+      "notice": "package.json not found in node_modules"
+    },
+    {
+      "name": "@napi-rs/canvas-linux-x64-musl",
+      "version": null,
+      "resolved": "https://registry.npmmirror.com/@napi-rs/canvas-linux-x64-musl/-/canvas-linux-x64-musl-1.0.6.tgz",
+      "license": "MIT",
+      "notice": "package.json not found in node_modules"
+    },
+    {
+      "name": "@napi-rs/canvas-win32-arm64-msvc",
+      "version": null,
+      "resolved": "https://registry.npmmirror.com/@napi-rs/canvas-win32-arm64-msvc/-/canvas-win32-arm64-msvc-1.0.6.tgz",
+      "license": "MIT",
+      "notice": "package.json not found in node_modules"
+    },
+    {
+      "name": "@napi-rs/canvas-win32-x64-msvc",
+      "version": "1.0.6",
+      "resolved": "https://registry.npmmirror.com/@napi-rs/canvas-win32-x64-msvc/-/canvas-win32-x64-msvc-1.0.6.tgz",
+      "license": "MIT",
+      "repository": "git+https://github.com/Brooooooklyn/canvas.git",
+      "homepage": null
+    },
+    {
+      "name": "@napi-rs/canvas",
+      "version": "1.0.6",
+      "resolved": "https://registry.npmmirror.com/@napi-rs/canvas/-/canvas-1.0.6.tgz",
+      "license": "MIT",
+      "repository": "git+https://github.com/Brooooooklyn/canvas.git",
+      "homepage": null
+    },
+    {
       "name": "@types/node",
       "version": "20.19.43",
       "resolved": null,
@@ -54,12 +140,28 @@
       "homepage": "https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/node"
     },
     {
+      "name": "@xmldom/xmldom",
+      "version": "0.8.13",
+      "resolved": "https://registry.npmjs.org/@xmldom/xmldom/-/xmldom-0.8.13.tgz",
+      "license": "MIT",
+      "repository": "git://github.com/xmldom/xmldom.git",
+      "homepage": "https://github.com/xmldom/xmldom"
+    },
+    {
       "name": "ajv",
       "version": "8.20.0",
       "resolved": "https://registry.npmjs.org/ajv/-/ajv-8.20.0.tgz",
       "license": "MIT",
       "repository": "ajv-validator/ajv",
       "homepage": "https://ajv.js.org"
+    },
+    {
+      "name": "argparse",
+      "version": "1.0.10",
+      "resolved": "https://registry.npmmirror.com/argparse/-/argparse-1.0.10.tgz",
+      "license": "MIT",
+      "repository": "nodeca/argparse",
+      "homepage": null
     },
     {
       "name": "argparse",
@@ -100,6 +202,14 @@
       "license": "MIT",
       "repository": "https://github.com/rvagg/bl.git",
       "homepage": "https://github.com/rvagg/bl"
+    },
+    {
+      "name": "bluebird",
+      "version": "3.4.7",
+      "resolved": "https://registry.npmmirror.com/bluebird/-/bluebird-3.4.7.tgz",
+      "license": "MIT",
+      "repository": "git://github.com/petkaantonov/bluebird.git",
+      "homepage": "https://github.com/petkaantonov/bluebird"
     },
     {
       "name": "boolbase",
@@ -214,6 +324,14 @@
       "homepage": null
     },
     {
+      "name": "dingbat-to-unicode",
+      "version": "1.0.1",
+      "resolved": "https://registry.npmmirror.com/dingbat-to-unicode/-/dingbat-to-unicode-1.0.1.tgz",
+      "license": "BSD-2-Clause",
+      "repository": "git+https://github.com/mwilliamson/dingbat-to-unicode.git",
+      "homepage": "https://github.com/mwilliamson/dingbat-to-unicode#readme"
+    },
+    {
       "name": "docx",
       "version": "9.7.1",
       "resolved": "https://registry.npmmirror.com/docx/-/docx-9.7.1.tgz",
@@ -251,6 +369,14 @@
       "resolved": "https://registry.npmmirror.com/domutils/-/domutils-3.2.2.tgz",
       "license": "BSD-2-Clause",
       "repository": "git://github.com/fb55/domutils.git",
+      "homepage": null
+    },
+    {
+      "name": "duck",
+      "version": "0.1.12",
+      "resolved": "https://registry.npmmirror.com/duck/-/duck-0.1.12.tgz",
+      "license": "BSD",
+      "repository": "https://github.com/mwilliamson/duck.js.git",
       "homepage": null
     },
     {
@@ -526,6 +652,22 @@
       "homepage": "https://lodash.com/"
     },
     {
+      "name": "lop",
+      "version": "0.4.2",
+      "resolved": "https://registry.npmmirror.com/lop/-/lop-0.4.2.tgz",
+      "license": "BSD-2-Clause",
+      "repository": "https://github.com/mwilliamson/lop.git",
+      "homepage": null
+    },
+    {
+      "name": "mammoth",
+      "version": "1.12.1",
+      "resolved": "https://registry.npmmirror.com/mammoth/-/mammoth-1.12.1.tgz",
+      "license": "BSD-2-Clause",
+      "repository": "https://github.com/mwilliamson/mammoth.js.git",
+      "homepage": null
+    },
+    {
       "name": "mimic-response",
       "version": "3.1.0",
       "resolved": null,
@@ -606,6 +748,14 @@
       "homepage": null
     },
     {
+      "name": "option",
+      "version": "0.2.4",
+      "resolved": "https://registry.npmmirror.com/option/-/option-0.2.4.tgz",
+      "license": "BSD-2-Clause",
+      "repository": "https://github.com/mwilliamson/node-options.git",
+      "homepage": null
+    },
+    {
       "name": "pako",
       "version": "1.0.11",
       "resolved": "https://registry.npmmirror.com/pako/-/pako-1.0.11.tgz",
@@ -638,12 +788,28 @@
       "homepage": "https://parse5.js.org"
     },
     {
+      "name": "path-is-absolute",
+      "version": "1.0.1",
+      "resolved": "https://registry.npmjs.org/path-is-absolute/-/path-is-absolute-1.0.1.tgz",
+      "license": "MIT",
+      "repository": "sindresorhus/path-is-absolute",
+      "homepage": null
+    },
+    {
       "name": "path-key",
       "version": "3.1.1",
       "resolved": "https://registry.npmjs.org/path-key/-/path-key-3.1.1.tgz",
       "license": "MIT",
       "repository": "sindresorhus/path-key",
       "homepage": null
+    },
+    {
+      "name": "pdfjs-dist",
+      "version": "6.2.108",
+      "resolved": "https://registry.npmmirror.com/pdfjs-dist/-/pdfjs-dist-6.2.108.tgz",
+      "license": "Apache-2.0",
+      "repository": "git+https://github.com/mozilla/pdf.js.git",
+      "homepage": "https://mozilla.github.io/pdf.js/"
     },
     {
       "name": "pkce-challenge",
@@ -798,6 +964,14 @@
       "homepage": "https://github.com/feross/simple-get"
     },
     {
+      "name": "sprintf-js",
+      "version": "1.0.3",
+      "resolved": "https://registry.npmmirror.com/sprintf-js/-/sprintf-js-1.0.3.tgz",
+      "license": "BSD-3-Clause",
+      "repository": "https://github.com/alexei/sprintf.js.git",
+      "homepage": null
+    },
+    {
       "name": "steamworks.js",
       "version": "0.4.0",
       "resolved": "https://registry.npmmirror.com/steamworks.js/-/steamworks.js-0.4.0.tgz",
@@ -860,6 +1034,14 @@
       "license": "Apache-2.0",
       "repository": "https://github.com/mikeal/tunnel-agent",
       "homepage": null
+    },
+    {
+      "name": "underscore",
+      "version": "1.13.8",
+      "resolved": "https://registry.npmmirror.com/underscore/-/underscore-1.13.8.tgz",
+      "license": "MIT",
+      "repository": "git://github.com/jashkenas/underscore.git",
+      "homepage": "https://underscorejs.org"
     },
     {
       "name": "undici-types",
@@ -950,6 +1132,14 @@
       "homepage": "http://github.com/dylang/node-xml"
     },
     {
+      "name": "xmlbuilder",
+      "version": "10.1.1",
+      "resolved": "https://registry.npmmirror.com/xmlbuilder/-/xmlbuilder-10.1.1.tgz",
+      "license": "MIT",
+      "repository": "git://github.com/oozcitak/xmlbuilder-js.git",
+      "homepage": "http://github.com/oozcitak/xmlbuilder-js"
+    },
+    {
       "name": "yaml",
       "version": "2.9.0",
       "resolved": "https://registry.npmjs.org/yaml/-/yaml-2.9.0.tgz",
@@ -1002,7 +1192,7 @@
     }
   ],
   "localOllamaRuntime": {
-    "installedVersion": "0.32.7",
+    "installedVersion": "0.32.9",
     "defaultModel": {
       "runtimeTag": "qwen2.5:14b",
       "localOllamaId": "7cdf5a0187d5",

@@ -100,13 +100,43 @@ export interface ProjectNote {
 export interface MemoryRetrievalEvidence {
   memoryTable: string;
   memoryId: number;
-  memoryKind: 'profile' | 'procedure' | 'fact' | 'event' | 'daily' | 'project' | 'message';
+  memoryKind: 'profile' | 'procedure' | 'fact' | 'event' | 'daily' | 'project' | 'message' | 'document';
   projectId?: number;
   sourceTable: string;
   sourceId?: number;
   chatWindowId?: number;
   origin: 'record' | 'review' | 'fact_source' | 'legacy';
   excerpt?: string;
+}
+
+export interface ProjectDocument {
+  id: number;
+  project_id: number;
+  name: string;
+  mime_type: 'text/plain' | 'text/markdown' | 'application/pdf' | 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+  bytes: number;
+  sha256: string;
+  parser: 'plain-text' | 'pdfjs' | 'mammoth';
+  page_count?: number;
+  char_count: number;
+  chunk_count: number;
+  status: 'ready' | 'error';
+  error?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProjectDocumentChunk {
+  id: number;
+  document_id: number;
+  project_id: number;
+  document_name: string;
+  ordinal: number;
+  locator: string;
+  page_start?: number;
+  page_end?: number;
+  text: string;
+  char_count: number;
 }
 
 export interface ChatWindowContext {
@@ -130,6 +160,7 @@ export interface RetrievedContext {
   relatedEvents: MemoryEvent[];
   dailySummaries: DailyMemorySummary[];
   projectNotes: ProjectNote[];
+  documentChunks: ProjectDocumentChunk[];
   recentMessages: Message[];
   chatWindow?: ChatWindowContext;
   evidence: MemoryRetrievalEvidence[];

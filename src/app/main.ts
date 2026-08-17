@@ -263,6 +263,8 @@ function createWindow(): void {
              const webSearchButton = document.getElementById('web-search-btn');
              const composerMoreButton = document.getElementById('composer-more-btn');
              const availableToolsButton = document.getElementById('available-tools-btn');
+             const projectDocumentButton = document.getElementById('project-document-btn');
+             const windowProjectDocuments = document.getElementById('window-project-documents');
              const toolsPanel = document.getElementById('tools-panel');
              const toolsPanelList = document.getElementById('tools-panel-list');
              const toolsClose = document.getElementById('btn-tools-close');
@@ -301,6 +303,8 @@ function createWindow(): void {
                webSearchButton &&
                composerMoreButton &&
                availableToolsButton instanceof HTMLButtonElement &&
+               projectDocumentButton instanceof HTMLButtonElement &&
+               windowProjectDocuments &&
                toolsPanel &&
                toolsPanelList &&
                toolsClose instanceof HTMLButtonElement &&
@@ -338,6 +342,9 @@ function createWindow(): void {
               && typeof api.clearLocalData === 'function'
               && typeof api.cancelExecution === 'function'
               && typeof api.getToolCatalog === 'function'
+              && typeof api.chooseProjectDocuments === 'function'
+              && typeof api.listProjectDocuments === 'function'
+              && typeof api.deleteProjectDocument === 'function'
               && typeof api.onWebSearchStatus === 'function'
               && typeof api.requestMicrophoneAccess === 'function'
               && typeof api.getVoiceCapabilities === 'function'
@@ -558,6 +565,10 @@ function createWindow(): void {
              }
              if (!temporaryChatReactive) return false;
 
+             const temporaryDocumentBoundaryReactive = projectDocumentButton.disabled
+               && /临时对话/.test(projectDocumentButton.title || '');
+             if (!temporaryDocumentBoundaryReactive) return false;
+
              composerMoreButton.click();
              await new Promise(resolve => setTimeout(resolve, 90));
              const composerTools = document.getElementById('composer-secondary-tools');
@@ -680,6 +691,7 @@ function createWindow(): void {
                 newChatImmediateReactive,
                 newChatAutoTitleReactive,
                 temporaryChatReactive,
+                temporaryDocumentBoundaryReactive,
                 toolCatalogReactive,
                 composerToolsVisible,
                 composerMetaVisible,

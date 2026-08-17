@@ -27,6 +27,7 @@ import {
   OpenAIImageGenerationProvider,
 } from '../artifacts';
 import { AttachmentService } from '../attachments';
+import { ProjectDocumentService } from '../documents';
 import { evaluateSteamAiContent, steamAiGuardrailRefusal } from '../steam/SteamAiGuardrails';
 import { isSteamSku } from '../steam/SteamSkuPolicy';
 import {
@@ -112,6 +113,7 @@ export class AthenaController {
   private readonly researchTools: ResearchAgentToolBridge;
   private readonly artifactTools: ArtifactAgentToolBridge;
   private readonly attachments: AttachmentService;
+  private readonly documents: ProjectDocumentService;
   private agentRunner: AgentRunner;
   private initialized = false;
   private initializePromise: Promise<void> | null = null;
@@ -126,6 +128,7 @@ export class AthenaController {
     this.workflows = new WorkflowManager();
     this.webSearch = new WebSearchService();
     this.attachments = new AttachmentService();
+    this.documents = new ProjectDocumentService();
     this.agentStore = new AgentStore();
     this.agentTools = new ToolRegistry();
     this.agentComputerTools = new ComputerAgentToolBridge({
@@ -197,7 +200,7 @@ export class AthenaController {
       logger.info(`Memory retention applied: daily_summaries=${memoryRetention.dailySummariesGenerated}, llm_refined=${memoryRetention.llmRefinedSummaries ?? 0}, raw_events_pruned=${memoryRetention.rawEventsPruned}`);
     }
     const indexStats = rebuildMemoryIndex();
-    logger.info(`Memory index ready: messages=${indexStats.messages}, profile=${indexStats.profile}, events=${indexStats.events}, daily_memory_summaries=${indexStats.daily_memory_summaries}, procedural_memories=${indexStats.procedural_memories}, memory_facts=${indexStats.memory_facts}, project_notes=${indexStats.project_notes}`);
+    logger.info(`Memory index ready: messages=${indexStats.messages}, profile=${indexStats.profile}, events=${indexStats.events}, daily_memory_summaries=${indexStats.daily_memory_summaries}, procedural_memories=${indexStats.procedural_memories}, memory_facts=${indexStats.memory_facts}, project_notes=${indexStats.project_notes}, project_document_chunks=${indexStats.project_document_chunks}`);
     this.emotion.setBaseEmotion(new Date().getHours());
     const settings = getAppSettings();
     this.applyToolPermission(settings.tools, settings.conversation.activeMode);
@@ -540,6 +543,25 @@ export class AthenaController {
 
   clearAttachmentFiles(): number {
     return this.attachments.clearAllFiles();
+  }
+
+  async importProjectDocuments(chatWindowId: number, sourcePaths: string[]) {
+    const chatWindow = getChatWindow(chatWindowId);
+    if (!chatWindow?.project_id || chatWindow.deleted_at) throw new Error('Document chat window is unavailable.');
+    if (chatWindow.is_temporary) throw new Error('Temporary Chat cannot create persistent Project documents.');
+    return this.documents.importDocuments(chatWindow.project_id, sourcePaths);
+  }
+
+  listProjectDocuments(projectId: number) {
+    return this.documents.list(projectId);
+  }
+
+  deleteProjectDocument(projectId: number, documentId: number): boolean {
+    return this.documents.delete(projectId, documentId);
+  }
+
+  clearProjectDocumentFiles(): number {
+    return this.documents.clearAllFiles();
   }
 
   getSkillPrivacyData(): ReturnType<SkillLibrary['getPrivacyData']> {
@@ -1039,6 +1061,7 @@ function buildRetrievedContext(
     maxEvents: settings.retrieveEvents ? depth : 0,
     maxDailySummaries: settings.retrieveEvents ? depth : 0,
     maxProjectNotes: settings.retrieveProjects ? depth : 0,
+    maxDocumentChunks: settings.retrieveProjects ? Math.max(4, depth) : 0,
     recentMessageCount: chatWindowId ? recentMessageCount + 1 : (saveHistory ? recentMessageCount : 0),
     conversationMode: mode,
     chatWindowId,
@@ -1059,6 +1082,7 @@ function emptyRetrievedContext(): RetrievedContext {
     relatedEvents: [],
     dailySummaries: [],
     projectNotes: [],
+    documentChunks: [],
     recentMessages: [],
     chatWindow: undefined,
     evidence: [],

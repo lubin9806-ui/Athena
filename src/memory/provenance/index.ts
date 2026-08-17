@@ -79,6 +79,27 @@ function loadDurableSources(target: MemoryEvidenceTarget): MemoryRetrievalEviden
       });
     }
   }
+  if (target.memoryTable === 'project_document_chunks') {
+    const document = db.prepare(`
+      SELECT d.id, d.name, d.sha256, c.locator
+      FROM project_document_chunks c
+      JOIN project_documents d ON d.id = c.document_id AND d.project_id = c.project_id
+      WHERE c.id = ?
+      LIMIT 1
+    `).get(target.memoryId) as { id: number; name: string; sha256: string; locator: string } | undefined;
+    if (document) {
+      result.push({
+        memoryTable: target.memoryTable,
+        memoryId: target.memoryId,
+        memoryKind: target.memoryKind,
+        projectId: target.projectId,
+        sourceTable: 'project_documents',
+        sourceId: document.id,
+        origin: 'record',
+        excerpt: cleanExcerpt(`${document.name} ${document.locator} sha256:${document.sha256.slice(0, 16)}`),
+      });
+    }
+  }
   return result;
 }
 

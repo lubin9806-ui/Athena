@@ -7,7 +7,7 @@ import { ensureSufficientDiskSpace } from '../../core/runtime/DiskSpaceGuard';
 
 let db: Database.Database | null = null;
 let resolvedDbPath: string | null = null;
-export const DATABASE_SCHEMA_VERSION = 12;
+export const DATABASE_SCHEMA_VERSION = 13;
 const MIGRATION_BACKUP_RETENTION = 5;
 
 export interface MemoryStats {
@@ -363,6 +363,41 @@ function runMigrations(database: Database.Database, currentVersion: number): voi
     CREATE INDEX IF NOT EXISTS idx_project_notes_status ON project_notes(status);
     CREATE INDEX IF NOT EXISTS idx_project_notes_importance ON project_notes(importance DESC);
     CREATE INDEX IF NOT EXISTS idx_project_notes_updated_at ON project_notes(updated_at DESC);
+
+    CREATE TABLE IF NOT EXISTS project_documents (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      mime_type TEXT NOT NULL CHECK(mime_type IN ('text/plain', 'text/markdown', 'application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')),
+      storage_path TEXT NOT NULL UNIQUE,
+      bytes INTEGER NOT NULL CHECK(bytes > 0 AND bytes <= 26214400),
+      sha256 TEXT NOT NULL CHECK(length(sha256) = 64),
+      parser TEXT NOT NULL CHECK(parser IN ('plain-text', 'pdfjs', 'mammoth')),
+      page_count INTEGER,
+      char_count INTEGER NOT NULL DEFAULT 0,
+      chunk_count INTEGER NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'ready' CHECK(status IN ('ready', 'error')),
+      error TEXT,
+      created_at DATETIME DEFAULT (datetime('now', 'localtime')),
+      updated_at DATETIME DEFAULT (datetime('now', 'localtime')),
+      UNIQUE(project_id, sha256)
+    );
+    CREATE INDEX IF NOT EXISTS idx_project_documents_project ON project_documents(project_id, status, updated_at DESC);
+
+    CREATE TABLE IF NOT EXISTS project_document_chunks (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      document_id INTEGER NOT NULL REFERENCES project_documents(id) ON DELETE CASCADE,
+      project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      ordinal INTEGER NOT NULL CHECK(ordinal >= 0),
+      locator TEXT NOT NULL,
+      page_start INTEGER,
+      page_end INTEGER,
+      text TEXT NOT NULL,
+      char_count INTEGER NOT NULL CHECK(char_count > 0),
+      created_at DATETIME DEFAULT (datetime('now', 'localtime')),
+      UNIQUE(document_id, ordinal)
+    );
+    CREATE INDEX IF NOT EXISTS idx_project_document_chunks_project ON project_document_chunks(project_id, document_id, ordinal);
 
     CREATE TABLE IF NOT EXISTS memory_index (
       id INTEGER PRIMARY KEY AUTOINCREMENT,

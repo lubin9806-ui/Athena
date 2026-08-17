@@ -1,6 +1,6 @@
 import { getDatabase } from '../database';
 
-export type IndexedMemoryTable = 'messages' | 'profile' | 'events' | 'daily_memory_summaries' | 'procedural_memories' | 'memory_facts' | 'project_notes';
+export type IndexedMemoryTable = 'messages' | 'profile' | 'events' | 'daily_memory_summaries' | 'procedural_memories' | 'memory_facts' | 'project_notes' | 'project_document_chunks';
 export type MemorySearchTerms = string | string[];
 
 export interface MemoryIndexScope {
@@ -16,6 +16,7 @@ export interface MemoryIndexStats {
   procedural_memories: number;
   memory_facts: number;
   project_notes: number;
+  project_document_chunks: number;
 }
 
 export interface MemoryVectorProvider {
@@ -141,6 +142,7 @@ export function rebuildMemoryIndex(): MemoryIndexStats {
     procedural_memories: 0,
     memory_facts: 0,
     project_notes: 0,
+    project_document_chunks: 0,
   };
 
   const messages = db.prepare('SELECT id, role, content, emotion FROM messages').all() as any[];
@@ -183,6 +185,17 @@ export function rebuildMemoryIndex(): MemoryIndexStats {
   for (const row of projectNotes) {
     upsertMemoryIndex('project_notes', row.id, `${row.project_id || ''} ${row.project} ${row.title} ${row.note} ${row.status} ${row.tags || ''}`, row.project_id);
     stats.project_notes += 1;
+  }
+
+  const documentChunks = db.prepare(`
+    SELECT c.id, c.project_id, c.locator, c.text, d.name
+    FROM project_document_chunks c
+    JOIN project_documents d ON d.id = c.document_id AND d.project_id = c.project_id
+    WHERE d.status = 'ready'
+  `).all() as any[];
+  for (const row of documentChunks) {
+    upsertMemoryIndex('project_document_chunks', row.id, `${row.name} ${row.locator} ${row.text}`, row.project_id);
+    stats.project_document_chunks += 1;
   }
 
   return stats;
