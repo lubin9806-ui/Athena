@@ -11,6 +11,7 @@ import type {
   ModelToolDefinition,
 } from './ModelTypes';
 import { ModelCapabilityError, ModelProtocolError } from './ModelTypes';
+import { loadModelImageBase64 } from './ModelImageLoader';
 import {
   EMPTY_USAGE,
   assertToolCallsAllowed,
@@ -258,6 +259,21 @@ function serializeMessage(message: ModelMessage): Record<string, unknown> {
     if (!message.toolCallId) throw new ModelProtocolError('OpenAI-compatible tool result requires toolCallId');
     return { role: 'tool', tool_call_id: message.toolCallId, content: message.content };
   }
+  if (message.images?.length) {
+    return {
+      role: message.role,
+      content: [
+        { type: 'text', text: message.content },
+        ...message.images.map(image => ({
+          type: 'image_url',
+          image_url: {
+            url: `data:${image.mimeType};base64,${loadModelImageBase64(image)}`,
+            detail: image.detail || 'auto',
+          },
+        })),
+      ],
+    };
+  }
   return { role: message.role, content: message.content };
 }
 
@@ -282,6 +298,7 @@ function serializeToolChoice(choice: ModelToolChoice): unknown {
 
 function validateToolRequest(request: ModelRequest, capabilities: ModelAdapterCapabilities): void {
   validateToolDefinitions(request.tools);
+  validateImageInputs(request.messages, capabilities);
   if (!request.tools?.length) {
     if (request.toolChoice && request.toolChoice !== 'none' && request.toolChoice !== 'auto') {
       throw new ModelCapabilityError('A required or specific tool choice needs at least one tool definition');
@@ -302,6 +319,21 @@ function validateToolRequest(request: ModelRequest, capabilities: ModelAdapterCa
   }
   if (request.responseFormat?.type === 'json_schema' && !capabilities.jsonSchemaOutput) {
     throw new ModelCapabilityError('The selected provider does not support JSON schema output');
+  }
+}
+
+function validateImageInputs(messages: ModelMessage[], capabilities: ModelAdapterCapabilities): void {
+  const withImages = messages.filter(message => (message.images?.length ?? 0) > 0);
+  if (withImages.length === 0) return;
+  if (!capabilities.imageInputs) throw new ModelCapabilityError('The selected provider/model has no verified image-input capability');
+  for (const message of withImages) {
+    if (message.role !== 'user') throw new ModelCapabilityError('Image inputs are only supported on user messages');
+    if ((message.images?.length ?? 0) > 5) throw new ModelCapabilityError('A model message cannot contain more than 5 images');
+    for (const image of message.images || []) {
+      if (!capabilities.imageInputFormats.includes(image.mimeType)) {
+        throw new ModelCapabilityError(`Image format is not supported: ${image.mimeType}`);
+      }
+    }
   }
 }
 
@@ -333,6 +365,9 @@ function capabilitiesFor(provider: RemoteModelProvider, endpoint: string, model:
   catch { isDeepSeekStrict = false; }
   const knownTools = provider !== 'custom';
   return {
+    imageInputs: isOpenAI && supportsOpenAIImageInput(model),
+    imageInputFormats: ['image/png', 'image/jpeg', 'image/webp'],
+    imageInputSource: isOpenAI ? 'static' : 'unsupported',
     nativeToolCalls: true,
     parallelToolCalls: knownTools,
     streamingToolCalls: true,
@@ -343,6 +378,10 @@ function capabilitiesFor(provider: RemoteModelProvider, endpoint: string, model:
     toolResultUsesCallId: true,
     toolResultUsesName: false,
   };
+}
+
+function supportsOpenAIImageInput(model: string): boolean {
+  return /^(?:gpt-4o|gpt-4\.1|gpt-5|chatgpt|chat-latest)(?:[-.]|$)/i.test(model);
 }
 
 function supportsOpenAIJsonSchema(model: string): boolean {

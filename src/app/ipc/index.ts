@@ -36,7 +36,6 @@ import {
   createChatWindow,
   createTemporaryChatWindow,
   deleteMemory,
-  deleteChatWindow,
   debugRetrieveMemory,
   ensureDefaultChatWindow,
   ensureDefaultProject,
@@ -61,7 +60,7 @@ import type { MemoryKind, MemoryListOptions, MemoryReviewListOptions, MemoryUpda
 import type { McpServerInput, RemoteModelProvider, SettingsBundle, SettingsPatch, ToolConfirmationRequest, ToolStatusEvent, WebSearchStatus } from '../../shared/types';
 import { armMicrophoneGrant, revokeMicrophoneGrant } from '../security/PermissionGate';
 import { applyDesktopSettings, showReminderNotification } from '../DesktopSettings';
-import { cleanChatPayload, cleanExistingFilePath, isTrustedIpcSender } from './validation';
+import { cleanAttachmentIds, cleanChatPayload, cleanExistingFilePath, isTrustedIpcSender } from './validation';
 
 const MAX_RECORDING_BYTES = 12 * 1024 * 1024;
 const MAX_TEXT_TO_SPEAK_CHARS = 8_000;
@@ -69,6 +68,9 @@ const MAX_PATH_CHARS = 2_048;
 
 const INVOKE_CHANNELS = [
   'chat:send',
+  'attachment:chooseImages',
+  'attachment:preview',
+  'attachment:removePending',
   'project:list',
   'project:create',
   'project:update',
@@ -173,7 +175,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<vo
     const settings = getAppSettings();
     const payload = cleanChatPayload(value, settings.conversation.activeMode);
     if (!payload) return null;
-    const { text: userMessage, mode, forceWebSearch, chatWindowId } = payload;
+    const { text: userMessage, mode, forceWebSearch, chatWindowId, attachmentIds } = payload;
 
     try {
       const response = mode === 'execute'
@@ -181,6 +183,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<vo
           userMessage,
           chatWindowId,
           snapshot => notifyAgentWorkspaceChanged(mainWindow, snapshot.task.projectId, snapshot.task.id, snapshot.run.id),
+          attachmentIds,
         )
         : await controller.processMessage(
         userMessage,
@@ -205,6 +208,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<vo
             }
           },
           onToolConfirm: (request: ToolConfirmationRequest) => confirmToolExecution(mainWindow, request),
+          attachmentIds,
         },
         );
       if (!mainWindow.isDestroyed()) {
@@ -218,6 +222,38 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<vo
       }
       return null;
     }
+  });
+
+  ipcMain.handle('attachment:chooseImages', async (event, value: unknown) => {
+    if (!isTrustedSender(event)) return [];
+    const chatWindowId = cleanPositiveInteger(value);
+    if (!chatWindowId) return [];
+    await controller.assertImageInputAvailable();
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: '选择图片',
+      properties: ['openFile', 'multiSelections'],
+      filters: [{ name: '图片', extensions: ['png', 'jpg', 'jpeg', 'webp'] }],
+    });
+    if (result.canceled || result.filePaths.length === 0) return [];
+    return controller.importChatImages(chatWindowId, result.filePaths.slice(0, 5));
+  });
+
+  ipcMain.handle('attachment:preview', async (event, value: unknown) => {
+    if (!isTrustedSender(event)) return null;
+    if (!isRecord(value)) return null;
+    const chatWindowId = cleanPositiveInteger(value.chatWindowId);
+    const attachmentId = cleanAttachmentIds([value.attachmentId])[0];
+    return chatWindowId && attachmentId
+      ? controller.getChatAttachmentPreview(chatWindowId, attachmentId)
+      : null;
+  });
+
+  ipcMain.handle('attachment:removePending', async (event, value: unknown) => {
+    if (!isTrustedSender(event)) return false;
+    if (!isRecord(value)) return false;
+    const chatWindowId = cleanPositiveInteger(value.chatWindowId);
+    const attachmentId = cleanAttachmentIds([value.attachmentId])[0];
+    return Boolean(chatWindowId && attachmentId && controller.removePendingChatAttachment(chatWindowId, attachmentId));
   });
 
   ipcMain.handle('chatWindow:list', async (event, includeArchived: unknown, projectValue?: unknown) => {
@@ -293,7 +329,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<vo
   ipcMain.handle('chatWindow:delete', async (event, id: unknown) => {
     if (!isTrustedSender(event)) return false;
     const windowId = cleanPositiveInteger(id);
-    return windowId ? deleteChatWindow(windowId) : false;
+    return windowId ? controller.deleteChatWindow(windowId) : false;
   });
 
   ipcMain.handle('chatWindow:messages', async (event, id: unknown, limit: unknown) => {
@@ -750,6 +786,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<vo
     if (!isTrustedSender(event)) return null;
     return clearAllLocalData({
       clearSkillInvocationHistory: () => controller.clearSkillInvocationHistory(),
+      clearAttachmentFiles: () => controller.clearAttachmentFiles(),
     });
   });
 

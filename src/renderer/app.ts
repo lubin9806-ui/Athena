@@ -1,7 +1,7 @@
 /** Renderer entry: Athena workspace UI, chat, voice, settings, and IPC wiring. */
 
 import './style.css';
-import { ChatPanel, type ChatMessageSnapshot, type ChatSource, type ChatToolExecution } from './ui/ChatPanel';
+import { ChatPanel, type ChatAttachmentSnapshot, type ChatMessageSnapshot, type ChatSource, type ChatToolExecution } from './ui/ChatPanel';
 import { InputBar } from './ui/InputBar';
 import { LiveGlass } from './ui/LiveGlass';
 import { LiquidGlassRenderer } from './ui/LiquidGlassRenderer';
@@ -13,7 +13,7 @@ import { MicrophoneRecorder } from './voice/MicrophoneRecorder';
 declare global {
   interface Window {
     athenaAPI: {
-      sendMessage: (text: string, mode: AthenaMode, forceWebSearch?: boolean, chatWindowId?: number) => Promise<{
+      sendMessage: (text: string, mode: AthenaMode, forceWebSearch?: boolean, chatWindowId?: number, attachmentIds?: string[]) => Promise<{
         content: string;
         emotion?: { label: string };
         webSearch?: {
@@ -27,6 +27,9 @@ declare global {
         toolExecutions?: ChatToolExecution[];
         agentExecution?: { taskId: string; runId: string; status: AgentRunStatus };
       } | null>;
+      chooseChatImages: (chatWindowId: number) => Promise<ChatAttachmentSnapshot[]>;
+      getChatAttachmentPreview: (chatWindowId: number, attachmentId: string) => Promise<string | null>;
+      removePendingChatAttachment: (chatWindowId: number, attachmentId: string) => Promise<boolean>;
       listProjects: (includeArchived?: boolean) => Promise<AthenaProjectRecord[]>;
       createProject: (title?: string, instructions?: string) => Promise<AthenaProjectRecord | null>;
       updateProject: (id: number, patch: { title?: string; instructions?: string }) => Promise<AthenaProjectRecord | null>;
@@ -840,7 +843,10 @@ const chatWindowDelete = mustGet<HTMLButtonElement>('chat-window-delete');
 const temporaryChatBadge = mustGet<HTMLElement>('temporary-chat-badge');
 const stage = mustGet<HTMLElement>('stage');
 const presenceActions = mustGet<HTMLElement>('presence-actions');
-const chatPanel = new ChatPanel(mustGet<HTMLElement>('chat-container'));
+const chatPanel = new ChatPanel(
+  mustGet<HTMLElement>('chat-container'),
+  attachment => window.athenaAPI.getChatAttachmentPreview(attachment.window_id, attachment.id),
+);
 const inputForm = mustGet<HTMLFormElement>('input-form');
 const inputBox = mustGet<HTMLTextAreaElement>('input-box');
 const inputBar = new InputBar(
@@ -865,6 +871,8 @@ const composerMoreBtn = mustGet<HTMLButtonElement>('composer-more-btn');
 const composerSecondaryTools = mustGet<HTMLElement>('composer-secondary-tools');
 const webSearchBtn = mustGet<HTMLButtonElement>('web-search-btn');
 const availableToolsBtn = mustGet<HTMLButtonElement>('available-tools-btn');
+const chatImageBtn = mustGet<HTMLButtonElement>('chat-image-btn');
+const composerAttachments = mustGet<HTMLElement>('composer-attachments');
 const webSearchLabel = mustGet<HTMLElement>('web-search-label');
 const modeHint = mustGet<HTMLElement>('mode-hint');
 const toolAccessHint = mustGet<HTMLElement>('tool-access-hint');
@@ -1093,6 +1101,7 @@ let currentProjectId: number | null = null;
 let chatWindows: ChatWindowRecord[] = [];
 let currentChatWindowId: number | null = null;
 let currentChatWindowMessages: ChatMessageSnapshot[] = [];
+const pendingChatAttachments = new Map<number, ChatAttachmentSnapshot[]>();
 let activeRequestMode: AthenaMode | null = null;
 let pendingExecutionGoal = '';
 let pendingExecutionMode: AthenaMode = 'companion';
@@ -1251,10 +1260,13 @@ function skipStartupIntro(): void {
 }
 
 async function sendMessage(text: string): Promise<void> {
-  if (!text || isStreaming || isVoiceInputBusy()) return;
+  const queuedAttachments = currentPendingAttachments();
+  const effectiveText = text.trim() || (queuedAttachments.length > 0 ? '请查看并理解这些图片。' : '');
+  if (!effectiveText || isStreaming || isVoiceInputBusy()) return;
   if (!currentChatWindowId) await initializeChatWindows();
+  const requestChatWindowId = currentChatWindowId;
 
-  const titleUpdate = autoTitleCurrentChatWindow(text);
+  const titleUpdate = autoTitleCurrentChatWindow(effectiveText);
   const forceWebSearch = forceWebSearchForNextMessage;
   const requestMode = currentMode;
   forceWebSearchForNextMessage = false;
@@ -1263,11 +1275,11 @@ async function sendMessage(text: string): Promise<void> {
   activeRequestMode = requestMode;
   if (requestMode === 'execute') {
     setAgentExecutionFeedback('');
-    beginExecutionRequest(text);
+    beginExecutionRequest(effectiveText);
   }
   else {
-    const userMessage = chatPanel.addMessage(text, 'user');
-    motionSystem.animateSentMessage(userMessage, text);
+    const userMessage = chatPanel.addMessage(effectiveText, 'user', undefined, requestMode, undefined, true, queuedAttachments);
+    motionSystem.animateSentMessage(userMessage, effectiveText);
   }
   setStatus(modeThinkingText(requestMode), 'working');
   isStreaming = true;
@@ -1277,11 +1289,21 @@ async function sendMessage(text: string): Promise<void> {
   syncVoiceControls();
   syncWebSearchControl();
   currentContent = '';
-  pendingExecutionGoal = text;
+  pendingExecutionGoal = effectiveText;
   pendingExecutionMode = requestMode;
+  if (currentChatWindowId) {
+    pendingChatAttachments.delete(currentChatWindowId);
+    renderComposerAttachments();
+  }
 
   try {
-    const response = await window.athenaAPI.sendMessage(text, requestMode, forceWebSearch, currentChatWindowId ?? undefined);
+    const response = await window.athenaAPI.sendMessage(
+      effectiveText,
+      requestMode,
+      forceWebSearch,
+      currentChatWindowId ?? undefined,
+      queuedAttachments.map(attachment => attachment.id),
+    );
     if (response) modelConnected = true;
     if (requestMode === 'execute') {
       if (response?.agentExecution?.taskId) selectedAgentTaskId = response.agentExecution.taskId;
@@ -1309,6 +1331,9 @@ async function sendMessage(text: string): Promise<void> {
     }
     else chatPanel.addMessage(`出错了：${message}`, 'assistant', '需要检查');
   } finally {
+    if (requestChatWindowId && queuedAttachments.length > 0) {
+      await reconcileQueuedAttachments(requestChatWindowId, queuedAttachments);
+    }
     await titleUpdate;
     pendingExecutionGoal = '';
     activeRequestMode = null;
@@ -1324,6 +1349,20 @@ async function sendMessage(text: string): Promise<void> {
     }
     await refreshChatWindows();
     await refreshWindowMemoryPanel();
+  }
+}
+
+async function reconcileQueuedAttachments(windowId: number, queued: ChatAttachmentSnapshot[]): Promise<void> {
+  try {
+    const messages = await window.athenaAPI.getChatWindowMessages(windowId, 300);
+    const attachedIds = new Set(messages.flatMap(message => message.attachments || []).map(attachment => attachment.id));
+    const stillPending = queued.filter(attachment => !attachedIds.has(attachment.id));
+    if (stillPending.length > 0) pendingChatAttachments.set(windowId, stillPending);
+    else pendingChatAttachments.delete(windowId);
+    if (currentChatWindowId === windowId) renderComposerAttachments();
+  } catch {
+    pendingChatAttachments.set(windowId, queued);
+    if (currentChatWindowId === windowId) renderComposerAttachments();
   }
 }
 
@@ -1352,7 +1391,7 @@ function init(): void {
   inputForm.dataset.voiceState = 'idle';
   voiceFeedback.dataset.visible = 'false';
   void initializeSettings();
-  inputBar.onSubmit(sendMessage);
+  inputBar.onSubmit(sendMessage, () => currentPendingAttachments().length > 0);
   projectSelect.addEventListener('change', () => {
     const id = Number(projectSelect.value);
     if (Number.isInteger(id) && id > 0) void switchProject(id);
@@ -1544,6 +1583,7 @@ function init(): void {
   inputBox.addEventListener('keydown', handleInputKeydown);
   inputBox.addEventListener('input', resizeInputBox);
   composerMoreBtn.addEventListener('click', () => toggleComposerTools());
+  chatImageBtn.addEventListener('click', () => void chooseChatImages());
   window.addEventListener('resize', () => positionComposerTools());
   webSearchBtn.addEventListener('click', () => {
     if (webSearchBtn.disabled) return;
@@ -2897,12 +2937,14 @@ async function loadCurrentChatWindowMessages(): Promise<void> {
   if (!currentChatWindowId) {
     currentChatWindowMessages = [];
     chatPanel.clear();
+    renderComposerAttachments();
     await refreshWindowMemoryPanel();
     return;
   }
   const messages = await window.athenaAPI.getChatWindowMessages(currentChatWindowId, 300);
   currentChatWindowMessages = messages;
   chatPanel.renderMessages(messages);
+  renderComposerAttachments();
 }
 
 async function switchProject(id: number): Promise<void> {
@@ -3636,11 +3678,80 @@ function positionComposerTools(): void {
   composerSecondaryTools.style.setProperty('--composer-tools-top', `${Math.round(top)}px`);
 }
 
+function currentPendingAttachments(): ChatAttachmentSnapshot[] {
+  return currentChatWindowId ? pendingChatAttachments.get(currentChatWindowId) || [] : [];
+}
+
+async function chooseChatImages(): Promise<void> {
+  if (!currentChatWindowId || isStreaming) return;
+  toggleComposerTools(false);
+  try {
+    const selected = await window.athenaAPI.chooseChatImages(currentChatWindowId);
+    if (selected.length === 0) return;
+    const current = currentPendingAttachments();
+    const accepted = [...current, ...selected].slice(0, 5);
+    const overflow = selected.filter(item => !accepted.some(candidate => candidate.id === item.id));
+    for (const attachment of overflow) {
+      await window.athenaAPI.removePendingChatAttachment(currentChatWindowId, attachment.id);
+    }
+    pendingChatAttachments.set(currentChatWindowId, accepted);
+    renderComposerAttachments();
+    inputBar.focus();
+  } catch (error) {
+    setStatus(error instanceof Error ? error.message : '图片添加失败', 'error');
+    window.setTimeout(restoreIdleStatus, 2400);
+  }
+}
+
+function renderComposerAttachments(): void {
+  if (composerAttachments.dataset.smokeLocked === 'true') return;
+  composerAttachments.replaceChildren();
+  const attachments = currentPendingAttachments();
+  composerAttachments.dataset.visible = String(attachments.length > 0);
+  for (const attachment of attachments) {
+    const item = document.createElement('div');
+    item.className = 'composer-attachment';
+    const image = document.createElement('img');
+    image.alt = '';
+    image.src = attachment.preview_data_url || '';
+    const label = document.createElement('span');
+    label.textContent = attachment.original_name;
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'composer-attachment-remove';
+    remove.title = `移除 ${attachment.original_name}`;
+    remove.setAttribute('aria-label', `移除 ${attachment.original_name}`);
+    const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    icon.setAttribute('class', 'icon');
+    const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+    use.setAttribute('href', '#icon-close');
+    icon.appendChild(use);
+    remove.appendChild(icon);
+    remove.addEventListener('click', () => void removePendingAttachment(attachment.id));
+    item.append(image, label, remove);
+    composerAttachments.appendChild(item);
+  }
+  resizeInputBox();
+}
+
+async function removePendingAttachment(attachmentId: string): Promise<void> {
+  if (!currentChatWindowId) return;
+  const removed = await window.athenaAPI.removePendingChatAttachment(currentChatWindowId, attachmentId);
+  if (!removed) return;
+  const remaining = currentPendingAttachments().filter(attachment => attachment.id !== attachmentId);
+  if (remaining.length > 0) pendingChatAttachments.set(currentChatWindowId, remaining);
+  else pendingChatAttachments.delete(currentChatWindowId);
+  renderComposerAttachments();
+}
+
 function resizeInputBox(): void {
   inputBox.style.height = 'auto';
   const inputHeight = Math.min(inputBox.scrollHeight, 116);
   inputBox.style.height = `${inputHeight}px`;
-  inputForm.style.setProperty('--composer-height', `${inputHeight + 50}px`);
+  const attachmentHeight = composerAttachments.dataset.visible === 'true'
+    ? composerAttachments.scrollHeight + 6
+    : 0;
+  inputForm.style.setProperty('--composer-height', `${inputHeight + 50 + attachmentHeight}px`);
   if (composerSecondaryTools.dataset.open === 'true') positionComposerTools();
 }
 

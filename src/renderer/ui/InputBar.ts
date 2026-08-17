@@ -5,11 +5,11 @@ export class InputBar {
     private readonly button: HTMLButtonElement,
   ) {}
 
-  onSubmit(handler: (value: string) => void | Promise<void>): void {
+  onSubmit(handler: (value: string) => void | Promise<void>, canSubmitEmpty: () => boolean = () => false): void {
     this.form.addEventListener('submit', (event) => {
       event.preventDefault();
       const value = this.input.value.trim();
-      if (!value || this.input.disabled || this.button.disabled) return;
+      if ((!value && !canSubmitEmpty()) || this.input.disabled || this.button.disabled) return;
 
       this.input.value = '';
       void handler(value);

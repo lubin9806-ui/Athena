@@ -1,4 +1,5 @@
 import { createHash } from 'crypto';
+import * as path from 'path';
 import type {
   AgentApprovalRecord,
   AgentRunRecord,
@@ -685,6 +686,21 @@ function assertCheckpoint(value: AgentRunnerCheckpointV1): void {
       || typeof message.content !== 'string'
       || message.content.length > MAX_MODEL_CONTENT_CHARS) {
       throw new Error('Invalid message in agent checkpoint');
+    }
+    if (message.images !== undefined) {
+      if (message.role !== 'user' || !Array.isArray(message.images) || message.images.length === 0 || message.images.length > 5) {
+        throw new Error('Invalid image-bearing message in agent checkpoint');
+      }
+      for (const image of message.images) {
+        if (!image || !/^[A-Za-z0-9._:-]{1,160}$/.test(image.id)
+          || !['image/png', 'image/jpeg', 'image/webp'].includes(image.mimeType)
+          || typeof image.filePath !== 'string' || image.filePath.length > 2_048 || !path.isAbsolute(image.filePath)
+          || typeof image.sha256 !== 'string' || !/^[a-f0-9]{64}$/i.test(image.sha256)
+          || !Number.isInteger(image.bytes) || image.bytes <= 0 || image.bytes > 10 * 1024 * 1024
+          || (image.detail !== undefined && !['auto', 'low', 'high'].includes(image.detail))) {
+          throw new Error('Invalid image reference in agent checkpoint');
+        }
+      }
     }
   }
   if (!Number.isInteger(value.round) || value.round < 0) throw new Error('Invalid agent checkpoint round');

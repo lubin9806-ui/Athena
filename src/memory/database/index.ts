@@ -7,7 +7,7 @@ import { ensureSufficientDiskSpace } from '../../core/runtime/DiskSpaceGuard';
 
 let db: Database.Database | null = null;
 let resolvedDbPath: string | null = null;
-export const DATABASE_SCHEMA_VERSION = 10;
+export const DATABASE_SCHEMA_VERSION = 11;
 const MIGRATION_BACKUP_RETENTION = 5;
 
 export interface MemoryStats {
@@ -19,6 +19,7 @@ export interface MemoryStats {
   temporalFactCount: number;
   reviewQueuePendingCount: number;
   projectNoteCount: number;
+  attachmentCount: number;
   indexCount: number;
   dbSize: string;
 }
@@ -75,6 +76,7 @@ export function getStats(): MemoryStats {
   const temporalFactCount = countRows(database, 'memory_facts');
   const reviewQueuePendingCount = countWhere(database, 'memory_review_queue', "status = 'pending'");
   const projectNoteCount = countRows(database, 'project_notes');
+  const attachmentCount = countRows(database, 'chat_attachments');
   const indexCount = countRows(database, 'memory_index');
 
   let dbSize = '0 MB';
@@ -85,7 +87,7 @@ export function getStats(): MemoryStats {
     // The file may not exist yet on very first startup.
   }
 
-  return { messageCount, profileCount, eventCount, dailySummaryCount, proceduralMemoryCount, temporalFactCount, reviewQueuePendingCount, projectNoteCount, indexCount, dbSize };
+  return { messageCount, profileCount, eventCount, dailySummaryCount, proceduralMemoryCount, temporalFactCount, reviewQueuePendingCount, projectNoteCount, attachmentCount, indexCount, dbSize };
 }
 
 export function getDatabaseFilePath(): string {
@@ -192,6 +194,27 @@ function runMigrations(database: Database.Database, currentVersion: number): voi
     );
     CREATE INDEX IF NOT EXISTS idx_chat_messages_window_id ON chat_messages(window_id, id);
     CREATE INDEX IF NOT EXISTS idx_chat_messages_window_created_at ON chat_messages(window_id, created_at);
+
+    CREATE TABLE IF NOT EXISTS chat_attachments (
+      id TEXT PRIMARY KEY,
+      window_id INTEGER NOT NULL REFERENCES chat_windows(id) ON DELETE CASCADE,
+      message_id INTEGER REFERENCES chat_messages(id) ON DELETE CASCADE,
+      project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      kind TEXT NOT NULL CHECK(kind IN ('image')),
+      mime_type TEXT NOT NULL CHECK(mime_type IN ('image/png', 'image/jpeg', 'image/webp')),
+      original_name TEXT NOT NULL,
+      storage_path TEXT NOT NULL UNIQUE,
+      bytes INTEGER NOT NULL CHECK(bytes > 0 AND bytes <= 10485760),
+      width INTEGER NOT NULL CHECK(width > 0 AND width <= 16384),
+      height INTEGER NOT NULL CHECK(height > 0 AND height <= 16384),
+      sha256 TEXT NOT NULL CHECK(length(sha256) = 64),
+      status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'attached')),
+      created_at DATETIME DEFAULT (datetime('now', 'localtime')),
+      CHECK((status = 'pending' AND message_id IS NULL) OR (status = 'attached' AND message_id IS NOT NULL))
+    );
+    CREATE INDEX IF NOT EXISTS idx_chat_attachments_window_status ON chat_attachments(window_id, status, created_at);
+    CREATE INDEX IF NOT EXISTS idx_chat_attachments_message ON chat_attachments(message_id, created_at);
+    CREATE INDEX IF NOT EXISTS idx_chat_attachments_project ON chat_attachments(project_id, created_at);
 
     CREATE TABLE IF NOT EXISTS profile (
       id INTEGER PRIMARY KEY AUTOINCREMENT,

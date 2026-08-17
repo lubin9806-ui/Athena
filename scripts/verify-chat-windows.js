@@ -21,7 +21,7 @@ try {
   assert.ok(createNewChatStart >= 0 && createNewChatEnd > createNewChatStart, 'renderer must expose the immediate new-chat flow');
   assert.doesNotMatch(createNewChatSource, /window\.prompt/, 'new chat must not interrupt creation with a naming prompt');
   assert.match(createNewChatSource, /createChatWindow\(NEW_CHAT_TITLE/, 'new chat must immediately create a persistent sibling window');
-  assert.match(rendererSource, /autoTitleCurrentChatWindow\(text\)/, 'the first message should title a newly created chat');
+  assert.match(rendererSource, /autoTitleCurrentChatWindow\(effectiveText\)/, 'the first message should title a newly created chat');
 
   const first = memory.ensureDefaultChatWindow();
   assert.ok(first.id > 0, 'default chat window should be created');

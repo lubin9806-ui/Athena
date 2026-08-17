@@ -12,6 +12,7 @@ export interface ModelAdapter {
   readonly endpoint: string;
   readonly capabilities: ModelAdapterCapabilities;
 
+  refreshCapabilities?(): Promise<ModelAdapterCapabilities>;
   listModels(): Promise<string[]>;
   checkConnection(): Promise<boolean>;
   generate(request: ModelRequest, onEvent?: (event: ModelStreamEvent) => void): Promise<ModelResponse>;

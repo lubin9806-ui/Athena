@@ -26,6 +26,7 @@ import {
   ElectronPdfRenderer,
   OpenAIImageGenerationProvider,
 } from '../artifacts';
+import { AttachmentService } from '../attachments';
 import { evaluateSteamAiContent, steamAiGuardrailRefusal } from '../steam/SteamAiGuardrails';
 import { isSteamSku } from '../steam/SteamSkuPolicy';
 import {
@@ -40,6 +41,7 @@ import {
   applyMemoryRetentionPolicy,
   applyMemoryRetentionPolicyWithRefiner,
   cleanupTemporaryChatWindows,
+  deleteChatWindow,
   ensureDefaultChatWindow,
   ensureDefaultProject,
   getChatWindow,
@@ -54,6 +56,7 @@ import {
   saveChatMessage,
   saveMessage,
 } from '../../memory';
+import type { ModelImageInput } from '../ai/model';
 import { globalEventBus } from '../../engine/EventBus';
 import { createLogger } from '../../engine/Logger';
 import type { DailyMemoryRefinement, DailyMemoryRefinementInput, MemoryRetentionPolicyResult } from '../../memory';
@@ -78,6 +81,7 @@ import type {
   WebSearchContext,
   WebSearchStatus,
   ToolCatalog,
+  ChatAttachment,
 } from '../../shared/types';
 
 const logger = createLogger('AthenaController');
@@ -88,6 +92,7 @@ interface ProcessMessageOptions {
   onToolStatus?: (status: ToolStatusEvent) => void;
   onToolConfirm?: (request: ToolConfirmationRequest) => Promise<boolean>;
   chatWindowId?: number;
+  attachmentIds?: string[];
 }
 
 export class AthenaController {
@@ -106,6 +111,7 @@ export class AthenaController {
   private readonly mcpIntegrations: McpIntegrationHost;
   private readonly researchTools: ResearchAgentToolBridge;
   private readonly artifactTools: ArtifactAgentToolBridge;
+  private readonly attachments: AttachmentService;
   private agentRunner: AgentRunner;
   private initialized = false;
   private initializePromise: Promise<void> | null = null;
@@ -119,6 +125,7 @@ export class AthenaController {
     this.reminder = new Reminder();
     this.workflows = new WorkflowManager();
     this.webSearch = new WebSearchService();
+    this.attachments = new AttachmentService();
     this.agentStore = new AgentStore();
     this.agentTools = new ToolRegistry();
     this.agentComputerTools = new ComputerAgentToolBridge({
@@ -174,10 +181,13 @@ export class AthenaController {
   private async runInitialize(): Promise<void> {
     logger.info('Initializing Athena...');
     getDatabase();
+    const temporaryAttachmentsDeleted = this.attachments.cleanupTemporaryWindowFiles();
     const temporaryWindowsDeleted = cleanupTemporaryChatWindows();
     if (temporaryWindowsDeleted > 0) {
-      logger.info(`Cleaned up ${temporaryWindowsDeleted} temporary chat windows.`);
+      logger.info(`Cleaned up ${temporaryWindowsDeleted} temporary chat windows and ${temporaryAttachmentsDeleted} attachment files.`);
     }
+    const staleAttachmentsDeleted = this.attachments.cleanupStalePending();
+    if (staleAttachmentsDeleted > 0) logger.info(`Cleaned up ${staleAttachmentsDeleted} stale pending attachments.`);
     const retention = applyDataRetention();
     if (retention.messagesDeleted > 0 || retention.activityDeleted > 0) {
       logger.info(`Data retention applied: messages=${retention.messagesDeleted}, activity=${retention.activityDeleted}`);
@@ -212,6 +222,7 @@ export class AthenaController {
       ?? ensureDefaultChatWindow();
     const chatWindowId = chatWindow.id;
     const isTemporaryChat = chatWindow.is_temporary === true;
+    const modelImages = await this.prepareModelImages(chatWindowId, options?.attachmentIds || []);
     const effectiveSaveHistory = settings.conversation.saveHistory && !isTemporaryChat;
     const modeToolSettings = this.applyToolPermission(settings.tools, mode);
     modeToolSettings.allowExternalNetwork = settings.privacy.networkConsent.externalToolNetwork;
@@ -223,8 +234,11 @@ export class AthenaController {
       return { content, emotion: this.emotion.analyzeResponse(content) };
     }
     const savedUser = this.saveConversationMessage('user', userMessage, undefined, mode, chatWindowId);
+    if (savedUser.chatMessageId && modelImages.length > 0) {
+      this.attachments.attachToMessage(chatWindowId, savedUser.chatMessageId, modelImages.map(image => image.id));
+    }
 
-    const localCommand = this.processLocalCommand(userMessage, mode, chatWindowId);
+    const localCommand = modelImages.length === 0 ? this.processLocalCommand(userMessage, mode, chatWindowId) : null;
     if (localCommand) return localCommand;
 
     if (!canRouteModelRequest(this.llm.providerName, canUseNetworkCapability('remoteModel'))) {
@@ -303,6 +317,7 @@ export class AthenaController {
       options?.onToolStatus,
       options?.onToolConfirm,
       { chatWindowId, userMessageId: savedUser.chatMessageId },
+      modelImages,
     );
 
     const outputGuardrail = evaluateSteamAiContent(response.content);
@@ -417,6 +432,7 @@ export class AthenaController {
     goal: string,
     requestedChatWindowId?: number,
     onState?: (snapshot: AgentRunSnapshot) => void,
+    attachmentIds: string[] = [],
   ): Promise<ChatResponse> {
     if (!this.initialized) await this.initialize();
     if (!this.llm.capabilities.nativeToolCalls) {
@@ -439,6 +455,7 @@ export class AthenaController {
     if (chatWindow.project_id !== projectId) {
       throw new Error('当前聊天窗口尚未归属可执行的 Project。');
     }
+    const modelImages = await this.prepareModelImages(chatWindow.id, attachmentIds);
     const toolNames = this.agentComputerTools.refresh();
     this.skillTools.refresh();
     const researchToolNames = this.researchTools.refresh();
@@ -451,6 +468,9 @@ export class AthenaController {
       throw new Error('执行模式没有可用工具。请开启所需权限、联网搜索，或批准可信 Skill/MCP Server。');
     }
     const savedUser = this.saveConversationMessage('user', goal, undefined, 'execute', chatWindow.id);
+    if (savedUser.chatMessageId && modelImages.length > 0) {
+      this.attachments.attachToMessage(chatWindow.id, savedUser.chatMessageId, modelImages.map(image => image.id));
+    }
     this.persistExtractedMemory(goal, savedUser.messageId, chatWindow.id);
     const task = this.projectWorkspace.createTask({
       projectId,
@@ -462,9 +482,11 @@ export class AthenaController {
         reason: `${tool.label} is available under the current execute-mode permission tier`,
       })),
     });
+    const executionMessages = this.projectWorkspace.buildExecutionMessages(task.id);
+    if (modelImages.length > 0) executionMessages[executionMessages.length - 1].images = modelImages.map(image => ({ ...image }));
     const handle = this.agentRunner.start({
       taskId: task.id,
-      messages: this.projectWorkspace.buildExecutionMessages(task.id),
+      messages: executionMessages,
       allowedCapabilities: task.spec.requiredCapabilities.map(item => item.id),
       approvalMode: 'risk_based',
       scene: 'project-workspace',
@@ -487,6 +509,37 @@ export class AthenaController {
   getSkillLibrary(): AgentSkillLibrarySnapshot {
     this.skillLibrary.discover();
     return this.skillLibrary.snapshot();
+  }
+
+  importChatImages(chatWindowId: number, sourcePaths: string[]): ChatAttachment[] {
+    return this.attachments.importImages(chatWindowId, sourcePaths);
+  }
+
+  async assertImageInputAvailable(): Promise<void> {
+    const capabilities = await this.llm.refreshCapabilities();
+    if (!capabilities.imageInputs) {
+      throw new Error(capabilities.imageInputSource === 'probe'
+        ? '当前 Ollama 模型没有报告 vision 能力，请先切换视觉模型。'
+        : '当前 Provider/模型没有经过验证的图片输入能力，请先切换视觉模型。');
+    }
+  }
+
+  getChatAttachmentPreview(chatWindowId: number, attachmentId: string): string | null {
+    return this.attachments.getPreview(chatWindowId, attachmentId);
+  }
+
+  removePendingChatAttachment(chatWindowId: number, attachmentId: string): boolean {
+    return this.attachments.removePending(chatWindowId, attachmentId);
+  }
+
+  deleteChatWindow(chatWindowId: number): boolean {
+    const window = getChatWindow(chatWindowId);
+    if (window?.is_temporary) this.attachments.cleanupWindowFiles(chatWindowId);
+    return deleteChatWindow(chatWindowId);
+  }
+
+  clearAttachmentFiles(): number {
+    return this.attachments.clearAllFiles();
   }
 
   getSkillPrivacyData(): ReturnType<SkillLibrary['getPrivacyData']> {
@@ -689,6 +742,8 @@ export class AthenaController {
         rawEventsPruned: result.rawEventsPruned,
         decayCandidates: result.decayCandidates,
       });
+      const staleAttachmentsDeleted = this.attachments.cleanupStalePending();
+      if (staleAttachmentsDeleted > 0) logger.info(`Scheduled attachment cleanup removed ${staleAttachmentsDeleted} stale pending files.`);
       const indexStats = rebuildMemoryIndex();
       logger.info(`Scheduled memory index refreshed: messages=${indexStats.messages}, profile=${indexStats.profile}, events=${indexStats.events}, daily_memory_summaries=${indexStats.daily_memory_summaries}, procedural_memories=${indexStats.procedural_memories}, memory_facts=${indexStats.memory_facts}, project_notes=${indexStats.project_notes}`);
     } catch (error) {
@@ -819,6 +874,18 @@ export class AthenaController {
       ? saveMessage(role, content, emotion, mode)
       : undefined;
     return { chatMessageId: saved?.id, messageId: globalMessage?.id };
+  }
+
+  private async prepareModelImages(chatWindowId: number, attachmentIds: string[]): Promise<ModelImageInput[]> {
+    if (attachmentIds.length === 0) return [];
+    const capabilities = await this.llm.refreshCapabilities();
+    if (!capabilities.imageInputs) {
+      const source = capabilities.imageInputSource === 'probe'
+        ? '当前 Ollama 模型没有报告 vision 能力'
+        : '当前 Provider/模型没有经过验证的图片输入能力';
+      throw new Error(`${source}，请切换到支持图片理解的模型后再发送。`);
+    }
+    return this.attachments.resolveModelImages(chatWindowId, attachmentIds);
   }
 
   private resolveAgentToolSettings(): ToolSettings {

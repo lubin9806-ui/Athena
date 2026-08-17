@@ -22,6 +22,7 @@ export function cleanChatPayload(value: unknown, fallbackMode: ConversationMode)
   mode: ConversationMode;
   forceWebSearch: boolean;
   chatWindowId?: number;
+  attachmentIds: string[];
 } | null {
   const payload = isRecord(value) ? value : null;
   const textValue = payload?.text ?? value;
@@ -31,7 +32,21 @@ export function cleanChatPayload(value: unknown, fallbackMode: ConversationMode)
     ? payload.mode
     : fallbackMode;
   const chatWindowId = cleanPositiveInteger(payload?.chatWindowId);
-  return { text, mode, forceWebSearch: payload?.forceWebSearch === true, chatWindowId: chatWindowId || undefined };
+  return {
+    text,
+    mode,
+    forceWebSearch: payload?.forceWebSearch === true,
+    chatWindowId: chatWindowId || undefined,
+    attachmentIds: cleanAttachmentIds(payload?.attachmentIds),
+  };
+}
+
+export function cleanAttachmentIds(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  const ids = value
+    .filter((item): item is string => typeof item === 'string')
+    .filter(item => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(item));
+  return Array.from(new Set(ids)).slice(0, 5);
 }
 
 export function cleanExistingFilePath(value: unknown, extensions: readonly string[], maxChars = 2_048): string | null {

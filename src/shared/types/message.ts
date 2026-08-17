@@ -7,6 +7,24 @@ import type { WebSearchSummary } from './search';
 import type { ToolExecutionRecord } from './tools';
 import type { AgentExecutionSummary } from './agent';
 
+export type ChatAttachmentMimeType = 'image/png' | 'image/jpeg' | 'image/webp';
+
+export interface ChatAttachment {
+  id: string;
+  window_id: number;
+  message_id?: number;
+  kind: 'image';
+  mime_type: ChatAttachmentMimeType;
+  original_name: string;
+  bytes: number;
+  width: number;
+  height: number;
+  sha256: string;
+  status: 'pending' | 'attached';
+  created_at: string;
+  preview_data_url?: string;
+}
+
 export interface Message {
   id: number;
   role: MessageRole;
@@ -39,6 +57,7 @@ export interface ChatWindow {
 
 export interface ChatWindowMessage extends Message {
   window_id: number;
+  attachments?: ChatAttachment[];
 }
 
 export interface ChatRequest {

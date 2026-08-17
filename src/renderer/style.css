@@ -6624,6 +6624,127 @@ html[data-theme="night"] body {
   animation: none;
 }
 
+.message-attachments {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+  gap: 7px;
+  margin-bottom: 9px;
+}
+
+.message-attachment {
+  min-width: 0;
+  margin: 0;
+}
+
+.message-attachment img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  display: block;
+  object-fit: cover;
+  border: 1px solid color-mix(in srgb, var(--border-strong) 72%, transparent);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--glass-surface) 72%, transparent);
+}
+
+.message-attachment figcaption {
+  margin-top: 4px;
+  overflow: hidden;
+  color: var(--text-dim);
+  font-size: 10px;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.message-attachment[data-unavailable="true"] img {
+  opacity: 0.35;
+}
+
+#composer-attachments {
+  position: relative;
+  z-index: 2;
+  display: none;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+  padding: 1px 2px 7px;
+}
+
+#composer-attachments[data-visible="true"] {
+  display: grid;
+}
+
+.composer-attachment {
+  min-width: 0;
+  height: 44px;
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) 24px;
+  align-items: center;
+  gap: 6px;
+  padding: 3px;
+  border: 1px solid color-mix(in srgb, var(--border-strong) 76%, transparent);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--glass-surface) 82%, transparent);
+}
+
+.composer-attachment img {
+  width: 38px;
+  height: 36px;
+  object-fit: cover;
+  border-radius: 5px;
+}
+
+.composer-attachment > span {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 10px;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.composer-attachment-remove {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  color: var(--text-dim);
+  background: transparent;
+}
+
+.composer-attachment-remove:hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+}
+
+.composer-attachment-remove .icon {
+  width: 14px;
+  height: 14px;
+}
+
+@media (max-width: 760px) {
+  #composer-attachments {
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(148px, 42vw);
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scrollbar-width: thin;
+  }
+
+  #composer-attachments::-webkit-scrollbar {
+    height: 3px;
+  }
+
+  #composer-attachments::-webkit-scrollbar-thumb {
+    border-radius: 2px;
+    background: color-mix(in srgb, var(--text-dim) 48%, transparent);
+  }
+}
+
 .message-time,
 .emotion-badge,
 .message-sources-heading,

@@ -1,7 +1,7 @@
 import { getDatabase } from '../database';
 import { deleteMemoryIndex, upsertMemoryIndex } from '../indexer';
 import { activateProject, ensureDefaultProject, getProject } from '../projects';
-import type { ChatWindow, ChatWindowMessage, ChatWindowPinnedFact, ContextSnapshotDebugItem, ContextSnapshotRecord, ConversationMode, Message, MessageRole } from '../../shared/types';
+import type { ChatAttachment, ChatWindow, ChatWindowMessage, ChatWindowPinnedFact, ContextSnapshotDebugItem, ContextSnapshotRecord, ConversationMode, Message, MessageRole } from '../../shared/types';
 
 export interface MessageInput {
   role: MessageRole;
@@ -289,7 +289,27 @@ export function getChatWindowMessages(windowId: number, limit: number = 200): Ch
     ORDER BY id DESC
     LIMIT ?
   `).all(windowId, safeLimit) as any[];
-  return rows.reverse().map(rowToChatWindowMessage);
+  const messages = rows.reverse().map(rowToChatWindowMessage);
+  const attachments = getAttachmentsForMessages(messages.map(message => message.id));
+  return messages.map(message => ({ ...message, attachments: attachments.get(message.id) || [] }));
+}
+
+function getAttachmentsForMessages(messageIds: number[]): Map<number, ChatAttachment[]> {
+  const result = new Map<number, ChatAttachment[]>();
+  if (messageIds.length === 0) return result;
+  const placeholders = messageIds.map(() => '?').join(', ');
+  const rows = getDatabase().prepare(`
+    SELECT id, window_id, message_id, kind, mime_type, original_name, bytes, width, height, sha256, status, created_at
+    FROM chat_attachments
+    WHERE status = 'attached' AND message_id IN (${placeholders})
+    ORDER BY created_at ASC, id ASC
+  `).all(...messageIds) as Array<ChatAttachment & { message_id: number }>;
+  for (const row of rows) {
+    const items = result.get(row.message_id) || [];
+    items.push(row);
+    result.set(row.message_id, items);
+  }
+  return result;
 }
 
 export function saveMessages(messages: MessageInput[]): Message[] {

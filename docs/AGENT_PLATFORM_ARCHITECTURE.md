@@ -72,9 +72,22 @@ Execution mode can now create inspectable files through the same durable tool an
 - This block provides one-shot image generation. Reference-image input, conversational editing, and attachment-aware routing remain Block 07 work and are not advertised as complete.
 - Acceptance command: `npm.cmd run test:artifact-tools`.
 
+## Block 07A: Governed Image Attachments
+
+Chat and durable execution now share a validated image-input contract. This is image understanding, not image generation: generation remains the separately consented and approved Block 06C artifact tool.
+
+- The renderer receives attachment IDs and bounded preview data only. The main process copies selected PNG, JPEG, or WebP files into Athena-managed storage, rejects symbolic links and path escapes, decodes them with Electron, enforces byte/pixel limits, and records SHA-256 integrity evidence in SQLite schema v11.
+- Pending attachments belong to one chat window and Project. They become attached only to a message in that same window, are removed with temporary chats, expire after 24 hours if never sent, and are covered by privacy export metadata and one-click file deletion.
+- `ModelMessage.images` carries managed file references instead of base64 payloads, so durable Agent checkpoints remain bounded and restartable. Adapters reload the file only after regular-file, format, size, and SHA-256 checks.
+- Ollama image input is enabled only after `/api/show` reports the `vision` capability, then maps to the native `messages[].images` base64 field documented by [Ollama Vision](https://docs.ollama.com/capabilities/vision) and [Show model details](https://docs.ollama.com/api-reference/show-model-details).
+- OpenAI image input maps to Chat Completions content parts only for conservatively recognized current OpenAI vision model families. DeepSeek, Athena Cloud, and custom OpenAI-compatible endpoints do not inherit that claim merely because their wire protocol is compatible.
+- The composer supports up to five previews with explicit removal. Sent images render from a bounded main-process preview IPC; storage paths never cross the preload boundary. A failed request reconciles database state so unsent attachments remain retryable.
+- Text document ingestion, reference-image editing, OCR/extraction, and Project-scoped memory provenance remain subsequent Block 07 work and are not advertised as complete.
+- Acceptance command: `npm.cmd run test:chat-attachments`.
+
 ## Block 01: Durable Agent Domain
 
-The canonical implementation is under `src/core/agent`. SQLite schema v10 owns these records:
+The canonical implementation is under `src/core/agent`. These records were introduced in SQLite schema v10; current schema v11 adds governed chat attachments without changing their contracts:
 
 - `agent_tasks`: durable user intent and the normalized `TaskSpec`.
 - `agent_runs`: one execution attempt with scene, strategy, provider, model, checkpoint state, phase, and revision.

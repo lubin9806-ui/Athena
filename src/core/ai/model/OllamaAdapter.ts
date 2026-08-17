@@ -9,6 +9,7 @@ import type {
   ModelToolDefinition,
 } from './ModelTypes';
 import { ModelCapabilityError, ModelProtocolError } from './ModelTypes';
+import { loadModelImageBase64 } from './ModelImageLoader';
 import {
   EMPTY_USAGE,
   assertToolCallsAllowed,
@@ -36,6 +37,9 @@ export class OllamaAdapter implements ModelAdapter {
   readonly modelName: string;
   readonly endpoint: string;
   readonly capabilities: ModelAdapterCapabilities = {
+    imageInputs: false,
+    imageInputFormats: ['image/png', 'image/jpeg', 'image/webp'],
+    imageInputSource: 'probe',
     nativeToolCalls: true,
     parallelToolCalls: true,
     streamingToolCalls: true,
@@ -59,6 +63,24 @@ export class OllamaAdapter implements ModelAdapter {
     await ensureResponseOk(response, 'Ollama');
     const data = await response.json() as { models?: Array<{ name?: string; model?: string }> };
     return normalizeModelIds(data.models?.map(item => item.name ?? item.model) ?? []);
+  }
+
+  async refreshCapabilities(): Promise<ModelAdapterCapabilities> {
+    this.capabilities.imageInputs = false;
+    try {
+      const response = await this.fetchWithFallback('/api/show', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: this.modelName, verbose: false }),
+      });
+      await ensureResponseOk(response, 'Ollama');
+      const data = await response.json() as { capabilities?: unknown };
+      this.capabilities.imageInputs = Array.isArray(data.capabilities)
+        && data.capabilities.some(capability => capability === 'vision');
+    } catch {
+      this.capabilities.imageInputs = false;
+    }
+    return cloneCapabilities(this.capabilities);
   }
 
   async checkConnection(): Promise<boolean> {
@@ -250,7 +272,11 @@ function serializeMessage(message: ModelMessage): Record<string, unknown> {
     if (!message.toolName) throw new ModelProtocolError('Ollama tool result requires toolName');
     return { role: 'tool', content: message.content, tool_name: message.toolName };
   }
-  return { role: message.role, content: message.content };
+  return {
+    role: message.role,
+    content: message.content,
+    ...(message.images?.length ? { images: message.images.map(loadModelImageBase64) } : {}),
+  };
 }
 
 function serializeTool(tool: ModelToolDefinition): Record<string, unknown> {
@@ -268,6 +294,7 @@ function serializeTool(tool: ModelToolDefinition): Record<string, unknown> {
 
 function validateRequest(request: ModelRequest, capabilities: ModelAdapterCapabilities): void {
   validateToolDefinitions(request.tools);
+  validateImageInputs(request.messages, capabilities);
   const choice = request.toolChoice ?? 'auto';
   const mode = typeof choice === 'string' ? choice : 'specific';
   if (!capabilities.toolChoiceModes.includes(mode)) {
@@ -276,6 +303,29 @@ function validateRequest(request: ModelRequest, capabilities: ModelAdapterCapabi
   if (!request.tools?.length && choice === 'required') {
     throw new ModelCapabilityError('Required tool choice needs at least one tool definition');
   }
+}
+
+function validateImageInputs(messages: ModelMessage[], capabilities: ModelAdapterCapabilities): void {
+  const withImages = messages.filter(message => (message.images?.length ?? 0) > 0);
+  if (withImages.length === 0) return;
+  if (!capabilities.imageInputs) throw new ModelCapabilityError('The selected Ollama model does not report the vision capability');
+  for (const message of withImages) {
+    if (message.role !== 'user') throw new ModelCapabilityError('Ollama image inputs are only supported on user messages');
+    if ((message.images?.length ?? 0) > 5) throw new ModelCapabilityError('A model message cannot contain more than 5 images');
+    for (const image of message.images || []) {
+      if (!capabilities.imageInputFormats.includes(image.mimeType)) {
+        throw new ModelCapabilityError(`Ollama image format is not supported: ${image.mimeType}`);
+      }
+    }
+  }
+}
+
+function cloneCapabilities(capabilities: ModelAdapterCapabilities): ModelAdapterCapabilities {
+  return {
+    ...capabilities,
+    imageInputFormats: [...capabilities.imageInputFormats],
+    toolChoiceModes: [...capabilities.toolChoiceModes],
+  };
 }
 
 function validateToolDefinitions(tools: ModelToolDefinition[] | undefined): void {

@@ -1,5 +1,8 @@
 const assert = require('node:assert/strict');
 const http = require('node:http');
+const crypto = require('node:crypto');
+const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 
 const root = path.resolve(__dirname, '..');
@@ -43,7 +46,19 @@ const server = http.createServer(async (request, response) => {
     sendJson(response, { models: [{ name: 'fixture-ollama-model' }] });
     return;
   }
+  if (request.url === '/api/show') {
+    sendJson(response, { capabilities: ['completion', 'vision'] });
+    return;
+  }
   if (request.url.endsWith('/chat/completions')) {
+    if (body.messages?.some(message => Array.isArray(message.content))) {
+      sendJson(response, {
+        id: 'resp-vision',
+        model: body.model,
+        choices: [{ message: { role: 'assistant', content: 'I can see the image.' }, finish_reason: 'stop' }],
+      });
+      return;
+    }
     if (body.stream) {
       const wantsUnknownStreamTool = body.messages?.some(message => String(message.content).includes('unknown stream tool'));
       response.writeHead(200, { 'Content-Type': 'text/event-stream' });
@@ -92,6 +107,15 @@ const server = http.createServer(async (request, response) => {
     return;
   }
   if (request.url === '/api/chat') {
+    if (body.messages?.some(message => Array.isArray(message.images) && message.images.length > 0)) {
+      sendJson(response, {
+        model: body.model,
+        message: { role: 'assistant', content: 'Ollama can see the image.' },
+        done: true,
+        done_reason: 'stop',
+      });
+      return;
+    }
     if (body.stream) {
       response.writeHead(200, { 'Content-Type': 'application/x-ndjson' });
       response.write('{"model":"fixture-ollama-model","message":{"role":"assistant","content":"Checking "},"done":false}\n');
@@ -143,6 +167,28 @@ async function main() {
     assert.equal(openai.capabilities.nativeToolCalls, true);
     assert.equal(openai.capabilities.strictToolSchemas, true);
     assert.equal(openai.capabilities.toolResultUsesCallId, true);
+    assert.equal(openai.capabilities.imageInputs, false, 'unknown OpenAI model ids must not claim vision');
+
+    const imageBytes = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64');
+    const imagePath = path.join(os.tmpdir(), `athena-model-image-${process.pid}.png`);
+    fs.writeFileSync(imagePath, imageBytes);
+    const image = {
+      id: 'fixture-image',
+      mimeType: 'image/png',
+      filePath: imagePath,
+      sha256: crypto.createHash('sha256').update(imageBytes).digest('hex'),
+      bytes: imageBytes.length,
+    };
+    const visionOpenAI = new LLMClient({
+      provider: 'openai',
+      remote: { openai: { baseUrl: `${host}/v1`, model: 'gpt-5.6-fixture', temperature: 0.2, maxTokens: 512, numCtx: 8192 } },
+    }, () => 'sk-fixture');
+    assert.equal(visionOpenAI.capabilities.imageInputs, true);
+    const visionResponse = await visionOpenAI.generate({ messages: [{ role: 'user', content: 'Describe it', images: [image] }] });
+    assert.equal(visionResponse.content, 'I can see the image.');
+    const openAIVisionRequest = requests.filter(item => item.url === '/v1/chat/completions').at(-1).body;
+    assert.equal(openAIVisionRequest.messages[0].content[1].type, 'image_url');
+    assert.ok(openAIVisionRequest.messages[0].content[1].image_url.url.startsWith('data:image/png;base64,'));
 
     const toolResponse = await openai.chatWithTools([{ role: 'user', content: 'Weather in Shanghai?' }], [weatherTool], {
       toolChoice: 'required',
@@ -216,6 +262,11 @@ async function main() {
       remote: { deepseek: { baseUrl: `${host}/v1`, model: 'fixture-deepseek-model', temperature: 0.2, maxTokens: 400, numCtx: 8192 } },
     }, () => 'sk-deepseek');
     assert.equal(deepseek.capabilities.strictToolSchemas, false, 'stable DeepSeek endpoints must not claim beta strict mode');
+    assert.equal(deepseek.capabilities.imageInputs, false, 'OpenAI-compatible providers must not inherit OpenAI vision claims');
+    await assert.rejects(
+      deepseek.generate({ messages: [{ role: 'user', content: 'Describe it', images: [image] }] }),
+      ModelCapabilityError,
+    );
     await deepseek.chatWithTools([{ role: 'user', content: 'Weather?' }], [weatherTool], { toolChoice: { name: 'get_weather' } });
     const deepseekRequest = requests.filter(item => item.url === '/v1/chat/completions').at(-1).body;
     assert.equal(deepseekRequest.max_tokens, 400);
@@ -250,6 +301,13 @@ async function main() {
       ollama: { baseUrl: host, model: 'fixture-ollama-model', temperature: 0.2, maxTokens: 256, numCtx: 4096 },
     });
     assert.equal(ollama.capabilities.toolResultUsesName, true);
+    assert.equal(ollama.capabilities.imageInputs, false, 'Ollama vision must start closed until probed');
+    const ollamaCapabilities = await ollama.refreshCapabilities();
+    assert.equal(ollamaCapabilities.imageInputs, true);
+    const ollamaVision = await ollama.generate({ messages: [{ role: 'user', content: 'Describe it', images: [image] }] });
+    assert.equal(ollamaVision.content, 'Ollama can see the image.');
+    const ollamaVisionRequest = requests.filter(item => item.url === '/api/chat').at(-1).body;
+    assert.equal(ollamaVisionRequest.messages[0].images[0], imageBytes.toString('base64'));
     assert.equal(await ollama.checkConnection(), true);
     const ollamaTool = await ollama.chatWithTools([{ role: 'user', content: 'Weather?' }], [weatherTool]);
     assert.deepEqual(ollamaTool.toolCalls[0].arguments, { city: 'Shanghai' });
@@ -283,6 +341,7 @@ async function main() {
     );
 
     console.log(`ATHENA_MODEL_ADAPTERS_OK openaiCalls=${requests.filter(item => item.url === '/v1/chat/completions').length} ollamaCalls=${requests.filter(item => item.url === '/api/chat').length}`);
+    fs.rmSync(imagePath, { force: true });
   } finally {
     await new Promise(resolve => server.close(resolve));
   }

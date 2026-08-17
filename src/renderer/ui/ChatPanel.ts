@@ -34,6 +34,23 @@ export interface ChatMessageSnapshot {
   emotion?: string;
   mode?: ChatMode;
   created_at: string;
+  attachments?: ChatAttachmentSnapshot[];
+}
+
+export interface ChatAttachmentSnapshot {
+  id: string;
+  window_id: number;
+  message_id?: number;
+  kind: 'image';
+  mime_type: 'image/png' | 'image/jpeg' | 'image/webp';
+  original_name: string;
+  bytes: number;
+  width: number;
+  height: number;
+  sha256: string;
+  status: 'pending' | 'attached';
+  created_at: string;
+  preview_data_url?: string;
 }
 
 export class ChatPanel {
@@ -43,7 +60,10 @@ export class ChatPanel {
   private showTimestamps = false;
   private activeMode: ChatMode = 'companion';
 
-  constructor(private readonly container: HTMLElement) {}
+  constructor(
+    private readonly container: HTMLElement,
+    private readonly loadAttachmentPreview?: (attachment: ChatAttachmentSnapshot) => Promise<string | null>,
+  ) {}
 
   setShowTimestamps(enabled: boolean): void {
     this.showTimestamps = enabled;
@@ -75,7 +95,7 @@ export class ChatPanel {
     this.clear();
     for (const message of messages) {
       if (message.role !== 'user' && message.role !== 'assistant') continue;
-      this.addMessage(message.content, message.role, message.emotion, message.mode, message.created_at, false);
+      this.addMessage(message.content, message.role, message.emotion, message.mode, message.created_at, false, message.attachments);
     }
     this.setActiveMode(this.activeMode);
   }
@@ -87,6 +107,7 @@ export class ChatPanel {
     mode: ChatMode = this.activeMode,
     createdAt?: string,
     animate = true,
+    attachments: ChatAttachmentSnapshot[] = [],
   ): HTMLDivElement {
     const message = document.createElement('div');
     message.className = `message ${role}`;
@@ -97,6 +118,7 @@ export class ChatPanel {
     contentNode.className = 'message-content';
     if (role === 'assistant') this.renderAssistantSegments(contentNode, content, animate);
     else contentNode.textContent = content;
+    if (attachments.length > 0) message.appendChild(this.createAttachmentGallery(attachments));
     message.appendChild(contentNode);
     if (this.showTimestamps) this.appendTimestamp(message, createdAt);
     this.container.appendChild(message);
@@ -109,6 +131,32 @@ export class ChatPanel {
 
     this.scrollToBottom();
     return message;
+  }
+
+  private createAttachmentGallery(attachments: ChatAttachmentSnapshot[]): HTMLElement {
+    const gallery = document.createElement('div');
+    gallery.className = 'message-attachments';
+    for (const attachment of attachments) {
+      const figure = document.createElement('figure');
+      figure.className = 'message-attachment';
+      const image = document.createElement('img');
+      image.alt = attachment.original_name;
+      image.loading = 'lazy';
+      image.decoding = 'async';
+      const preview = attachment.preview_data_url;
+      if (preview) image.src = preview;
+      else if (this.loadAttachmentPreview) {
+        void this.loadAttachmentPreview(attachment).then(source => {
+          if (source && image.isConnected) image.src = source;
+          else figure.dataset.unavailable = 'true';
+        }).catch(() => { figure.dataset.unavailable = 'true'; });
+      }
+      const caption = document.createElement('figcaption');
+      caption.textContent = attachment.original_name;
+      figure.append(image, caption);
+      gallery.appendChild(figure);
+    }
+    return gallery;
   }
 
   updateStreamingMessage(content: string): void {

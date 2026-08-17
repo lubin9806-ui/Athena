@@ -75,7 +75,14 @@ export class LLMClient {
   get modelName(): string { return this.model; }
   get endpoint(): string { return this.baseUrl; }
   get contextWindow(): number { return this.numCtx; }
-  get capabilities(): ModelAdapterCapabilities { return { ...this.adapter.capabilities, toolChoiceModes: [...this.adapter.capabilities.toolChoiceModes] }; }
+  get capabilities(): ModelAdapterCapabilities { return cloneCapabilities(this.adapter.capabilities); }
+
+  async refreshCapabilities(): Promise<ModelAdapterCapabilities> {
+    const capabilities = this.adapter.refreshCapabilities
+      ? await this.adapter.refreshCapabilities()
+      : this.adapter.capabilities;
+    return cloneCapabilities(capabilities);
+  }
 
   async listModels(): Promise<string[]> {
     return this.adapter.listModels();
@@ -167,6 +174,14 @@ function loadModelConfig(): ModelClientConfig {
   if (!configPath) return {};
   try { return JSON.parse(fs.readFileSync(configPath, 'utf8')) as ModelClientConfig; }
   catch { return {}; }
+}
+
+function cloneCapabilities(capabilities: ModelAdapterCapabilities): ModelAdapterCapabilities {
+  return {
+    ...capabilities,
+    imageInputFormats: [...capabilities.imageInputFormats],
+    toolChoiceModes: [...capabilities.toolChoiceModes],
+  };
 }
 
 function clamp(value: number, min: number, max: number): number { return Math.max(min, Math.min(max, value)); }

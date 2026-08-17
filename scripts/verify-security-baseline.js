@@ -13,7 +13,7 @@ const config = JSON.parse(
   process.env.ATHENA_SECURITY_BASELINE_SETTINGS_JSON
     || fs.readFileSync(path.join(root, 'config/settings.json'), 'utf8'),
 );
-const { cleanChatPayload, cleanExistingFilePath, isTrustedIpcSender, MAX_CHAT_CHARS } = require('../dist/app/ipc/validation');
+const { cleanAttachmentIds, cleanChatPayload, cleanExistingFilePath, isTrustedIpcSender, MAX_CHAT_CHARS } = require('../dist/app/ipc/validation');
 const { buildToolConfirmation, buildToolArgumentPreview } = require('../dist/core/tools/ToolRuntime');
 const permissionGate = require('../dist/app/security/PermissionGate');
 
@@ -48,6 +48,16 @@ const cleaned = cleanChatPayload({ text: 'x'.repeat(MAX_CHAT_CHARS + 10), mode: 
 assert.equal(cleaned.text.length, MAX_CHAT_CHARS);
 assert.equal(cleaned.mode, 'reason');
 assert.equal(cleaned.forceWebSearch, false);
+assert.deepEqual(cleanAttachmentIds([
+  'c56a4180-65aa-42ec-a945-5fd21dec0538',
+  'c56a4180-65aa-42ec-a945-5fd21dec0538',
+  '..\\escape.png',
+  42,
+]), ['c56a4180-65aa-42ec-a945-5fd21dec0538']);
+assert.deepEqual(cleanChatPayload({
+  text: 'image',
+  attachmentIds: ['c56a4180-65aa-42ec-a945-5fd21dec0538', 'invalid'],
+}, 'companion').attachmentIds, ['c56a4180-65aa-42ec-a945-5fd21dec0538']);
 permissionGate.revokeMicrophoneGrant();
 assert.equal(permissionGate.hasMicrophoneGrant(), false);
 permissionGate.armMicrophoneGrant();

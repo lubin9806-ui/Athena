@@ -19,6 +19,7 @@ export interface SystemInfo {
     temporalFactCount: number;
     reviewQueuePendingCount: number;
     projectNoteCount: number;
+    attachmentCount: number;
     indexCount: number;
     dbSize: string;
   };

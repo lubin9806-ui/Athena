@@ -21,6 +21,7 @@ import type {
   WebSearchSummary,
   ContextSnapshotRecord,
 } from '../../shared/types';
+import type { ModelImageInput } from './model';
 
 interface ContextSnapshotOptions {
   chatWindowId?: number;
@@ -70,6 +71,7 @@ export class Conversation {
     onToolStatus?: (status: ToolStatusEvent) => void,
     onToolConfirm?: (request: ToolConfirmationRequest) => Promise<boolean>,
     contextSnapshotOptions?: ContextSnapshotOptions,
+    images: ModelImageInput[] = [],
   ): Promise<ChatResponse> {
     // 更新情绪基调
     this.emotion.setBaseEmotion(new Date().getHours());
@@ -88,6 +90,11 @@ export class Conversation {
       maxPromptTokens,
     });
     const messages = prompt.messages;
+    if (images.length > 0) {
+      const userMessage = [...messages].reverse().find(message => message.role === 'user');
+      if (!userMessage) throw new Error('Cannot attach images without a user message');
+      userMessage.images = images.map(image => ({ ...image }));
+    }
     const contextSnapshot = persistContextSnapshot(prompt.snapshot, {
       chatWindowId: contextSnapshotOptions?.chatWindowId ?? retrievedContext.chatWindow?.id,
       userMessageId: contextSnapshotOptions?.userMessageId,

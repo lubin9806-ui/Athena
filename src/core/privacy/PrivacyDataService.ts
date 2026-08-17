@@ -11,6 +11,7 @@ import {
 } from '../../memory/database';
 import type { AppSettings, NetworkConsentSettings, PrivacySettings } from '../../shared/types';
 import { APP_VERSION } from '../../shared/constants';
+import { resolveAttachmentRoot } from '../attachments';
 
 export type DataActivityCategory = 'search' | 'voice' | 'tool' | 'settings' | 'maintenance';
 export type ExportFormat = 'json' | 'markdown';
@@ -54,6 +55,7 @@ export interface PrivacyCenterState {
     exports: string;
     voiceTemp: string;
     backups: string;
+    attachments: string;
   };
 }
 
@@ -70,6 +72,7 @@ export interface SupplementalPrivacyData {
 
 export interface LocalDataClearHooks {
   clearSkillInvocationHistory?: () => number;
+  clearAttachmentFiles?: () => number;
 }
 
 const VOICE_EXPORT_MAX_BYTES = 12 * 1024 * 1024;
@@ -93,6 +96,7 @@ export function getPrivacyCenterState(): PrivacyCenterState {
       exports: getExportDir(),
       voiceTemp: getVoiceTempDir(),
       backups: getDatabaseBackupDir(),
+      attachments: resolveAttachmentRoot(),
     },
   };
 }
@@ -170,8 +174,10 @@ export function clearAllLocalData(hooks: LocalDataClearHooks = {}): {
   deletedTables: string[];
   voiceCacheFilesDeleted: number;
   skillInvocationsDeleted: number;
+  attachmentFilesDeleted: number;
 } {
   const db = getDatabase();
+  const attachmentFilesDeleted = hooks.clearAttachmentFiles?.() ?? 0;
   const deletedTables = [
     'agent_run_events',
     'agent_approvals',
@@ -180,6 +186,7 @@ export function clearAllLocalData(hooks: LocalDataClearHooks = {}): {
     'agent_runs',
     'agent_tasks',
     'context_snapshots',
+    'chat_attachments',
     'chat_messages',
     'chat_windows',
     'projects',
@@ -206,7 +213,7 @@ export function clearAllLocalData(hooks: LocalDataClearHooks = {}): {
   }
   const voiceCacheFilesDeleted = cleanupVoiceCache(1, new Date(Date.now() + 3650 * 24 * 60 * 60 * 1000));
   const skillInvocationsDeleted = hooks.clearSkillInvocationHistory?.() ?? 0;
-  return { deletedTables, voiceCacheFilesDeleted, skillInvocationsDeleted };
+  return { deletedTables, voiceCacheFilesDeleted, skillInvocationsDeleted, attachmentFilesDeleted };
 }
 
 export function exportAllData(
@@ -254,6 +261,7 @@ function buildExportPayload(supplemental: SupplementalPrivacyData): Record<strin
       projects: selectAll(db, 'projects'),
       chat_windows: selectAll(db, 'chat_windows'),
       chat_messages: selectAll(db, 'chat_messages'),
+      chat_attachments: selectAll(db, 'chat_attachments'),
       context_snapshots: selectAll(db, 'context_snapshots'),
       agent_tasks: selectAll(db, 'agent_tasks'),
       agent_runs: selectAll(db, 'agent_runs'),
@@ -299,6 +307,15 @@ function buildDataMap(settings: AppSettings): DataMapItem[] {
       leavesDevice: 'Ollama 默认只发往 127.0.0.1。选择远程 Provider 并明确同意后，请求、相关对话和记忆上下文会发往用户配置的 API 地址。联网搜索另需独立同意。',
       retention: settings.data.historyRetentionDays > 0 ? `${settings.data.historyRetentionDays} 天后自动清理` : '无限期保留，直到用户清除',
       controls: ['保存聊天历史开关', '历史保留天数', '完整导出', '一键清除'],
+    },
+    {
+      id: 'chat-attachments',
+      label: '聊天图片附件',
+      stored: '经格式、大小、像素和解码校验后，图片副本保存在 Athena 受管附件目录；SQLite 保存所属 Project、对话、消息、哈希和尺寸。',
+      locations: [database, resolveAttachmentRoot()],
+      leavesDevice: '本地 Ollama 视觉模型只在本机读取图片。选择远程 OpenAI 视觉模型并同意远程模型联网后，当前消息所选图片会作为 base64 图像输入发送给该 Provider。',
+      retention: '随所属聊天记录保留；临时对话关闭即删除；待发送图片 24 小时后清理；一键清除会立即删除。当前不会虚称附件已接入按天自动清理。',
+      controls: ['发送前移除', '临时对话自动清理', '完整导出元数据', '一键清除'],
     },
     {
       id: 'long-term-memory',

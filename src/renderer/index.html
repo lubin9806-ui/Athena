@@ -995,6 +995,10 @@
     <form id="input-form" autocomplete="off">
       <div id="voice-feedback" role="status" aria-live="polite"></div>
       <div id="composer-secondary-tools" data-open="false">
+        <button id="chat-image-btn" class="secondary-tool" type="button" title="添加图片" aria-label="添加图片">
+          <svg class="icon"><use href="#icon-file"></use></svg>
+          <span>添加图片</span>
+        </button>
         <button id="available-tools-btn" class="secondary-tool" type="button" title="查看当前可调用的电脑工具" aria-label="查看可调用工具">
           <svg class="icon"><use href="#icon-tools"></use></svg>
           <span>可调用工具</span>
@@ -1012,6 +1016,7 @@
           <span>朗读回复</span>
         </button>
       </div>
+      <div id="composer-attachments" aria-live="polite"></div>
       <div id="composer-main">
         <button id="composer-more-btn" class="composer-button" type="button" title="更多工具" aria-label="更多工具" aria-expanded="false">
           <svg class="icon"><use href="#icon-plus"></use></svg>

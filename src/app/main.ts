@@ -33,6 +33,7 @@ const isVoiceSmokeTest = isSmokeTest && process.env.ATHENA_SMOKE_VOICE === '1';
 const isModelSmokeTest = isSmokeTest && process.env.ATHENA_SMOKE_MODEL === '1';
 const smokeScreenshotPath = process.env.ATHENA_SMOKE_SCREENSHOT?.trim();
 const smokeCaptureRipple = isSmokeTest && process.env.ATHENA_SMOKE_CAPTURE_RIPPLE === '1';
+const smokeAttachmentUi = isSmokeTest && process.env.ATHENA_SMOKE_ATTACHMENTS === '1';
 const smokeSelectId = isSmokeTest ? process.env.ATHENA_SMOKE_SELECT?.trim() || null : null;
 const smokeTheme = process.env.ATHENA_SMOKE_THEME === 'night'
   ? 'night'
@@ -769,7 +770,7 @@ function createWindow(): void {
         }
         if (!smokePanel) {
           await mainWindow.webContents.executeJavaScript(`
-            (() => {
+            (async () => {
               const shell = document.getElementById('app-shell');
               if (shell) shell.dataset.sidebar = 'open';
               for (const id of ['btn-memory-close', 'btn-settings-close', 'btn-tools-close']) {
@@ -891,6 +892,59 @@ function createWindow(): void {
           await new Promise(resolve => setTimeout(resolve, 120));
         } else {
           await new Promise(resolve => setTimeout(resolve, 420));
+        }
+        if (smokeAttachmentUi) {
+          const attachmentLayout = await mainWindow.webContents.executeJavaScript(`
+            (async () => {
+              const form = document.getElementById('input-form');
+              const shell = document.getElementById('app-shell');
+              const tray = document.getElementById('composer-attachments');
+              const main = document.getElementById('composer-main');
+              const meta = document.getElementById('composer-meta');
+              const input = document.getElementById('input-box');
+              if (!form || !tray || !main || !meta || !(input instanceof HTMLTextAreaElement)) return null;
+              if (window.innerWidth <= 860 && shell) {
+                shell.dataset.sidebar = 'closed';
+                await new Promise(resolve => setTimeout(resolve, 900));
+              }
+              tray.dataset.smokeLocked = 'true';
+              tray.replaceChildren();
+              tray.dataset.visible = 'true';
+              const pixel = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
+              for (let index = 0; index < 5; index += 1) {
+                const item = document.createElement('div');
+                item.className = 'composer-attachment';
+                const image = document.createElement('img');
+                image.src = pixel;
+                const label = document.createElement('span');
+                label.textContent = 'long-attachment-name-' + (index + 1) + '.png';
+                const remove = document.createElement('button');
+                remove.className = 'composer-attachment-remove';
+                remove.type = 'button';
+                remove.textContent = 'x';
+                item.append(image, label, remove);
+                tray.appendChild(item);
+              }
+              input.dispatchEvent(new Event('input', { bubbles: true }));
+              await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+              const formRect = form.getBoundingClientRect();
+              const trayRect = tray.getBoundingClientRect();
+              const mainRect = main.getBoundingClientRect();
+              const metaRect = meta.getBoundingClientRect();
+              return {
+                form: { top: formRect.top, bottom: formRect.bottom, height: formRect.height },
+                tray: { top: trayRect.top, bottom: trayRect.bottom, height: trayRect.height },
+                main: { top: mainRect.top, bottom: mainRect.bottom, height: mainRect.height },
+                meta: { top: metaRect.top, bottom: metaRect.bottom, height: metaRect.height },
+                valid: trayRect.top >= formRect.top
+                  && trayRect.bottom <= mainRect.top + 1
+                  && mainRect.bottom <= metaRect.top + 1
+                  && metaRect.bottom <= formRect.bottom,
+              };
+            })()
+          `);
+          console.log('ATHENA_SMOKE_ATTACHMENT_LAYOUT', JSON.stringify(attachmentLayout));
+          if (!attachmentLayout?.valid) throw new Error('Attachment composer layout overlaps');
         }
         fs.mkdirSync(path.dirname(smokeScreenshotPath), { recursive: true });
         const layoutState = await mainWindow.webContents.executeJavaScript(`

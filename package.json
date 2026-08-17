@@ -61,6 +61,7 @@
     "test:mcp-integrations": "tsc && node scripts/verify-mcp-integrations.js",
     "test:research-tools": "tsc && node scripts/verify-research-tools.js",
     "test:artifact-tools": "tsc && electron scripts/verify-artifact-tools.js",
+    "test:chat-attachments": "tsc && electron scripts/verify-chat-attachments.js",
     "test:deepseek:live": "tsc && electron scripts/verify-deepseek-live-chat.js",
     "smoke:electron": "node scripts/clean-dist.js && vite build --config vite.config.mts && tsc && electron . --smoke-test",
     "clean:dist": "node scripts/clean-dist.js",

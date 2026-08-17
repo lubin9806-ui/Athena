@@ -4,6 +4,16 @@ export type JsonSchema = Record<string, unknown>;
 export type ModelMessageRole = 'system' | 'user' | 'assistant' | 'tool';
 export type ModelToolChoice = 'auto' | 'none' | 'required' | { name: string };
 export type ModelFinishReason = 'stop' | 'tool_calls' | 'length' | 'content_filter' | 'error' | 'unknown';
+export type ModelImageMimeType = 'image/png' | 'image/jpeg' | 'image/webp';
+
+export interface ModelImageInput {
+  id: string;
+  mimeType: ModelImageMimeType;
+  filePath: string;
+  sha256: string;
+  bytes: number;
+  detail?: 'auto' | 'low' | 'high';
+}
 
 export interface ModelToolDefinition {
   name: string;
@@ -22,6 +32,7 @@ export interface ModelToolCall {
 export interface ModelMessage {
   role: ModelMessageRole;
   content: string;
+  images?: ModelImageInput[];
   toolCalls?: ModelToolCall[];
   toolCallId?: string;
   toolName?: string;
@@ -71,6 +82,9 @@ export type ModelStreamEvent =
   | { type: 'completed'; response: ModelResponse };
 
 export interface ModelAdapterCapabilities {
+  imageInputs: boolean;
+  imageInputFormats: ModelImageMimeType[];
+  imageInputSource: 'static' | 'probe' | 'unsupported';
   nativeToolCalls: boolean;
   parallelToolCalls: boolean;
   streamingToolCalls: boolean;

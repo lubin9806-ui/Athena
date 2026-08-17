@@ -1,7 +1,10 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
 contextBridge.exposeInMainWorld('athenaAPI', {
-  sendMessage: (text: string, mode: 'create' | 'companion' | 'reason' | 'execute', forceWebSearch = false, chatWindowId?: number) => ipcRenderer.invoke('chat:send', { text, mode, forceWebSearch, chatWindowId }),
+  sendMessage: (text: string, mode: 'create' | 'companion' | 'reason' | 'execute', forceWebSearch = false, chatWindowId?: number, attachmentIds: string[] = []) => ipcRenderer.invoke('chat:send', { text, mode, forceWebSearch, chatWindowId, attachmentIds }),
+  chooseChatImages: (chatWindowId: number) => ipcRenderer.invoke('attachment:chooseImages', chatWindowId),
+  getChatAttachmentPreview: (chatWindowId: number, attachmentId: string) => ipcRenderer.invoke('attachment:preview', { chatWindowId, attachmentId }),
+  removePendingChatAttachment: (chatWindowId: number, attachmentId: string) => ipcRenderer.invoke('attachment:removePending', { chatWindowId, attachmentId }),
   listProjects: (includeArchived = false) => ipcRenderer.invoke('project:list', includeArchived),
   createProject: (title?: string, instructions?: string) => ipcRenderer.invoke('project:create', { title, instructions }),
   updateProject: (id: number, patch: { title?: string; instructions?: string }) => ipcRenderer.invoke('project:update', id, patch),
