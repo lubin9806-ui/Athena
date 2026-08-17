@@ -1,3 +1,5 @@
+import { createHash } from 'crypto';
+
 export type ImageOutputFormat = 'png' | 'jpeg' | 'webp';
 export type ImageQuality = 'low' | 'medium' | 'high' | 'auto';
 export type ImageSize = '1024x1024' | '1536x1024' | '1024x1536' | '2048x2048' | '2048x1152' | 'auto';
@@ -8,6 +10,18 @@ export interface ImageGenerationRequest {
   quality: ImageQuality;
   outputFormat: ImageOutputFormat;
   outputCompression?: number;
+}
+
+export interface ImageEditInput {
+  bytes: Buffer;
+  mimeType: 'image/png' | 'image/jpeg' | 'image/webp';
+  name: string;
+  sha256: string;
+}
+
+export interface ImageEditRequest extends ImageGenerationRequest {
+  images: ImageEditInput[];
+  mask?: ImageEditInput;
 }
 
 export interface GeneratedImage {
@@ -23,6 +37,7 @@ export interface GeneratedImage {
 
 export interface ImageGenerationProvider {
   generate(request: ImageGenerationRequest, signal: AbortSignal): Promise<GeneratedImage>;
+  edit?(request: ImageEditRequest, signal: AbortSignal): Promise<GeneratedImage>;
 }
 
 export interface OpenAIImageGenerationProviderOptions {
@@ -33,6 +48,7 @@ export interface OpenAIImageGenerationProviderOptions {
 }
 
 const ENDPOINT = 'https://api.openai.com/v1/images/generations';
+const EDIT_ENDPOINT = 'https://api.openai.com/v1/images/edits';
 const MAX_RESPONSE_BYTES = 50 * 1024 * 1024;
 const MAX_IMAGE_BYTES = 32 * 1024 * 1024;
 
@@ -70,33 +86,114 @@ export class OpenAIImageGenerationProvider implements ImageGenerationProvider {
       }),
     });
     if (response.status >= 300 && response.status < 400) throw new Error('OpenAI image endpoint returned an unexpected redirect');
+    return this.readGeneratedImage(response, request.outputFormat, signal, 'generation');
+  }
+
+  async edit(request: ImageEditRequest, signal: AbortSignal): Promise<GeneratedImage> {
+    const apiKey = this.options.credentialResolver();
+    if (!apiKey) throw new Error('OpenAI API credential is not configured');
+    const prompt = requireText(request.prompt, 'Image edit prompt', 32_000);
+    validateEditInputs(request.images, request.mask, this.options.decodeValidator);
+    const form = new FormData();
+    form.set('model', this.model);
+    form.set('prompt', prompt);
+    form.set('size', request.size);
+    form.set('quality', request.quality);
+    form.set('output_format', request.outputFormat);
+    if (request.outputFormat !== 'png' && request.outputCompression !== undefined) {
+      form.set('output_compression', String(clampInteger(request.outputCompression, 0, 100)));
+    }
+    for (const image of request.images) {
+      form.append('image[]', new Blob([new Uint8Array(image.bytes)], { type: image.mimeType }), safeUploadName(image.name, image.mimeType));
+    }
+    if (request.mask) {
+      form.set('mask', new Blob([new Uint8Array(request.mask.bytes)], { type: request.mask.mimeType }), safeUploadName(request.mask.name, request.mask.mimeType));
+    }
+    const response = await this.fetcher(EDIT_ENDPOINT, {
+      method: 'POST',
+      redirect: 'manual',
+      signal,
+      headers: { Authorization: `Bearer ${apiKey}` },
+      body: form,
+    });
+    if (response.status >= 300 && response.status < 400) throw new Error('OpenAI image edit endpoint returned an unexpected redirect');
+    return this.readGeneratedImage(response, request.outputFormat, signal, 'edit');
+  }
+
+  private async readGeneratedImage(
+    response: Response,
+    outputFormat: ImageOutputFormat,
+    signal: AbortSignal,
+    operation: 'generation' | 'edit',
+  ): Promise<GeneratedImage> {
     const raw = await readBoundedBody(response, MAX_RESPONSE_BYTES, signal);
     const payload = parseJsonObject(raw);
-    if (!response.ok) {
-      throw new Error(`OpenAI image generation failed (${response.status}): ${extractApiError(payload)}`);
-    }
+    if (!response.ok) throw new Error(`OpenAI image ${operation} failed (${response.status}): ${extractApiError(payload)}`);
     const encoded = imageBase64(payload);
     const bytes = Buffer.from(encoded, 'base64');
     if (!bytes.length || bytes.length > MAX_IMAGE_BYTES) throw new Error('OpenAI returned an empty or oversized image');
     const detected = inspectImage(bytes);
     const decoded = this.options.decodeValidator(bytes);
-    if (decoded.width !== detected.width || decoded.height !== detected.height) {
-      throw new Error('Decoded image dimensions do not match the file header');
-    }
-    if (detected.format !== request.outputFormat) {
-      throw new Error(`OpenAI returned ${detected.format} while ${request.outputFormat} was requested`);
-    }
+    if (decoded.width !== detected.width || decoded.height !== detected.height) throw new Error('Decoded image dimensions do not match the file header');
+    if (detected.format !== outputFormat) throw new Error(`OpenAI returned ${detected.format} while ${outputFormat} was requested`);
     return {
-      bytes,
-      format: detected.format,
-      width: detected.width,
-      height: detected.height,
-      provider: 'openai',
-      model: this.model,
-      requestId: response.headers.get('x-request-id'),
+      bytes, format: detected.format, width: detected.width, height: detected.height,
+      provider: 'openai', model: this.model, requestId: response.headers.get('x-request-id'),
       ...(isRecord(payload.usage) ? { usage: sanitizeUsage(payload.usage) } : {}),
     };
   }
+}
+
+function validateEditInputs(
+  images: ImageEditInput[],
+  mask: ImageEditInput | undefined,
+  decodeValidator: (bytes: Buffer) => { width: number; height: number },
+): void {
+  if (images.length === 0 || images.length > 5) throw new Error('Image editing requires 1-5 reference images');
+  let total = 0;
+  const inspected = images.map(image => {
+    if (!image.bytes.length || image.bytes.length > 10 * 1024 * 1024) throw new Error('Reference image exceeds the 10 MB limit');
+    total += image.bytes.length;
+    if (cryptoHash(image.bytes) !== image.sha256) throw new Error('Reference image hash failed validation');
+    const header = inspectImage(image.bytes);
+    const decoded = decodeValidator(image.bytes);
+    const detectedMimeType = `image/${header.format}` as ImageEditInput['mimeType'];
+    if (detectedMimeType !== image.mimeType || decoded.width !== header.width || decoded.height !== header.height) {
+      throw new Error('Reference image metadata failed validation');
+    }
+    return header;
+  });
+  if (mask) {
+    if (!mask.bytes.length || mask.bytes.length > 10 * 1024 * 1024) throw new Error('Image edit mask exceeds the 10 MB limit');
+    total += mask.bytes.length;
+    if (cryptoHash(mask.bytes) !== mask.sha256) throw new Error('Image edit mask hash failed validation');
+    const maskHeader = inspectImage(mask.bytes);
+    if (mask.mimeType !== 'image/png' || maskHeader.format !== 'png' || !pngHasAlpha(mask.bytes)) throw new Error('Image edit mask must be a PNG with an alpha channel');
+    const decodedMask = decodeValidator(mask.bytes);
+    if (decodedMask.width !== maskHeader.width || decodedMask.height !== maskHeader.height) throw new Error('Image edit mask failed decode validation');
+    if (inspected[0].format !== 'png' || inspected[0].width !== maskHeader.width || inspected[0].height !== maskHeader.height) {
+      throw new Error('Image edit mask must match the first PNG reference image dimensions');
+    }
+  }
+  if (total >= 50 * 1024 * 1024) throw new Error('Image edit inputs must total less than 50 MB');
+}
+
+function cryptoHash(bytes: Buffer): string {
+  return createHash('sha256').update(bytes).digest('hex');
+}
+
+function pngHasAlpha(bytes: Buffer): boolean {
+  return bytes.length >= 26 && (bytes[25] === 4 || bytes[25] === 6);
+}
+
+function safeUploadName(value: string, mimeType: ImageEditInput['mimeType']): string {
+  const extension = mimeType === 'image/jpeg' ? 'jpg' : mimeType.split('/')[1];
+  const stem = (pathBasename(value).replace(/\.[A-Za-z0-9]{1,8}$/u, '').replace(/[^A-Za-z0-9._-]/g, '-') || 'image').slice(0, 80);
+  return `${stem}.${extension}`;
+}
+
+function pathBasename(value: string): string {
+  return String(value || '').replace(/\\/g, '/').split('/').pop() || '';
 }
 
 export function inspectImage(bytes: Buffer): { format: ImageOutputFormat; width: number; height: number } {

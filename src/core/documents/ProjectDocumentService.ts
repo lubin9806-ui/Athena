@@ -2,6 +2,7 @@ import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as mammoth from 'mammoth';
+import { createCanvas } from '@napi-rs/canvas';
 import {
   deleteProjectDocumentRecord,
   getDatabase,
@@ -11,9 +12,11 @@ import {
   getProjectDocumentStorageRecord,
   listProjectDocuments,
   saveProjectDocument,
+  updateProjectDocumentExtraction,
   type ProjectDocumentChunkInput,
 } from '../../memory';
 import type { ProjectDocument } from '../../shared/types';
+import type { LocalOcrService } from '../ocr';
 
 const MAX_DOCUMENT_BYTES = 25 * 1024 * 1024;
 const MAX_DOCX_BYTES = 10 * 1024 * 1024;
@@ -23,6 +26,8 @@ const MAX_DOCX_UNCOMPRESSED_BYTES = 100 * 1024 * 1024;
 const MAX_DOCX_COMPRESSION_RATIO = 200;
 const MAX_DOCUMENTS_PER_IMPORT = 5;
 const MAX_PDF_PAGES = 300;
+const MAX_OCR_PDF_PAGES = 20;
+const MAX_OCR_PDFS_PER_IMPORT = 3;
 const MAX_EXTRACTED_CHARS = 1_500_000;
 const MAX_CHUNKS = 1_000;
 const CHUNK_TARGET_CHARS = 1_600;
@@ -30,31 +35,57 @@ const CHUNK_OVERLAP_CHARS = 180;
 
 type SupportedMime = ProjectDocument['mime_type'];
 interface ExtractedSection { text: string; page?: number; section?: number }
-interface ImportedDocument { document: ProjectDocument; created: boolean }
+interface ImportedDocument { document: ProjectDocument; created: boolean; rollback?: () => void }
+interface DocumentImportOptions { ocrMissingPages: boolean; signal?: AbortSignal }
+interface ExtractedDocument {
+  sections: ExtractedSection[];
+  pageCount?: number;
+  needsOcr?: boolean;
+  ocrEngine?: ProjectDocument['ocr_engine'];
+  ocrLanguages?: string[];
+}
+
+export interface ProjectDocumentServiceOptions {
+  root?: string;
+  ocr?: LocalOcrService;
+}
 
 export class ProjectDocumentService {
   readonly root: string;
+  private readonly ocr?: LocalOcrService;
 
-  constructor(root = resolveProjectDocumentRoot()) {
-    this.root = path.resolve(root);
+  constructor(options: ProjectDocumentServiceOptions = {}) {
+    this.root = path.resolve(options.root || resolveProjectDocumentRoot());
+    this.ocr = options.ocr;
     this.ensureRoot();
   }
 
   async importDocuments(projectId: number, sourcePaths: string[]): Promise<ProjectDocument[]> {
+    return this.importBatch(projectId, sourcePaths, { ocrMissingPages: false });
+  }
+
+  async importScannedPdfs(projectId: number, sourcePaths: string[], signal?: AbortSignal): Promise<ProjectDocument[]> {
+    if (sourcePaths.length > MAX_OCR_PDFS_PER_IMPORT) throw new Error(`OCR at most ${MAX_OCR_PDFS_PER_IMPORT} PDFs at once.`);
+    if (sourcePaths.some(source => path.extname(source).toLowerCase() !== '.pdf')) throw new Error('Local document OCR accepts PDF files only.');
+    if (!this.ocr) throw new Error('Local OCR service is unavailable.');
+    return this.importBatch(projectId, sourcePaths, { ocrMissingPages: true, signal });
+  }
+
+  private async importBatch(projectId: number, sourcePaths: string[], options: DocumentImportOptions): Promise<ProjectDocument[]> {
     if (!getProject(projectId)) throw new Error('Document import requires an active Project.');
     const unique = Array.from(new Set(sourcePaths.map(item => path.resolve(item))));
     if (unique.length === 0) return [];
     if (unique.length > MAX_DOCUMENTS_PER_IMPORT) throw new Error(`Import at most ${MAX_DOCUMENTS_PER_IMPORT} documents at once.`);
     const imported: ImportedDocument[] = [];
     try {
-      for (const sourcePath of unique) imported.push(await this.importOne(projectId, sourcePath));
+      for (const sourcePath of unique) imported.push(await this.importOne(projectId, sourcePath, options));
       return imported.map(item => item.document);
     } catch (error) {
       const rollbackErrors: unknown[] = [];
       for (const item of imported.reverse()) {
-        if (!item.created) continue;
         try {
-          this.delete(projectId, item.document.id);
+          if (item.created) this.delete(projectId, item.document.id);
+          else item.rollback?.();
         } catch (rollbackError) {
           rollbackErrors.push(rollbackError);
         }
@@ -84,7 +115,7 @@ export class ProjectDocumentService {
     return removed;
   }
 
-  private async importOne(projectId: number, sourcePath: string): Promise<ImportedDocument> {
+  private async importOne(projectId: number, sourcePath: string, options: DocumentImportOptions): Promise<ImportedDocument> {
     const initialStat = fs.lstatSync(sourcePath);
     if (!initialStat.isFile() || initialStat.isSymbolicLink()) throw new Error('Document source must be a regular file.');
     if (initialStat.size <= 0 || initialStat.size > MAX_DOCUMENT_BYTES) throw new Error('Documents must be between 1 byte and 25 MB.');
@@ -111,10 +142,27 @@ export class ProjectDocumentService {
     if (duplicate) {
       const document = getProjectDocument(duplicate.id);
       if (!document) throw new Error('Duplicate document metadata could not be loaded.');
+      if (options.ocrMissingPages && document.needs_ocr) {
+        const previousExtraction = snapshotExtraction(document, projectId);
+        const extracted = await extractDocument(mimeType, bytes, this.ocr, options);
+        const chunks = chunkSections(extracted.sections);
+        if (chunks.length === 0) throw new Error('Local OCR found no readable text in the PDF.');
+        return {
+          document: updateProjectDocumentExtraction(document.id, projectId, {
+            pageCount: extracted.pageCount,
+            chunks,
+            ocrEngine: extracted.ocrEngine,
+            ocrLanguages: extracted.ocrLanguages,
+            needsOcr: extracted.needsOcr,
+          }),
+          created: false,
+          rollback: () => { updateProjectDocumentExtraction(document.id, projectId, previousExtraction); },
+        };
+      }
       return { document, created: false };
     }
 
-    const extracted = await extractDocument(mimeType, bytes);
+    const extracted = await extractDocument(mimeType, bytes, this.ocr, options);
     const chunks = chunkSections(extracted.sections);
     if (chunks.length === 0) throw new Error(mimeType === 'application/pdf' ? 'PDF contains no selectable text; OCR is required.' : 'Document contains no readable text.');
     const extension = extensionFor(mimeType);
@@ -132,6 +180,9 @@ export class ProjectDocumentService {
         bytes: bytes.length,
         sha256,
         parser: mimeType === 'application/pdf' ? 'pdfjs' : mimeType.endsWith('wordprocessingml.document') ? 'mammoth' : 'plain-text',
+        ocrEngine: extracted.ocrEngine,
+        ocrLanguages: extracted.ocrLanguages,
+        needsOcr: extracted.needsOcr,
         pageCount: extracted.pageCount,
         chunks,
       });
@@ -178,11 +229,40 @@ export class ProjectDocumentService {
   }
 }
 
+function snapshotExtraction(
+  document: ProjectDocument,
+  projectId: number,
+): Parameters<typeof updateProjectDocumentExtraction>[2] {
+  const rows = getDatabase().prepare(`
+    SELECT locator, page_start, page_end, text
+    FROM project_document_chunks
+    WHERE document_id = ? AND project_id = ?
+    ORDER BY ordinal ASC
+  `).all(document.id, projectId) as Array<{ locator: string; page_start: number | null; page_end: number | null; text: string }>;
+  return {
+    pageCount: document.page_count,
+    ocrEngine: document.ocr_engine,
+    ocrLanguages: document.ocr_languages,
+    needsOcr: document.needs_ocr,
+    chunks: rows.map(row => ({
+      locator: row.locator,
+      pageStart: row.page_start || undefined,
+      pageEnd: row.page_end || undefined,
+      text: row.text,
+    })),
+  };
+}
+
 export function resolveProjectDocumentRoot(): string {
   return path.resolve(process.env.ATHENA_DOCUMENT_DIR || path.join(path.dirname(getDatabaseFilePath()), 'documents'));
 }
 
-async function extractDocument(mimeType: SupportedMime, bytes: Buffer): Promise<{ sections: ExtractedSection[]; pageCount?: number }> {
+async function extractDocument(
+  mimeType: SupportedMime,
+  bytes: Buffer,
+  ocr: LocalOcrService | undefined,
+  options: DocumentImportOptions,
+): Promise<ExtractedDocument> {
   if (mimeType === 'text/plain' || mimeType === 'text/markdown') {
     const text = decodeUtf8(bytes);
     return { sections: text.split(/\n\s*\n/g).map((value, index) => ({ text: value, section: index + 1 })) };
@@ -201,22 +281,64 @@ async function extractDocument(mimeType: SupportedMime, bytes: Buffer): Promise<
   const pageCount = document.numPages;
   if (pageCount > MAX_PDF_PAGES) throw new Error(`PDF exceeds the ${MAX_PDF_PAGES}-page limit.`);
   const sections: ExtractedSection[] = [];
+  const missingPages: Array<{ page: number; bytes: Buffer }> = [];
   let chars = 0;
   try {
+    if (options.ocrMissingPages && pageCount > MAX_OCR_PDF_PAGES) throw new Error(`Local OCR PDFs are limited to ${MAX_OCR_PDF_PAGES} pages.`);
     for (let pageNumber = 1; pageNumber <= pageCount; pageNumber += 1) {
       const page = await document.getPage(pageNumber);
-      const content = await page.getTextContent();
-      const text = normalizeExtractedText(content.items.map((item: any) => typeof item.str === 'string' ? item.str : '').join(' '));
-      page.cleanup();
-      if (!text) continue;
-      chars += text.length;
-      if (chars > MAX_EXTRACTED_CHARS) throw new Error('Extracted document text exceeds the safe limit.');
-      sections.push({ text, page: pageNumber });
+      try {
+        const content = await page.getTextContent();
+        const text = normalizeExtractedText(content.items.map((item: any) => typeof item.str === 'string' ? item.str : '').join(' '));
+        if (text) {
+          chars += text.length;
+          if (chars > MAX_EXTRACTED_CHARS) throw new Error('Extracted document text exceeds the safe limit.');
+          sections.push({ text, page: pageNumber });
+        } else if (options.ocrMissingPages) {
+          missingPages.push({ page: pageNumber, bytes: await renderPdfPage(page) });
+        }
+      } finally {
+        page.cleanup();
+      }
+    }
+    if (missingPages.length > 0) {
+      if (!ocr) throw new Error('Local OCR service is unavailable.');
+      const recognized = await ocr.recognize(missingPages.map(item => ({ bytes: item.bytes, label: `page ${item.page}` })), options.signal);
+      recognized.forEach((result, index) => {
+        if (!result.text) return;
+        chars += result.text.length;
+        if (chars > MAX_EXTRACTED_CHARS) throw new Error('Extracted document text exceeds the safe limit.');
+        sections.push({ text: result.text, page: missingPages[index].page });
+      });
     }
   } finally {
     await document.destroy();
   }
-  return { sections, pageCount };
+  sections.sort((left, right) => (left.page || 0) - (right.page || 0));
+  return {
+    sections,
+    pageCount,
+    needsOcr: new Set(sections.map(section => section.page)).size < pageCount,
+    ...(missingPages.length > 0 ? { ocrEngine: 'tesseract.js' as const, ocrLanguages: ['chi_sim', 'eng'] } : {}),
+  };
+}
+
+async function renderPdfPage(page: any): Promise<Buffer> {
+  const base = page.getViewport({ scale: 1 });
+  const maxScaleByEdge = 2_400 / Math.max(base.width, base.height);
+  const maxScaleByPixels = Math.sqrt(6_000_000 / Math.max(1, base.width * base.height));
+  const scale = Math.max(0.25, Math.min(2, maxScaleByEdge, maxScaleByPixels));
+  const viewport = page.getViewport({ scale });
+  const width = Math.max(1, Math.ceil(viewport.width));
+  const height = Math.max(1, Math.ceil(viewport.height));
+  const canvas = createCanvas(width, height);
+  const context = canvas.getContext('2d');
+  context.fillStyle = '#ffffff';
+  context.fillRect(0, 0, width, height);
+  await page.render({ canvasContext: context, viewport, background: '#ffffff' }).promise;
+  const bytes = canvas.toBuffer('image/png');
+  if (!bytes.length || bytes.length > 15 * 1024 * 1024) throw new Error('Rendered PDF page exceeds the OCR image limit.');
+  return bytes;
 }
 
 function validateDocxArchive(bytes: Buffer): void {

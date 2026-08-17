@@ -8,6 +8,7 @@ export type ModelImageMimeType = 'image/png' | 'image/jpeg' | 'image/webp';
 
 export interface ModelImageInput {
   id: string;
+  name?: string;
   mimeType: ModelImageMimeType;
   filePath: string;
   sha256: string;

@@ -7,7 +7,7 @@ import { ensureSufficientDiskSpace } from '../../core/runtime/DiskSpaceGuard';
 
 let db: Database.Database | null = null;
 let resolvedDbPath: string | null = null;
-export const DATABASE_SCHEMA_VERSION = 13;
+export const DATABASE_SCHEMA_VERSION = 14;
 const MIGRATION_BACKUP_RETENTION = 5;
 
 export interface MemoryStats {
@@ -373,6 +373,9 @@ function runMigrations(database: Database.Database, currentVersion: number): voi
       bytes INTEGER NOT NULL CHECK(bytes > 0 AND bytes <= 26214400),
       sha256 TEXT NOT NULL CHECK(length(sha256) = 64),
       parser TEXT NOT NULL CHECK(parser IN ('plain-text', 'pdfjs', 'mammoth')),
+      ocr_engine TEXT CHECK(ocr_engine IS NULL OR ocr_engine = 'tesseract.js'),
+      ocr_languages TEXT NOT NULL DEFAULT '[]',
+      needs_ocr INTEGER NOT NULL DEFAULT 0 CHECK(needs_ocr IN (0, 1)),
       page_count INTEGER,
       char_count INTEGER NOT NULL DEFAULT 0,
       chunk_count INTEGER NOT NULL DEFAULT 0,
@@ -655,6 +658,16 @@ function runMigrations(database: Database.Database, currentVersion: number): voi
         )
         WHERE source_table = 'procedural_memories'
       `);
+    }
+    const projectDocumentColumns = database.prepare('PRAGMA table_info(project_documents)').all() as Array<{ name: string }>;
+    if (!projectDocumentColumns.some(column => column.name === 'ocr_engine')) {
+      database.exec("ALTER TABLE project_documents ADD COLUMN ocr_engine TEXT CHECK(ocr_engine IS NULL OR ocr_engine = 'tesseract.js')");
+    }
+    if (!projectDocumentColumns.some(column => column.name === 'ocr_languages')) {
+      database.exec("ALTER TABLE project_documents ADD COLUMN ocr_languages TEXT NOT NULL DEFAULT '[]'");
+    }
+    if (!projectDocumentColumns.some(column => column.name === 'needs_ocr')) {
+      database.exec('ALTER TABLE project_documents ADD COLUMN needs_ocr INTEGER NOT NULL DEFAULT 0 CHECK(needs_ocr IN (0, 1))');
     }
     database.exec('CREATE INDEX IF NOT EXISTS idx_chat_windows_temporary ON chat_windows(is_temporary, deleted_at, archived_at)');
     database.exec('CREATE INDEX IF NOT EXISTS idx_chat_windows_project ON chat_windows(project_id, deleted_at, archived_at, last_active_at DESC)');

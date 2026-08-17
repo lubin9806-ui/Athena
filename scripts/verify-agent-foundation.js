@@ -31,7 +31,7 @@ const {
 let exitCode = 0;
 try {
   const db = memory.getDatabase();
-  assert.equal(db.pragma('user_version', { simple: true }), 13, 'agent foundation records must survive the current schema');
+  assert.equal(db.pragma('user_version', { simple: true }), 14, 'agent foundation records must survive the current schema');
   assert.equal(db.prepare('SELECT value FROM migration_probe').get().value, 'preserved', 'migration must retain existing data');
   assert.ok(fs.readdirSync(path.join(databaseDir, 'backups')).some(name => name.endsWith('.bak')), 'migration should create a backup');
 

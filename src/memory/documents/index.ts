@@ -17,6 +17,9 @@ export interface ProjectDocumentInput {
   bytes: number;
   sha256: string;
   parser: ProjectDocument['parser'];
+  ocrEngine?: ProjectDocument['ocr_engine'];
+  ocrLanguages?: string[];
+  needsOcr?: boolean;
   pageCount?: number;
   chunks: ProjectDocumentChunkInput[];
 }
@@ -32,11 +35,12 @@ export function saveProjectDocument(input: ProjectDocumentInput): ProjectDocumen
     const result = db.prepare(`
       INSERT INTO project_documents (
         project_id, name, mime_type, storage_path, bytes, sha256, parser,
-        page_count, char_count, chunk_count, status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ready')
+        ocr_engine, ocr_languages, needs_ocr, page_count, char_count, chunk_count, status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ready')
     `).run(
       input.projectId, input.name, input.mimeType, input.storagePath, input.bytes,
-      input.sha256, input.parser, input.pageCount || null, charCount, input.chunks.length,
+      input.sha256, input.parser, input.ocrEngine || null, JSON.stringify(input.ocrLanguages || []), input.needsOcr ? 1 : 0,
+      input.pageCount || null, charCount, input.chunks.length,
     );
     const id = result.lastInsertRowid as number;
     const insertChunk = db.prepare(`
@@ -101,18 +105,60 @@ export function deleteProjectDocumentRecord(id: number, projectId: number): bool
   return result.changes > 0;
 }
 
+export function updateProjectDocumentExtraction(
+  id: number,
+  projectId: number,
+  input: Pick<ProjectDocumentInput, 'pageCount' | 'chunks' | 'ocrEngine' | 'ocrLanguages' | 'needsOcr'>,
+): ProjectDocument {
+  const db = getDatabase();
+  db.transaction(() => {
+    const existing = db.prepare('SELECT id, name FROM project_documents WHERE id = ? AND project_id = ?').get(id, projectId) as { id: number; name: string } | undefined;
+    if (!existing) throw new Error('Project document extraction target is unavailable.');
+    const oldChunks = db.prepare('SELECT id FROM project_document_chunks WHERE document_id = ? AND project_id = ?').all(id, projectId) as Array<{ id: number }>;
+    for (const chunk of oldChunks) deleteMemoryIndex('project_document_chunks', chunk.id);
+    db.prepare('DELETE FROM project_document_chunks WHERE document_id = ? AND project_id = ?').run(id, projectId);
+    const insertChunk = db.prepare(`
+      INSERT INTO project_document_chunks (document_id, project_id, ordinal, locator, page_start, page_end, text, char_count)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    input.chunks.forEach((chunk, ordinal) => {
+      const chunkId = insertChunk.run(id, projectId, ordinal, chunk.locator, chunk.pageStart || null, chunk.pageEnd || null, chunk.text, chunk.text.length).lastInsertRowid as number;
+      upsertMemoryIndex('project_document_chunks', chunkId, `${existing.name} ${chunk.locator} ${chunk.text}`, projectId);
+    });
+    const charCount = input.chunks.reduce((sum, chunk) => sum + chunk.text.length, 0);
+    db.prepare(`
+      UPDATE project_documents
+      SET ocr_engine = ?, ocr_languages = ?, needs_ocr = ?, page_count = ?, char_count = ?, chunk_count = ?, updated_at = datetime('now', 'localtime')
+      WHERE id = ? AND project_id = ?
+    `).run(input.ocrEngine || null, JSON.stringify(input.ocrLanguages || []), input.needsOcr ? 1 : 0, input.pageCount || null, charCount, input.chunks.length, id, projectId);
+  })();
+  return getProjectDocument(id) as ProjectDocument;
+}
+
 function documentFields(): string {
-  return 'id, project_id, name, mime_type, bytes, sha256, parser, page_count, char_count, chunk_count, status, error, created_at, updated_at';
+  return 'id, project_id, name, mime_type, bytes, sha256, parser, ocr_engine, ocr_languages, needs_ocr, page_count, char_count, chunk_count, status, error, created_at, updated_at';
 }
 
 function rowToProjectDocument(row: any): ProjectDocument {
   return {
     id: Number(row.id), project_id: Number(row.project_id), name: row.name, mime_type: row.mime_type,
     bytes: Number(row.bytes), sha256: row.sha256, parser: row.parser,
+    ocr_engine: row.ocr_engine || undefined,
+    ocr_languages: parseStringArray(row.ocr_languages),
+    needs_ocr: Boolean(row.needs_ocr),
     page_count: row.page_count ? Number(row.page_count) : undefined,
     char_count: Number(row.char_count), chunk_count: Number(row.chunk_count), status: row.status,
     error: row.error || undefined, created_at: row.created_at, updated_at: row.updated_at,
   };
+}
+
+function parseStringArray(value: unknown): string[] {
+  try {
+    const parsed = JSON.parse(typeof value === 'string' ? value : '[]');
+    return Array.isArray(parsed) ? parsed.filter(item => typeof item === 'string').slice(0, 20) : [];
+  } catch {
+    return [];
+  }
 }
 
 function rowToProjectDocumentChunk(row: any): ProjectDocumentChunk {

@@ -139,7 +139,8 @@ Purpose:
 
 Implemented behavior:
 - PDF.js extracts selectable text page by page; Mammoth extracts DOCX raw text; plain text must be valid UTF-8.
-- Scanned/image-only PDFs require a future OCR capability and fail explicitly today.
+- Ordinary import rejects scanned/image-only PDFs explicitly. The separate scan-PDF action renders missing pages locally and uses bundled Tesseract.js `chi_sim` and `eng` data; mixed PDFs retain `needs_ocr` until every page has extracted text.
+- OCR provenance records the local engine and languages. OCR text is treated as untrusted reference data and preserves page locators for source verification.
 - Temporary Chat cannot persist documents. Per-document deletion and one-click clear remove the managed source file before deleting database evidence.
 
 ## Retrieval Cascade

@@ -28,6 +28,7 @@ import {
 } from '../artifacts';
 import { AttachmentService } from '../attachments';
 import { ProjectDocumentService } from '../documents';
+import { LocalOcrService, OcrAgentToolBridge } from '../ocr';
 import { evaluateSteamAiContent, steamAiGuardrailRefusal } from '../steam/SteamAiGuardrails';
 import { isSteamSku } from '../steam/SteamSkuPolicy';
 import {
@@ -112,6 +113,8 @@ export class AthenaController {
   private readonly mcpIntegrations: McpIntegrationHost;
   private readonly researchTools: ResearchAgentToolBridge;
   private readonly artifactTools: ArtifactAgentToolBridge;
+  private readonly ocr: LocalOcrService;
+  private readonly ocrTools: OcrAgentToolBridge;
   private readonly attachments: AttachmentService;
   private readonly documents: ProjectDocumentService;
   private agentRunner: AgentRunner;
@@ -128,7 +131,8 @@ export class AthenaController {
     this.workflows = new WorkflowManager();
     this.webSearch = new WebSearchService();
     this.attachments = new AttachmentService();
-    this.documents = new ProjectDocumentService();
+    this.ocr = new LocalOcrService();
+    this.documents = new ProjectDocumentService({ ocr: this.ocr });
     this.agentStore = new AgentStore();
     this.agentTools = new ToolRegistry();
     this.agentComputerTools = new ComputerAgentToolBridge({
@@ -167,6 +171,22 @@ export class AthenaController {
       canWriteArtifacts: () => ['files', 'full'].includes(this.resolveAgentToolSettings().permissionLevel),
       canGenerateImages: () => canUseNetworkCapability('imageGeneration'),
       hasImageCredential: () => getModelCredentialStatus('openai').configured,
+      resolveReferenceImages: (runId, attachmentIds) => {
+        const run = this.agentStore.getRun(runId);
+        const task = run ? this.agentStore.getTask(run.taskId) : null;
+        if (!task?.chatWindowId) throw new Error('Image edit run has no active chat window.');
+        return this.attachments.resolveModelImages(task.chatWindowId, attachmentIds);
+      },
+    });
+    this.ocrTools = new OcrAgentToolBridge({
+      registry: this.agentTools,
+      ocr: this.ocr,
+      resolveImages: (runId, attachmentIds) => {
+        const run = this.agentStore.getRun(runId);
+        const task = run ? this.agentStore.getTask(run.taskId) : null;
+        if (!task?.chatWindowId) throw new Error('OCR run has no active chat window.');
+        return this.attachments.resolveModelImages(task.chatWindowId, attachmentIds);
+      },
     });
     this.agentRunner = new AgentRunner(this.llm, this.agentTools, undefined, this.agentStore);
   }
@@ -463,11 +483,12 @@ export class AthenaController {
     this.skillTools.refresh();
     const researchToolNames = this.researchTools.refresh();
     const artifactToolNames = this.artifactTools.refresh();
+    const ocrToolNames = this.ocrTools.refresh();
     const mcp = await this.mcpIntegrations.refreshEnabled();
     const trustedSkills = this.skillLibrary.snapshot().skills.filter(skill => skill.enabled && (
       skill.trust === 'approved' || skill.trust === 'builtin'
     ));
-    if (toolNames.length === 0 && researchToolNames.length === 0 && artifactToolNames.length === 0 && trustedSkills.length === 0 && mcp.registeredToolCount === 0) {
+    if (toolNames.length === 0 && researchToolNames.length === 0 && artifactToolNames.length === 0 && ocrToolNames.length === 0 && trustedSkills.length === 0 && mcp.registeredToolCount === 0) {
       throw new Error('执行模式没有可用工具。请开启所需权限、联网搜索，或批准可信 Skill/MCP Server。');
     }
     const savedUser = this.saveConversationMessage('user', goal, undefined, 'execute', chatWindow.id);
@@ -486,7 +507,11 @@ export class AthenaController {
       })),
     });
     const executionMessages = this.projectWorkspace.buildExecutionMessages(task.id);
-    if (modelImages.length > 0) executionMessages[executionMessages.length - 1].images = modelImages.map(image => ({ ...image }));
+    if (modelImages.length > 0) {
+      const current = executionMessages[executionMessages.length - 1];
+      current.images = modelImages.map(image => ({ ...image }));
+      current.content = `${current.content}\n\nManaged image attachments available to OCR and image-edit tools:\n${modelImages.map(image => `- ${image.id}: ${image.name || 'image'}`).join('\n')}`;
+    }
     const handle = this.agentRunner.start({
       taskId: task.id,
       messages: executionMessages,
@@ -550,6 +575,13 @@ export class AthenaController {
     if (!chatWindow?.project_id || chatWindow.deleted_at) throw new Error('Document chat window is unavailable.');
     if (chatWindow.is_temporary) throw new Error('Temporary Chat cannot create persistent Project documents.');
     return this.documents.importDocuments(chatWindow.project_id, sourcePaths);
+  }
+
+  async importScannedProjectPdfs(chatWindowId: number, sourcePaths: string[], signal?: AbortSignal) {
+    const chatWindow = getChatWindow(chatWindowId);
+    if (!chatWindow?.project_id || chatWindow.deleted_at) throw new Error('OCR chat window is unavailable.');
+    if (chatWindow.is_temporary) throw new Error('Temporary Chat cannot create persistent OCR documents.');
+    return this.documents.importScannedPdfs(chatWindow.project_id, sourcePaths, signal);
   }
 
   listProjectDocuments(projectId: number) {
@@ -699,6 +731,8 @@ export class AthenaController {
     this.skillTools.shutdown();
     this.researchTools.shutdown();
     this.artifactTools.shutdown();
+    this.ocrTools.shutdown();
+    await this.ocr.shutdown();
     await this.mcpIntegrations.shutdown();
     closeDatabase();
     this.initialized = false;

@@ -117,6 +117,9 @@ export interface ProjectDocument {
   bytes: number;
   sha256: string;
   parser: 'plain-text' | 'pdfjs' | 'mammoth';
+  ocr_engine?: 'tesseract.js';
+  ocr_languages: string[];
+  needs_ocr: boolean;
   page_count?: number;
   char_count: number;
   chunk_count: number;

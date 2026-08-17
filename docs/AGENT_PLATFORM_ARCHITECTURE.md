@@ -69,7 +69,7 @@ Execution mode can now create inspectable files through the same durable tool an
 - Artifact writes reject missing roots, symlinked storage directories, path traversal, Windows reserved filenames, oversized payloads, and cross-Project access. Files are atomically persisted, format-checked, decoded where applicable, hashed with SHA-256, and only then registered with passed validation evidence.
 - The execution panel can open a registered artifact only after the main process revalidates its Project ownership, regular-file status, and real path against current workspace roots.
 - Task-record clearing does not silently delete generated files from a user's Project. The privacy center names the artifact directory and states that those files remain under user control.
-- This block provides one-shot image generation. Reference-image input, conversational editing, and attachment-aware routing remain Block 07 work and are not advertised as complete.
+- This block introduced one-shot image generation. Governed reference-image editing is added by Block 07D through the same artifact and approval runtime.
 - Acceptance command: `npm.cmd run test:artifact-tools`.
 
 ## Block 07A: Governed Image Attachments
@@ -82,7 +82,7 @@ Chat and durable execution now share a validated image-input contract. This is i
 - Ollama image input is enabled only after `/api/show` reports the `vision` capability, then maps to the native `messages[].images` base64 field documented by [Ollama Vision](https://docs.ollama.com/capabilities/vision) and [Show model details](https://docs.ollama.com/api-reference/show-model-details).
 - OpenAI image input maps to Chat Completions content parts only for conservatively recognized current OpenAI vision model families. DeepSeek, Athena Cloud, and custom OpenAI-compatible endpoints do not inherit that claim merely because their wire protocol is compatible.
 - The composer supports up to five previews with explicit removal. Sent images render from a bounded main-process preview IPC; storage paths never cross the preload boundary. A failed request reconciles database state so unsent attachments remain retryable.
-- Text document ingestion, reference-image editing, and OCR/extraction remain subsequent Block 07 work and are not advertised as complete.
+- Text document ingestion is implemented in Block 07C; local OCR and governed reference-image editing are implemented in Block 07D.
 - Acceptance command: `npm.cmd run test:chat-attachments`.
 
 ## Block 07B: Project-Isolated Memory and Provenance
@@ -104,15 +104,27 @@ Project documents are persistent, local assets rather than oversized chat messag
 - The composer imports up to five TXT, Markdown, PDF, or DOCX files into the active non-temporary Project. Originals are copied to Athena-managed storage with regular-file, path-containment, byte, format, page, extracted-character, chunk-count, and SHA-256 checks.
 - DOCX archives are preflighted for encryption, unsafe paths, malformed directories, excessive entry counts, decompressed size, and abnormal compression ratios before parsing. Multi-file imports are atomic for newly created records: a later failure removes earlier files, rows, chunks, and index entries from that batch.
 - DOCX text uses Mammoth's documented `extractRawText({buffer})` API. PDF selectable text uses Mozilla PDF.js' packaged legacy build and per-page `getTextContent()` API. Parsing never invokes Office, Python, a shell, or a remote service. [Mammoth API](https://github.com/mwilliamson/mammoth.js#extractrawtextinput), [PDF.js Node example](https://github.com/mozilla/pdf.js/blob/master/examples/node/getinfo.mjs)
-- Image-only/scanned PDFs are rejected with an explicit OCR-required error. Athena does not advertise OCR until a separately governed local or consented provider exists.
+- Image-only/scanned PDFs are rejected by ordinary import with an explicit OCR-required error. Block 07D adds a separate local OCR action instead of silently sending scans to a remote model.
 - Local keyword/vector index rows are Project-filtered before ranking. ContextManager receives only relevant chunks, labels each excerpt with document name and page/section locator, and asks the model to cite that locator.
 - Retrieval evidence links each chunk back to the source `project_documents` record and bounded SHA-256 evidence. The Project panel lists documents and supports per-file deletion; one-click privacy clear deletes managed source files before database records.
 - Temporary Chat cannot create persistent Project documents. Remote models may receive only the retrieved excerpts after the existing remote-model consent; source files are not automatically uploaded wholesale.
 - Acceptance command: `npm.cmd run test:project-documents`.
 
+## Block 07D: Local OCR and Reference Image Editing
+
+SQLite schema v14 records whether Project PDFs still contain unextracted scan pages and whether local OCR supplemented their text. OCR and image editing remain separate capabilities with separate trust boundaries.
+
+- `LocalOcrService` runs Tesseract.js in a Node worker with bundled `chi_sim` and `eng` trained data, a local `langPath`, and read-only cache behavior. No OCR CDN or remote vision provider is used. One batch is limited to 20 images, 15 MB each, and 80 MB total, and supports abort-driven worker termination. [Tesseract.js worker API](https://github.com/naptha/tesseract.js/blob/master/docs/api.md), [local installation guidance](https://github.com/naptha/tesseract.js/blob/master/docs/local-installation.md)
+- The scan-PDF action accepts at most three PDFs and 20 pages per PDF. PDF.js first preserves any selectable text; only missing pages are rasterized with `@napi-rs/canvas` and OCR'd. Mixed PDFs retain a truthful `needs_ocr` flag until every page has text. OCR results remain untrusted reference data and critical text requires source verification.
+- `extract_text_from_images` can read only managed attachment IDs owned by the Agent run's chat window. Both pending and already-attached message images are supported so approval pauses and restart recovery do not invalidate inputs.
+- `edit_image_artifact` uses OpenAI's documented `/v1/images/edits` multipart endpoint with one to five validated current-chat references and an optional separate PNG alpha mask matching the first PNG reference. Every call rechecks image-network consent, API credential, write permission, chat ownership, byte/hash integrity, and high-risk approval. [OpenAI image editing guide](https://developers.openai.com/api/docs/guides/image-generation)
+- Artifact metadata stores operation type, prompt SHA-256, provider request ID, and reference/mask attachment hashes, but never the API key or raw prompt. The privacy center names both image endpoints and states that approved references leave the device.
+- Built-in `local-ocr` and `reference-image-editing` Skills provide progressive-disclosure operating instructions; they do not grant permissions or execute scripts.
+- Acceptance commands: `npm.cmd run test:local-ocr`, `npm.cmd run test:artifact-tools`, and `npm.cmd run test:project-documents`.
+
 ## Block 01: Durable Agent Domain
 
-The canonical implementation is under `src/core/agent`. These records were introduced in SQLite schema v10; current schema v13 adds governed attachments, Project-isolated memory, and local document grounding without changing their contracts:
+The canonical implementation is under `src/core/agent`. These records were introduced in SQLite schema v10; current schema v14 adds governed attachments, Project-isolated memory, local document grounding, and OCR provenance without changing their contracts:
 
 - `agent_tasks`: durable user intent and the normalized `TaskSpec`.
 - `agent_runs`: one execution attempt with scene, strategy, provider, model, checkpoint state, phase, and revision.

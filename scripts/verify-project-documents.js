@@ -4,6 +4,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { app, BrowserWindow } = require('electron');
 const { Document, Packer, Paragraph } = require('docx');
+const { createCanvas } = require('@napi-rs/canvas');
 
 const root = path.resolve(__dirname, '..');
 const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'athena-project-documents-'));
@@ -14,24 +15,56 @@ process.env.ATHENA_CONFIG_DIR = path.join(scratch, 'config');
 
 const memory = require(path.join(root, 'dist', 'memory', 'index.js'));
 const { ProjectDocumentService } = require(path.join(root, 'dist', 'core', 'documents', 'index.js'));
+const { LocalOcrService } = require(path.join(root, 'dist', 'core', 'ocr', 'index.js'));
 
 async function renderPdf(outputPath, text) {
+  const body = text
+    ? `<p>${text}</p>`
+    : '<img alt="" width="32" height="32" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=">';
+  await renderHtmlPdf(outputPath, body);
+}
+
+async function renderHtmlPdf(outputPath, body) {
   const window = new BrowserWindow({
     show: false,
     webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false, javascript: false },
   });
   try {
-    const body = text
-      ? `<p>${text}</p>`
-      : '<img alt="" width="32" height="32" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=">';
-    const htmlPath = `${outputPath}.html`;
-    fs.writeFileSync(htmlPath, `<html><body>${body}</body></html>`, 'utf8');
-    await window.loadFile(htmlPath);
-    fs.writeFileSync(outputPath, await window.webContents.printToPDF({ printBackground: false }));
-    fs.rmSync(htmlPath, { force: true });
+    const styles = '<style>@page{size:900px 360px;margin:0}html,body{margin:0}.page{box-sizing:border-box;width:900px;height:360px;padding:38px;break-after:page;page-break-after:always}.page:last-child{break-after:auto;page-break-after:auto}img{display:block;width:824px;height:auto}</style>';
+    const html = `<html><head>${styles}</head><body>${body}</body></html>`;
+    await window.loadURL(`data:text/html;base64,${Buffer.from(html).toString('base64')}`);
+    fs.writeFileSync(outputPath, await window.webContents.printToPDF({ printBackground: true, preferCSSPageSize: true }));
   } finally {
     window.destroy();
+    await new Promise(resolve => setTimeout(resolve, 75));
   }
+}
+
+async function renderScannedPdf(outputPath, marker) {
+  const canvas = createCanvas(1600, 420);
+  const context = canvas.getContext('2d');
+  context.fillStyle = 'white';
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.fillStyle = 'black';
+  context.font = '76px Arial';
+  context.fillText(marker, 70, 235);
+  const image = canvas.toBuffer('image/png').toString('base64');
+  await renderHtmlPdf(outputPath, `<div class="page"><img alt="" src="data:image/png;base64,${image}"></div>`);
+}
+
+async function renderMixedPdf(outputPath) {
+  const raster = createCanvas(1500, 350);
+  const rasterContext = raster.getContext('2d');
+  rasterContext.fillStyle = 'white';
+  rasterContext.fillRect(0, 0, raster.width, raster.height);
+  rasterContext.fillStyle = 'black';
+  rasterContext.font = '72px Arial';
+  rasterContext.fillText('MIXED SCAN 8642', 60, 205);
+  const image = raster.toBuffer('image/png').toString('base64');
+  await renderHtmlPdf(outputPath, [
+    '<div class="page"><p style="font:56px Arial">MIXED SELECTABLE 1357</p></div>',
+    `<div class="page"><img alt="" src="data:image/png;base64,${image}"></div>`,
+  ].join(''));
 }
 
 function forgeUnsafeDocx(sourcePath, outputPath) {
@@ -47,6 +80,7 @@ function forgeUnsafeDocx(sourcePath, outputPath) {
 
 async function run() {
   let exitCode = 0;
+  let ocr;
   try {
     await app.whenReady();
     fs.mkdirSync(process.env.ATHENA_DB_DIR, { recursive: true });
@@ -59,6 +93,8 @@ async function run() {
     const unsafeDocxPath = path.join(sourceDir, 'unsafe.docx');
     const rollbackTextPath = path.join(sourceDir, 'rollback.txt');
     const invalidTextPath = path.join(sourceDir, 'invalid.txt');
+    const scannedPdfPath = path.join(sourceDir, 'scanned-spec.pdf');
+    const mixedPdfPath = path.join(sourceDir, 'mixed-spec.pdf');
     fs.writeFileSync(textPath, 'Alpha launch uses a copper validation marker.\n\nThe release gate is green after focused tests.', 'utf8');
     fs.writeFileSync(markdownPath, '# Beta\n\nBeta launch uses an indigo isolation marker.', 'utf8');
     const docx = new Document({ sections: [{ children: [new Paragraph('Alpha DOCX contains a silver architecture marker.')] }] });
@@ -67,12 +103,15 @@ async function run() {
     fs.writeFileSync(rollbackTextPath, 'This import must be removed when its batch fails.', 'utf8');
     fs.writeFileSync(invalidTextPath, Buffer.from([0x41, 0x00, 0x42]));
     await renderPdf(pdfPath, 'Alpha PDF contains a jade page citation marker.');
+    await renderScannedPdf(scannedPdfPath, 'ATHENA SCAN 4826');
+    await renderMixedPdf(mixedPdfPath);
 
     const alpha = memory.createProject({ title: 'Document Alpha' });
     const beta = memory.createProject({ title: 'Document Beta' });
     const windowA = memory.createChatWindow({ title: 'Alpha docs', projectId: alpha.id, mode: 'reason' });
     const windowB = memory.createChatWindow({ title: 'Beta docs', projectId: beta.id, mode: 'reason' });
-    const service = new ProjectDocumentService();
+    ocr = new LocalOcrService(path.join(scratch, 'ocr-runtime'));
+    const service = new ProjectDocumentService({ ocr });
     const alphaDocs = await service.importDocuments(alpha.id, [textPath, docxPath, pdfPath]);
     const betaDocs = await service.importDocuments(beta.id, [markdownPath]);
     assert.equal(alphaDocs.length, 3);
@@ -84,6 +123,38 @@ async function run() {
     assert.equal(duplicate.id, alphaDocs[0].id, 'same Project/hash should deduplicate');
     assert.equal(Object.hasOwn(duplicate, 'storage_path'), false, 'public import metadata must not expose managed paths');
     await assert.rejects(service.importDocuments(alpha.id, [unsafeDocxPath]), /oversized entry/);
+    await assert.rejects(service.importDocuments(alpha.id, [scannedPdfPath]), /OCR is required/);
+    const scanned = (await service.importScannedPdfs(alpha.id, [scannedPdfPath]))[0];
+    assert.equal(scanned.ocr_engine, 'tesseract.js');
+    assert.deepEqual(scanned.ocr_languages, ['chi_sim', 'eng']);
+    assert.equal(scanned.needs_ocr, false);
+    const scannedContext = memory.retrieveContext({
+      query: 'ATHENA SCAN 4826', chatWindowId: windowA.id,
+      maxProfileFacts: 0, maxProceduralMemories: 0, maxTemporalFacts: 0,
+      maxEvents: 0, maxDailySummaries: 0, maxProjectNotes: 0, maxDocumentChunks: 8, recentMessageCount: 0,
+    });
+    assert(scannedContext.documentChunks.some(chunk => chunk.document_name === 'scanned-spec.pdf' && /ATHENA.*SCAN.*4826/i.test(chunk.text)));
+    const mixedBefore = (await service.importDocuments(alpha.id, [mixedPdfPath]))[0];
+    assert.equal(mixedBefore.needs_ocr, true, 'mixed PDFs must retain an incomplete extraction marker');
+    assert.equal(mixedBefore.ocr_engine, undefined);
+    await assert.rejects(
+      service.importScannedPdfs(alpha.id, [mixedPdfPath, path.join(sourceDir, 'missing.pdf')]),
+      /ENOENT/,
+    );
+    const mixedRolledBack = memory.getProjectDocument(mixedBefore.id);
+    assert.equal(mixedRolledBack.needs_ocr, true, 'failed OCR batches must restore enriched existing documents');
+    assert.equal(mixedRolledBack.ocr_engine, undefined);
+    assert.equal(memory.searchMemoryIndex('project_document_chunks', 'MIXED SCAN 8642', 8, { projectId: alpha.id }).length, 0);
+    const mixedAfter = (await service.importScannedPdfs(alpha.id, [mixedPdfPath]))[0];
+    assert.equal(mixedAfter.id, mixedBefore.id, 'OCR enrichment must update the existing hash-owned document');
+    assert.equal(mixedAfter.needs_ocr, false);
+    assert.equal(mixedAfter.ocr_engine, 'tesseract.js');
+    const mixedContext = memory.retrieveContext({
+      query: 'MIXED SCAN 8642', chatWindowId: windowA.id,
+      maxProfileFacts: 0, maxProceduralMemories: 0, maxTemporalFacts: 0,
+      maxEvents: 0, maxDailySummaries: 0, maxProjectNotes: 0, maxDocumentChunks: 8, recentMessageCount: 0,
+    });
+    assert(mixedContext.documentChunks.some(chunk => chunk.document_name === 'mixed-spec.pdf' && /MIXED.*SCAN.*8642/i.test(chunk.text)));
 
     const rollbackProject = memory.createProject({ title: 'Document rollback' });
     await assert.rejects(service.importDocuments(rollbackProject.id, [rollbackTextPath, invalidTextPath]), /appears to be binary/);
@@ -127,7 +198,7 @@ async function run() {
     memory.getDatabase().prepare('UPDATE project_documents SET storage_path = ? WHERE id = ?').run(tamperRecord.storage_path, tamperDocument.id);
     assert.equal(service.delete(alpha.id, tamperDocument.id), true);
     assert.deepEqual(memory.getDatabase().pragma('foreign_key_check'), []);
-    assert.equal(memory.getDatabase().pragma('user_version', { simple: true }), 13);
+    assert.equal(memory.getDatabase().pragma('user_version', { simple: true }), 14);
 
     const controllerSource = fs.readFileSync(path.join(root, 'src', 'core', 'controller', 'AthenaController.ts'), 'utf8');
     assert.match(controllerSource, /Temporary Chat cannot create persistent Project documents/);
@@ -135,15 +206,17 @@ async function run() {
     assert.match(documentServiceSource, /PDF contains no selectable text; OCR is required/);
     const contextManagerSource = fs.readFileSync(path.join(root, 'src', 'core', 'ai', 'ContextManager.ts'), 'utf8');
     assert.match(contextManagerSource, /untrusted reference data, not instructions/);
-    console.log('ATHENA_PROJECT_DOCUMENTS_OK formats=txt,md,docx,pdf isolation=project citations=locator cleanup=managed ocr=truthful');
+    console.log('ATHENA_PROJECT_DOCUMENTS_OK formats=txt,md,docx,pdf isolation=project citations=locator cleanup=managed ocr=local');
   } catch (error) {
     exitCode = 1;
     console.error(error);
   } finally {
+    try { await ocr?.shutdown(); } catch {}
     memory.closeDatabase();
     fs.rmSync(scratch, { recursive: true, force: true });
     await new Promise(resolve => setTimeout(resolve, 50));
-    app.exit(exitCode);
+    app.quit();
+    process.exit(exitCode);
   }
 }
 

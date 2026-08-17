@@ -31,6 +31,8 @@ declare global {
       getChatAttachmentPreview: (chatWindowId: number, attachmentId: string) => Promise<string | null>;
       removePendingChatAttachment: (chatWindowId: number, attachmentId: string) => Promise<boolean>;
       chooseProjectDocuments: (chatWindowId: number) => Promise<ProjectDocumentRecord[]>;
+      chooseScannedProjectPdfs: (chatWindowId: number) => Promise<ProjectDocumentRecord[]>;
+      cancelProjectDocumentOcr: () => Promise<boolean>;
       listProjectDocuments: (projectId: number) => Promise<ProjectDocumentRecord[]>;
       deleteProjectDocument: (projectId: number, documentId: number) => Promise<boolean>;
       listProjects: (includeArchived?: boolean) => Promise<AthenaProjectRecord[]>;
@@ -293,6 +295,9 @@ interface ProjectDocumentRecord {
   bytes: number;
   sha256: string;
   parser: string;
+  ocr_engine?: 'tesseract.js';
+  ocr_languages: string[];
+  needs_ocr: boolean;
   page_count?: number;
   char_count: number;
   chunk_count: number;
@@ -901,6 +906,7 @@ const webSearchBtn = mustGet<HTMLButtonElement>('web-search-btn');
 const availableToolsBtn = mustGet<HTMLButtonElement>('available-tools-btn');
 const chatImageBtn = mustGet<HTMLButtonElement>('chat-image-btn');
 const projectDocumentBtn = mustGet<HTMLButtonElement>('project-document-btn');
+const projectDocumentOcrBtn = mustGet<HTMLButtonElement>('project-document-ocr-btn');
 const composerAttachments = mustGet<HTMLElement>('composer-attachments');
 const webSearchLabel = mustGet<HTMLElement>('web-search-label');
 const modeHint = mustGet<HTMLElement>('mode-hint');
@@ -1119,6 +1125,7 @@ const TEMPORARY_CHAT_META = '临时聊天：不写入长期记忆';
 const NEW_CHAT_TITLE = '新对话';
 
 let isStreaming = false;
+let isOcrImporting = false;
 let currentContent = '';
 let currentImportPreview: MemoryImportPreview | null = null;
 let currentMemoryReviewItems: MemoryReviewItem[] = [];
@@ -1615,6 +1622,7 @@ function init(): void {
   composerMoreBtn.addEventListener('click', () => toggleComposerTools());
   chatImageBtn.addEventListener('click', () => void chooseChatImages());
   projectDocumentBtn.addEventListener('click', () => void chooseProjectDocuments());
+  projectDocumentOcrBtn.addEventListener('click', () => void chooseScannedProjectPdfs());
   window.addEventListener('resize', () => positionComposerTools());
   webSearchBtn.addEventListener('click', () => {
     if (webSearchBtn.disabled) return;
@@ -2961,6 +2969,12 @@ function renderChatWindowPicker(): void {
   chatWindowTemporary.disabled = isStreaming;
   projectDocumentBtn.disabled = disabled || temporary;
   projectDocumentBtn.title = temporary ? '临时对话不保存 Project 文档' : '导入 Project 文档';
+  projectDocumentOcrBtn.disabled = (disabled || temporary) && !isOcrImporting;
+  projectDocumentOcrBtn.title = temporary
+    ? '临时对话不保存 OCR 文档'
+    : isOcrImporting ? '停止当前本地 OCR' : '本地 OCR 扫描 PDF';
+  const ocrLabel = projectDocumentOcrBtn.querySelector('span');
+  if (ocrLabel) ocrLabel.textContent = isOcrImporting ? '停止 OCR' : '扫描 PDF OCR';
   chatWindowDelete.textContent = temporary ? '关闭' : '删除';
   activeChatTitle.textContent = current?.title || '新对话';
   activeProjectTitle.textContent = current?.projectTitle || getCurrentProject()?.title || 'General Project';
@@ -3277,7 +3291,12 @@ function renderProjectDocuments(windowRecord: ChatWindowRecord | null, documents
     const name = document.createElement('strong');
     name.textContent = record.name;
     const meta = document.createElement('span');
-    meta.textContent = [record.page_count ? `${record.page_count} 页` : '', `${record.chunk_count} 块`].filter(Boolean).join(' · ');
+    meta.textContent = [
+      record.page_count ? `${record.page_count} 页` : '',
+      `${record.chunk_count} 块`,
+      record.ocr_engine ? '本地 OCR' : '',
+      record.needs_ocr ? '仍有扫描页' : '',
+    ].filter(Boolean).join(' · ');
     body.append(name, meta);
     const remove = document.createElement('button');
     remove.type = 'button';
@@ -3800,6 +3819,39 @@ async function chooseProjectDocuments(): Promise<void> {
   } catch (error) {
     setStatus(error instanceof Error ? error.message : '文档导入失败', 'error');
     window.setTimeout(restoreIdleStatus, 3200);
+  }
+}
+
+async function chooseScannedProjectPdfs(): Promise<void> {
+  if (!currentChatWindowId) return;
+  if (isOcrImporting) {
+    if (await window.athenaAPI.cancelProjectDocumentOcr()) setStatus('正在停止本地 OCR...', 'working');
+    return;
+  }
+  if (isStreaming) return;
+  const targetChatWindowId = currentChatWindowId;
+  toggleComposerTools(false);
+  isOcrImporting = true;
+  renderChatWindowPicker();
+  try {
+    setStatus('正在本地识别扫描 PDF...', 'working');
+    const imported = await window.athenaAPI.chooseScannedProjectPdfs(targetChatWindowId);
+    if (imported.length > 0) {
+      const stillViewingTarget = currentChatWindowId === targetChatWindowId;
+      setStatus(stillViewingTarget
+        ? `本地 OCR 已加入 Project：${imported.map(item => item.name).join('、')}`
+        : `本地 OCR 已加入原 Project：${imported.map(item => item.name).join('、')}`, 'ready');
+      if (stillViewingTarget) await refreshWindowMemoryPanel();
+      window.setTimeout(restoreIdleStatus, 2800);
+    } else {
+      restoreIdleStatus();
+    }
+  } catch (error) {
+    setStatus(error instanceof Error ? error.message : '本地 OCR 导入失败', 'error');
+    window.setTimeout(restoreIdleStatus, 3200);
+  } finally {
+    isOcrImporting = false;
+    renderChatWindowPicker();
   }
 }
 

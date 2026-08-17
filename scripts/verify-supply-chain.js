@@ -143,6 +143,9 @@ function collectNpmRuntimePackages() {
   const seen = new Map();
   function walk(deps) {
     for (const [name, node] of Object.entries(deps || {})) {
+      if (!node || typeof node.version !== "string" || !node.version) {
+        continue;
+      }
       const key = `${name}@${node.version || "unknown"}`;
       if (!seen.has(key)) {
         seen.set(key, readPackageMeta(name, node.version || null, node.resolved || null));

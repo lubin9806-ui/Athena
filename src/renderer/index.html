@@ -954,7 +954,7 @@
             </label>
             <label class="settings-toggle">
               <input id="setting-consent-image-generation" type="checkbox" />
-              <span>同意在逐次确认后将生图提示词发送给 OpenAI；请求可能产生 API 费用</span>
+              <span>同意在逐次确认后将生图提示词或图片编辑的参考图、蒙版发送给 OpenAI；请求可能产生 API 费用</span>
             </label>
             <label class="settings-toggle">
               <input id="setting-consent-external-tool-network" type="checkbox" />
@@ -1006,6 +1006,10 @@
         <button id="project-document-btn" class="secondary-tool" type="button" title="导入 Project 文档" aria-label="导入 Project 文档">
           <svg class="icon"><use href="#icon-file"></use></svg>
           <span>导入文档</span>
+        </button>
+        <button id="project-document-ocr-btn" class="secondary-tool" type="button" title="本地 OCR 扫描 PDF" aria-label="本地 OCR 扫描 PDF">
+          <svg class="icon"><use href="#icon-file"></use></svg>
+          <span>扫描 PDF OCR</span>
         </button>
         <button id="available-tools-btn" class="secondary-tool" type="button" title="查看当前可调用的电脑工具" aria-label="查看可调用工具">
           <svg class="icon"><use href="#icon-tools"></use></svg>

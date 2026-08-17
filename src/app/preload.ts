@@ -6,6 +6,8 @@ contextBridge.exposeInMainWorld('athenaAPI', {
   getChatAttachmentPreview: (chatWindowId: number, attachmentId: string) => ipcRenderer.invoke('attachment:preview', { chatWindowId, attachmentId }),
   removePendingChatAttachment: (chatWindowId: number, attachmentId: string) => ipcRenderer.invoke('attachment:removePending', { chatWindowId, attachmentId }),
   chooseProjectDocuments: (chatWindowId: number) => ipcRenderer.invoke('document:choose', chatWindowId),
+  chooseScannedProjectPdfs: (chatWindowId: number) => ipcRenderer.invoke('document:chooseOcr', chatWindowId),
+  cancelProjectDocumentOcr: () => ipcRenderer.invoke('document:cancelOcr'),
   listProjectDocuments: (projectId: number) => ipcRenderer.invoke('document:list', projectId),
   deleteProjectDocument: (projectId: number, documentId: number) => ipcRenderer.invoke('document:delete', { projectId, documentId }),
   listProjects: (includeArchived = false) => ipcRenderer.invoke('project:list', includeArchived),

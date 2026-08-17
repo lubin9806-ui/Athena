@@ -264,6 +264,7 @@ function createWindow(): void {
              const composerMoreButton = document.getElementById('composer-more-btn');
              const availableToolsButton = document.getElementById('available-tools-btn');
              const projectDocumentButton = document.getElementById('project-document-btn');
+             const projectDocumentOcrButton = document.getElementById('project-document-ocr-btn');
              const windowProjectDocuments = document.getElementById('window-project-documents');
              const toolsPanel = document.getElementById('tools-panel');
              const toolsPanelList = document.getElementById('tools-panel-list');
@@ -304,6 +305,7 @@ function createWindow(): void {
                composerMoreButton &&
                availableToolsButton instanceof HTMLButtonElement &&
                projectDocumentButton instanceof HTMLButtonElement &&
+               projectDocumentOcrButton instanceof HTMLButtonElement &&
                windowProjectDocuments &&
                toolsPanel &&
                toolsPanelList &&
@@ -343,6 +345,8 @@ function createWindow(): void {
               && typeof api.cancelExecution === 'function'
               && typeof api.getToolCatalog === 'function'
               && typeof api.chooseProjectDocuments === 'function'
+              && typeof api.chooseScannedProjectPdfs === 'function'
+              && typeof api.cancelProjectDocumentOcr === 'function'
               && typeof api.listProjectDocuments === 'function'
               && typeof api.deleteProjectDocument === 'function'
               && typeof api.onWebSearchStatus === 'function'
@@ -566,7 +570,9 @@ function createWindow(): void {
              if (!temporaryChatReactive) return false;
 
              const temporaryDocumentBoundaryReactive = projectDocumentButton.disabled
-               && /临时对话/.test(projectDocumentButton.title || '');
+               && projectDocumentOcrButton.disabled
+               && /临时对话/.test(projectDocumentButton.title || '')
+               && /临时对话/.test(projectDocumentOcrButton.title || '');
              if (!temporaryDocumentBoundaryReactive) return false;
 
              composerMoreButton.click();

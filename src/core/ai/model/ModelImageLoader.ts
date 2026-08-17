@@ -7,6 +7,10 @@ import { ModelProtocolError } from './ModelTypes';
 const MAX_MODEL_IMAGE_BYTES = 10 * 1024 * 1024;
 
 export function loadModelImageBase64(image: ModelImageInput): string {
+  return loadModelImageBytes(image).toString('base64');
+}
+
+export function loadModelImageBytes(image: ModelImageInput): Buffer {
   if (!path.isAbsolute(image.filePath)) throw new ModelProtocolError('Model image path must be absolute');
   const stat = fs.lstatSync(image.filePath);
   if (!stat.isFile() || stat.isSymbolicLink()) throw new ModelProtocolError('Model image must be a regular managed file');
@@ -17,7 +21,7 @@ export function loadModelImageBase64(image: ModelImageInput): string {
   if (detectImageMimeType(bytes) !== image.mimeType) throw new ModelProtocolError('Model image format no longer matches its validated attachment record');
   const digest = crypto.createHash('sha256').update(bytes).digest('hex');
   if (!timingSafeHexEqual(digest, image.sha256)) throw new ModelProtocolError('Model image integrity check failed');
-  return bytes.toString('base64');
+  return bytes;
 }
 
 export function detectImageMimeType(bytes: Buffer): ModelImageMimeType | null {

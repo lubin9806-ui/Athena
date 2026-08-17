@@ -56,9 +56,10 @@ export class AttachmentService {
   }
 
   resolveModelImages(windowId: number, attachmentIds: string[]): ModelImageInput[] {
-    const rows = this.requireOwnedRows(windowId, attachmentIds);
+    const rows = this.requireOwnedRows(windowId, attachmentIds, ['pending', 'attached']);
     return rows.map(row => ({
       id: row.id,
+      name: row.original_name,
       mimeType: row.mime_type,
       filePath: this.requireManagedPath(row.storage_path),
       sha256: row.sha256,
@@ -68,7 +69,7 @@ export class AttachmentService {
   }
 
   attachToMessage(windowId: number, messageId: number, attachmentIds: string[]): ChatAttachment[] {
-    const rows = this.requireOwnedRows(windowId, attachmentIds);
+    const rows = this.requireOwnedRows(windowId, attachmentIds, ['pending']);
     if (rows.length === 0) return [];
     const db = getDatabase();
     const message = db.prepare('SELECT id FROM chat_messages WHERE id = ? AND window_id = ?').get(messageId, windowId);
@@ -190,11 +191,15 @@ export class AttachmentService {
     return this.getOwnedRow(windowId, id) as AttachmentRow;
   }
 
-  private requireOwnedRows(windowId: number, attachmentIds: string[]): AttachmentRow[] {
+  private requireOwnedRows(
+    windowId: number,
+    attachmentIds: string[],
+    allowedStatuses: AttachmentRow['status'][] = ['pending'],
+  ): AttachmentRow[] {
     const ids = Array.from(new Set(attachmentIds.map(cleanAttachmentId).filter(Boolean)));
     if (ids.length !== attachmentIds.length || ids.length > MAX_IMAGES_PER_MESSAGE) throw new Error('Invalid attachment selection');
     const rows = ids.map(id => this.getOwnedRow(windowId, id)).filter((row): row is AttachmentRow => Boolean(row));
-    if (rows.length !== ids.length || rows.some(row => row.status !== 'pending')) {
+    if (rows.length !== ids.length || rows.some(row => !allowedStatuses.includes(row.status))) {
       throw new Error('One or more attachments are unavailable or belong to another chat window');
     }
     for (const row of rows) this.requireManagedPath(row.storage_path);

@@ -63,7 +63,9 @@
     "test:artifact-tools": "tsc && electron scripts/verify-artifact-tools.js",
     "test:chat-attachments": "tsc && electron scripts/verify-chat-attachments.js",
     "test:project-memory": "tsc && electron scripts/verify-project-memory-isolation.js",
-    "test:project-documents": "tsc && electron scripts/verify-project-documents.js && node -e \"console.log('ATHENA_PROJECT_DOCUMENTS_OK formats=txt,md,docx,pdf isolation=project citations=locator cleanup=managed ocr=truthful')\"",
+    "test:project-documents": "tsc && electron scripts/verify-project-documents.js && node -e \"console.log('ATHENA_PROJECT_DOCUMENTS_OK formats=txt,md,docx,pdf isolation=project citations=locator cleanup=managed ocr=local')\"",
+    "test:local-ocr": "tsc && electron scripts/verify-local-ocr.js",
+    "test:packaged-ocr": "electron scripts/verify-packaged-ocr.js",
     "test:deepseek:live": "tsc && electron scripts/verify-deepseek-live-chat.js",
     "smoke:electron": "node scripts/clean-dist.js && vite build --config vite.config.mts && tsc && electron . --smoke-test",
     "clean:dist": "node scripts/clean-dist.js",
@@ -76,6 +78,9 @@
   },
   "dependencies": {
     "@modelcontextprotocol/client": "2.0.0",
+    "@napi-rs/canvas": "1.0.6",
+    "@tesseract.js-data/chi_sim": "1.0.0",
+    "@tesseract.js-data/eng": "1.0.0",
     "ajv": "8.20.0",
     "better-sqlite3": "12.11.1",
     "cheerio": "1.2.0",
@@ -83,6 +88,7 @@
     "electron-updater": "6.8.9",
     "mammoth": "1.12.1",
     "pdfjs-dist": "6.2.108",
+    "tesseract.js": "7.0.0",
     "yaml": "2.9.0"
   },
   "devDependencies": {
@@ -95,7 +101,8 @@
   },
   "allowScripts": {
     "better-sqlite3@12.11.1": true,
-    "electron-winstaller": false
+    "electron-winstaller": false,
+    "tesseract.js@7.0.0": false
   },
   "optionalDependencies": {
     "steamworks.js": "0.4.0"

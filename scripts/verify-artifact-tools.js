@@ -32,6 +32,7 @@ const {
   run = store.transitionRun(run.id, 'planning', run.revision);
   const documentStep = store.appendStep({ runId: run.id, kind: 'tool', title: 'Create document' });
   const imageStep = store.appendStep({ runId: run.id, kind: 'tool', title: 'Create image' });
+  const editStep = store.appendStep({ runId: run.id, kind: 'tool', title: 'Edit image' });
 
   const png = makePng(2, 3);
   assert.deepEqual(inspectImage(png), { format: 'png', width: 2, height: 3 });
@@ -46,7 +47,14 @@ const {
       return image.getSize();
     },
     fetcher: async (url, init) => {
-      requests.push({ url: String(url), headers: init.headers, body: JSON.parse(init.body) });
+      const multipart = init.body instanceof FormData;
+      requests.push({
+        url: String(url),
+        headers: init.headers,
+        body: multipart
+          ? Array.from(init.body.entries()).map(([name, value]) => ({ name, type: value instanceof Blob ? value.type : 'text', value: value instanceof Blob ? value.size : value }))
+          : JSON.parse(init.body),
+      });
       return new Response(JSON.stringify({ data: [{ b64_json: png.toString('base64') }], usage: { input_tokens: 7 } }), {
         status: 200,
         headers: { 'content-type': 'application/json', 'x-request-id': 'req_fixture' },
@@ -69,6 +77,14 @@ const {
   let imageConsent = true;
   let credentialAvailable = true;
   const workspace = new ArtifactWorkspaceService({ store, resolveProjectRoots: () => [projectRoot] });
+  const referencePath = path.join(scratch, 'reference.png');
+  const maskPath = path.join(scratch, 'mask.png');
+  fs.writeFileSync(referencePath, png);
+  fs.writeFileSync(maskPath, png);
+  const referenceImages = new Map([
+    ['11111111-1111-4111-8111-111111111111', modelImage('11111111-1111-4111-8111-111111111111', 'reference.png', referencePath, png)],
+    ['22222222-2222-4222-8222-222222222222', modelImage('22222222-2222-4222-8222-222222222222', 'mask.png', maskPath, png)],
+  ]);
   const bridge = new ArtifactAgentToolBridge({
     registry,
     workspace,
@@ -77,8 +93,13 @@ const {
     canWriteArtifacts: () => writeAllowed,
     canGenerateImages: () => imageConsent,
     hasImageCredential: () => credentialAvailable,
+    resolveReferenceImages: (_runId, ids) => ids.map(id => {
+      const image = referenceImages.get(id);
+      if (!image) throw new Error('Reference attachment is not owned by this run');
+      return image;
+    }),
   });
-  assert.deepEqual(bridge.refresh(), ['create_document_artifact', 'generate_image_artifact']);
+  assert.deepEqual(bridge.refresh(), ['create_document_artifact', 'edit_image_artifact', 'generate_image_artifact']);
   assert.equal(registry.list().find(tool => tool.name === 'generate_image_artifact').supportsIdempotencyKey, false);
 
   const document = await execute(registry, 'create_document_artifact', {
@@ -106,6 +127,22 @@ const {
   const serializedArtifacts = JSON.stringify(store.listArtifacts(task.id, run.id));
   assert.doesNotMatch(serializedArtifacts, /sk-test-must-not-persist|A clean product concept/);
   assert.match(serializedArtifacts, /promptSha256/);
+
+  const edited = await execute(registry, 'edit_image_artifact', {
+    prompt: 'Preserve the subject and add a clean white background',
+    reference_attachment_ids: ['11111111-1111-4111-8111-111111111111'],
+    mask_attachment_id: '22222222-2222-4222-8222-222222222222',
+    size: '1024x1024', quality: 'low', output_format: 'png', filename: 'edited-concept',
+  }, run.id, editStep.id, 'edit-key');
+  assert.equal(edited.status, 'completed');
+  assert.equal(requests[1].url, 'https://api.openai.com/v1/images/edits');
+  assert.equal(requests[1].headers.Authorization, 'Bearer sk-test-must-not-persist');
+  assert.equal(Object.keys(requests[1].headers).some(key => key.toLowerCase() === 'content-type'), false, 'fetch must generate the multipart boundary');
+  assert.deepEqual(requests[1].body.map(item => item.name), ['model', 'prompt', 'size', 'quality', 'output_format', 'image[]', 'mask']);
+  const editedRecord = store.listArtifacts(task.id, run.id).find(item => item.id === edited.metadata.artifactId);
+  assert.equal(editedRecord.metadata.operation, 'edit');
+  assert.equal(editedRecord.metadata.sourceImages[0].sha256, referenceImages.get('11111111-1111-4111-8111-111111111111').sha256);
+  assert.doesNotMatch(JSON.stringify(editedRecord), /Preserve the subject/);
 
   memory.getDatabase().prepare('UPDATE projects SET memory_state = ? WHERE id = ?').run(JSON.stringify({
     agentWorkspace: { version: 1, revision: 1, roots: [projectRoot], goals: [], updatedAt: new Date().toISOString() },
@@ -138,10 +175,11 @@ const {
   const controllerSource = fs.readFileSync(path.join(root, 'src', 'core', 'controller', 'AthenaController.ts'), 'utf8');
   const ipcSource = fs.readFileSync(path.join(root, 'src', 'app', 'ipc', 'index.ts'), 'utf8');
   assert.match(privacySource, /api\.openai\.com\/v1\/images\/generations/);
+  assert.match(privacySource, /api\.openai\.com\/v1\/images\/edits/);
   assert.match(settingsSource, /imageGeneration:\s*false/);
   assert.match(controllerSource, /this\.artifactTools\.refresh\(\)/);
   assert.match(ipcSource, /agentArtifact:open/);
-  console.log('ATHENA_ARTIFACT_TOOLS_OK documents=markdown,html,docx,pdf image=openai-gpt-image-2 workspace=project-only approval=always integrity=sha256');
+  console.log('ATHENA_ARTIFACT_TOOLS_OK documents=markdown,html,docx,pdf image=openai-gpt-image-2 edit=references-mask workspace=project-only approval=always integrity=sha256');
 })().then(() => {
   try { memory.closeDatabase(); } catch {}
   fs.rmSync(scratch, { recursive: true, force: true });
@@ -207,4 +245,16 @@ function crc32(bytes) {
     for (let bit = 0; bit < 8; bit += 1) crc = (crc >>> 1) ^ (0xedb88320 & -(crc & 1));
   }
   return (crc ^ 0xffffffff) >>> 0;
+}
+
+function modelImage(id, name, filePath, bytes) {
+  return {
+    id,
+    name,
+    filePath,
+    mimeType: 'image/png',
+    bytes: bytes.length,
+    sha256: require('node:crypto').createHash('sha256').update(bytes).digest('hex'),
+    detail: 'auto',
+  };
 }

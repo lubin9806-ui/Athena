@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-08-17T12:23:12.872Z",
+  "generatedAt": "2026-08-17T13:12:42.899Z",
   "project": {
     "name": "athena",
     "version": "0.9.5",
@@ -38,76 +38,6 @@
       "homepage": "https://modelcontextprotocol.io"
     },
     {
-      "name": "@napi-rs/canvas-android-arm64",
-      "version": null,
-      "resolved": "https://registry.npmmirror.com/@napi-rs/canvas-android-arm64/-/canvas-android-arm64-1.0.6.tgz",
-      "license": "MIT",
-      "notice": "package.json not found in node_modules"
-    },
-    {
-      "name": "@napi-rs/canvas-darwin-arm64",
-      "version": null,
-      "resolved": "https://registry.npmmirror.com/@napi-rs/canvas-darwin-arm64/-/canvas-darwin-arm64-1.0.6.tgz",
-      "license": "MIT",
-      "notice": "package.json not found in node_modules"
-    },
-    {
-      "name": "@napi-rs/canvas-darwin-x64",
-      "version": null,
-      "resolved": "https://registry.npmmirror.com/@napi-rs/canvas-darwin-x64/-/canvas-darwin-x64-1.0.6.tgz",
-      "license": "MIT",
-      "notice": "package.json not found in node_modules"
-    },
-    {
-      "name": "@napi-rs/canvas-linux-arm-gnueabihf",
-      "version": null,
-      "resolved": "https://registry.npmmirror.com/@napi-rs/canvas-linux-arm-gnueabihf/-/canvas-linux-arm-gnueabihf-1.0.6.tgz",
-      "license": "MIT",
-      "notice": "package.json not found in node_modules"
-    },
-    {
-      "name": "@napi-rs/canvas-linux-arm64-gnu",
-      "version": null,
-      "resolved": "https://registry.npmmirror.com/@napi-rs/canvas-linux-arm64-gnu/-/canvas-linux-arm64-gnu-1.0.6.tgz",
-      "license": "MIT",
-      "notice": "package.json not found in node_modules"
-    },
-    {
-      "name": "@napi-rs/canvas-linux-arm64-musl",
-      "version": null,
-      "resolved": "https://registry.npmmirror.com/@napi-rs/canvas-linux-arm64-musl/-/canvas-linux-arm64-musl-1.0.6.tgz",
-      "license": "MIT",
-      "notice": "package.json not found in node_modules"
-    },
-    {
-      "name": "@napi-rs/canvas-linux-riscv64-gnu",
-      "version": null,
-      "resolved": "https://registry.npmmirror.com/@napi-rs/canvas-linux-riscv64-gnu/-/canvas-linux-riscv64-gnu-1.0.6.tgz",
-      "license": "MIT",
-      "notice": "package.json not found in node_modules"
-    },
-    {
-      "name": "@napi-rs/canvas-linux-x64-gnu",
-      "version": null,
-      "resolved": "https://registry.npmmirror.com/@napi-rs/canvas-linux-x64-gnu/-/canvas-linux-x64-gnu-1.0.6.tgz",
-      "license": "MIT",
-      "notice": "package.json not found in node_modules"
-    },
-    {
-      "name": "@napi-rs/canvas-linux-x64-musl",
-      "version": null,
-      "resolved": "https://registry.npmmirror.com/@napi-rs/canvas-linux-x64-musl/-/canvas-linux-x64-musl-1.0.6.tgz",
-      "license": "MIT",
-      "notice": "package.json not found in node_modules"
-    },
-    {
-      "name": "@napi-rs/canvas-win32-arm64-msvc",
-      "version": null,
-      "resolved": "https://registry.npmmirror.com/@napi-rs/canvas-win32-arm64-msvc/-/canvas-win32-arm64-msvc-1.0.6.tgz",
-      "license": "MIT",
-      "notice": "package.json not found in node_modules"
-    },
-    {
       "name": "@napi-rs/canvas-win32-x64-msvc",
       "version": "1.0.6",
       "resolved": "https://registry.npmmirror.com/@napi-rs/canvas-win32-x64-msvc/-/canvas-win32-x64-msvc-1.0.6.tgz",
@@ -122,6 +52,22 @@
       "license": "MIT",
       "repository": "git+https://github.com/Brooooooklyn/canvas.git",
       "homepage": null
+    },
+    {
+      "name": "@tesseract.js-data/chi_sim",
+      "version": "1.0.0",
+      "resolved": "https://registry.npmmirror.com/@tesseract.js-data/chi_sim/-/chi_sim-1.0.0.tgz",
+      "license": "MIT",
+      "repository": "https://github.com/naptha/tessdata.git",
+      "homepage": "https://github.com/naptha/tessdata"
+    },
+    {
+      "name": "@tesseract.js-data/eng",
+      "version": "1.0.0",
+      "resolved": "https://registry.npmmirror.com/@tesseract.js-data/eng/-/eng-1.0.0.tgz",
+      "license": "MIT",
+      "repository": "https://github.com/naptha/tessdata.git",
+      "homepage": "https://github.com/naptha/tessdata"
     },
     {
       "name": "@types/node",
@@ -210,6 +156,14 @@
       "license": "MIT",
       "repository": "git://github.com/petkaantonov/bluebird.git",
       "homepage": "https://github.com/petkaantonov/bluebird"
+    },
+    {
+      "name": "bmp-js",
+      "version": "0.1.0",
+      "resolved": "https://registry.npmmirror.com/bmp-js/-/bmp-js-0.1.0.tgz",
+      "license": "MIT",
+      "repository": "https://github.com/shaozilee/bmp-js",
+      "homepage": null
     },
     {
       "name": "boolbase",
@@ -532,6 +486,14 @@
       "homepage": "https://github.com/ashtuchkin/iconv-lite"
     },
     {
+      "name": "idb-keyval",
+      "version": "6.3.0",
+      "resolved": "https://registry.npmmirror.com/idb-keyval/-/idb-keyval-6.3.0.tgz",
+      "license": "Apache-2.0",
+      "repository": "git+https://github.com/jakearchibald/idb-keyval.git",
+      "homepage": "https://github.com/jakearchibald/idb-keyval#readme"
+    },
+    {
       "name": "ieee754",
       "version": "1.2.1",
       "resolved": null,
@@ -561,6 +523,14 @@
       "resolved": null,
       "license": "ISC",
       "repository": "git://github.com/isaacs/ini.git",
+      "homepage": null
+    },
+    {
+      "name": "is-url",
+      "version": "1.2.4",
+      "resolved": "https://registry.npmmirror.com/is-url/-/is-url-1.2.4.tgz",
+      "license": "MIT",
+      "repository": "https://github.com/segmentio/is-url",
       "homepage": null
     },
     {
@@ -732,6 +702,14 @@
       "homepage": "https://github.com/electron/node-abi#readme"
     },
     {
+      "name": "node-fetch",
+      "version": "2.7.0",
+      "resolved": "https://registry.npmmirror.com/node-fetch/-/node-fetch-2.7.0.tgz",
+      "license": "MIT",
+      "repository": "https://github.com/bitinn/node-fetch.git",
+      "homepage": "https://github.com/bitinn/node-fetch"
+    },
+    {
       "name": "nth-check",
       "version": "2.1.1",
       "resolved": "https://registry.npmmirror.com/nth-check/-/nth-check-2.1.1.tgz",
@@ -746,6 +724,14 @@
       "license": "ISC",
       "repository": "git://github.com/isaacs/once",
       "homepage": null
+    },
+    {
+      "name": "opencollective-postinstall",
+      "version": "2.0.3",
+      "resolved": "https://registry.npmmirror.com/opencollective-postinstall/-/opencollective-postinstall-2.0.3.tgz",
+      "license": "MIT",
+      "repository": "git+https://github.com/opencollective/opencollective-postinstall.git",
+      "homepage": "https://github.com/opencollective/opencollective-postinstall#readme"
     },
     {
       "name": "option",
@@ -865,6 +851,14 @@
       "resolved": null,
       "license": "MIT",
       "repository": "git://github.com/nodejs/readable-stream",
+      "homepage": null
+    },
+    {
+      "name": "regenerator-runtime",
+      "version": "0.13.11",
+      "resolved": "https://registry.npmmirror.com/regenerator-runtime/-/regenerator-runtime-0.13.11.tgz",
+      "license": "MIT",
+      "repository": "https://github.com/facebook/regenerator/tree/main/packages/runtime",
       "homepage": null
     },
     {
@@ -1020,12 +1014,36 @@
       "homepage": "https://github.com/mafintosh/tar-stream"
     },
     {
+      "name": "tesseract.js-core",
+      "version": "7.0.0",
+      "resolved": "https://registry.npmmirror.com/tesseract.js-core/-/tesseract.js-core-7.0.0.tgz",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/naptha/tesseract.js-core.git",
+      "homepage": "https://github.com/naptha/tesseract.js-core"
+    },
+    {
+      "name": "tesseract.js",
+      "version": "7.0.0",
+      "resolved": "https://registry.npmmirror.com/tesseract.js/-/tesseract.js-7.0.0.tgz",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/naptha/tesseract.js.git",
+      "homepage": "https://github.com/naptha/tesseract.js"
+    },
+    {
       "name": "tiny-typed-emitter",
       "version": "2.1.0",
       "resolved": "https://registry.npmmirror.com/tiny-typed-emitter/-/tiny-typed-emitter-2.1.0.tgz",
       "license": "MIT",
       "repository": "https://github.com/binier/tiny-typed-emitter.git",
       "homepage": null
+    },
+    {
+      "name": "tr46",
+      "version": "0.0.3",
+      "resolved": "https://registry.npmmirror.com/tr46/-/tr46-0.0.3.tgz",
+      "license": "MIT",
+      "repository": "git+https://github.com/Sebmaster/tr46.js.git",
+      "homepage": "https://github.com/Sebmaster/tr46.js#readme"
     },
     {
       "name": "tunnel-agent",
@@ -1084,6 +1102,22 @@
       "homepage": "https://github.com/TooTallNate/util-deprecate"
     },
     {
+      "name": "wasm-feature-detect",
+      "version": "1.9.0",
+      "resolved": "https://registry.npmmirror.com/wasm-feature-detect/-/wasm-feature-detect-1.9.0.tgz",
+      "license": "Apache-2.0",
+      "repository": "GoogleChromeLabs/wasm-feature-detect",
+      "homepage": null
+    },
+    {
+      "name": "webidl-conversions",
+      "version": "3.0.1",
+      "resolved": "https://registry.npmmirror.com/webidl-conversions/-/webidl-conversions-3.0.1.tgz",
+      "license": "BSD-2-Clause",
+      "repository": "jsdom/webidl-conversions",
+      "homepage": null
+    },
+    {
       "name": "whatwg-encoding",
       "version": "3.1.1",
       "resolved": "https://registry.npmmirror.com/whatwg-encoding/-/whatwg-encoding-3.1.1.tgz",
@@ -1097,6 +1131,14 @@
       "resolved": "https://registry.npmmirror.com/whatwg-mimetype/-/whatwg-mimetype-4.0.0.tgz",
       "license": "MIT",
       "repository": "jsdom/whatwg-mimetype",
+      "homepage": null
+    },
+    {
+      "name": "whatwg-url",
+      "version": "5.0.0",
+      "resolved": "https://registry.npmmirror.com/whatwg-url/-/whatwg-url-5.0.0.tgz",
+      "license": "MIT",
+      "repository": "jsdom/whatwg-url",
       "homepage": null
     },
     {
@@ -1146,6 +1188,14 @@
       "license": "ISC",
       "repository": "github:eemeli/yaml",
       "homepage": "https://eemeli.org/yaml/"
+    },
+    {
+      "name": "zlibjs",
+      "version": "0.3.1",
+      "resolved": "https://registry.npmmirror.com/zlibjs/-/zlibjs-0.3.1.tgz",
+      "license": "MIT",
+      "repository": "git://github.com/imaya/zlib.js.git",
+      "homepage": "https://github.com/imaya/zlib.js"
     },
     {
       "name": "zod",
@@ -1358,6 +1408,16 @@
       "path": "resources/icon.png",
       "bytes": 9222,
       "sha256": "7B93DE63E3800F30D341750BC25A02F0ADA79002BEB5E203FF2D1D3EB198E95D"
+    },
+    {
+      "path": "resources/skills/local-ocr/SKILL.md",
+      "bytes": 1153,
+      "sha256": "192AD0F6133C0A1B9445F8E4ABE9693B98EE20555195EC7D059B00D0A9595DDD"
+    },
+    {
+      "path": "resources/skills/reference-image-editing/SKILL.md",
+      "bytes": 1247,
+      "sha256": "20641D17D8CC6EDA1BBB0430CA46311A1FD1A9FE4FC0A7FF38AF34857ECD0EB3"
     },
     {
       "path": "resources/splash.png",
@@ -17966,6 +18026,16 @@
         "path": "resources/icon.png",
         "bytes": 9222,
         "sha256": "7B93DE63E3800F30D341750BC25A02F0ADA79002BEB5E203FF2D1D3EB198E95D"
+      },
+      {
+        "path": "resources/skills/local-ocr/SKILL.md",
+        "bytes": 1153,
+        "sha256": "192AD0F6133C0A1B9445F8E4ABE9693B98EE20555195EC7D059B00D0A9595DDD"
+      },
+      {
+        "path": "resources/skills/reference-image-editing/SKILL.md",
+        "bytes": 1247,
+        "sha256": "20641D17D8CC6EDA1BBB0430CA46311A1FD1A9FE4FC0A7FF38AF34857ECD0EB3"
       },
       {
         "path": "resources/splash.png",
@@ -34985,13 +35055,13 @@
   "buildArtifacts": [
     {
       "path": "release/Athena Setup 0.9.5.exe",
-      "bytes": 435671013,
-      "sha256": "371ED18C9EBEF7CF148A0E3BE11A80826B48349FD0964F60B49AE305A883E4D1"
+      "bytes": 506137216,
+      "sha256": "27A9621CCB286735C2EC6793E15F682523833B6C54FA651ADF67AF2A84A099AA"
     },
     {
       "path": "release/win-unpacked/Athena.exe",
       "bytes": 232771072,
-      "sha256": "4D714F3F83E0A01B854764CADE405FE39B5B5BFC77D90675EC38DD02A58D8FFF"
+      "sha256": "55CAF4B310F5F0559CEC993C206D8A206E94C49858506E98C1009B96F66A2510"
     }
   ],
   "packagingDecisions": [

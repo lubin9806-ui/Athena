@@ -72,6 +72,8 @@ const INVOKE_CHANNELS = [
   'attachment:preview',
   'attachment:removePending',
   'document:choose',
+  'document:chooseOcr',
+  'document:cancelOcr',
   'document:list',
   'document:delete',
   'project:list',
@@ -156,6 +158,9 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<vo
 
   const controller = new AthenaController();
   const voice = new VoiceService();
+  let documentOcrAbort: AbortController | null = null;
+  let documentOcrBusy = false;
+  let shuttingDown = false;
   const removeReminderListener = globalEventBus.on('reminder:due', (job) => {
     const settings = getAppSettings();
     showReminderNotification(job.title, settings.general.desktopNotifications);
@@ -270,6 +275,35 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<vo
     });
     if (result.canceled || result.filePaths.length === 0) return [];
     return controller.importProjectDocuments(chatWindowId, result.filePaths.slice(0, 5));
+  });
+
+  ipcMain.handle('document:chooseOcr', async (event, value: unknown) => {
+    if (!isTrustedSender(event)) return [];
+    const chatWindowId = cleanPositiveInteger(value);
+    if (!chatWindowId) return [];
+    if (documentOcrBusy || shuttingDown) throw new Error('A local PDF OCR import is already running or Athena is shutting down.');
+    documentOcrBusy = true;
+    try {
+      const result = await dialog.showOpenDialog(mainWindow, {
+        title: '选择扫描 PDF（本地 OCR）',
+        properties: ['openFile', 'multiSelections'],
+        filters: [{ name: '扫描 PDF', extensions: ['pdf'] }],
+      });
+      if (result.canceled || result.filePaths.length === 0) return [];
+      if (shuttingDown) throw new Error('Athena is shutting down.');
+      documentOcrAbort = new AbortController();
+      return await controller.importScannedProjectPdfs(chatWindowId, result.filePaths.slice(0, 3), documentOcrAbort.signal);
+    } finally {
+      documentOcrAbort = null;
+      documentOcrBusy = false;
+    }
+  });
+
+  ipcMain.handle('document:cancelOcr', async (event) => {
+    if (!isTrustedSender(event)) return false;
+    if (!documentOcrAbort) return false;
+    documentOcrAbort.abort(new Error('Local PDF OCR was cancelled.'));
+    return true;
   });
 
   ipcMain.handle('document:list', async (event, value: unknown) => {
@@ -902,6 +936,8 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<vo
   let shutdownPromise: Promise<void> | null = null;
   const shutdown = (): Promise<void> => {
     shutdownPromise ||= (async () => {
+      shuttingDown = true;
+      documentOcrAbort?.abort(new Error('Athena is shutting down.'));
       clearIpcHandlers();
       removeReminderListener();
       await controller.shutdown();

@@ -1,4 +1,5 @@
 import { createHash } from 'crypto';
+import { loadModelImageBytes, type ModelImageInput } from '../ai/model';
 import { ToolRegistry, type AgentToolRegistration } from '../agent/ToolRegistry';
 import { ArtifactWorkspaceService } from './ArtifactWorkspaceService';
 import {
@@ -8,6 +9,8 @@ import {
 } from './DocumentArtifactService';
 import {
   inspectImage,
+  type GeneratedImage,
+  type ImageEditInput,
   type ImageGenerationProvider,
   type ImageOutputFormat,
   type ImageQuality,
@@ -22,6 +25,7 @@ export interface ArtifactAgentToolBridgeOptions {
   canWriteArtifacts: () => boolean;
   canGenerateImages: () => boolean;
   hasImageCredential: () => boolean;
+  resolveReferenceImages: (runId: string, attachmentIds: string[]) => ModelImageInput[];
 }
 
 export class ArtifactAgentToolBridge {
@@ -36,6 +40,7 @@ export class ArtifactAgentToolBridge {
       if (this.options.canWriteArtifacts()) this.registerDocumentTool(pending);
       if (this.options.canWriteArtifacts() && this.options.canGenerateImages() && this.options.hasImageCredential()) {
         this.registerImageTool(pending);
+        this.registerImageEditTool(pending);
       }
       for (const [name, definition] of pending) this.owned.set(name, definition);
       return Array.from(this.owned.keys()).sort();
@@ -161,32 +166,11 @@ export class ArtifactAgentToolBridge {
           outputFormat: args.output_format as ImageOutputFormat,
           ...(typeof args.output_compression === 'number' ? { outputCompression: args.output_compression } : {}),
         }, context.signal);
-        const artifact = this.options.workspace.persist({
-          runId: context.runId,
-          stepId: context.stepId,
-          idempotencyKey: context.idempotencyKey,
-          kind: `image.${generated.format}`,
+        const artifact = this.persistImageArtifact(generated, {
+          runId: context.runId, stepId: context.stepId, idempotencyKey: context.idempotencyKey, prompt,
           name: typeof args.filename === 'string' ? args.filename : 'Generated image',
           filename: typeof args.filename === 'string' ? args.filename : 'generated-image',
-          extension: generated.format === 'jpeg' ? 'jpg' : generated.format,
-          contentType: generated.format === 'jpeg' ? 'image/jpeg' : `image/${generated.format}`,
-          bytes: generated.bytes,
-          validate: bytes => {
-            const inspected = inspectImage(bytes);
-            if (inspected.format !== generated.format || inspected.width !== generated.width || inspected.height !== generated.height) {
-              throw new Error('Persisted image metadata does not match the generated image');
-            }
-          },
-          metadata: {
-            provider: generated.provider,
-            model: generated.model,
-            requestId: generated.requestId,
-            width: generated.width,
-            height: generated.height,
-            format: generated.format,
-            promptSha256: createHash('sha256').update(prompt).digest('hex'),
-            ...(generated.usage ? { usage: generated.usage } : {}),
-          },
+          operation: 'generate',
         });
         return artifactResult(artifact, `Generated ${generated.width}x${generated.height} ${generated.format.toUpperCase()} image`);
       },
@@ -194,8 +178,110 @@ export class ArtifactAgentToolBridge {
     pending.set(definition.name, definition);
   }
 
+  private registerImageEditTool(pending: Map<string, Readonly<AgentToolRegistration>>): void {
+    if (!this.options.images.edit) return;
+    const definition = this.options.registry.register({
+      name: 'edit_image_artifact',
+      version: '1.0.0',
+      capability: 'artifact.image.network',
+      label: 'Edit image artifact',
+      description: 'Edit or recombine 1-5 managed images attached to the current execution chat using OpenAI GPT Image. The prompt and selected images leave the device, may incur charges, and every call requires approval. An optional PNG alpha mask must match the first PNG reference.',
+      parameters: {
+        type: 'object',
+        properties: {
+          prompt: { type: 'string', minLength: 1, maxLength: 32000 },
+          reference_attachment_ids: { type: 'array', minItems: 1, maxItems: 5, uniqueItems: true, items: { type: 'string', minLength: 36, maxLength: 36 } },
+          mask_attachment_id: { type: 'string', minLength: 36, maxLength: 36 },
+          filename: { type: 'string', minLength: 1, maxLength: 120 },
+          size: { type: 'string', enum: ['1024x1024', '1536x1024', '1024x1536', '2048x2048', '2048x1152', 'auto'] },
+          quality: { type: 'string', enum: ['low', 'medium', 'high', 'auto'] },
+          output_format: { type: 'string', enum: ['png', 'jpeg', 'webp'] },
+          output_compression: { type: 'integer', minimum: 0, maximum: 100 },
+        },
+        required: ['prompt', 'reference_attachment_ids', 'size', 'quality', 'output_format'],
+        additionalProperties: false,
+      },
+      strict: true,
+      idempotent: false,
+      timeoutMs: 10 * 60_000,
+      retry: { maxAttempts: 1 },
+      policy: {
+        capability: 'artifact.image.network',
+        access: 'network',
+        riskLevel: 'high',
+        approval: 'always',
+        reason: 'Image editing sends approved managed reference images and the prompt to api.openai.com, can incur charges, and writes the result into the Project workspace',
+      },
+      execute: async (args, context) => {
+        this.requireWritePermission();
+        this.requireImageAccess();
+        const referenceIds = Array.isArray(args.reference_attachment_ids) ? args.reference_attachment_ids.map(String) : [];
+        const maskId = typeof args.mask_attachment_id === 'string' ? args.mask_attachment_id : undefined;
+        if (maskId && referenceIds.includes(maskId)) throw new Error('Mask attachment must be separate from reference attachments');
+        const references = this.options.resolveReferenceImages(context.runId, referenceIds);
+        const mask = maskId ? this.options.resolveReferenceImages(context.runId, [maskId])[0] : undefined;
+        const prompt = String(args.prompt);
+        const generated = await this.options.images.edit!({
+          prompt,
+          images: references.map(toEditInput),
+          ...(mask ? { mask: toEditInput(mask) } : {}),
+          size: args.size as ImageSize,
+          quality: args.quality as ImageQuality,
+          outputFormat: args.output_format as ImageOutputFormat,
+          ...(typeof args.output_compression === 'number' ? { outputCompression: args.output_compression } : {}),
+        }, context.signal);
+        const artifact = this.persistImageArtifact(generated, {
+          runId: context.runId,
+          stepId: context.stepId,
+          idempotencyKey: context.idempotencyKey,
+          prompt,
+          filename: typeof args.filename === 'string' ? args.filename : 'edited-image',
+          name: typeof args.filename === 'string' ? args.filename : 'Edited image',
+          operation: 'edit',
+          sourceImages: references.map(image => ({ attachmentId: image.id, sha256: image.sha256 })),
+          ...(mask ? { mask: { attachmentId: mask.id, sha256: mask.sha256 } } : {}),
+        });
+        return artifactResult(artifact, `Edited ${references.length} reference image(s) into a ${generated.width}x${generated.height} ${generated.format.toUpperCase()} image`);
+      },
+    });
+    pending.set(definition.name, definition);
+  }
+
   private requireWritePermission(): void {
     if (!this.options.canWriteArtifacts()) throw new Error('Artifact file permission was revoked before execution');
+  }
+
+  private persistImageArtifact(generated: GeneratedImage, input: PersistImageInput) {
+    return this.options.workspace.persist({
+      runId: input.runId,
+      stepId: input.stepId,
+      idempotencyKey: input.idempotencyKey,
+      kind: `image.${generated.format}`,
+      name: input.name,
+      filename: input.filename,
+      extension: generated.format === 'jpeg' ? 'jpg' : generated.format,
+      contentType: generated.format === 'jpeg' ? 'image/jpeg' : `image/${generated.format}`,
+      bytes: generated.bytes,
+      validate: bytes => {
+        const inspected = inspectImage(bytes);
+        if (inspected.format !== generated.format || inspected.width !== generated.width || inspected.height !== generated.height) {
+          throw new Error('Persisted image metadata does not match the generated image');
+        }
+      },
+      metadata: {
+        provider: generated.provider,
+        model: generated.model,
+        requestId: generated.requestId,
+        operation: input.operation,
+        width: generated.width,
+        height: generated.height,
+        format: generated.format,
+        promptSha256: createHash('sha256').update(input.prompt).digest('hex'),
+        ...(input.sourceImages ? { sourceImages: input.sourceImages } : {}),
+        ...(input.mask ? { mask: input.mask } : {}),
+        ...(generated.usage ? { usage: generated.usage } : {}),
+      },
+    });
   }
 
   private requireImageAccess(): void {
@@ -207,6 +293,27 @@ export class ArtifactAgentToolBridge {
     for (const [name, definition] of this.owned) this.options.registry.unregister(name, definition);
     this.owned.clear();
   }
+}
+
+interface PersistImageInput {
+  runId: string;
+  stepId: string;
+  idempotencyKey: string;
+  prompt: string;
+  name: string;
+  filename: string;
+  operation: 'generate' | 'edit';
+  sourceImages?: Array<{ attachmentId: string; sha256: string }>;
+  mask?: { attachmentId: string; sha256: string };
+}
+
+function toEditInput(image: ModelImageInput): ImageEditInput {
+  return {
+    bytes: loadModelImageBytes(image),
+    mimeType: image.mimeType,
+    name: image.name || image.id,
+    sha256: image.sha256,
+  };
 }
 
 function artifactResult(
