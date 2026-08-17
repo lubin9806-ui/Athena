@@ -1061,6 +1061,7 @@ function emptyRetrievedContext(): RetrievedContext {
     projectNotes: [],
     recentMessages: [],
     chatWindow: undefined,
+    evidence: [],
     relevanceScore: 0,
   };
 }

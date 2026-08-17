@@ -18,6 +18,7 @@ export interface ChatWindowInput {
 }
 
 export interface ContextSnapshotInput {
+  projectId?: number;
   windowId?: number;
   userMessageId?: number;
   mode?: ConversationMode;
@@ -404,6 +405,7 @@ export function saveContextSnapshot(input: ContextSnapshotInput): ContextSnapsho
   const db = getDatabase();
   const result = db.prepare(`
     INSERT INTO context_snapshots (
+      project_id,
       window_id,
       user_message_id,
       mode,
@@ -414,8 +416,9 @@ export function saveContextSnapshot(input: ContextSnapshotInput): ContextSnapsho
       prompt_chars,
       estimated_prompt_tokens
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
+    input.projectId || null,
     input.windowId || null,
     input.userMessageId || null,
     input.mode || null,
@@ -429,6 +432,7 @@ export function saveContextSnapshot(input: ContextSnapshotInput): ContextSnapsho
   const id = result.lastInsertRowid as number;
   return getContextSnapshot(id) || {
     id,
+    project_id: input.projectId,
     window_id: input.windowId,
     user_message_id: input.userMessageId,
     mode: input.mode,
@@ -444,7 +448,7 @@ export function saveContextSnapshot(input: ContextSnapshotInput): ContextSnapsho
 
 export function getContextSnapshot(id: number): ContextSnapshotRecord | null {
   const row = getDatabase().prepare(`
-    SELECT id, window_id, user_message_id, mode, budget_json, included_json, omitted_json,
+    SELECT id, project_id, window_id, user_message_id, mode, budget_json, included_json, omitted_json,
            prompt_message_count, prompt_chars, estimated_prompt_tokens, created_at
     FROM context_snapshots
     WHERE id = ?
@@ -457,7 +461,7 @@ export function getRecentContextSnapshots(windowId?: number, limit: number = 20)
   const safeLimit = Math.max(1, Math.min(100, Math.round(limit)));
   const rows = typeof windowId === 'number' && windowId > 0
     ? getDatabase().prepare(`
-      SELECT id, window_id, user_message_id, mode, budget_json, included_json, omitted_json,
+      SELECT id, project_id, window_id, user_message_id, mode, budget_json, included_json, omitted_json,
              prompt_message_count, prompt_chars, estimated_prompt_tokens, created_at
       FROM context_snapshots
       WHERE window_id = ?
@@ -465,7 +469,7 @@ export function getRecentContextSnapshots(windowId?: number, limit: number = 20)
       LIMIT ?
     `).all(windowId, safeLimit) as any[]
     : getDatabase().prepare(`
-      SELECT id, window_id, user_message_id, mode, budget_json, included_json, omitted_json,
+      SELECT id, project_id, window_id, user_message_id, mode, budget_json, included_json, omitted_json,
              prompt_message_count, prompt_chars, estimated_prompt_tokens, created_at
       FROM context_snapshots
       ORDER BY id DESC
@@ -518,6 +522,7 @@ function rowToChatWindow(row: any): ChatWindow {
 function rowToContextSnapshot(row: any): ContextSnapshotRecord {
   return {
     id: row.id,
+    project_id: row.project_id || undefined,
     window_id: row.window_id || undefined,
     user_message_id: row.user_message_id || undefined,
     mode: row.mode || undefined,

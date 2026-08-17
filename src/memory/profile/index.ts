@@ -68,7 +68,7 @@ export function addProfileFacts(facts: ProfileFactInput[]): void {
 export function getAllProfile(): Record<ProfileCategory, ProfileEntry[]> {
   const db = getDatabase();
   const rows = db.prepare(`
-    SELECT category, fact, confidence, source, importance, created_at, updated_at
+    SELECT id, category, fact, confidence, source, importance, created_at, updated_at
     FROM profile
     ORDER BY importance DESC, confidence DESC, updated_at DESC
   `).all() as any[];
@@ -90,7 +90,7 @@ export function getAllProfile(): Record<ProfileCategory, ProfileEntry[]> {
 export function getHighConfidenceProfile(minConfidence: number = 0.4, limit: number = 30): ProfileEntry[] {
   const db = getDatabase();
   const rows = db.prepare(`
-    SELECT fact, confidence, source, importance, created_at, updated_at
+    SELECT id, fact, confidence, source, importance, created_at, updated_at
     FROM profile
     WHERE confidence >= ?
     ORDER BY importance DESC, confidence DESC, updated_at DESC
@@ -106,14 +106,14 @@ export function searchProfileFacts(keyword: MemorySearchTerms, limit: number = 1
   const indexedIds = searchMemoryIndex('profile', terms, limit);
   const rows = indexedIds.length > 0
     ? db.prepare(`
-        SELECT fact, confidence, source, importance, created_at, updated_at
+        SELECT id, fact, confidence, source, importance, created_at, updated_at
         FROM profile
         WHERE id IN (${placeholders(indexedIds)})
         ORDER BY importance DESC, confidence DESC, updated_at DESC
         LIMIT ?
       `).all(...indexedIds, limit) as any[]
     : db.prepare(`
-        SELECT fact, confidence, source, importance, created_at, updated_at
+        SELECT id, fact, confidence, source, importance, created_at, updated_at
         FROM profile
         WHERE ${likeClauses(['fact'], terms)}
         ORDER BY importance DESC, confidence DESC, updated_at DESC
@@ -162,6 +162,7 @@ function markProfileFactsRecalled(facts: string[]): void {
 
 function rowToProfileEntry(row: any): ProfileEntry {
   return {
+    id: Number(row.id) || undefined,
     fact: row.fact,
     confidence: row.confidence,
     source: row.source || undefined,

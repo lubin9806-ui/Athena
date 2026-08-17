@@ -28,7 +28,7 @@ try {
   const memory = require(path.join(root, 'dist', 'memory', 'index.js'));
   const now = new Date('2026-08-10T12:00:00.000Z');
   const db = memory.getDatabase();
-  assert.equal(db.pragma('user_version', { simple: true }), 11, 'memory schema should match the current attachment-aware schema');
+  assert.equal(db.pragma('user_version', { simple: true }), 12, 'memory schema should match the current Project-isolated schema');
 
   const cases = [
     addEvent(db, now, 100, 2, 'fresh-low-kept'),
@@ -161,6 +161,7 @@ try {
   });
   assert(context.proceduralMemories.some(item => item.key === 'testing preference'), 'procedural memories should be retrievable');
   assert(context.temporalFacts.some(item => item.subject === 'Athena memory system'), 'temporal facts should be retrievable');
+  assert(context.evidence.some(item => item.memoryTable === 'memory_facts' && item.memoryId === temporal.id && item.origin === 'fact_source' && item.sourceTable === 'manual-test'), 'temporal fact provenance should be normalized into retrieval evidence');
   const semanticDaily = memory.searchDailyMemorySummaries('语义记忆系统', 10, now);
   assert(Array.isArray(semanticDaily), 'semantic daily summary search should return an array');
 

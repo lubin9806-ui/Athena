@@ -5,6 +5,7 @@ import { getImportantTemporalMemoryFacts, searchTemporalMemoryFacts } from '../g
 import { getImportantProceduralMemories, searchProceduralMemories } from '../procedural';
 import { searchProfileFacts, getHighConfidenceProfile } from '../profile';
 import { searchProjectNotes, getImportantProjectNotes } from '../projects';
+import { buildMemoryRetrievalEvidence, type MemoryEvidenceTarget } from '../provenance';
 import { getChatWindow, getChatWindowMessages, getRecentMessages } from '../working';
 
 export interface RetrieveOptions {
@@ -18,6 +19,7 @@ export interface RetrieveOptions {
   recentMessageCount?: number;
   conversationMode?: ConversationMode;
   chatWindowId?: number;
+  projectId?: number;
 }
 
 interface Scored<T> {
@@ -40,16 +42,29 @@ export function retrieveContext(options: RetrieveOptions): RetrievedContext {
   } = options;
 
   const keywords = extractKeywords(query);
+  const chatWindow = chatWindowId ? getChatWindow(chatWindowId) : null;
+  const requestedProjectId = Number.isInteger(options.projectId) && Number(options.projectId) > 0 ? options.projectId : undefined;
+  if (chatWindow?.project_id && requestedProjectId && chatWindow.project_id !== requestedProjectId) {
+    throw new Error('Memory retrieval Project does not match the active chat window.');
+  }
+  const activeProjectId = chatWindow?.project_id || requestedProjectId || null;
   const recentMessages = chatWindowId
     ? getChatWindowMessages(chatWindowId, recentMessageCount)
     : getRecentMessages(recentMessageCount, conversationMode);
-  const chatWindow = chatWindowId ? getChatWindow(chatWindowId) : null;
   const profileFacts = collectProfileFacts(keywords, maxProfileFacts);
-  const proceduralMemories = collectProceduralMemories(keywords, maxProceduralMemories);
+  const proceduralMemories = collectProceduralMemories(keywords, maxProceduralMemories, activeProjectId);
   const temporalFacts = collectTemporalFacts(keywords, maxTemporalFacts);
   const relatedEvents = collectEvents(keywords, maxEvents);
   const dailySummaries = collectDailySummaries(keywords, maxDailySummaries);
-  const projectNotes = collectProjectNotes(keywords, maxProjectNotes);
+  const projectNotes = collectProjectNotes(keywords, maxProjectNotes, activeProjectId);
+  const evidence = buildMemoryRetrievalEvidence(buildEvidenceTargets({
+    profileFacts,
+    proceduralMemories,
+    temporalFacts,
+    relatedEvents,
+    dailySummaries,
+    projectNotes,
+  }));
 
   return {
     profileFacts,
@@ -72,6 +87,7 @@ export function retrieveContext(options: RetrieveOptions): RetrievedContext {
       projectInstructions: chatWindow.projectInstructions,
       projectInstructionsSnapshot: chatWindow.projectInstructionsSnapshot,
     } : undefined,
+    evidence,
     relevanceScore: calculateRelevanceScore(profileFacts, proceduralMemories, temporalFacts, relatedEvents, dailySummaries, projectNotes, keywords),
   };
 }
@@ -160,23 +176,23 @@ function collectEvents(keywords: string[], limit: number): MemoryEvent[] {
   ).slice(0, limit).map(item => item.item);
 }
 
-function collectProceduralMemories(keywords: string[], limit: number): ProceduralMemory[] {
+function collectProceduralMemories(keywords: string[], limit: number, projectId: number | null): ProceduralMemory[] {
   if (limit <= 0) return [];
   const found: ProceduralMemory[] = [];
   const seen = new Set<string>();
 
   if (keywords.length > 0) {
-    for (const memory of searchProceduralMemories(keywords, candidateSearchLimit(limit))) {
-      const key = `${memory.scope}:${memory.key}`;
+    for (const memory of searchProceduralMemories(keywords, candidateSearchLimit(limit), projectId)) {
+      const key = `${memory.scope}:${memory.project_id || 'global'}:${memory.key}`;
       if (seen.has(key)) continue;
       seen.add(key);
       found.push(memory);
     }
   }
 
-  for (const memory of getImportantProceduralMemories(7, limit)) {
+  for (const memory of getImportantProceduralMemories(7, limit, projectId)) {
     if (found.length >= limit) break;
-    const key = `${memory.scope}:${memory.key}`;
+    const key = `${memory.scope}:${memory.project_id || 'global'}:${memory.key}`;
     if (seen.has(key)) continue;
     seen.add(key);
     found.push(memory);
@@ -248,20 +264,20 @@ function collectDailySummaries(keywords: string[], limit: number): DailyMemorySu
   ).slice(0, limit).map(item => item.item);
 }
 
-function collectProjectNotes(keywords: string[], limit: number): ProjectNote[] {
+function collectProjectNotes(keywords: string[], limit: number, projectId: number | null): ProjectNote[] {
   if (limit <= 0) return [];
   const found: ProjectNote[] = [];
   const seen = new Set<number>();
 
   if (keywords.length > 0) {
-    for (const note of searchProjectNotes(keywords, candidateSearchLimit(limit))) {
+    for (const note of searchProjectNotes(keywords, candidateSearchLimit(limit), projectId)) {
       if (seen.has(note.id)) continue;
       seen.add(note.id);
       found.push(note);
     }
   }
 
-  for (const note of getImportantProjectNotes(6, limit)) {
+  for (const note of getImportantProjectNotes(6, limit, projectId)) {
     if (found.length >= limit) break;
     if (seen.has(note.id)) continue;
     seen.add(note.id);
@@ -274,6 +290,38 @@ function collectProjectNotes(keywords: string[], limit: number): ProjectNote[] {
     note => `${note.project} ${note.title} ${note.note} ${note.tags.join(' ')}`,
     note => note.importance
   ).slice(0, limit).map(item => item.item);
+}
+
+function buildEvidenceTargets(context: {
+  profileFacts: ProfileEntry[];
+  proceduralMemories: ProceduralMemory[];
+  temporalFacts: TemporalMemoryFact[];
+  relatedEvents: MemoryEvent[];
+  dailySummaries: DailyMemorySummary[];
+  projectNotes: ProjectNote[];
+}): MemoryEvidenceTarget[] {
+  return [
+    ...context.profileFacts.filter(fact => fact.id).map(fact => ({
+      memoryTable: 'profile', memoryId: fact.id as number, memoryKind: 'profile' as const, excerpt: fact.fact,
+    })),
+    ...context.proceduralMemories.map(memory => ({
+      memoryTable: 'procedural_memories', memoryId: memory.id, memoryKind: 'procedure' as const,
+      projectId: memory.project_id, excerpt: memory.instruction, legacy: memory.scope === 'project' && !memory.project_id,
+    })),
+    ...context.temporalFacts.map(fact => ({
+      memoryTable: 'memory_facts', memoryId: fact.id, memoryKind: 'fact' as const, excerpt: fact.summary,
+    })),
+    ...context.relatedEvents.map(event => ({
+      memoryTable: 'events', memoryId: event.id, memoryKind: 'event' as const, excerpt: event.summary,
+    })),
+    ...context.dailySummaries.map(summary => ({
+      memoryTable: 'daily_memory_summaries', memoryId: summary.id, memoryKind: 'daily' as const, excerpt: summary.summary,
+    })),
+    ...context.projectNotes.map(note => ({
+      memoryTable: 'project_notes', memoryId: note.id, memoryKind: 'project' as const,
+      projectId: note.project_id, excerpt: note.note, legacy: !note.project_id,
+    })),
+  ];
 }
 
 function candidateSearchLimit(limit: number): number {

@@ -6,6 +6,7 @@ export type ProjectStatus = ProjectNote['status'];
 
 export interface ProjectNoteInput {
   project: string;
+  projectId?: number;
   title: string;
   note: string;
   status?: ProjectStatus;
@@ -149,14 +150,16 @@ function rowToProject(row: any): AthenaProject {
 
 export function addProjectNote(input: ProjectNoteInput): ProjectNote {
   const db = getDatabase();
-  const project = normalizeText(input.project) || 'General';
+  const linkedProject = resolveProjectNoteProject(input.projectId, input.project);
+  const projectId = linkedProject?.id;
+  const project = linkedProject?.title || normalizeText(input.project) || 'General';
   const title = normalizeText(input.title) || 'Untitled note';
   const note = normalizeText(input.note);
   const status = input.status || 'active';
   const tags = input.tags || [];
   const importance = clampImportance(input.importance ?? 5);
 
-  const existing = getProjectNote(project, title);
+  const existing = getProjectNote(project, title, projectId);
   if (existing) {
     db.prepare(`
       UPDATE project_notes
@@ -167,64 +170,66 @@ export function addProjectNote(input: ProjectNoteInput): ProjectNote {
           updated_at = datetime('now', 'localtime')
       WHERE id = ?
     `).run(note, status, JSON.stringify(mergeTags(existing.tags, tags)), importance, existing.id);
-    const updated = getProjectNote(project, title)!;
+    const updated = getProjectNote(project, title, projectId)!;
     upsertProjectNoteIndex(updated);
     return updated;
   }
 
   db.prepare(`
-    INSERT INTO project_notes (project, title, note, status, tags, importance)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `).run(project, title, note, status, JSON.stringify(tags), importance);
+    INSERT INTO project_notes (project_id, project, title, note, status, tags, importance)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(projectId || null, project, title, note, status, JSON.stringify(tags), importance);
 
-  const created = getProjectNote(project, title)!;
+  const created = getProjectNote(project, title, projectId)!;
   upsertProjectNoteIndex(created);
   return created;
 }
 
-export function searchProjectNotes(keyword: MemorySearchTerms, limit: number = 10): ProjectNote[] {
+export function searchProjectNotes(keyword: MemorySearchTerms, limit: number = 10, projectId?: number | null): ProjectNote[] {
   const db = getDatabase();
   const terms = normalizeMemorySearchTerms(keyword);
   if (terms.length === 0) return [];
-  const indexedIds = searchMemoryIndex('project_notes', terms, limit);
+  const indexedIds = searchMemoryIndex('project_notes', terms, limit, projectId === undefined ? undefined : { projectId, includeGlobal: false });
+  const scope = projectNoteScope(projectId);
   const rows = indexedIds.length > 0
     ? db.prepare(`
-        SELECT id, project, title, note, status, tags, importance, created_at, updated_at, last_recalled_at
+        SELECT ${projectNoteFields()}
         FROM project_notes
-        WHERE id IN (${placeholders(indexedIds)}) AND status != 'archived'
+        WHERE id IN (${placeholders(indexedIds)}) AND status != 'archived' ${scope.clause}
         ORDER BY importance DESC, updated_at DESC
         LIMIT ?
-      `).all(...indexedIds, limit) as any[]
+      `).all(...indexedIds, ...scope.params, limit) as any[]
     : db.prepare(`
-        SELECT id, project, title, note, status, tags, importance, created_at, updated_at, last_recalled_at
+        SELECT ${projectNoteFields()}
         FROM project_notes
-        WHERE status != 'archived'
+        WHERE status != 'archived' ${scope.clause}
           AND (${likeClauses(['project', 'title', 'note', 'tags'], terms)})
         ORDER BY importance DESC, updated_at DESC
         LIMIT ?
-      `).all(...likeValues(['project', 'title', 'note', 'tags'], terms), limit) as any[];
+      `).all(...scope.params, ...likeValues(['project', 'title', 'note', 'tags'], terms), limit) as any[];
 
   const notes = rows.map(rowToProjectNote);
   markProjectNotesRecalled(notes.map(note => note.id));
   return notes;
 }
 
-export function getImportantProjectNotes(minImportance: number = 7, limit: number = 10): ProjectNote[] {
+export function getImportantProjectNotes(minImportance: number = 7, limit: number = 10, projectId?: number | null): ProjectNote[] {
   const db = getDatabase();
+  const scope = projectNoteScope(projectId);
   const rows = db.prepare(`
-    SELECT id, project, title, note, status, tags, importance, created_at, updated_at, last_recalled_at
+    SELECT ${projectNoteFields()}
     FROM project_notes
-    WHERE importance >= ? AND status != 'archived'
+    WHERE importance >= ? AND status != 'archived' ${scope.clause}
     ORDER BY importance DESC, updated_at DESC
     LIMIT ?
-  `).all(minImportance, limit) as any[];
+  `).all(minImportance, ...scope.params, limit) as any[];
   return rows.map(rowToProjectNote);
 }
 
 export function getRecentProjectNotes(limit: number = 10): ProjectNote[] {
   const db = getDatabase();
   const rows = db.prepare(`
-    SELECT id, project, title, note, status, tags, importance, created_at, updated_at, last_recalled_at
+    SELECT ${projectNoteFields()}
     FROM project_notes
     WHERE status != 'archived'
     ORDER BY updated_at DESC, id DESC
@@ -236,7 +241,7 @@ export function getRecentProjectNotes(limit: number = 10): ProjectNote[] {
 export function getAllProjectNotes(): ProjectNote[] {
   const db = getDatabase();
   const rows = db.prepare(`
-    SELECT id, project, title, note, status, tags, importance, created_at, updated_at, last_recalled_at
+    SELECT ${projectNoteFields()}
     FROM project_notes
     ORDER BY status ASC, importance DESC, updated_at DESC
   `).all() as any[];
@@ -264,12 +269,18 @@ export function deleteProjectNote(id: number): boolean {
   return result.changes > 0;
 }
 
-function getProjectNote(project: string, title: string): ProjectNote | undefined {
+function getProjectNote(project: string, title: string, projectId?: number): ProjectNote | undefined {
   const db = getDatabase();
-  const row = db.prepare(`
-    SELECT id, project, title, note, status, tags, importance, created_at, updated_at, last_recalled_at
+  const row = projectId
+    ? db.prepare(`
+    SELECT ${projectNoteFields()}
     FROM project_notes
-    WHERE project = ? AND title = ?
+    WHERE project_id = ? AND title = ?
+  `).get(projectId, title) as any
+    : db.prepare(`
+    SELECT ${projectNoteFields()}
+    FROM project_notes
+    WHERE project_id IS NULL AND project = ? AND title = ?
   `).get(project, title) as any;
   return row ? rowToProjectNote(row) : undefined;
 }
@@ -277,7 +288,7 @@ function getProjectNote(project: string, title: string): ProjectNote | undefined
 function getProjectNoteById(id: number): ProjectNote | undefined {
   const db = getDatabase();
   const row = db.prepare(`
-    SELECT id, project, title, note, status, tags, importance, created_at, updated_at, last_recalled_at
+    SELECT ${projectNoteFields()}
     FROM project_notes
     WHERE id = ?
   `).get(id) as any;
@@ -288,7 +299,8 @@ function upsertProjectNoteIndex(note: ProjectNote): void {
   upsertMemoryIndex(
     'project_notes',
     note.id,
-    `${note.project} ${note.title} ${note.note} ${note.status} ${note.tags.join(' ')}`
+    `${note.project_id || ''} ${note.project} ${note.title} ${note.note} ${note.status} ${note.tags.join(' ')}`,
+    note.project_id,
   );
 }
 
@@ -309,6 +321,7 @@ function markProjectNotesRecalled(ids: number[]): void {
 function rowToProjectNote(row: any): ProjectNote {
   return {
     id: row.id,
+    project_id: row.project_id || undefined,
     project: row.project,
     title: row.title,
     note: row.note,
@@ -319,6 +332,34 @@ function rowToProjectNote(row: any): ProjectNote {
     updated_at: row.updated_at,
     last_recalled_at: row.last_recalled_at || undefined,
   };
+}
+
+function resolveProjectNoteProject(projectId: number | undefined, projectTitle: string): AthenaProject | null {
+  if (projectId !== undefined) {
+    const project = Number.isInteger(projectId) && projectId > 0 ? getProject(projectId) : null;
+    if (!project) throw new Error('Project note requires an existing Project.');
+    return project;
+  }
+  const title = normalizeText(projectTitle);
+  if (!title) return null;
+  const rows = getDatabase().prepare(`
+    SELECT id
+    FROM projects
+    WHERE trim(title) = trim(?) COLLATE NOCASE
+    ORDER BY id ASC
+    LIMIT 2
+  `).all(title) as Array<{ id: number }>;
+  return rows.length === 1 ? getProject(rows[0].id) : null;
+}
+
+function projectNoteFields(): string {
+  return 'id, project_id, project, title, note, status, tags, importance, created_at, updated_at, last_recalled_at';
+}
+
+function projectNoteScope(projectId: number | null | undefined): { clause: string; params: number[] } {
+  if (projectId === undefined) return { clause: '', params: [] };
+  if (projectId === null || !Number.isInteger(projectId) || projectId <= 0) return { clause: 'AND 0', params: [] };
+  return { clause: 'AND project_id = ?', params: [projectId] };
 }
 
 function safeParseTags(value: string | null | undefined): string[] {

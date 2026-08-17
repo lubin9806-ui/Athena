@@ -24,6 +24,7 @@ import type {
 import type { ModelImageInput } from './model';
 
 interface ContextSnapshotOptions {
+  projectId?: number;
   chatWindowId?: number;
   userMessageId?: number;
 }
@@ -96,6 +97,7 @@ export class Conversation {
       userMessage.images = images.map(image => ({ ...image }));
     }
     const contextSnapshot = persistContextSnapshot(prompt.snapshot, {
+      projectId: retrievedContext.chatWindow?.projectId,
       chatWindowId: contextSnapshotOptions?.chatWindowId ?? retrievedContext.chatWindow?.id,
       userMessageId: contextSnapshotOptions?.userMessageId,
     });
@@ -146,6 +148,7 @@ function persistContextSnapshot(
 ): ContextSnapshotRecord | undefined {
   try {
     return saveContextSnapshot({
+      projectId: options.projectId,
       windowId: options.chatWindowId,
       userMessageId: options.userMessageId,
       mode: snapshot.mode,

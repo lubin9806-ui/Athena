@@ -154,7 +154,7 @@ export function updateMemory(kind: MemoryKind, id: number, patch: MemoryUpdatePa
   }
 
   if (kind === 'procedure') {
-    const current = db.prepare('SELECT key, instruction, importance, confidence FROM procedural_memories WHERE id = ?').get(id) as any;
+    const current = db.prepare('SELECT scope, project_id, key, instruction, importance, confidence FROM procedural_memories WHERE id = ?').get(id) as any;
     if (!current) return false;
     const result = db.prepare(`
       UPDATE procedural_memories
@@ -166,7 +166,7 @@ export function updateMemory(kind: MemoryKind, id: number, patch: MemoryUpdatePa
       WHERE id = ?
     `).run(title || current.key, content || current.instruction, importance ?? current.importance, confidence ?? current.confidence, id);
     if (result.changes > 0) {
-      upsertMemoryIndex('procedural_memories', id, `${title || current.key} ${content || current.instruction}`);
+      upsertMemoryIndex('procedural_memories', id, `${title || current.key} ${content || current.instruction}`, current.scope === 'project' ? current.project_id : 0);
     }
     return result.changes > 0;
   }
@@ -206,7 +206,7 @@ export function updateMemory(kind: MemoryKind, id: number, patch: MemoryUpdatePa
   }
 
   if (kind === 'project') {
-    const current = db.prepare('SELECT title, note, importance FROM project_notes WHERE id = ?').get(id) as any;
+    const current = db.prepare('SELECT project_id, title, note, importance FROM project_notes WHERE id = ?').get(id) as any;
     if (!current) return false;
     const result = db.prepare(`
       UPDATE project_notes
@@ -217,7 +217,7 @@ export function updateMemory(kind: MemoryKind, id: number, patch: MemoryUpdatePa
       WHERE id = ?
     `).run(title || current.title, content || current.note, importance ?? current.importance, id);
     if (result.changes > 0) {
-      upsertMemoryIndex('project_notes', id, `${title || current.title} ${content || current.note}`);
+      upsertMemoryIndex('project_notes', id, `${title || current.title} ${content || current.note}`, current.project_id);
     }
     return result.changes > 0;
   }
@@ -454,7 +454,7 @@ function listProceduralMemories(query: string, limit: number): MemoryListItem[] 
   const db = getDatabase();
   const where = query ? 'WHERE key LIKE @like OR instruction LIKE @like OR evidence LIKE @like OR scope LIKE @like' : '';
   const rows = db.prepare(`
-    SELECT id, scope, key, instruction, evidence, confidence, importance, status, created_at, updated_at
+    SELECT id, scope, project_id, key, instruction, evidence, confidence, importance, status, created_at, updated_at
     FROM procedural_memories
     ${where}
     ORDER BY importance DESC, confidence DESC, updated_at DESC
@@ -464,7 +464,7 @@ function listProceduralMemories(query: string, limit: number): MemoryListItem[] 
   return rows.map(row => ({
     id: row.id,
     kind: 'procedure',
-    title: `${row.scope} / ${row.key}`,
+    title: `${row.scope}${row.project_id ? ` #${row.project_id}` : ''} / ${row.key}`,
     content: row.instruction,
     meta: `${row.status} 路 ${row.evidence || 'no evidence'}`,
     confidence: row.confidence,
@@ -525,7 +525,7 @@ function listProjectMemories(query: string, limit: number): MemoryListItem[] {
   const db = getDatabase();
   const where = query ? 'WHERE project LIKE @like OR title LIKE @like OR note LIKE @like OR tags LIKE @like' : '';
   const rows = db.prepare(`
-    SELECT id, project, title, note, status, tags, importance, created_at, updated_at
+    SELECT id, project_id, project, title, note, status, tags, importance, created_at, updated_at
     FROM project_notes
     ${where}
     ORDER BY importance DESC, updated_at DESC

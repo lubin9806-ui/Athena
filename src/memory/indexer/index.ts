@@ -3,6 +3,11 @@ import { getDatabase } from '../database';
 export type IndexedMemoryTable = 'messages' | 'profile' | 'events' | 'daily_memory_summaries' | 'procedural_memories' | 'memory_facts' | 'project_notes';
 export type MemorySearchTerms = string | string[];
 
+export interface MemoryIndexScope {
+  projectId: number | null;
+  includeGlobal?: boolean;
+}
+
 export interface MemoryIndexStats {
   messages: number;
   profile: number;
@@ -32,7 +37,7 @@ export function getMemoryVectorProviderId(): string {
   return memoryVectorProvider?.id || 'local-hash-ngram';
 }
 
-export function upsertMemoryIndex(sourceTable: IndexedMemoryTable, sourceId: number, text: string): void {
+export function upsertMemoryIndex(sourceTable: IndexedMemoryTable, sourceId: number, text: string, projectId?: number | null): void {
   const db = getDatabase();
   const keywords = extractIndexKeywords(text);
   const semanticVector = buildSemanticVector(text);
@@ -43,13 +48,14 @@ export function upsertMemoryIndex(sourceTable: IndexedMemoryTable, sourceId: num
   }
 
   db.prepare(`
-    INSERT INTO memory_index (source_table, source_id, keywords, semantic_vector)
-    VALUES (?, ?, ?, ?)
+    INSERT INTO memory_index (source_table, source_id, project_id, keywords, semantic_vector)
+    VALUES (?, ?, ?, ?, ?)
     ON CONFLICT(source_table, source_id)
-    DO UPDATE SET keywords = excluded.keywords,
+    DO UPDATE SET project_id = COALESCE(excluded.project_id, memory_index.project_id),
+                  keywords = excluded.keywords,
                   semantic_vector = excluded.semantic_vector,
                   created_at = datetime('now', 'localtime')
-  `).run(sourceTable, sourceId, JSON.stringify(keywords), JSON.stringify(semanticVector));
+  `).run(sourceTable, sourceId, projectId ?? null, JSON.stringify(keywords), JSON.stringify(semanticVector));
 }
 
 export function deleteMemoryIndex(sourceTable: IndexedMemoryTable, sourceId: number): void {
@@ -58,26 +64,29 @@ export function deleteMemoryIndex(sourceTable: IndexedMemoryTable, sourceId: num
     .run(sourceTable, sourceId);
 }
 
-export function searchMemoryIndex(sourceTable: IndexedMemoryTable, keywords: MemorySearchTerms, limit: number = 20): number[] {
+export function searchMemoryIndex(sourceTable: IndexedMemoryTable, keywords: MemorySearchTerms, limit: number = 20, scope?: MemoryIndexScope): number[] {
   const terms = normalizeMemorySearchTerms(keywords);
   if (terms.length === 0) return [];
 
   const clauses = terms.map(() => 'keywords LIKE ?').join(' OR ');
+  const keywordRank = terms.map(() => 'CASE WHEN keywords LIKE ? THEN 1 ELSE 0 END').join(' + ');
+  const likeTerms = terms.map(term => `%${term}%`);
+  const scoped = memoryIndexScope(scope);
   const exactRows = getDatabase().prepare(`
     SELECT source_id, keywords, semantic_vector
     FROM memory_index
-    WHERE source_table = ? AND (${clauses})
-    ORDER BY id DESC
+    WHERE source_table = ? ${scoped.clause} AND (${clauses})
+    ORDER BY (${keywordRank}) DESC, id DESC
     LIMIT ?
-  `).all(sourceTable, ...terms.map(term => `%${term}%`), Math.max(limit, Math.min(120, limit * 4))) as MemoryIndexRow[];
+  `).all(sourceTable, ...scoped.params, ...likeTerms, ...likeTerms, Math.max(limit, Math.min(120, limit * 4))) as MemoryIndexRow[];
 
   const semanticRows = getDatabase().prepare(`
     SELECT source_id, keywords, semantic_vector
     FROM memory_index
-    WHERE source_table = ?
+    WHERE source_table = ? ${scoped.clause}
     ORDER BY id DESC
     LIMIT ?
-  `).all(sourceTable, SEMANTIC_SCAN_LIMIT) as MemoryIndexRow[];
+  `).all(sourceTable, ...scoped.params, SEMANTIC_SCAN_LIMIT) as MemoryIndexRow[];
 
   const queryVector = buildSemanticVector(terms.join(' '));
   const scored = new Map<number, number>();
@@ -96,6 +105,19 @@ export function searchMemoryIndex(sourceTable: IndexedMemoryTable, keywords: Mem
     .sort((left, right) => right[1] - left[1])
     .slice(0, Math.max(1, Math.min(100, Math.round(limit))))
     .map(([sourceId]) => sourceId);
+}
+
+function memoryIndexScope(scope: MemoryIndexScope | undefined): { clause: string; params: number[] } {
+  if (!scope) return { clause: '', params: [] };
+  const projectId = Number.isInteger(scope.projectId) && Number(scope.projectId) > 0 ? Number(scope.projectId) : null;
+  if (projectId) {
+    return scope.includeGlobal
+      ? { clause: 'AND (project_id = ? OR project_id = 0)', params: [projectId] }
+      : { clause: 'AND project_id = ?', params: [projectId] };
+  }
+  return scope.includeGlobal
+    ? { clause: 'AND project_id = 0', params: [] }
+    : { clause: 'AND 0', params: [] };
 }
 
 export function normalizeMemorySearchTerms(keywords: MemorySearchTerms, maxTerms = 12): string[] {
@@ -145,9 +167,9 @@ export function rebuildMemoryIndex(): MemoryIndexStats {
     stats.daily_memory_summaries += 1;
   }
 
-  const procedural = db.prepare('SELECT id, scope, key, instruction, evidence FROM procedural_memories WHERE status = \'active\'').all() as any[];
+  const procedural = db.prepare('SELECT id, scope, project_id, key, instruction, evidence FROM procedural_memories WHERE status = \'active\'').all() as any[];
   for (const row of procedural) {
-    upsertMemoryIndex('procedural_memories', row.id, `${row.scope} ${row.key} ${row.instruction} ${row.evidence || ''}`);
+    upsertMemoryIndex('procedural_memories', row.id, `${row.scope} ${row.project_id || ''} ${row.key} ${row.instruction} ${row.evidence || ''}`, row.scope === 'project' ? row.project_id : 0);
     stats.procedural_memories += 1;
   }
 
@@ -157,9 +179,9 @@ export function rebuildMemoryIndex(): MemoryIndexStats {
     stats.memory_facts += 1;
   }
 
-  const projectNotes = db.prepare('SELECT id, project, title, note, status, tags FROM project_notes').all() as any[];
+  const projectNotes = db.prepare('SELECT id, project_id, project, title, note, status, tags FROM project_notes').all() as any[];
   for (const row of projectNotes) {
-    upsertMemoryIndex('project_notes', row.id, `${row.project} ${row.title} ${row.note} ${row.status} ${row.tags || ''}`);
+    upsertMemoryIndex('project_notes', row.id, `${row.project_id || ''} ${row.project} ${row.title} ${row.note} ${row.status} ${row.tags || ''}`, row.project_id);
     stats.project_notes += 1;
   }
 

@@ -207,6 +207,7 @@ function candidatesFromExtractedMemory(
   const sourceTable = options.sourceMessageId ? 'messages' : undefined;
   const sourceId = options.sourceMessageId;
   const chatWindowId = options.chatWindowId;
+  const projectContext = chatWindowId ? resolveReviewProjectContext(chatWindowId) : null;
   const candidates: MemoryReviewCandidate[] = [];
 
   for (const fact of extracted.profileFacts.filter(item => (item.importance ?? 0) >= minImportance)) {
@@ -242,11 +243,14 @@ function candidatesFromExtractedMemory(
   }
 
   if (extracted.projectNote && (extracted.projectNote.importance ?? 0) >= minImportance) {
+    const payload = projectContext
+      ? { ...extracted.projectNote, projectId: projectContext.id, project: projectContext.title }
+      : extracted.projectNote;
     candidates.push({
       kind: 'project',
       title: extracted.projectNote.title,
       content: extracted.projectNote.note,
-      payload: extracted.projectNote as unknown as Record<string, unknown>,
+      payload: payload as unknown as Record<string, unknown>,
       reason: 'project note pattern matched',
       confidence: 0.6,
       importance: extracted.projectNote.importance ?? 5,
@@ -258,11 +262,14 @@ function candidatesFromExtractedMemory(
   }
 
   for (const memory of extracted.proceduralMemories.filter(item => (item.importance ?? 0) >= minImportance)) {
+    const payload = memory.scope === 'project' && projectContext
+      ? { ...memory, projectId: projectContext.id }
+      : memory;
     candidates.push({
       kind: 'procedure',
       title: `${memory.scope || 'global'} / ${memory.key}`,
       content: memory.instruction,
-      payload: memory as unknown as Record<string, unknown>,
+      payload: payload as unknown as Record<string, unknown>,
       reason: 'procedural rule pattern matched; review required before changing assistant behavior',
       confidence: memory.confidence ?? 0.7,
       importance: memory.importance ?? 6,
@@ -294,6 +301,17 @@ function candidatesFromExtractedMemory(
   }
 
   return candidates;
+}
+
+function resolveReviewProjectContext(chatWindowId: number): { id: number; title: string } | null {
+  const row = getDatabase().prepare(`
+    SELECT p.id, p.title
+    FROM chat_windows cw
+    JOIN projects p ON p.id = cw.project_id
+    WHERE cw.id = ? AND cw.deleted_at IS NULL AND p.deleted_at IS NULL
+    LIMIT 1
+  `).get(chatWindowId) as { id: number; title: string } | undefined;
+  return row || null;
 }
 
 function applyPayload(kind: MemoryReviewKind, payload: Record<string, unknown>): { table: string; id: number } {

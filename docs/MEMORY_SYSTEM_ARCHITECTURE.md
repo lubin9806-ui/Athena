@@ -36,6 +36,7 @@ Purpose:
 - Rolling window summary.
 - Pinned facts and working state.
 - Prompt-budget debugging through context snapshots.
+- Snapshot-level Project identity and per-item retrieval provenance.
 
 Retrieval rule:
 - Only the current chat window is loaded.
@@ -80,7 +81,9 @@ Index: `memory_index`
 Purpose:
 - Stable facts about the user, preferences, habits, health notes, and active projects.
 - Project-scoped decisions, status, and constraints.
+- `project_notes.project_id` is authoritative. The title string is display and legacy-import metadata only.
 - Local semantic retrieval stores a small vector beside keyword ngrams in `memory_index.semantic_vector`. The default provider is an offline hashed ngram vector, and the indexer exposes a narrow `MemoryVectorProvider` seam for a future local embedding model. This is not a remote embedding provider; exact keyword search still works when no embedding provider is installed.
+- Scoped index rows carry a Project ID before ranking and limits are applied, preventing another Project from crowding out the active Project's candidates.
 
 Retention:
 - Not governed by daily decay.
@@ -102,6 +105,7 @@ Purpose:
 Safety rule:
 - Procedural memories are retrieved into context, but automatic creation should stay gated behind explicit extraction, evidence, and review controls.
 - They must not silently override system instructions, project instructions, or privacy settings.
+- `scope = 'project'` requires a valid Project ID for all new writes. Legacy project procedures without one remain inspectable but are not prompt-eligible.
 
 Review flow:
 - New procedural and temporal candidates enter `memory_review_queue` unless they satisfy a narrow auto-apply rule.
@@ -142,6 +146,8 @@ The prompt should be assembled in this order:
 12. Older raw history snippets only if budget remains.
 
 The ContextManager remains responsible for token-budget pruning and must log why lower-priority items were omitted.
+
+Every retrieved durable item also produces normalized evidence containing the memory table/id, Project ID when applicable, durable source table/id, review chat window, origin type, and a bounded excerpt. Context snapshots retain that evidence for both included and omitted candidates.
 
 ## Maintenance Jobs
 

@@ -1,4 +1,5 @@
 export interface ProfileEntry {
+  id?: number;
   fact: string;
   confidence: number;
   source?: string;

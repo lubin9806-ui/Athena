@@ -7,7 +7,7 @@ import { ensureSufficientDiskSpace } from '../../core/runtime/DiskSpaceGuard';
 
 let db: Database.Database | null = null;
 let resolvedDbPath: string | null = null;
-export const DATABASE_SCHEMA_VERSION = 11;
+export const DATABASE_SCHEMA_VERSION = 12;
 const MIGRATION_BACKUP_RETENTION = 5;
 
 export interface MemoryStats {
@@ -266,6 +266,7 @@ function runMigrations(database: Database.Database, currentVersion: number): voi
     CREATE TABLE IF NOT EXISTS procedural_memories (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       scope TEXT NOT NULL DEFAULT 'global' CHECK(scope IN ('global', 'project', 'mode', 'tool', 'persona')),
+      project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL,
       key TEXT NOT NULL,
       instruction TEXT NOT NULL,
       evidence TEXT,
@@ -275,7 +276,7 @@ function runMigrations(database: Database.Database, currentVersion: number): voi
       created_at DATETIME DEFAULT (datetime('now', 'localtime')),
       updated_at DATETIME DEFAULT (datetime('now', 'localtime')),
       last_recalled_at DATETIME,
-      UNIQUE(scope, key)
+      CHECK(scope = 'project' OR project_id IS NULL)
     );
     CREATE INDEX IF NOT EXISTS idx_procedural_memories_scope ON procedural_memories(scope, status, importance DESC);
     CREATE INDEX IF NOT EXISTS idx_procedural_memories_updated ON procedural_memories(updated_at DESC);
@@ -342,9 +343,11 @@ function runMigrations(database: Database.Database, currentVersion: number): voi
     );
     CREATE INDEX IF NOT EXISTS idx_memory_review_queue_status ON memory_review_queue(status, created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_memory_review_queue_kind ON memory_review_queue(kind, status, importance DESC);
+    CREATE INDEX IF NOT EXISTS idx_memory_review_queue_applied ON memory_review_queue(applied_table, applied_id, status);
 
     CREATE TABLE IF NOT EXISTS project_notes (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL,
       project TEXT NOT NULL,
       title TEXT NOT NULL,
       note TEXT NOT NULL,
@@ -365,6 +368,7 @@ function runMigrations(database: Database.Database, currentVersion: number): voi
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       source_table TEXT NOT NULL,
       source_id INTEGER NOT NULL,
+      project_id INTEGER,
       keywords TEXT NOT NULL,
       semantic_vector TEXT NOT NULL DEFAULT '[]',
       created_at DATETIME DEFAULT (datetime('now', 'localtime')),
@@ -383,6 +387,7 @@ function runMigrations(database: Database.Database, currentVersion: number): voi
 
     CREATE TABLE IF NOT EXISTS context_snapshots (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL,
       window_id INTEGER REFERENCES chat_windows(id) ON DELETE SET NULL,
       user_message_id INTEGER REFERENCES chat_messages(id) ON DELETE SET NULL,
       mode TEXT CHECK(mode IN ('create', 'companion', 'reason', 'execute')),
@@ -537,13 +542,95 @@ function runMigrations(database: Database.Database, currentVersion: number): voi
     if (!reviewColumns.some(column => column.name === 'group_key')) {
       database.exec('ALTER TABLE memory_review_queue ADD COLUMN group_key TEXT');
     }
+    const proceduralColumns = database.prepare('PRAGMA table_info(procedural_memories)').all() as Array<{ name: string }>;
+    if (!proceduralColumns.some(column => column.name === 'project_id')) {
+      database.exec(`
+        DROP INDEX IF EXISTS idx_procedural_memories_scope;
+        DROP INDEX IF EXISTS idx_procedural_memories_updated;
+        ALTER TABLE procedural_memories RENAME TO procedural_memories_before_v12;
+        CREATE TABLE procedural_memories (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          scope TEXT NOT NULL DEFAULT 'global' CHECK(scope IN ('global', 'project', 'mode', 'tool', 'persona')),
+          project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL,
+          key TEXT NOT NULL,
+          instruction TEXT NOT NULL,
+          evidence TEXT,
+          confidence REAL DEFAULT 0.7,
+          importance INTEGER DEFAULT 6,
+          status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'archived')),
+          created_at DATETIME DEFAULT (datetime('now', 'localtime')),
+          updated_at DATETIME DEFAULT (datetime('now', 'localtime')),
+          last_recalled_at DATETIME,
+          CHECK(scope = 'project' OR project_id IS NULL)
+        );
+        INSERT INTO procedural_memories (
+          id, scope, project_id, key, instruction, evidence, confidence, importance,
+          status, created_at, updated_at, last_recalled_at
+        )
+        SELECT id, scope, NULL, key, instruction, evidence, confidence, importance,
+               status, created_at, updated_at, last_recalled_at
+        FROM procedural_memories_before_v12;
+        DROP TABLE procedural_memories_before_v12;
+      `);
+    }
+    const projectNoteColumns = database.prepare('PRAGMA table_info(project_notes)').all() as Array<{ name: string }>;
+    if (!projectNoteColumns.some(column => column.name === 'project_id')) {
+      database.exec('ALTER TABLE project_notes ADD COLUMN project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL');
+      database.exec(`
+        UPDATE project_notes AS pn
+        SET project_id = (
+          SELECT MIN(p.id)
+          FROM projects p
+          WHERE trim(p.title) = trim(pn.project) COLLATE NOCASE
+          HAVING COUNT(*) = 1
+        )
+        WHERE project_id IS NULL
+      `);
+    }
+    const contextSnapshotColumns = database.prepare('PRAGMA table_info(context_snapshots)').all() as Array<{ name: string }>;
+    if (!contextSnapshotColumns.some(column => column.name === 'project_id')) {
+      database.exec('ALTER TABLE context_snapshots ADD COLUMN project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL');
+      database.exec(`
+        UPDATE context_snapshots
+        SET project_id = (
+          SELECT cw.project_id FROM chat_windows cw WHERE cw.id = context_snapshots.window_id
+        )
+        WHERE project_id IS NULL AND window_id IS NOT NULL
+      `);
+    }
     const memoryIndexColumns = database.prepare('PRAGMA table_info(memory_index)').all() as Array<{ name: string }>;
     if (!memoryIndexColumns.some(column => column.name === 'semantic_vector')) {
       database.exec("ALTER TABLE memory_index ADD COLUMN semantic_vector TEXT NOT NULL DEFAULT '[]'");
     }
+    if (!memoryIndexColumns.some(column => column.name === 'project_id')) {
+      database.exec('ALTER TABLE memory_index ADD COLUMN project_id INTEGER');
+      database.exec(`
+        UPDATE memory_index
+        SET project_id = (
+          SELECT pn.project_id FROM project_notes pn WHERE pn.id = memory_index.source_id
+        )
+        WHERE source_table = 'project_notes'
+      `);
+      database.exec(`
+        UPDATE memory_index
+        SET project_id = (
+          SELECT CASE WHEN pm.scope = 'project' THEN pm.project_id ELSE 0 END
+          FROM procedural_memories pm
+          WHERE pm.id = memory_index.source_id
+        )
+        WHERE source_table = 'procedural_memories'
+      `);
+    }
     database.exec('CREATE INDEX IF NOT EXISTS idx_chat_windows_temporary ON chat_windows(is_temporary, deleted_at, archived_at)');
     database.exec('CREATE INDEX IF NOT EXISTS idx_chat_windows_project ON chat_windows(project_id, deleted_at, archived_at, last_active_at DESC)');
     database.exec('CREATE INDEX IF NOT EXISTS idx_memory_review_queue_group ON memory_review_queue(group_key, status)');
+    database.exec('CREATE INDEX IF NOT EXISTS idx_procedural_memories_scope ON procedural_memories(scope, status, importance DESC)');
+    database.exec('CREATE INDEX IF NOT EXISTS idx_procedural_memories_updated ON procedural_memories(updated_at DESC)');
+    database.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_procedural_memories_unscoped_key ON procedural_memories(scope, key) WHERE project_id IS NULL');
+    database.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_procedural_memories_project_key ON procedural_memories(project_id, key) WHERE scope = 'project' AND project_id IS NOT NULL");
+    database.exec('CREATE INDEX IF NOT EXISTS idx_project_notes_project_id ON project_notes(project_id, status, importance DESC, updated_at DESC)');
+    database.exec('CREATE INDEX IF NOT EXISTS idx_context_snapshots_project_created ON context_snapshots(project_id, created_at DESC)');
+    database.exec('CREATE INDEX IF NOT EXISTS idx_memory_index_project_source ON memory_index(source_table, project_id, source_id)');
     if (process.env.ATHENA_TEST_FAIL_MIGRATION === '1') throw new Error('Injected migration failure');
     database.pragma(`user_version = ${DATABASE_SCHEMA_VERSION}`);
   });

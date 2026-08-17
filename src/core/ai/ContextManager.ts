@@ -1,5 +1,5 @@
 import type { ChatMessage } from './Client';
-import type { ConversationMode, Message, RetrievedContext } from '../../shared/types';
+import type { ConversationMode, MemoryRetrievalEvidence, Message, RetrievedContext } from '../../shared/types';
 
 export type ContextSnapshotItemKind =
   | 'system'
@@ -26,6 +26,7 @@ export interface ContextSnapshotItem {
   preview: string;
   truncated?: boolean;
   originalChars?: number;
+  evidence?: MemoryRetrievalEvidence[];
 }
 
 export interface ContextSnapshotBudget {
@@ -70,6 +71,7 @@ interface ContextCandidate {
   role?: 'user' | 'assistant' | 'system';
   order: number;
   minTokens?: number;
+  evidence?: MemoryRetrievalEvidence[];
 }
 
 interface SelectedCandidate extends ContextCandidate {
@@ -103,7 +105,7 @@ export function buildManagedContext(input: ManagedContextInput): ManagedContextR
     if (remainingTokens >= candidateTokens) {
       selected.push({ ...candidate, content: normalized, truncated: false, originalChars: normalized.length });
       usedTokens += candidateTokens;
-      included.push(snapshotItem(candidate.kind, candidate.label, candidate.priority, normalized, true, 'included', candidate.id));
+      included.push(snapshotItem(candidate.kind, candidate.label, candidate.priority, normalized, true, 'included', candidate.id, candidate.evidence));
       continue;
     }
 
@@ -113,14 +115,14 @@ export function buildManagedContext(input: ManagedContextInput): ManagedContextR
       selected.push({ ...candidate, content: trimmed, truncated: true, originalChars: normalized.length });
       usedTokens += estimateTokens(trimmed);
       included.push({
-        ...snapshotItem(candidate.kind, candidate.label, candidate.priority, trimmed, true, 'trimmed to fit remaining budget', candidate.id),
+        ...snapshotItem(candidate.kind, candidate.label, candidate.priority, trimmed, true, 'trimmed to fit remaining budget', candidate.id, candidate.evidence),
         truncated: true,
         originalChars: normalized.length,
       });
       continue;
     }
 
-    omitted.push(snapshotItem(candidate.kind, candidate.label, candidate.priority, normalized, false, 'lower priority than retained context or no budget remained', candidate.id));
+    omitted.push(snapshotItem(candidate.kind, candidate.label, candidate.priority, normalized, false, 'lower priority than retained context or no budget remained', candidate.id, candidate.evidence));
   }
 
   const systemSections = [
@@ -193,6 +195,16 @@ function buildCandidates(input: ManagedContextInput): ContextCandidate[] {
       role: message.role === 'assistant' ? 'assistant' : 'user',
       order: order += 1,
       minTokens: 32,
+      evidence: [{
+        memoryTable: 'chat_messages',
+        memoryId: message.id,
+        memoryKind: 'message',
+        projectId: chatWindow?.projectId,
+        sourceTable: 'chat_messages',
+        sourceId: message.id,
+        origin: 'record',
+        excerpt: truncateForSnippet(message.content, 240),
+      }],
     });
   });
 
@@ -207,6 +219,7 @@ function buildCandidates(input: ManagedContextInput): ContextCandidate[] {
       content: ['## Pinned facts', ...pinnedFacts.map(fact => `- ${fact.fact}`)].join('\n'),
       placement: 'system',
       order: order += 1,
+      evidence: evidenceFor(input.retrievedContext, 'profile', pinnedFacts.map(fact => fact.id)),
     });
   }
 
@@ -225,6 +238,7 @@ function buildCandidates(input: ManagedContextInput): ContextCandidate[] {
       ].join('\n'),
       placement: 'system',
       order: order += 1,
+      evidence: evidenceFor(input.retrievedContext, 'procedural_memories', proceduralMemories.map(memory => memory.id)),
     });
   }
 
@@ -273,6 +287,7 @@ function buildCandidates(input: ManagedContextInput): ContextCandidate[] {
       ].join('\n'),
       placement: 'system',
       order: order += 1,
+      evidence: evidenceFor(input.retrievedContext, 'project_notes', projectMemory.map(note => note.id)),
     });
   }
 
@@ -297,6 +312,12 @@ function buildCandidates(input: ManagedContextInput): ContextCandidate[] {
       ].join('\n'),
       placement: 'system',
       order: order += 1,
+      evidence: [
+        ...evidenceFor(input.retrievedContext, 'profile', globalFacts.map(fact => fact.id)),
+        ...evidenceFor(input.retrievedContext, 'memory_facts', temporalFacts.map(fact => fact.id)),
+        ...evidenceFor(input.retrievedContext, 'events', globalEvents.map(event => event.id)),
+        ...evidenceFor(input.retrievedContext, 'daily_memory_summaries', dailySummaries.map(summary => summary.id)),
+      ],
     });
   }
 
@@ -330,6 +351,7 @@ function snapshotItem(
   included: boolean,
   reason: string,
   id?: string,
+  evidence?: MemoryRetrievalEvidence[],
 ): ContextSnapshotItem {
   const normalized = normalizeContextText(content);
   return {
@@ -342,7 +364,14 @@ function snapshotItem(
     included,
     reason,
     preview: buildPreview(normalized),
+    ...(evidence && evidence.length > 0 ? { evidence } : {}),
   };
+}
+
+function evidenceFor(context: RetrievedContext, memoryTable: string, ids: Array<number | undefined>): MemoryRetrievalEvidence[] {
+  const wanted = new Set(ids.filter((id): id is number => Number.isInteger(id) && Number(id) > 0));
+  if (wanted.size === 0) return [];
+  return (context.evidence || []).filter(item => item.memoryTable === memoryTable && wanted.has(item.memoryId));
 }
 
 function trimToTokenBudget(value: string, maxTokens: number): string {

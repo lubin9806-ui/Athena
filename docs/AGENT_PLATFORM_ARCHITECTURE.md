@@ -82,12 +82,24 @@ Chat and durable execution now share a validated image-input contract. This is i
 - Ollama image input is enabled only after `/api/show` reports the `vision` capability, then maps to the native `messages[].images` base64 field documented by [Ollama Vision](https://docs.ollama.com/capabilities/vision) and [Show model details](https://docs.ollama.com/api-reference/show-model-details).
 - OpenAI image input maps to Chat Completions content parts only for conservatively recognized current OpenAI vision model families. DeepSeek, Athena Cloud, and custom OpenAI-compatible endpoints do not inherit that claim merely because their wire protocol is compatible.
 - The composer supports up to five previews with explicit removal. Sent images render from a bounded main-process preview IPC; storage paths never cross the preload boundary. A failed request reconciles database state so unsent attachments remain retryable.
-- Text document ingestion, reference-image editing, OCR/extraction, and Project-scoped memory provenance remain subsequent Block 07 work and are not advertised as complete.
+- Text document ingestion, reference-image editing, and OCR/extraction remain subsequent Block 07 work and are not advertised as complete.
 - Acceptance command: `npm.cmd run test:chat-attachments`.
+
+## Block 07B: Project-Isolated Memory and Provenance
+
+Durable Project memory now uses Project IDs as the authority. Human-readable titles remain labels; they are not isolation boundaries.
+
+- SQLite schema v12 adds `project_id` to `project_notes`, `procedural_memories`, `context_snapshots`, and scoped `memory_index` rows. The same project-procedure key may exist independently in multiple Projects.
+- Retrieval for a chat window includes only that Project's notes and project procedures. Global, mode, tool, and persona procedures remain available across Projects. Legacy project procedures without a Project ID and unmatched or ambiguous legacy notes are retained for administration but excluded from Project prompts.
+- Migration backfills a legacy note only when its stored project title matches exactly one Project title, case-insensitively. Duplicate titles never cause an arbitrary assignment.
+- Keyword and local semantic candidates are filtered by Project inside `memory_index`, before candidate limits are applied. Keyword ranking is computed before the bounded result set so a crowded Project index does not hide a stronger match.
+- `RetrievedContext.evidence` normalizes direct records, approved review items, and temporal fact sources. ContextManager attaches the relevant evidence to each included or omitted snapshot item, and snapshots persist their Project ID.
+- The memory panel reports the number of distinct retained sources. Privacy export already includes the underlying review, fact-source, Project, index, and snapshot records.
+- Acceptance command: `npm.cmd run test:project-memory`.
 
 ## Block 01: Durable Agent Domain
 
-The canonical implementation is under `src/core/agent`. These records were introduced in SQLite schema v10; current schema v11 adds governed chat attachments without changing their contracts:
+The canonical implementation is under `src/core/agent`. These records were introduced in SQLite schema v10; current schema v12 adds governed attachments and Project-isolated memory without changing their contracts:
 
 - `agent_tasks`: durable user intent and the normalized `TaskSpec`.
 - `agent_runs`: one execution attempt with scene, strategy, provider, model, checkpoint state, phase, and revision.

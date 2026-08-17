@@ -11,3 +11,4 @@ export * from './extractor';
 export * from './review';
 export * from './admin';
 export * from './indexer';
+export * from './provenance';

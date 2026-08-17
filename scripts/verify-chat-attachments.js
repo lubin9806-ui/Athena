@@ -83,7 +83,7 @@ try {
   assert.equal(service.removePending(windowB.id, escapeAttempt.id), true);
 
   const schemaVersion = Number(memory.getDatabase().pragma('user_version', { simple: true }));
-  assert.equal(schemaVersion, 11);
+  assert.equal(schemaVersion, 12);
   console.log('ATHENA_CHAT_ATTACHMENTS_OK formats=png,jpeg,webp max=5 isolation=window integrity=sha256 cleanup=temporary,stale');
 } catch (error) {
   console.error(error);

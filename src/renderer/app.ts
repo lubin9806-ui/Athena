@@ -253,10 +253,20 @@ interface ContextSnapshotDebugItem {
   included: boolean;
   chars: number;
   estimatedTokens: number;
+  evidence?: Array<{
+    memoryTable: string;
+    memoryId: number;
+    sourceTable: string;
+    sourceId?: number;
+    chatWindowId?: number;
+    projectId?: number;
+    origin: string;
+  }>;
 }
 
 interface ContextSnapshotRecord {
   id: number;
+  project_id?: number;
   window_id?: number;
   budget: {
     maxPromptTokens?: number;
@@ -3243,9 +3253,13 @@ function renderContextBudget(snapshot: ContextSnapshotRecord | null, visibleMess
       : '暂无';
   const memoryCount = included.filter(item => (
     item.kind === 'pinned_fact'
+    || item.kind === 'procedural_memory'
     || item.kind === 'project_memory'
     || item.kind === 'global_memory'
   )).length;
+  const sourceCount = new Set(included.flatMap(item => item.evidence || []).map(item => (
+    `${item.memoryTable}:${item.memoryId}:${item.sourceTable}:${item.sourceId || ''}`
+  ))).size;
   const estimatedTokens = snapshot.budget?.estimatedPromptTokens ?? snapshot.estimated_prompt_tokens;
   const maxTokens = snapshot.budget?.maxPromptTokens;
   const chars = snapshot.budget?.promptChars ?? snapshot.prompt_chars;
@@ -3273,6 +3287,7 @@ function renderContextBudget(snapshot: ContextSnapshotRecord | null, visibleMess
   appendContextStat('摘要', summaryState);
   appendContextStat('记忆', `${memoryCount} 项`);
   appendContextStat('Token', maxTokens ? `${estimatedTokens}/${maxTokens}` : String(estimatedTokens));
+  appendContextStat('来源', `${sourceCount} 条`);
   appendContextStat('字符', String(chars));
   appendContextStat('消息组', String(snapshot.budget?.promptMessageCount ?? snapshot.prompt_message_count));
 }

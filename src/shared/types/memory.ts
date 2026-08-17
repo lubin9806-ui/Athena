@@ -33,6 +33,7 @@ export interface DailyMemorySummary {
 export interface ProceduralMemory {
   id: number;
   scope: 'global' | 'project' | 'mode' | 'tool' | 'persona';
+  project_id?: number;
   key: string;
   instruction: string;
   evidence?: string;
@@ -84,6 +85,7 @@ export interface MemoryReviewItem {
 
 export interface ProjectNote {
   id: number;
+  project_id?: number;
   project: string;
   title: string;
   note: string;
@@ -93,6 +95,18 @@ export interface ProjectNote {
   created_at: string;
   updated_at: string;
   last_recalled_at?: string;
+}
+
+export interface MemoryRetrievalEvidence {
+  memoryTable: string;
+  memoryId: number;
+  memoryKind: 'profile' | 'procedure' | 'fact' | 'event' | 'daily' | 'project' | 'message';
+  projectId?: number;
+  sourceTable: string;
+  sourceId?: number;
+  chatWindowId?: number;
+  origin: 'record' | 'review' | 'fact_source' | 'legacy';
+  excerpt?: string;
 }
 
 export interface ChatWindowContext {
@@ -118,6 +132,7 @@ export interface RetrievedContext {
   projectNotes: ProjectNote[];
   recentMessages: Message[];
   chatWindow?: ChatWindowContext;
+  evidence: MemoryRetrievalEvidence[];
   relevanceScore: number;
 }
 
@@ -133,10 +148,12 @@ export interface ContextSnapshotDebugItem {
   preview?: string;
   truncated?: boolean;
   originalChars?: number;
+  evidence?: MemoryRetrievalEvidence[];
 }
 
 export interface ContextSnapshotRecord {
   id: number;
+  project_id?: number;
   window_id?: number;
   user_message_id?: number;
   mode?: ConversationMode;

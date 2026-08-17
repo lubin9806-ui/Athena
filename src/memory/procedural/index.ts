@@ -4,6 +4,7 @@ import type { ProceduralMemory } from '../../shared/types';
 
 export interface ProceduralMemoryInput {
   scope?: ProceduralMemory['scope'];
+  projectId?: number;
   key: string;
   instruction: string;
   evidence?: string;
@@ -14,65 +15,74 @@ export interface ProceduralMemoryInput {
 export function upsertProceduralMemory(input: ProceduralMemoryInput): ProceduralMemory {
   const db = getDatabase();
   const scope = cleanScope(input.scope);
+  const projectId = resolveProceduralProjectId(scope, input.projectId);
   const key = normalizeText(input.key).slice(0, 120);
   const instruction = normalizeText(input.instruction).slice(0, 2_000);
   const evidence = input.evidence ? normalizeText(input.evidence).slice(0, 2_000) : undefined;
   if (!key || !instruction) throw new Error('Procedural memory requires a key and instruction.');
 
-  const result = db.prepare(`
-    INSERT INTO procedural_memories (scope, key, instruction, evidence, confidence, importance)
-    VALUES (?, ?, ?, ?, ?, ?)
-    ON CONFLICT(scope, key)
-    DO UPDATE SET instruction = excluded.instruction,
-                  evidence = excluded.evidence,
-                  confidence = MAX(confidence, excluded.confidence),
-                  importance = MAX(importance, excluded.importance),
-                  status = 'active',
-                  updated_at = datetime('now', 'localtime')
-  `).run(scope, key, instruction, evidence || null, clampConfidence(input.confidence ?? 0.7), clampImportance(input.importance ?? 6));
-
-  const existing = db.prepare('SELECT id FROM procedural_memories WHERE scope = ? AND key = ?').get(scope, key) as { id: number } | undefined;
-  const id = existing?.id || result.lastInsertRowid as number;
-  upsertMemoryIndex('procedural_memories', id, `${scope} ${key} ${instruction} ${evidence || ''}`);
+  const existing = projectId
+    ? db.prepare("SELECT id FROM procedural_memories WHERE scope = 'project' AND project_id = ? AND key = ?").get(projectId, key) as { id: number } | undefined
+    : db.prepare('SELECT id FROM procedural_memories WHERE scope = ? AND project_id IS NULL AND key = ?').get(scope, key) as { id: number } | undefined;
+  const confidence = clampConfidence(input.confidence ?? 0.7);
+  const importance = clampImportance(input.importance ?? 6);
+  let id: number;
+  if (existing) {
+    db.prepare(`
+      UPDATE procedural_memories
+      SET instruction = ?, evidence = ?, confidence = MAX(confidence, ?), importance = MAX(importance, ?),
+          status = 'active', updated_at = datetime('now', 'localtime')
+      WHERE id = ?
+    `).run(instruction, evidence || null, confidence, importance, existing.id);
+    id = existing.id;
+  } else {
+    id = db.prepare(`
+      INSERT INTO procedural_memories (scope, project_id, key, instruction, evidence, confidence, importance)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(scope, projectId || null, key, instruction, evidence || null, confidence, importance).lastInsertRowid as number;
+  }
+  upsertMemoryIndex('procedural_memories', id, `${scope} ${projectId || ''} ${key} ${instruction} ${evidence || ''}`, scope === 'project' ? projectId : 0);
   return getProceduralMemory(id) as ProceduralMemory;
 }
 
-export function searchProceduralMemories(keyword: MemorySearchTerms, limit = 10): ProceduralMemory[] {
+export function searchProceduralMemories(keyword: MemorySearchTerms, limit = 10, projectId?: number | null): ProceduralMemory[] {
   const db = getDatabase();
   const safeLimit = Math.max(1, Math.min(50, Math.round(limit)));
   const terms = normalizeMemorySearchTerms(keyword);
   if (terms.length === 0) return [];
-  const indexedIds = searchMemoryIndex('procedural_memories', terms, safeLimit);
+  const indexedIds = searchMemoryIndex('procedural_memories', terms, safeLimit, projectId === undefined ? undefined : { projectId, includeGlobal: true });
+  const scope = proceduralScope(projectId);
   const rows = indexedIds.length > 0
     ? db.prepare(`
         SELECT ${proceduralFields()}
         FROM procedural_memories
-        WHERE id IN (${placeholders(indexedIds)}) AND status = 'active'
+        WHERE id IN (${placeholders(indexedIds)}) AND status = 'active' ${scope.clause}
         ORDER BY importance DESC, confidence DESC, updated_at DESC
         LIMIT ?
-      `).all(...indexedIds, safeLimit) as any[]
+      `).all(...indexedIds, ...scope.params, safeLimit) as any[]
     : db.prepare(`
         SELECT ${proceduralFields()}
         FROM procedural_memories
-        WHERE status = 'active'
+        WHERE status = 'active' ${scope.clause}
           AND (${likeClauses(['key', 'instruction', 'evidence', 'scope'], terms)})
         ORDER BY importance DESC, confidence DESC, updated_at DESC
         LIMIT ?
-      `).all(...likeValues(['key', 'instruction', 'evidence', 'scope'], terms), safeLimit) as any[];
+      `).all(...scope.params, ...likeValues(['key', 'instruction', 'evidence', 'scope'], terms), safeLimit) as any[];
 
   const memories = rows.map(rowToProceduralMemory);
   markProceduralMemoriesRecalled(memories.map(memory => memory.id));
   return memories;
 }
 
-export function getImportantProceduralMemories(minImportance = 7, limit = 10): ProceduralMemory[] {
+export function getImportantProceduralMemories(minImportance = 7, limit = 10, projectId?: number | null): ProceduralMemory[] {
+  const scope = proceduralScope(projectId);
   const rows = getDatabase().prepare(`
     SELECT ${proceduralFields()}
     FROM procedural_memories
-    WHERE status = 'active' AND importance >= ?
+    WHERE status = 'active' AND importance >= ? ${scope.clause}
     ORDER BY importance DESC, confidence DESC, updated_at DESC
     LIMIT ?
-  `).all(clampImportance(minImportance), Math.max(1, Math.min(50, Math.round(limit)))) as any[];
+  `).all(clampImportance(minImportance), ...scope.params, Math.max(1, Math.min(50, Math.round(limit)))) as any[];
   return rows.map(rowToProceduralMemory);
 }
 
@@ -106,13 +116,14 @@ function markProceduralMemoriesRecalled(ids: number[]): void {
 }
 
 function proceduralFields(): string {
-  return 'id, scope, key, instruction, evidence, confidence, importance, status, created_at, updated_at, last_recalled_at';
+  return 'id, scope, project_id, key, instruction, evidence, confidence, importance, status, created_at, updated_at, last_recalled_at';
 }
 
 function rowToProceduralMemory(row: any): ProceduralMemory {
   return {
     id: row.id,
     scope: cleanScope(row.scope),
+    project_id: row.project_id || undefined,
     key: row.key,
     instruction: row.instruction,
     evidence: row.evidence || undefined,
@@ -123,6 +134,25 @@ function rowToProceduralMemory(row: any): ProceduralMemory {
     updated_at: row.updated_at || undefined,
     last_recalled_at: row.last_recalled_at || undefined,
   };
+}
+
+function resolveProceduralProjectId(scope: ProceduralMemory['scope'], value: number | undefined): number | undefined {
+  if (scope !== 'project') {
+    if (value !== undefined) throw new Error('Only project-scoped procedural memory can reference a Project.');
+    return undefined;
+  }
+  if (!Number.isInteger(value) || Number(value) <= 0) throw new Error('Project-scoped procedural memory requires a Project ID.');
+  const row = getDatabase().prepare('SELECT id FROM projects WHERE id = ? AND deleted_at IS NULL').get(value) as { id: number } | undefined;
+  if (!row) throw new Error('Project-scoped procedural memory references an unavailable Project.');
+  return row.id;
+}
+
+function proceduralScope(projectId: number | null | undefined): { clause: string; params: number[] } {
+  if (projectId === undefined) return { clause: '', params: [] };
+  if (projectId === null || !Number.isInteger(projectId) || projectId <= 0) {
+    return { clause: "AND scope != 'project'", params: [] };
+  }
+  return { clause: "AND (scope != 'project' OR project_id = ?)", params: [projectId] };
 }
 
 function cleanScope(value: unknown): ProceduralMemory['scope'] {
