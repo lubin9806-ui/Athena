@@ -110,6 +110,9 @@ declare global {
       getPrivacyCenter: () => Promise<PrivacyCenterState | null>;
       exportPrivacyData: (format?: 'json' | 'markdown') => Promise<{ path: string; bytes: number } | null>;
       clearLocalData: () => Promise<{ deletedTables: string[]; voiceCacheFilesDeleted: number; skillInvocationsDeleted: number } | null>;
+      getDiagnosticHealth: () => Promise<DiagnosticHealthSnapshot | null>;
+      exportDiagnosticSupport: () => Promise<DiagnosticBundleResult | null>;
+      clearDiagnostics: () => Promise<{ filesDeleted: number } | null>;
       speakText: (text: string) => Promise<VoiceResult>;
       playAudioFile: (sourcePath: string) => Promise<VoiceResult>;
       chooseAudioFile: () => Promise<string | null>;
@@ -851,6 +854,18 @@ interface PrivacyCenterState {
   paths: Record<string, string>;
 }
 
+interface DiagnosticHealthSnapshot {
+  storage: { database: { quickCheck: 'ok' | 'failed' }; diagnostics: { files: number; bytes: number } };
+  agent: { runsByStatus: Record<string, number> };
+}
+
+interface DiagnosticBundleResult {
+  path: string;
+  bytes: number;
+  sha256: string;
+  privacy: 'no-chat-content';
+}
+
 const appShell = mustGet<HTMLElement>('app-shell');
 const themeController = new ThemeController(document.documentElement, appShell);
 const selectControls = new SelectControlManager(appShell);
@@ -1104,6 +1119,9 @@ const privacyDataMap = mustGet<HTMLElement>('privacy-data-map');
 const privacyStaticDecision = mustGet<HTMLElement>('privacy-static-decision');
 const privacyExport = mustGet<HTMLButtonElement>('privacy-export');
 const privacyClear = mustGet<HTMLButtonElement>('privacy-clear');
+const diagnosticsExport = mustGet<HTMLButtonElement>('diagnostics-export');
+const diagnosticsClear = mustGet<HTMLButtonElement>('diagnostics-clear');
+const diagnosticsSummary = mustGet<HTMLElement>('diagnostics-summary');
 const settingsFeedback = mustGet<HTMLElement>('settings-feedback');
 
 relaxPersonaEditorInputLimits();
@@ -1617,6 +1635,8 @@ function init(): void {
   privacyClear.addEventListener('click', () => {
     void clearLocalData();
   });
+  diagnosticsExport.addEventListener('click', () => void exportDiagnosticSupport());
+  diagnosticsClear.addEventListener('click', () => void clearDiagnostics());
   inputBox.addEventListener('keydown', handleInputKeydown);
   inputBox.addEventListener('input', resizeInputBox);
   composerMoreBtn.addEventListener('click', () => toggleComposerTools());
@@ -4615,8 +4635,45 @@ async function loadPrivacyCenter(): Promise<void> {
     if (!state) return;
     renderPrivacyDataMap(state.dataMap);
     renderStaticProtectionDecision(state.staticProtection);
+    await loadDiagnosticHealth();
   } catch (error) {
     privacyDataMap.textContent = `隐私中心加载失败：${error instanceof Error ? error.message : String(error)}`;
+  }
+}
+
+async function loadDiagnosticHealth(): Promise<void> {
+  try {
+    const health = await window.athenaAPI.getDiagnosticHealth();
+    if (!health) return;
+    const runs = Object.values(health.agent.runsByStatus).reduce((sum, value) => sum + value, 0);
+    diagnosticsSummary.textContent = `诊断：数据库 ${health.storage.database.quickCheck === 'ok' ? '正常' : '异常'} · ${health.storage.diagnostics.files} 个崩溃文件 · ${runs} 次 Agent 运行`;
+    diagnosticsSummary.dataset.kind = health.storage.database.quickCheck === 'ok' ? 'success' : 'error';
+  } catch (error) {
+    diagnosticsSummary.textContent = `诊断加载失败：${error instanceof Error ? error.message : String(error)}`;
+    diagnosticsSummary.dataset.kind = 'error';
+  }
+}
+
+async function exportDiagnosticSupport(): Promise<void> {
+  setSettingsFeedback('正在生成本地诊断支持包...');
+  try {
+    const result = await window.athenaAPI.exportDiagnosticSupport();
+    if (!result) throw new Error('诊断导出请求被拒绝');
+    setSettingsFeedback(`诊断支持包已导出 ${Math.round(result.bytes / 1024)} KB：${result.path}`, 'success');
+    await loadDiagnosticHealth();
+  } catch (error) {
+    setSettingsFeedback(`诊断导出失败：${error instanceof Error ? error.message : String(error)}`, 'error');
+  }
+}
+
+async function clearDiagnostics(): Promise<void> {
+  try {
+    const result = await window.athenaAPI.clearDiagnostics();
+    if (!result) throw new Error('诊断清除请求被拒绝');
+    setSettingsFeedback(`已清除 ${result.filesDeleted} 个本机诊断文件`, 'success');
+    await loadDiagnosticHealth();
+  } catch (error) {
+    setSettingsFeedback(`诊断清除失败：${error instanceof Error ? error.message : String(error)}`, 'error');
   }
 }
 

@@ -13,7 +13,7 @@
 | 语音文件 | `%TEMP%\athena\voice` 或 `ATHENA_VOICE_TEMP_DIR` | Desktop 当前 Whisper STT 与 Windows SAPI TTS 均在本机处理 | 录音转写后删除；WAV TTS 缓存按小时清理；一键清除删除 |
 | 工具记录 | SQLite 最小活动记录；执行面板内存态详细记录 | 外部 HTTP/TCP 需外网工具同意和逐次确认；localhost 不算外部网络 | 历史关闭时不记录；历史保留期自动清理；当前窗口执行记录不持久化 |
 | 任务产物文件 | 当前 Project 根目录下的 `.athena/artifacts/<task-id>` | 文档生成完全本地；生图仅在独立同意与逐次审批后向 OpenAI 发送提示词 | 任务数据库记录可一键清除；实际文件由用户在 Project 中保留或删除 |
-| 日志/崩溃诊断 | stdout/stderr；`%TEMP%\athena\diagnostics\crash-diagnostics.jsonl` | 不自动上传 | 诊断脱敏、单文件 1 MB、最多 3 个轮转文件；用户可删除 diagnostics 目录 |
+| 日志/崩溃诊断 | stdout/stderr；`%TEMP%\athena\diagnostics\crash-diagnostics.jsonl` | 不自动上传 | 诊断脱敏、单文件 1 MB、最多 3 个轮转文件；隐私中心可导出无聊天内容的支持包或只删除已知诊断文件 |
 | 临时文件 | 语音缓存、导出目录、数据库迁移备份 | 不自动上传 | 语音缓存自动清理；迁移备份用于失败恢复；导出文件由用户管理 |
 
 ## 联网能力与首次同意

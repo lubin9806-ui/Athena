@@ -13,6 +13,7 @@ import type { AppSettings, NetworkConsentSettings, PrivacySettings } from '../..
 import { APP_VERSION } from '../../shared/constants';
 import { resolveAttachmentRoot } from '../attachments';
 import { resolveProjectDocumentRoot } from '../documents';
+import { getDiagnosticsDir } from '../runtime/CrashDiagnostics';
 
 export type DataActivityCategory = 'search' | 'voice' | 'tool' | 'settings' | 'maintenance';
 export type ExportFormat = 'json' | 'markdown';
@@ -58,6 +59,7 @@ export interface PrivacyCenterState {
     backups: string;
     attachments: string;
     documents: string;
+    diagnostics: string;
   };
 }
 
@@ -101,6 +103,7 @@ export function getPrivacyCenterState(): PrivacyCenterState {
       backups: getDatabaseBackupDir(),
       attachments: resolveAttachmentRoot(),
       documents: resolveProjectDocumentRoot(),
+      diagnostics: getDiagnosticsDir(),
     },
   };
 }
@@ -415,7 +418,7 @@ function buildDataMap(settings: AppSettings): DataMapItem[] {
       locations: ['stdout/stderr', process.env.ATHENA_DIAGNOSTICS_DIR || path.join(os.tmpdir(), 'athena', 'diagnostics'), path.join(resolveProjectRoot(), 'logs')],
       leavesDevice: '不会由应用自动上传。',
       retention: '崩溃诊断单文件 1 MB、最多 3 个轮转文件；来源不明 logs/ 文件不由本窗口删除',
-      controls: ['脱敏回归测试', '删除本机 diagnostics 目录', '手工发布证据归档'],
+      controls: ['脱敏回归测试', '导出无聊天内容的诊断支持包', '只删除已知崩溃诊断文件', '手工发布证据归档'],
     },
     {
       id: 'temporary-files',
@@ -578,7 +581,7 @@ function renderMarkdownExport(payload: Record<string, unknown>): string {
   ].join('\n');
 }
 
-function getExportDir(): string {
+export function getExportDir(): string {
   return process.env.ATHENA_EXPORT_DIR || path.join(resolveProjectRoot(), 'exports');
 }
 

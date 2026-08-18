@@ -981,8 +981,11 @@
             </label>
             <div class="privacy-actions">
               <button id="privacy-export" class="settings-panel-link" type="button">导出全部本机数据</button>
+              <button id="diagnostics-export" class="settings-panel-link" type="button">导出诊断支持包</button>
+              <button id="diagnostics-clear" class="settings-panel-link" type="button">清除诊断</button>
               <button id="privacy-clear" class="settings-panel-link settings-panel-danger" type="button">一键清除本机数据</button>
             </div>
+            <div id="diagnostics-summary" class="settings-note" role="status" aria-live="polite"></div>
             <div class="settings-note settings-note-warning">静态保护决策：当前 SQLite 仍是明文；本版本不得宣称“已加密存储”。升级前会备份数据库，迁移失败会恢复。</div>
             <div id="privacy-static-decision" class="privacy-static-decision"></div>
             <div id="privacy-data-map" class="privacy-data-map"></div>

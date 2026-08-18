@@ -2,6 +2,7 @@
 
 import { ipcMain, BrowserWindow, dialog, IpcMainEvent, IpcMainInvokeEvent, shell } from 'electron';
 import { AthenaController } from '../../core/controller/AthenaController';
+import { DiagnosticsService } from '../../core/diagnostics';
 import { getAppSettings, getSettingsBundle, saveSettingsBundle } from '../../core/config/SettingsStore';
 import {
   applyDataRetention,
@@ -141,6 +142,9 @@ const INVOKE_CHANNELS = [
   'privacy:get',
   'privacy:export',
   'privacy:clearLocalData',
+  'diagnostics:getHealth',
+  'diagnostics:exportSupport',
+  'diagnostics:clear',
   'voice:requestMicrophoneAccess',
   'voice:speak',
   'voice:play',
@@ -157,6 +161,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<vo
   clearIpcHandlers();
 
   const controller = new AthenaController();
+  const diagnostics = new DiagnosticsService();
   const voice = new VoiceService();
   let documentOcrAbort: AbortController | null = null;
   let documentOcrBusy = false;
@@ -853,6 +858,26 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<vo
       clearAttachmentFiles: () => controller.clearAttachmentFiles(),
       clearProjectDocumentFiles: () => controller.clearProjectDocumentFiles(),
     });
+  });
+
+  const diagnosticSupplemental = () => ({
+    skills: controller.getSkillPrivacyData(),
+    integrations: controller.getMcpPrivacyData(),
+  });
+
+  ipcMain.handle('diagnostics:getHealth', async (event) => {
+    if (!isTrustedSender(event)) return null;
+    return diagnostics.getHealthSnapshot(diagnosticSupplemental());
+  });
+
+  ipcMain.handle('diagnostics:exportSupport', async (event) => {
+    if (!isTrustedSender(event)) return null;
+    return diagnostics.exportSupportBundle(diagnosticSupplemental());
+  });
+
+  ipcMain.handle('diagnostics:clear', async (event) => {
+    if (!isTrustedSender(event)) return null;
+    return diagnostics.clear();
   });
 
   ipcMain.handle('voice:speak', async (event, text: unknown) => {

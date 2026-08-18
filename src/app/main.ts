@@ -330,6 +330,9 @@ function createWindow(): void {
                document.getElementById('privacy-data-map') &&
                document.getElementById('privacy-static-decision') &&
                document.getElementById('privacy-export') &&
+               document.getElementById('diagnostics-export') &&
+               document.getElementById('diagnostics-clear') &&
+               document.getElementById('diagnostics-summary') &&
                document.getElementById('privacy-clear') &&
                micButton &&
               document.getElementById('voice-file-btn') &&
@@ -342,6 +345,9 @@ function createWindow(): void {
               && typeof api.getPrivacyCenter === 'function'
               && typeof api.exportPrivacyData === 'function'
               && typeof api.clearLocalData === 'function'
+              && typeof api.getDiagnosticHealth === 'function'
+              && typeof api.exportDiagnosticSupport === 'function'
+              && typeof api.clearDiagnostics === 'function'
               && typeof api.cancelExecution === 'function'
               && typeof api.getToolCatalog === 'function'
               && typeof api.chooseProjectDocuments === 'function'
@@ -964,6 +970,41 @@ function createWindow(): void {
           console.log('ATHENA_SMOKE_ATTACHMENT_LAYOUT', JSON.stringify(attachmentLayout));
           if (!attachmentLayout?.valid) throw new Error('Attachment composer layout overlaps');
         }
+        if (smokePanel === 'settings') {
+          const diagnosticLayout = await mainWindow.webContents.executeJavaScript(`
+            (async () => {
+              const panel = document.getElementById('settings-panel');
+              const form = document.getElementById('settings-form');
+              const target = document.getElementById('diagnostics-summary');
+              const section = target?.closest('details');
+              if (!panel || !form || !target || !(section instanceof HTMLDetailsElement)) return null;
+              section.open = true;
+              window.scrollTo(0, 0);
+              await new Promise(resolve => setTimeout(resolve, 450));
+              form.scrollTop = Math.max(0, target.offsetTop - form.clientHeight + target.offsetHeight + 80);
+              await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+              const panelRect = panel.getBoundingClientRect();
+              const ids = ['privacy-export', 'diagnostics-export', 'diagnostics-clear', 'privacy-clear', 'diagnostics-summary'];
+              const rects = Object.fromEntries(ids.map(id => {
+                const element = document.getElementById(id);
+                if (!element) return [id, null];
+                const rect = element.getBoundingClientRect();
+                return [id, { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, width: rect.width, height: rect.height }];
+              }));
+              const valid = Object.values(rects).every(rect => rect
+                && rect.left >= panelRect.left && rect.right <= panelRect.right
+                && rect.top >= panelRect.top && rect.bottom <= panelRect.bottom);
+              return {
+                valid,
+                panel: { left: panelRect.left, right: panelRect.right },
+                scroll: { top: form.scrollTop, height: form.scrollHeight, client: form.clientHeight, targetOffset: target.offsetTop },
+                rects,
+              };
+            })()
+          `);
+          console.log('ATHENA_SMOKE_DIAGNOSTICS_LAYOUT', JSON.stringify(diagnosticLayout));
+          if (!diagnosticLayout?.valid) throw new Error('Diagnostics privacy controls overflow the settings panel');
+        }
         fs.mkdirSync(path.dirname(smokeScreenshotPath), { recursive: true });
         const layoutState = await mainWindow.webContents.executeJavaScript(`
           (() => {
@@ -984,12 +1025,14 @@ function createWindow(): void {
         console.log(`ATHENA_SMOKE_SCREENSHOT ${smokeScreenshotPath}`);
       } catch (error) {
         console.error('ATHENA_SMOKE_SCREENSHOT_FAILED', error);
+        domReady = false;
       } finally {
         if (!wasVisible) mainWindow.hide();
       }
     }
     logSmokeReady();
     console.log(domReady ? 'ATHENA_SMOKE_DOM_OK' : 'ATHENA_SMOKE_DOM_MISSING');
+    process.exitCode = domReady ? 0 : 1;
     setTimeout(() => app.exit(domReady ? 0 : 1), 50);
   });
 

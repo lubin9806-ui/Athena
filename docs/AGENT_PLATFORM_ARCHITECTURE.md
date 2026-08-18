@@ -122,6 +122,16 @@ SQLite schema v14 records whether Project PDFs still contain unextracted scan pa
 - Built-in `local-ocr` and `reference-image-editing` Skills provide progressive-disclosure operating instructions; they do not grant permissions or execute scripts.
 - Acceptance commands: `npm.cmd run test:local-ocr`, `npm.cmd run test:artifact-tools`, and `npm.cmd run test:project-documents`.
 
+## Block 08A: Local Diagnostics and Support Evidence
+
+Desktop diagnostics are a local, user-controlled support surface rather than background telemetry.
+
+- `DiagnosticsService` builds a bounded health snapshot from runtime versions, SQLite schema/quick-check, storage sizes, capability states, and aggregate Agent/extension counts. It does not perform network probes or upload data.
+- The ZIP support bundle contains only `README.txt`, `health.json`, minimized crash metadata, and a SHA-256 manifest. It excludes chat and memory text, task titles/goals, tool inputs/results, commands, URLs, model names, attachments, documents, raw stack traces, credentials, and full user paths.
+- Crash JSONL remains secret-redacted, 1 MB per active file, and at most three rotated files. Rotation removes the oldest destination before rename so Windows does not fail on an existing `.3` file. Diagnostic failures are swallowed by the crash monitor to avoid a second process failure.
+- The privacy center shows the local health state and offers explicit support-bundle export and diagnostics-only deletion. Athena never uploads a support bundle automatically, and deletion targets only the four known crash filenames rather than recursively removing a configured directory.
+- Acceptance command: `npm.cmd run test:diagnostics`.
+
 ## Block 01: Durable Agent Domain
 
 The canonical implementation is under `src/core/agent`. These records were introduced in SQLite schema v10; current schema v14 adds governed attachments, Project-isolated memory, local document grounding, and OCR provenance without changing their contracts:
