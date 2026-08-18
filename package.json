@@ -38,6 +38,7 @@
     "test:update-policy": "tsc && node scripts/verify-update-policy.js",
     "test:desktop-faults": "tsc && node scripts/verify-desktop-faults.js",
     "test:desktop-reliability": "tsc && electron scripts/verify-desktop-reliability.js",
+    "test:desktop-package": "node scripts/verify-desktop-package.js",
     "test:commercial": "tsc && node scripts/verify-commercial-readiness.js",
     "test:steam": "tsc && electron scripts/verify-steam.js && node scripts/verify-steam-candidate.js --source-only",
     "test:store": "tsc && node scripts/verify-microsoft-store.js --source-only",
