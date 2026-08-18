@@ -1,6 +1,6 @@
 # Athena Desktop 1.0 Go/No-Go
 
-> 窗口 07 / ATH-DESKTOP-002 + ATH-PRODUCT-001。复核日期：2026-07-16。目标范围只包含 Universal 与 Desktop Direct，不借用 Steam、Cloud 或 Mobile 的未来能力。
+> 窗口 07 / ATH-DESKTOP-002 + ATH-PRODUCT-001。最近工程复核：2026-08-18。目标范围只包含 Universal 与 Desktop Direct，不借用 Steam、Cloud 或 Mobile 的未来能力。
 
 ## 最终结论
 
@@ -33,12 +33,14 @@ Universal 分区中，安全已取得 10 项通过，但签名/恶意软件扫�
 - `npm.cmd run test:commercial` 输出 `ATHENA_COMMERCIAL_READINESS_OK sku=athena-desktop-personal-v1 model=one_time devices=2 productionBlockers=8`。
 - 开发态 Electron smoke 输出 `ATHENA_SMOKE_READY_TO_SHOW` 与 `ATHENA_SMOKE_DOM_OK`。
 - `npm.cmd run audit:security` 输出 `found 0 vulnerabilities`。
-- `npm.cmd run build` 成功生成 unsigned 工程包，并明确输出 `ATHENA_RELEASE_EXTERNAL_BLOCKED code-signing-certificate-missing` 与 `ATHENA_BUILD_SOURCE_DIRTY paths=75`。
-- 最新候选 ID：`0.9.0-beta.1-9c930db5cd2e-44f5a481cdcf`；构建输入 SHA-256：`44F5A481CDCF12E0E40F7467EF20B59AD52C1CDAFAD11A86D273F2EC870AE6FB`。
-- Installer：105,971,220 bytes，SHA-256 `860D143B14864FEE954AEDFC713E66B6E661244B1AFE400CB1E45C3C4D23EDDE`，Authenticode `NotSigned`。
-- unpacked EXE：232,771,072 bytes，SHA-256 `BC06FF45A3E36BC8A9C20028E9C101D3F2C71BC930502443147D7E52AECFF44E`，Authenticode `NotSigned`。
-- 生产 ASAR 共 1,376 个条目，`.map/.d.ts` 为 0；包内 `commercial.json` 保持 `releaseStage=prelaunch`、`provider.mode=unconfigured`，不会误开启收费。
-- 最新 unsigned unpacked EXE 因新哈希被本机 Application Control 阻止，打包态 smoke **未通过**；不得沿用旧候选 smoke 证据。
+- `npm.cmd run build` 成功生成 `0.9.6-beta.1` unsigned 工程包，并明确输出 `ATHENA_RELEASE_EXTERNAL_BLOCKED code-signing-certificate-missing` 与 `ATHENA_BUILD_SOURCE_DIRTY paths=1`。
+- 最新候选 ID：`0.9.6-beta.1-03fadfc4efa8-956b7d0386a7`；构建输入 SHA-256：`956B7D0386A79B8F22DF907FD806241EEFE87D4F7CFEEFDF44A6C8161CD8D0EB`。
+- Installer：504,617,499 bytes，SHA-256 `9DBAD819DD9151B36C76F70AF1A54E5866167BA2335B17B7F6DBBAE85E63A6DF`，Authenticode `NotSigned`。
+- unpacked EXE：232,771,072 bytes，SHA-256 `45CBBEED08E534AEBDF537B94BB1E2A16A14DC265597E92B7636A4DC54D8887F`，Authenticode `NotSigned`。
+- 生产 ASAR 共 8,154 个条目，`.map/.d.ts` 为 0，`config/settings.json` 未进入包；Direct 用户首启使用代码内安全默认值。
+- packaged gate 通过；打包态 smoke 退出码 0，并输出 `ATHENA_SMOKE_READY_TO_SHOW`、`ATHENA_SMOKE_DOM_OK`。
+- 受管 Python 保持 Python Software Foundation 有效签名与时间戳；候选仅含 3 个 EXE，未再携带 29 个无用 CLI 启动器。
+- candidate manifest 为 `BLOCKED`；当前精确阻断是 clean checkout 未证明、生产 feed disabled，以及 installer/`Athena.exe`/`elevate.exe` 未签名。
 
 ## 阻断项
 

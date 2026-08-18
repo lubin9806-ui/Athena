@@ -6,7 +6,7 @@
 
 ## 1. 结论
 
-Athena 当前是一个**可运行的 Windows Desktop 0.9 Private Beta 候选工程**，不是可直接公开销售的 1.0。仓库元数据已统一为 `0.9.0-beta.1`；在代码签名证书、安装矩阵和真实 20–50 人受控测试完成前仍为 **No-Go**。
+Athena 当前是一个**可运行的 Windows Desktop 0.9 Private Beta 候选工程**，不是可直接公开销售的 1.0。仓库元数据已统一为 `0.9.6-beta.1`；在代码签名证书、生产更新源、clean-checkout CI、安装矩阵和真实 20–50 人受控测试完成前仍为 **No-Go**。
 
 当前判定：
 

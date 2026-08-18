@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-08-18T04:38:02.643Z",
+  "generatedAt": "2026-08-18T15:20:38.568Z",
   "project": {
     "name": "athena",
-    "version": "0.9.5",
+    "version": "0.9.6-beta.1",
     "license": "UNLICENSED",
     "private": true
   },
@@ -1932,7 +1932,7 @@
     {
       "path": "resources/voice-runtime/python/Lib/site-packages/av-17.1.0.dist-info/RECORD",
       "bytes": 23124,
-      "sha256": "BDC8EF06917449A487ABB4457ED30A362FC912D5BD03D6EBC743B9DCE0EEFA78"
+      "sha256": "20326FB418F3C0954ECEB95A3C9AED04672349E6210F3B2FD36419485D115A12"
     },
     {
       "path": "resources/voice-runtime/python/Lib/site-packages/av-17.1.0.dist-info/REQUESTED",
@@ -3145,106 +3145,6 @@
       "sha256": "2088A4D4C60D2AC30BE8513D380521E2ED975ABDB79BC7EC5BF527D8731C4568"
     },
     {
-      "path": "resources/voice-runtime/python/Lib/site-packages/bin/ct2-fairseq-converter.exe",
-      "bytes": 108432,
-      "sha256": "F5B6A2C51629072611DA7DD6B0346FB5C6BA43078BFE461D56B1AFBDF451ECB8"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/bin/ct2-marian-converter.exe",
-      "bytes": 108431,
-      "sha256": "C03C020EA611EC6E54E8E2B3355CDEF60D5AF9E9D6908FFA721EB0E84EDA75AE"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/bin/ct2-openai-gpt2-converter.exe",
-      "bytes": 108436,
-      "sha256": "6D9A327393A8A2FD6C1F5A237BA046111EB1DFCDFC0D552DBB2B6D07FFB767DA"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/bin/ct2-opennmt-py-converter.exe",
-      "bytes": 108435,
-      "sha256": "20B7096B15FD89AC4816191F3EA2C039B841E9A3FB60BD287CE57CE33205CEE5"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/bin/ct2-opennmt-tf-converter.exe",
-      "bytes": 108435,
-      "sha256": "A9A2FDA3DCE124080EB449D24EAB8132E8A876994BD2CD6E5B3A62800573819A"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/bin/ct2-opus-mt-converter.exe",
-      "bytes": 108432,
-      "sha256": "9768586BA1DFBED6E58C7615D7B1F578D65797640227915A7FC4CC712042CD4D"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/bin/ct2-transformers-converter.exe",
-      "bytes": 108437,
-      "sha256": "8B51D6A9FED57094B20F76F1BEAAC0F24C20F67DAE35A3354CCB3F00EDB0C75B"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/bin/f2py.exe",
-      "bytes": 108419,
-      "sha256": "D66BCD30786CE8EE787BA3F2D630EF9AB6E85BB6861EC1C43345C5BD296D3070"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/bin/hf.exe",
-      "bytes": 108424,
-      "sha256": "20F835414FDF11B4EBA2AB37290B73BD941CE546E1A284612385FCE38AD25EA7"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/bin/httpx.exe",
-      "bytes": 108407,
-      "sha256": "A7DDD1CA08719555F7E662822B1BA13B65C6F3FC1EE94F9ADE217B95A09636E6"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/bin/huggingface-cli.exe",
-      "bytes": 108436,
-      "sha256": "B7E2ED2BF7D72BBB432CEFA250FC9760605DCF37022C4191328232F858FF8FD2"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/bin/idna.exe",
-      "bytes": 108410,
-      "sha256": "A47B8BAAE868F7BC9D5D48B7F74AB33436C7D2E6D2FD2BD4C65B7D7BA376DA9F"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/bin/markdown-it.exe",
-      "bytes": 108423,
-      "sha256": "D52F166C0F1156B312BABC6051AFFEF6B3D0C0F27D78F0E7D136AC7C7F8460DC"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/bin/numpy-config.exe",
-      "bytes": 108419,
-      "sha256": "F8462BA712D5BF4F1BD2B24C1156B0645DB9545018EA00D7555FCBD788F23CF5"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/bin/onnxruntime_test.exe",
-      "bytes": 108436,
-      "sha256": "6E53DC211259EE9DEBB89A1DAFF1EC67C85A3C87DC47CBA39898F012BE73C38E"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/bin/pyav.exe",
-      "bytes": 108413,
-      "sha256": "519BA96E1ED358FB93EC7ABDE8C49B523DB54192F1F3BD9202AA8D8CD9CBFCCF"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/bin/pygmentize.exe",
-      "bytes": 108418,
-      "sha256": "E185FCCFAD1C3D6EC4751431E228212631A426861E0FA9A33839FD5E710FD9D3"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/bin/tiny-agents.exe",
-      "bytes": 108434,
-      "sha256": "5AAC2A301D83B616C1605849A7693A0A885366013916A4ACBE21568ED5358270"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/bin/tqdm.exe",
-      "bytes": 108410,
-      "sha256": "15171C7CA4598F66345C9400C63539160E39A44B5C97B4632D96E289C64AFBDE"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/bin/typer.exe",
-      "bytes": 108411,
-      "sha256": "3F69D422AF864BA3C062FCF12458CFD9F3EF9684FEA50E079C66EE1BD6EB5FD5"
-    },
-    {
       "path": "resources/voice-runtime/python/Lib/site-packages/certifi-2026.6.17.dist-info/INSTALLER",
       "bytes": 4,
       "sha256": "CEEBAE7B8927A3227E5303CF5E0F1F7B34BB542AD7250AC03FBCDE36EC2F1508"
@@ -3537,7 +3437,7 @@
     {
       "path": "resources/voice-runtime/python/Lib/site-packages/ctranslate2-4.8.0.dist-info/RECORD",
       "bytes": 5274,
-      "sha256": "3AC3FC65B7F878EE8B538FC8E377E55030B5E5DA0E697C69BEB1E05F8912B98C"
+      "sha256": "4F8BE546919E9E683F320FE0F1B69F69F51587F622E94D692B18DB4E0E52B880"
     },
     {
       "path": "resources/voice-runtime/python/Lib/site-packages/ctranslate2-4.8.0.dist-info/REQUESTED",
@@ -4912,7 +4812,7 @@
     {
       "path": "resources/voice-runtime/python/Lib/site-packages/httpx-0.28.1.dist-info/RECORD",
       "bytes": 3613,
-      "sha256": "B0D05FF81CA9C059C1F77E2DD905189E1B0BD051E45E66E12BD1EBF4ABB68C14"
+      "sha256": "1B0DA153895F283B4A3E634B998B28F7099553A4AF5B4A6606E1B0F3D96A4CCC"
     },
     {
       "path": "resources/voice-runtime/python/Lib/site-packages/httpx-0.28.1.dist-info/REQUESTED",
@@ -5067,7 +4967,7 @@
     {
       "path": "resources/voice-runtime/python/Lib/site-packages/huggingface_hub-1.21.0.dist-info/RECORD",
       "bytes": 32191,
-      "sha256": "B5B01085E2873595EB4B21F1861CC3474A2B8D1CBBFBB0D604DF31802765AFD8"
+      "sha256": "067B94AB42A422DA3B059382A6201BC57A99CC1B223F5BA679997FBF18CB5437"
     },
     {
       "path": "resources/voice-runtime/python/Lib/site-packages/huggingface_hub-1.21.0.dist-info/REQUESTED",
@@ -6027,7 +5927,7 @@
     {
       "path": "resources/voice-runtime/python/Lib/site-packages/idna-3.18.dist-info/RECORD",
       "bytes": 1873,
-      "sha256": "BCB1F2F23EAED6FDC7E967EF5252907DDD88FCD459BF9BEB602FDC3241CAD52D"
+      "sha256": "743F238D8921323DCA8DF153908A9B82A213AA960BCE0330CFA70D1812900DC8"
     },
     {
       "path": "resources/voice-runtime/python/Lib/site-packages/idna-3.18.dist-info/REQUESTED",
@@ -6122,7 +6022,7 @@
     {
       "path": "resources/voice-runtime/python/Lib/site-packages/markdown_it_py-4.2.0.dist-info/RECORD",
       "bytes": 10946,
-      "sha256": "C8D302E5FC7F4C7CF89A387FF639C3D4C78138E4F6B6A767186397363A7D58DD"
+      "sha256": "202B5558336F9E8408274EB200C625EE4D8991295625FC7523E53C55D2BDBE90"
     },
     {
       "path": "resources/voice-runtime/python/Lib/site-packages/markdown_it_py-4.2.0.dist-info/REQUESTED",
@@ -6647,7 +6547,7 @@
     {
       "path": "resources/voice-runtime/python/Lib/site-packages/numpy-2.4.6.dist-info/RECORD",
       "bytes": 129337,
-      "sha256": "9C31FB4A8B72D12E92D5C8F62E23769AB3A600C5210C915AA982BE7F14004138"
+      "sha256": "08403571272DB5FF133D97ECF6609818660A29429F5C2E8CD7C82261F168620C"
     },
     {
       "path": "resources/voice-runtime/python/Lib/site-packages/numpy-2.4.6.dist-info/REQUESTED",
@@ -11872,7 +11772,7 @@
     {
       "path": "resources/voice-runtime/python/Lib/site-packages/onnxruntime-1.27.0.dist-info/RECORD",
       "bytes": 60662,
-      "sha256": "3865FEDDA7462F03EA229EFA6C961ED7016BD86942B200CE152B83B9D87E414E"
+      "sha256": "A8F132912C6898CAB003856A98663D7EC233DA369093E9B9DC19765F4A9DA23B"
     },
     {
       "path": "resources/voice-runtime/python/Lib/site-packages/onnxruntime-1.27.0.dist-info/REQUESTED",
@@ -13892,7 +13792,7 @@
     {
       "path": "resources/voice-runtime/python/Lib/site-packages/pygments-2.20.0.dist-info/RECORD",
       "bytes": 47657,
-      "sha256": "0ECB431F10877D0A00D927367E7D8DAEA97438784A35DEE366D23D8CBDF6000E"
+      "sha256": "EBAEB664D1B1ECE07ADEDBDEEE5BCB866EF99987436737AD102795EBC7453DF2"
     },
     {
       "path": "resources/voice-runtime/python/Lib/site-packages/pygments-2.20.0.dist-info/REQUESTED",
@@ -16810,26 +16710,6 @@
       "sha256": "2F0E8B98A41501279419C4AC45AEDF425DD164D9313604A4E1E45153072E246B"
     },
     {
-      "path": "resources/voice-runtime/python/Lib/site-packages/setuptools/cli-32.exe",
-      "bytes": 65536,
-      "sha256": "75F12EA2F30D9C0D872DADE345F30F562E6D93847B6A509BA53BEEC6D0B2C346"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/setuptools/cli-64.exe",
-      "bytes": 74752,
-      "sha256": "28B001BB9A72AE7A24242BFAB248D767A1AC5DEC981C672A3944F7A072375E9A"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/setuptools/cli-arm64.exe",
-      "bytes": 137216,
-      "sha256": "A3D6A6C68C2E759F7C36F35687F6B60D163C2E1A0846A4C07A4C4006A96D88C7"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/setuptools/cli.exe",
-      "bytes": 65536,
-      "sha256": "75F12EA2F30D9C0D872DADE345F30F562E6D93847B6A509BA53BEEC6D0B2C346"
-    },
-    {
       "path": "resources/voice-runtime/python/Lib/site-packages/setuptools/command/__init__.py",
       "bytes": 396,
       "sha256": "1D9952A69381F15AE8EF77DFBCFFB1ACE46E32B8781A75643AA26CA45446F0F8"
@@ -17058,26 +16938,6 @@
       "path": "resources/voice-runtime/python/Lib/site-packages/setuptools/glob.py",
       "bytes": 4873,
       "sha256": "D686636DF8C01D25DB81D852B91E98194F232A86FD2FC36D126058A9C3D32D89"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/setuptools/gui-32.exe",
-      "bytes": 65536,
-      "sha256": "5C1AF46C7300E87A73DACF6CF41CE397E3F05DF6BD9C7E227B4AC59F85769160"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/setuptools/gui-64.exe",
-      "bytes": 75264,
-      "sha256": "69828C857D4824B9F850B1E0597D2C134C91114B7A0774C41DFFE33B0EB23721"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/setuptools/gui-arm64.exe",
-      "bytes": 137728,
-      "sha256": "4C416738A0E2FA6AB766CCF1A9B0A80974E733F9615168DD22A069AFA7D5B38D"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/setuptools/gui.exe",
-      "bytes": 65536,
-      "sha256": "5C1AF46C7300E87A73DACF6CF41CE397E3F05DF6BD9C7E227B4AC59F85769160"
     },
     {
       "path": "resources/voice-runtime/python/Lib/site-packages/setuptools/installer.py",
@@ -17422,7 +17282,7 @@
     {
       "path": "resources/voice-runtime/python/Lib/site-packages/tqdm-4.68.3.dist-info/RECORD",
       "bytes": 4633,
-      "sha256": "EE91703328CFBF54855C0BE606AA089D20EDDE931B2F387AAC97199B124D3ADA"
+      "sha256": "1F0D0C263F24BD964D3B314C72A5D8DC1C385A65375960591C6A8674FF668CE3"
     },
     {
       "path": "resources/voice-runtime/python/Lib/site-packages/tqdm-4.68.3.dist-info/REQUESTED",
@@ -17627,7 +17487,7 @@
     {
       "path": "resources/voice-runtime/python/Lib/site-packages/typer-0.25.1.dist-info/RECORD",
       "bytes": 2749,
-      "sha256": "AAC85425FB43115DCA16B420EE2E3B3D78445A714B12D6AFA247A9663E0D1558"
+      "sha256": "EF200489179C6D5CE2BB6A0E858845BE1CE6D339EEFAB23A856CAD9041EDED71"
     },
     {
       "path": "resources/voice-runtime/python/Lib/site-packages/typer-0.25.1.dist-info/REQUESTED",
@@ -17910,11 +17770,6 @@
       "sha256": "7D0F59C930E7D3D9352399EA3C95C0272489B3C09A8E95FAAEDFA8A23E20E5B1"
     },
     {
-      "path": "resources/voice-runtime/python/pythonw.exe",
-      "bytes": 101656,
-      "sha256": "D5355E1DE2A5195DCCB1BA524B146AA7705BE71AF18D876819756838251B37B3"
-    },
-    {
       "path": "resources/voice-runtime/python/select.pyd",
       "bytes": 30488,
       "sha256": "BAE0974390945520EB99AB32486C6A964691F8F4A028AC408D98FA8FB0DB7D90"
@@ -17971,8 +17826,8 @@
     },
     {
       "path": "resources/voice-runtime/voice-runtime-manifest.json",
-      "bytes": 637522,
-      "sha256": "1BCAC709296202BBF590D409426058D00B4D02FB9D521F042F59C24D9D04DD28"
+      "bytes": 632245,
+      "sha256": "0222CBDEC06BB109EAE89A2E9081130775DB42A3F398ED910A4E2D013E26764E"
     },
     {
       "path": "stt_whisper.py",
@@ -18550,7 +18405,7 @@
       {
         "path": "resources/voice-runtime/python/Lib/site-packages/av-17.1.0.dist-info/RECORD",
         "bytes": 23124,
-        "sha256": "BDC8EF06917449A487ABB4457ED30A362FC912D5BD03D6EBC743B9DCE0EEFA78"
+        "sha256": "20326FB418F3C0954ECEB95A3C9AED04672349E6210F3B2FD36419485D115A12"
       },
       {
         "path": "resources/voice-runtime/python/Lib/site-packages/av-17.1.0.dist-info/REQUESTED",
@@ -19763,106 +19618,6 @@
         "sha256": "2088A4D4C60D2AC30BE8513D380521E2ED975ABDB79BC7EC5BF527D8731C4568"
       },
       {
-        "path": "resources/voice-runtime/python/Lib/site-packages/bin/ct2-fairseq-converter.exe",
-        "bytes": 108432,
-        "sha256": "F5B6A2C51629072611DA7DD6B0346FB5C6BA43078BFE461D56B1AFBDF451ECB8"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/bin/ct2-marian-converter.exe",
-        "bytes": 108431,
-        "sha256": "C03C020EA611EC6E54E8E2B3355CDEF60D5AF9E9D6908FFA721EB0E84EDA75AE"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/bin/ct2-openai-gpt2-converter.exe",
-        "bytes": 108436,
-        "sha256": "6D9A327393A8A2FD6C1F5A237BA046111EB1DFCDFC0D552DBB2B6D07FFB767DA"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/bin/ct2-opennmt-py-converter.exe",
-        "bytes": 108435,
-        "sha256": "20B7096B15FD89AC4816191F3EA2C039B841E9A3FB60BD287CE57CE33205CEE5"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/bin/ct2-opennmt-tf-converter.exe",
-        "bytes": 108435,
-        "sha256": "A9A2FDA3DCE124080EB449D24EAB8132E8A876994BD2CD6E5B3A62800573819A"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/bin/ct2-opus-mt-converter.exe",
-        "bytes": 108432,
-        "sha256": "9768586BA1DFBED6E58C7615D7B1F578D65797640227915A7FC4CC712042CD4D"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/bin/ct2-transformers-converter.exe",
-        "bytes": 108437,
-        "sha256": "8B51D6A9FED57094B20F76F1BEAAC0F24C20F67DAE35A3354CCB3F00EDB0C75B"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/bin/f2py.exe",
-        "bytes": 108419,
-        "sha256": "D66BCD30786CE8EE787BA3F2D630EF9AB6E85BB6861EC1C43345C5BD296D3070"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/bin/hf.exe",
-        "bytes": 108424,
-        "sha256": "20F835414FDF11B4EBA2AB37290B73BD941CE546E1A284612385FCE38AD25EA7"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/bin/httpx.exe",
-        "bytes": 108407,
-        "sha256": "A7DDD1CA08719555F7E662822B1BA13B65C6F3FC1EE94F9ADE217B95A09636E6"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/bin/huggingface-cli.exe",
-        "bytes": 108436,
-        "sha256": "B7E2ED2BF7D72BBB432CEFA250FC9760605DCF37022C4191328232F858FF8FD2"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/bin/idna.exe",
-        "bytes": 108410,
-        "sha256": "A47B8BAAE868F7BC9D5D48B7F74AB33436C7D2E6D2FD2BD4C65B7D7BA376DA9F"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/bin/markdown-it.exe",
-        "bytes": 108423,
-        "sha256": "D52F166C0F1156B312BABC6051AFFEF6B3D0C0F27D78F0E7D136AC7C7F8460DC"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/bin/numpy-config.exe",
-        "bytes": 108419,
-        "sha256": "F8462BA712D5BF4F1BD2B24C1156B0645DB9545018EA00D7555FCBD788F23CF5"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/bin/onnxruntime_test.exe",
-        "bytes": 108436,
-        "sha256": "6E53DC211259EE9DEBB89A1DAFF1EC67C85A3C87DC47CBA39898F012BE73C38E"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/bin/pyav.exe",
-        "bytes": 108413,
-        "sha256": "519BA96E1ED358FB93EC7ABDE8C49B523DB54192F1F3BD9202AA8D8CD9CBFCCF"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/bin/pygmentize.exe",
-        "bytes": 108418,
-        "sha256": "E185FCCFAD1C3D6EC4751431E228212631A426861E0FA9A33839FD5E710FD9D3"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/bin/tiny-agents.exe",
-        "bytes": 108434,
-        "sha256": "5AAC2A301D83B616C1605849A7693A0A885366013916A4ACBE21568ED5358270"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/bin/tqdm.exe",
-        "bytes": 108410,
-        "sha256": "15171C7CA4598F66345C9400C63539160E39A44B5C97B4632D96E289C64AFBDE"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/bin/typer.exe",
-        "bytes": 108411,
-        "sha256": "3F69D422AF864BA3C062FCF12458CFD9F3EF9684FEA50E079C66EE1BD6EB5FD5"
-      },
-      {
         "path": "resources/voice-runtime/python/Lib/site-packages/certifi-2026.6.17.dist-info/INSTALLER",
         "bytes": 4,
         "sha256": "CEEBAE7B8927A3227E5303CF5E0F1F7B34BB542AD7250AC03FBCDE36EC2F1508"
@@ -20155,7 +19910,7 @@
       {
         "path": "resources/voice-runtime/python/Lib/site-packages/ctranslate2-4.8.0.dist-info/RECORD",
         "bytes": 5274,
-        "sha256": "3AC3FC65B7F878EE8B538FC8E377E55030B5E5DA0E697C69BEB1E05F8912B98C"
+        "sha256": "4F8BE546919E9E683F320FE0F1B69F69F51587F622E94D692B18DB4E0E52B880"
       },
       {
         "path": "resources/voice-runtime/python/Lib/site-packages/ctranslate2-4.8.0.dist-info/REQUESTED",
@@ -21530,7 +21285,7 @@
       {
         "path": "resources/voice-runtime/python/Lib/site-packages/httpx-0.28.1.dist-info/RECORD",
         "bytes": 3613,
-        "sha256": "B0D05FF81CA9C059C1F77E2DD905189E1B0BD051E45E66E12BD1EBF4ABB68C14"
+        "sha256": "1B0DA153895F283B4A3E634B998B28F7099553A4AF5B4A6606E1B0F3D96A4CCC"
       },
       {
         "path": "resources/voice-runtime/python/Lib/site-packages/httpx-0.28.1.dist-info/REQUESTED",
@@ -21685,7 +21440,7 @@
       {
         "path": "resources/voice-runtime/python/Lib/site-packages/huggingface_hub-1.21.0.dist-info/RECORD",
         "bytes": 32191,
-        "sha256": "B5B01085E2873595EB4B21F1861CC3474A2B8D1CBBFBB0D604DF31802765AFD8"
+        "sha256": "067B94AB42A422DA3B059382A6201BC57A99CC1B223F5BA679997FBF18CB5437"
       },
       {
         "path": "resources/voice-runtime/python/Lib/site-packages/huggingface_hub-1.21.0.dist-info/REQUESTED",
@@ -22645,7 +22400,7 @@
       {
         "path": "resources/voice-runtime/python/Lib/site-packages/idna-3.18.dist-info/RECORD",
         "bytes": 1873,
-        "sha256": "BCB1F2F23EAED6FDC7E967EF5252907DDD88FCD459BF9BEB602FDC3241CAD52D"
+        "sha256": "743F238D8921323DCA8DF153908A9B82A213AA960BCE0330CFA70D1812900DC8"
       },
       {
         "path": "resources/voice-runtime/python/Lib/site-packages/idna-3.18.dist-info/REQUESTED",
@@ -22740,7 +22495,7 @@
       {
         "path": "resources/voice-runtime/python/Lib/site-packages/markdown_it_py-4.2.0.dist-info/RECORD",
         "bytes": 10946,
-        "sha256": "C8D302E5FC7F4C7CF89A387FF639C3D4C78138E4F6B6A767186397363A7D58DD"
+        "sha256": "202B5558336F9E8408274EB200C625EE4D8991295625FC7523E53C55D2BDBE90"
       },
       {
         "path": "resources/voice-runtime/python/Lib/site-packages/markdown_it_py-4.2.0.dist-info/REQUESTED",
@@ -23265,7 +23020,7 @@
       {
         "path": "resources/voice-runtime/python/Lib/site-packages/numpy-2.4.6.dist-info/RECORD",
         "bytes": 129337,
-        "sha256": "9C31FB4A8B72D12E92D5C8F62E23769AB3A600C5210C915AA982BE7F14004138"
+        "sha256": "08403571272DB5FF133D97ECF6609818660A29429F5C2E8CD7C82261F168620C"
       },
       {
         "path": "resources/voice-runtime/python/Lib/site-packages/numpy-2.4.6.dist-info/REQUESTED",
@@ -28490,7 +28245,7 @@
       {
         "path": "resources/voice-runtime/python/Lib/site-packages/onnxruntime-1.27.0.dist-info/RECORD",
         "bytes": 60662,
-        "sha256": "3865FEDDA7462F03EA229EFA6C961ED7016BD86942B200CE152B83B9D87E414E"
+        "sha256": "A8F132912C6898CAB003856A98663D7EC233DA369093E9B9DC19765F4A9DA23B"
       },
       {
         "path": "resources/voice-runtime/python/Lib/site-packages/onnxruntime-1.27.0.dist-info/REQUESTED",
@@ -30510,7 +30265,7 @@
       {
         "path": "resources/voice-runtime/python/Lib/site-packages/pygments-2.20.0.dist-info/RECORD",
         "bytes": 47657,
-        "sha256": "0ECB431F10877D0A00D927367E7D8DAEA97438784A35DEE366D23D8CBDF6000E"
+        "sha256": "EBAEB664D1B1ECE07ADEDBDEEE5BCB866EF99987436737AD102795EBC7453DF2"
       },
       {
         "path": "resources/voice-runtime/python/Lib/site-packages/pygments-2.20.0.dist-info/REQUESTED",
@@ -33428,26 +33183,6 @@
         "sha256": "2F0E8B98A41501279419C4AC45AEDF425DD164D9313604A4E1E45153072E246B"
       },
       {
-        "path": "resources/voice-runtime/python/Lib/site-packages/setuptools/cli-32.exe",
-        "bytes": 65536,
-        "sha256": "75F12EA2F30D9C0D872DADE345F30F562E6D93847B6A509BA53BEEC6D0B2C346"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/setuptools/cli-64.exe",
-        "bytes": 74752,
-        "sha256": "28B001BB9A72AE7A24242BFAB248D767A1AC5DEC981C672A3944F7A072375E9A"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/setuptools/cli-arm64.exe",
-        "bytes": 137216,
-        "sha256": "A3D6A6C68C2E759F7C36F35687F6B60D163C2E1A0846A4C07A4C4006A96D88C7"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/setuptools/cli.exe",
-        "bytes": 65536,
-        "sha256": "75F12EA2F30D9C0D872DADE345F30F562E6D93847B6A509BA53BEEC6D0B2C346"
-      },
-      {
         "path": "resources/voice-runtime/python/Lib/site-packages/setuptools/command/__init__.py",
         "bytes": 396,
         "sha256": "1D9952A69381F15AE8EF77DFBCFFB1ACE46E32B8781A75643AA26CA45446F0F8"
@@ -33676,26 +33411,6 @@
         "path": "resources/voice-runtime/python/Lib/site-packages/setuptools/glob.py",
         "bytes": 4873,
         "sha256": "D686636DF8C01D25DB81D852B91E98194F232A86FD2FC36D126058A9C3D32D89"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/setuptools/gui-32.exe",
-        "bytes": 65536,
-        "sha256": "5C1AF46C7300E87A73DACF6CF41CE397E3F05DF6BD9C7E227B4AC59F85769160"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/setuptools/gui-64.exe",
-        "bytes": 75264,
-        "sha256": "69828C857D4824B9F850B1E0597D2C134C91114B7A0774C41DFFE33B0EB23721"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/setuptools/gui-arm64.exe",
-        "bytes": 137728,
-        "sha256": "4C416738A0E2FA6AB766CCF1A9B0A80974E733F9615168DD22A069AFA7D5B38D"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/setuptools/gui.exe",
-        "bytes": 65536,
-        "sha256": "5C1AF46C7300E87A73DACF6CF41CE397E3F05DF6BD9C7E227B4AC59F85769160"
       },
       {
         "path": "resources/voice-runtime/python/Lib/site-packages/setuptools/installer.py",
@@ -34040,7 +33755,7 @@
       {
         "path": "resources/voice-runtime/python/Lib/site-packages/tqdm-4.68.3.dist-info/RECORD",
         "bytes": 4633,
-        "sha256": "EE91703328CFBF54855C0BE606AA089D20EDDE931B2F387AAC97199B124D3ADA"
+        "sha256": "1F0D0C263F24BD964D3B314C72A5D8DC1C385A65375960591C6A8674FF668CE3"
       },
       {
         "path": "resources/voice-runtime/python/Lib/site-packages/tqdm-4.68.3.dist-info/REQUESTED",
@@ -34245,7 +33960,7 @@
       {
         "path": "resources/voice-runtime/python/Lib/site-packages/typer-0.25.1.dist-info/RECORD",
         "bytes": 2749,
-        "sha256": "AAC85425FB43115DCA16B420EE2E3B3D78445A714B12D6AFA247A9663E0D1558"
+        "sha256": "EF200489179C6D5CE2BB6A0E858845BE1CE6D339EEFAB23A856CAD9041EDED71"
       },
       {
         "path": "resources/voice-runtime/python/Lib/site-packages/typer-0.25.1.dist-info/REQUESTED",
@@ -34528,11 +34243,6 @@
         "sha256": "7D0F59C930E7D3D9352399EA3C95C0272489B3C09A8E95FAAEDFA8A23E20E5B1"
       },
       {
-        "path": "resources/voice-runtime/python/pythonw.exe",
-        "bytes": 101656,
-        "sha256": "D5355E1DE2A5195DCCB1BA524B146AA7705BE71AF18D876819756838251B37B3"
-      },
-      {
         "path": "resources/voice-runtime/python/select.pyd",
         "bytes": 30488,
         "sha256": "BAE0974390945520EB99AB32486C6A964691F8F4A028AC408D98FA8FB0DB7D90"
@@ -34589,8 +34299,8 @@
       },
       {
         "path": "resources/voice-runtime/voice-runtime-manifest.json",
-        "bytes": 637522,
-        "sha256": "1BCAC709296202BBF590D409426058D00B4D02FB9D521F042F59C24D9D04DD28"
+        "bytes": 632245,
+        "sha256": "0222CBDEC06BB109EAE89A2E9081130775DB42A3F398ED910A4E2D013E26764E"
       },
       {
         "path": "stt_whisper.py",
@@ -35054,14 +34764,14 @@
   },
   "buildArtifacts": [
     {
-      "path": "release/Athena Setup 0.9.5.exe",
-      "bytes": 506143591,
-      "sha256": "5EE3701DEFEED3D1FB366D5630407A57C612E22E29DAE5966B2408505855DC48"
+      "path": "release/Athena Setup 0.9.6-beta.1.exe",
+      "bytes": 504617499,
+      "sha256": "9DBAD819DD9151B36C76F70AF1A54E5866167BA2335B17B7F6DBBAE85E63A6DF"
     },
     {
       "path": "release/win-unpacked/Athena.exe",
       "bytes": 232771072,
-      "sha256": "B388D73A73CD281DACB3294F8BC941687327E26067D451F27238D9C81FC04016"
+      "sha256": "45CBBEED08E534AEBDF537B94BB1E2A16A14DC265597E92B7636A4DC54D8887F"
     }
   ],
   "packagingDecisions": [

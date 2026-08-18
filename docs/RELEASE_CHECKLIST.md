@@ -1,6 +1,6 @@
 # Athena 发布验收清单
 
-> 基线日期：2026-07-18
+> 基线日期：2026-08-18
 > 使用方式：每个候选版本复制一份发布记录，填写证据链接/路径和负责人。`docs/COMMERCIAL_ROADMAP.md` 决定版本范围，本文件决定是否可以发布。
 
 ## 1. 状态规则
@@ -17,14 +17,14 @@
 | 字段 | 值 |
 |---|---|
 | 产品/SKU | Desktop Direct / Athena Desktop 1.x Personal 商业预发布；工程候选仍为 0.9 Private Beta |
-| 商业版本 | Desktop Window 07 / `0.9.0-beta.1`（未提升为 1.0） |
-| 内部 build | `0.9.0-beta.1-9c930db5cd2e-44f5a481cdcf` |
-| Git commit/tag | 窗口 11 刷新父基线 `40336f3 feat(steam): establish window 08 engineering slice`；刷新时工作树 18 条，`cleanCheckout=false`；没有候选 tag |
-| 构建时间/环境 | 2026-07-18 刷新；Windows x64 10.0.26200；Node 24.18.0；Electron 42.7.0 |
+| 商业版本 | Desktop Window 07 / `0.9.6-beta.1`（未提升为 1.0） |
+| 内部 build | `0.9.6-beta.1-03fadfc4efa8-956b7d0386a7` |
+| Git commit/tag | `03fadfc security(release): classify packaged executables`；构建时仅个人 `config/settings.json` 有改动，`cleanCheckout=false`；没有候选 tag |
+| 构建时间/环境 | 2026-08-18 刷新；Windows x64 10.0.26200；Node 24.18.0；Electron 42.7.0 |
 | 负责人 | 窗口 11（独立复核与运营门；未代替 Product/Security/Legal/QA 人工签字） |
-| 候选产物 SHA-256 | unsigned installer `7D486394F947FF36AE905DFFD9F095987B66B7C3C835D1814635F80936BF6845`；unsigned unpacked EXE `337540574E02AECDF804417DB48C2A87A682405BD3347EFCA29B617730DC94E1` |
+| 候选产物 SHA-256 | unsigned installer `9DBAD819DD9151B36C76F70AF1A54E5866167BA2335B17B7F6DBBAE85E63A6DF`；unsigned unpacked EXE `45CBBEED08E534AEBDF537B94BB1E2A16A14DC265597E92B7636A4DC54D8887F` |
 | 最终结论 | **No-Go / Blocked** |
-| 未关闭风险 | ATH-REL-001：代码签名证书、批准发布者 DN、HTTPS 更新源、clean-checkout CI 实跑和真实更新/暂停/回滚仍缺外部证据；ATH-DESKTOP-001：真实测试者 0/20–50，安装矩阵、UAC、Defender、标准用户和弱网未完成；ATH-DESKTOP-002：发行主体、价格税务、支付/许可证平台、公钥和签字缺失；公开入口已初步配置但未形成正式发布批准。当前包 `NotSigned` 且不得销售或分发给 Beta 参与者 |
+| 未关闭风险 | ATH-REL-001：代码签名证书、批准发布者 DN、HTTPS 更新源、clean-checkout CI 实跑和真实更新/暂停/回滚仍缺外部证据；ATH-DESKTOP-001：真实测试者 0/20–50，安装矩阵、UAC、Defender、标准用户和弱网未完成；ATH-DESKTOP-002：发行主体、价格税务、支付/许可证平台、公钥和签字缺失。当前包 `NotSigned`、update feed disabled 且不得销售或分发给 Beta 参与者 |
 
 ## 3. 当前基线证据（2026-07-15）
 
@@ -74,6 +74,17 @@
 - [x] `promo/*.html` 与 `DESKTOP_1_0_STORE_LISTING.md` 只描述当前可验证边界，明确 Prelaunch/No-Go/尚未开放购买；Live2D、日历、云同步和跨平台保持 Planned/Excluded
 - [~] EULA、隐私政策、支持运行稿和商店文案已形成源稿，但没有法律复核、公开稳定 URL、正式主体、签名 build 截图/视频或产品签字
 - [ ] 真实支付/许可证平台、价格币种、销售区域/税务、生产公钥与轮换、安全 entitlement 存储、设备标识隐私评审、应用内激活 UI 和真实激活/换机/退款演练
+
+### 3.3 区块 8D 发布工程复核（2026-08-18）
+
+- [x] Desktop Direct 版本统一为 `0.9.6-beta.1`，更新通道为 `beta`；Microsoft Store 数字版本独立映射为 `0.9.6.0`
+- [x] 更新控制文件使用严格 schema、64 KiB 上限、HTTPS 同源/无重定向策略；升级版本、`latest.json` 候选 ID 和回滚目标必须一致
+- [x] `test:update-policy`、`test:release`、`test:private-beta`、`test:security`、`test:privacy`、`test:desktop-reliability`、`test:voice:e2e`、`test:steam` 和 `test:store --source-only` 通过
+- [x] packaged gate 直接检查最终 ASAR：版本/通道一致，`config/settings.json` 排除，`.map/.d.ts` 为 0，更新策略模块存在，构建输入哈希一致
+- [x] 打包态 smoke 退出码 0，并输出 `ATHENA_SMOKE_READY_TO_SHOW`、`ATHENA_SMOKE_DOM_OK`
+- [x] 受管语音运行时只保留 PSF 有效签名并带时间戳的 `python.exe`；Athena 自有 EXE、批准供应商 EXE 和未知 EXE 使用不同信任政策
+- [~] 工程候选 `0.9.6-beta.1-03fadfc4efa8-956b7d0386a7` 已生成；installer 504,617,499 bytes，ASAR 8,154 项，candidate manifest 准确保持 `BLOCKED`
+- [ ] installer、`Athena.exe` 和 `elevate.exe` 均为 `NotSigned`；代码签名、publisher DN、生产 HTTPS feed、clean-checkout CI、安装/更新/回滚矩阵和真实 Beta 尚未完成
 
 ## 4. Universal 发布门
 
