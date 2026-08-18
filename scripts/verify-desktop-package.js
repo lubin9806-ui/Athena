@@ -13,6 +13,8 @@ const {
   sha256,
 } = require('./release-common');
 
+const PYTHON_PUBLISHER = 'CN=Python Software Foundation, O=Python Software Foundation, L=Beaverton, S=Oregon, C=US';
+
 function artifactRecord(filePath) {
   assert(fs.existsSync(filePath), `Desktop package artifact is missing: ${filePath}`);
   const signature = authenticode(filePath);
@@ -23,6 +25,16 @@ function artifactRecord(filePath) {
     authenticode: signature.status,
     signedAndTimestamped: signature.valid === true && Boolean(signature.timestampSubject),
   };
+}
+
+function findExecutables(directory) {
+  const files = [];
+  for (const item of fs.readdirSync(directory, { withFileTypes: true })) {
+    const absolute = path.join(directory, item.name);
+    if (item.isDirectory()) files.push(...findExecutables(absolute));
+    else if (item.isFile() && item.name.toLowerCase().endsWith('.exe')) files.push(absolute);
+  }
+  return files;
 }
 
 function main() {
@@ -61,14 +73,32 @@ function main() {
     assert(updaterMetadata.includes('https://updates.invalid/athena-disabled'));
   }
 
-  const artifacts = [artifactRecord(installer), artifactRecord(executable)];
+  const packagedExecutables = findExecutables(path.join(ROOT, 'release', 'win-unpacked'));
+  const relativeExecutables = packagedExecutables.map(file => path.relative(path.join(ROOT, 'release'), file).replace(/\\/g, '/'));
+  const approvedExecutables = [
+    'win-unpacked/Athena.exe',
+    'win-unpacked/resources/elevate.exe',
+    'win-unpacked/resources/voice/python/python.exe',
+  ];
+  assert.deepStrictEqual(relativeExecutables.sort(), approvedExecutables.sort(), 'Desktop package contains an unapproved executable.');
+  const pythonPath = path.join(resources, 'voice', 'python', 'python.exe');
+  const pythonSignature = authenticode(pythonPath);
+  assert.equal(pythonSignature.status, 'Valid', 'Managed Python runtime signature is invalid.');
+  assert.equal(pythonSignature.subject, PYTHON_PUBLISHER, 'Managed Python runtime publisher is not approved.');
+  assert(pythonSignature.timestampSubject, 'Managed Python runtime is missing a signature timestamp.');
+  const voiceManifest = readJson(path.join(resources, 'voice', 'voice-runtime-manifest.json'));
+  const pythonManifest = voiceManifest.files.find(item => item.path === 'python/python.exe');
+  assert(pythonManifest, 'Managed Python runtime is missing from the voice manifest.');
+  assert.equal(pythonManifest.sha256.toUpperCase(), sha256(pythonPath), 'Managed Python runtime does not match the voice manifest.');
+
+  const ownedArtifacts = [artifactRecord(installer), artifactRecord(executable), artifactRecord(path.join(resources, 'elevate.exe'))];
   const blockers = [];
   if (!buildInfo.cleanCheckout) blockers.push('CLEAN_CHECKOUT_NOT_PROVEN');
   if (!updateConfig.enabled) blockers.push('PRODUCTION_UPDATE_FEED_DISABLED');
-  if (artifacts.some(item => !item.signedAndTimestamped)) blockers.push('AUTHENTICODE_OR_TIMESTAMP_INVALID');
+  if (ownedArtifacts.some(item => !item.signedAndTimestamped)) blockers.push('AUTHENTICODE_OR_TIMESTAMP_INVALID');
 
   console.log(`ATHENA_DESKTOP_PACKAGE_OK version=${pkg.version} channel=${buildInfo.channel} entries=${entries.length} settings=excluded maps=0`);
-  for (const artifact of artifacts) {
+  for (const artifact of ownedArtifacts) {
     console.log(`ATHENA_DESKTOP_ARTIFACT file=${artifact.file} bytes=${artifact.bytes} sha256=${artifact.sha256} authenticode=${artifact.authenticode}`);
   }
   if (blockers.length) console.log(`ATHENA_DESKTOP_PACKAGE_BLOCKED ${blockers.join(',')}`);

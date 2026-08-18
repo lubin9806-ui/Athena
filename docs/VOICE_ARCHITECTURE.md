@@ -13,6 +13,8 @@
 
 正式打包不会联网生成运行时。`scripts/build-desktop.js` 在调用 `electron-builder` 前执行 `scripts/verify-voice-runtime.js`；运行时缺失、文件大小变化、哈希不一致或 Python 导入失败都会中止打包。`electron-builder.yml` 只把验证通过的生成目录复制到安装包的 `resources/voice`。
 
+受管运行时只保留语音执行所需的 `python.exe`。pip 生成的转换器、测试器、控制台入口和 `pythonw.exe` 会在生成阶段删除；候选包要求 `python.exe` 保持 Python Software Foundation 的有效签名与时间戳，任何额外 EXE 都会被发布门阻断。
+
 ## 故障行为
 
 | 场景 | 行为 |

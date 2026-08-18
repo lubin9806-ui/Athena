@@ -4,6 +4,14 @@ const os = require('os');
 const path = require('path');
 const { ROOT, authenticode, readJson, releaseChannel, sha256, sha512Base64, writeJson } = require('./release-common');
 
+const OWNED_EXECUTABLES = new Set([
+  'win-unpacked/athena.exe',
+  'win-unpacked/resources/elevate.exe',
+]);
+const APPROVED_VENDOR_EXECUTABLES = new Map([
+  ['win-unpacked/resources/voice/python/python.exe', 'CN=Python Software Foundation, O=Python Software Foundation, L=Beaverton, S=Oregon, C=US'],
+]);
+
 function resolveManifest(argument) {
   if (!argument) throw new Error('Candidate manifest is required. Use --manifest <candidate-manifest.json>.');
   return path.resolve(ROOT, argument);
@@ -31,6 +39,18 @@ function validSignature(signature, expectedPublisher) {
   );
 }
 
+function executableSignatureBlocker(executable, signature, expectedPublisher) {
+  const normalized = executable.file.replace(/\\/g, '/').toLowerCase();
+  if (OWNED_EXECUTABLES.has(normalized)) {
+    return validSignature(signature, expectedPublisher) ? null : `invalid-signature:${executable.file}`;
+  }
+  const vendorPublisher = APPROVED_VENDOR_EXECUTABLES.get(normalized);
+  if (vendorPublisher) {
+    return validSignature(signature, vendorPublisher) ? null : `invalid-vendor-signature:${executable.file}`;
+  }
+  return `unapproved-executable:${executable.file}`;
+}
+
 function verifyManifest(manifestPath, options = {}) {
   const manifest = readJson(manifestPath);
   const manifestDirectory = path.dirname(manifestPath);
@@ -55,10 +75,14 @@ function verifyManifest(manifestPath, options = {}) {
   }
 
   const executables = manifest.executableEvidence || [];
-  if (!executables.some(item => item.file === 'win-unpacked/Athena.exe')) blockers.push('main-executable-evidence-missing');
+  const recordedExecutablePaths = new Set(executables.map(item => item.file.replace(/\\/g, '/').toLowerCase()));
+  for (const required of [...OWNED_EXECUTABLES, ...APPROVED_VENDOR_EXECUTABLES.keys()]) {
+    if (!recordedExecutablePaths.has(required)) blockers.push(`required-executable-evidence-missing:${required}`);
+  }
   for (const executable of executables) {
     const executablePath = verifyRecord(executable, releaseRoot);
-    if (!validSignature(inspectSignature(executablePath), expectedPublisher)) blockers.push(`invalid-signature:${executable.file}`);
+    const blocker = executableSignatureBlocker(executable, inspectSignature(executablePath), expectedPublisher);
+    if (blocker) blockers.push(blocker);
   }
   if (manifest.distributionAllowed !== true || manifest.disposition !== 'CANDIDATE_READY') {
     blockers.push('manifest-distribution-blocked');
@@ -84,11 +108,18 @@ function selfTest() {
     const executableDirectory = path.join(scratch, 'win-unpacked');
     fs.mkdirSync(candidateDirectory, { recursive: true });
     fs.mkdirSync(executableDirectory, { recursive: true });
-    const artifact = path.join(candidateDirectory, 'Athena Setup 0.9.0-beta.1.exe');
+    const artifact = path.join(candidateDirectory, 'Athena Setup 0.9.6-beta.1.exe');
     const executable = path.join(executableDirectory, 'Athena.exe');
+    const elevate = path.join(scratch, 'win-unpacked', 'resources', 'elevate.exe');
+    const python = path.join(scratch, 'win-unpacked', 'resources', 'voice', 'python', 'python.exe');
     fs.writeFileSync(artifact, 'private-beta-fixture', 'utf8');
     fs.writeFileSync(executable, 'private-beta-executable-fixture', 'utf8');
+    fs.mkdirSync(path.dirname(elevate), { recursive: true });
+    fs.mkdirSync(path.dirname(python), { recursive: true });
+    fs.writeFileSync(elevate, 'private-beta-elevate-fixture', 'utf8');
+    fs.writeFileSync(python, 'private-beta-python-fixture', 'utf8');
     const signature = { status: 'Valid', valid: true, subject: 'CN=Athena Test', timestampSubject: 'CN=Test Timestamp' };
+    const pythonSignature = { ...signature, subject: 'CN=Python Software Foundation, O=Python Software Foundation, L=Beaverton, S=Oregon, C=US' };
     const record = {
       file: path.basename(artifact),
       bytes: fs.statSync(artifact).size,
@@ -103,6 +134,20 @@ function selfTest() {
       sha512: sha512Base64(executable),
       authenticode: signature,
     };
+    const elevateRecord = {
+      file: 'win-unpacked/resources/elevate.exe',
+      bytes: fs.statSync(elevate).size,
+      sha256: sha256(elevate),
+      sha512: sha512Base64(elevate),
+      authenticode: signature,
+    };
+    const pythonRecord = {
+      file: 'win-unpacked/resources/voice/python/python.exe',
+      bytes: fs.statSync(python).size,
+      sha256: sha256(python),
+      sha512: sha512Base64(python),
+      authenticode: pythonSignature,
+    };
     const manifestPath = path.join(candidateDirectory, 'candidate-manifest.json');
     writeJson(manifestPath, {
       schemaVersion: 1,
@@ -112,13 +157,13 @@ function selfTest() {
       source: { commit: 'fixture', cleanCheckout: true },
       signingPolicy: { expectedPublisher: 'CN=Athena Test' },
       artifacts: [record],
-      executableEvidence: [executableRecord],
+      executableEvidence: [executableRecord, elevateRecord, pythonRecord],
       distributionAllowed: true,
       disposition: 'CANDIDATE_READY',
       blockers: [],
       betaValidation: { status: 'NOT_STARTED', completedParticipants: 0 },
     });
-    const validOptions = { releaseRoot: scratch, inspectSignature: () => signature };
+    const validOptions = { releaseRoot: scratch, inspectSignature: file => file === python ? pythonSignature : signature };
     assert.deepStrictEqual(verifyManifest(manifestPath, validOptions).blockers, []);
     assert(verifyManifest(manifestPath, { ...validOptions, requireGraduation: true }).blockers.includes('beta-validation-not-passed'));
     const invalidSignature = { ...signature, timestampSubject: null };
@@ -131,9 +176,21 @@ function selfTest() {
     writeJson(manifestPath, { ...validManifest, artifacts: [] });
     assert.throws(() => verifyManifest(manifestPath, validOptions), /no artifacts/);
     writeJson(manifestPath, validManifest);
+    const unknown = path.join(scratch, 'win-unpacked', 'unknown.exe');
+    fs.writeFileSync(unknown, 'unknown-executable-fixture', 'utf8');
+    const unknownRecord = {
+      file: 'win-unpacked/unknown.exe',
+      bytes: fs.statSync(unknown).size,
+      sha256: sha256(unknown),
+      sha512: sha512Base64(unknown),
+      authenticode: signature,
+    };
+    writeJson(manifestPath, { ...validManifest, executableEvidence: [...validManifest.executableEvidence, unknownRecord] });
+    assert(verifyManifest(manifestPath, validOptions).blockers.includes('unapproved-executable:win-unpacked/unknown.exe'));
+    writeJson(manifestPath, validManifest);
     fs.appendFileSync(artifact, '-tampered');
     assert.throws(() => verifyManifest(manifestPath, validOptions), /Byte size changed/);
-    console.log('ATHENA_PRIVATE_BETA_GATE_OK signedCandidate=verified graduation=fail-closed tamper=blocked');
+    console.log('ATHENA_PRIVATE_BETA_GATE_OK signedCandidate=verified vendorSignature=verified unknownExecutable=blocked graduation=fail-closed tamper=blocked');
   } finally {
     fs.rmSync(scratch, { recursive: true, force: true });
   }

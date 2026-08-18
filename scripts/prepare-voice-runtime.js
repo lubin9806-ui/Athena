@@ -68,6 +68,20 @@ function removeGeneratedBytecode(directory) {
   }
 }
 
+function removeUnneededExecutables(pythonDir) {
+  const retained = path.join(pythonDir, 'python.exe').toLowerCase();
+  const visit = directory => {
+    for (const item of fs.readdirSync(directory, { withFileTypes: true })) {
+      const absolute = path.join(directory, item.name);
+      if (item.isDirectory()) visit(absolute);
+      else if (item.isFile() && item.name.toLowerCase().endsWith('.exe') && absolute.toLowerCase() !== retained) {
+        fs.rmSync(absolute, { force: true });
+      }
+    }
+  };
+  visit(pythonDir);
+}
+
 function writeManifest() {
   const entries = [];
   const visit = directory => {
@@ -130,6 +144,7 @@ function main() {
     '-m', 'pip', 'install', '--disable-pip-version-check', '--no-deps', '--only-binary=:all:',
     '--target', sitePackages, '--requirement', path.join(ROOT, 'requirements-voice.lock.txt'),
   ]);
+  removeUnneededExecutables(pythonDir);
 
   const modelDir = path.join(OUTPUT, 'models', 'whisper-tiny');
   fs.mkdirSync(modelDir, { recursive: true });

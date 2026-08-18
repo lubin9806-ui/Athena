@@ -29,6 +29,16 @@ function run(command, args, options = {}) {
   });
 }
 
+function findExecutables(directory) {
+  const files = [];
+  for (const item of fs.readdirSync(directory, { withFileTypes: true })) {
+    const absolute = path.join(directory, item.name);
+    if (item.isDirectory()) files.push(...findExecutables(absolute));
+    else if (item.isFile() && item.name.toLowerCase().endsWith('.exe')) files.push(absolute);
+  }
+  return files;
+}
+
 function main() {
   assert(fs.existsSync(manifestPath), 'Managed voice runtime is missing. Run npm.cmd run prepare:voice-runtime.');
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
@@ -42,6 +52,11 @@ function main() {
   }
 
   const python = path.join(runtimeRoot, 'python', 'python.exe');
+  assert.deepStrictEqual(
+    findExecutables(runtimeRoot).map(file => path.relative(runtimeRoot, file).replace(/\\/g, '/')).sort(),
+    ['python/python.exe'],
+    'Managed voice runtime must not ship unused executable launchers.',
+  );
   const importProbe = run(python, ['-c', 'import faster_whisper,av,numpy; print(faster_whisper.__version__,av.__version__,numpy.__version__)']);
   assert.strictEqual(importProbe.status, 0, importProbe.stderr || importProbe.stdout);
 
