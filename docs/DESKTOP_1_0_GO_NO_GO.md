@@ -34,8 +34,8 @@ Universal 分区中，安全已取得 10 项通过，但签名/恶意软件扫�
 - 开发态 Electron smoke 输出 `ATHENA_SMOKE_READY_TO_SHOW` 与 `ATHENA_SMOKE_DOM_OK`。
 - `npm.cmd run audit:security` 输出 `found 0 vulnerabilities`。
 - `npm.cmd run build` 成功生成 `0.9.6-beta.1` unsigned 工程包，并明确输出 `ATHENA_RELEASE_EXTERNAL_BLOCKED code-signing-certificate-missing` 与 `ATHENA_BUILD_SOURCE_DIRTY paths=1`。
-- 最新候选 ID：`0.9.6-beta.1-03fadfc4efa8-956b7d0386a7`；构建输入 SHA-256：`956B7D0386A79B8F22DF907FD806241EEFE87D4F7CFEEFDF44A6C8161CD8D0EB`。
-- Installer：504,617,499 bytes，SHA-256 `9DBAD819DD9151B36C76F70AF1A54E5866167BA2335B17B7F6DBBAE85E63A6DF`，Authenticode `NotSigned`。
+- 最新候选 ID：`0.9.6-beta.1-4611ced92a98-09c484f33ca1`；构建输入 SHA-256：`09C484F33CA1079926AC8AF6078DEC81423CA845583181DEEEB63540232F11AD`；候选 ID 与 build provenance 一致。
+- Installer：504,617,492 bytes，SHA-256 `6B394AF215E039BDFFE75C56985755D846A86CFBC4D3271E76B3E016A1B1F878`，Authenticode `NotSigned`。
 - unpacked EXE：232,771,072 bytes，SHA-256 `45CBBEED08E534AEBDF537B94BB1E2A16A14DC265597E92B7636A4DC54D8887F`，Authenticode `NotSigned`。
 - 生产 ASAR 共 8,154 个条目，`.map/.d.ts` 为 0，`config/settings.json` 未进入包；Direct 用户首启使用代码内安全默认值。
 - packaged gate 通过；打包态 smoke 退出码 0，并输出 `ATHENA_SMOKE_READY_TO_SHOW`、`ATHENA_SMOKE_DOM_OK`。

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-08-18T15:20:38.568Z",
+  "generatedAt": "2026-08-18T15:33:16.978Z",
   "project": {
     "name": "athena",
     "version": "0.9.6-beta.1",
@@ -34765,8 +34765,8 @@
   "buildArtifacts": [
     {
       "path": "release/Athena Setup 0.9.6-beta.1.exe",
-      "bytes": 504617499,
-      "sha256": "9DBAD819DD9151B36C76F70AF1A54E5866167BA2335B17B7F6DBBAE85E63A6DF"
+      "bytes": 504617492,
+      "sha256": "6B394AF215E039BDFFE75C56985755D846A86CFBC4D3271E76B3E016A1B1F878"
     },
     {
       "path": "release/win-unpacked/Athena.exe",
