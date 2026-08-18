@@ -40,6 +40,9 @@ function verifyVersionIdentity() {
   for (const required of ['actions/checkout@v4', 'npm.cmd ci', 'release:preflight', 'build:release', 'test:desktop-package', 'release:verify-candidate', '--require-clean', 'WINDOWS_CSC_LINK', 'WINDOWS_SIGNING_PUBLISHER', 'ATHENA_UPDATE_BASE_URL', 'GITHUB_REF_NAME', 'desktop-v$version']) {
     assert(workflow.includes(required), `clean-checkout CI is missing: ${required}`);
   }
+  const candidateGenerator = fs.readFileSync(path.join(ROOT, 'scripts', 'generate-candidate-manifest.js'), 'utf8');
+  assert.match(candidateGenerator, /buildInfo\.shortCommit/);
+  assert.doesNotMatch(candidateGenerator, /state\.shortCommit/);
   assert.strictEqual(buildInputHash(), buildInputHash());
 }
 

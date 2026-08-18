@@ -10,7 +10,6 @@ const {
   releaseChannel,
   sha256,
   sha512Base64,
-  sourceState,
   writeJson,
 } = require('./release-common');
 
@@ -62,8 +61,7 @@ function main() {
   if (!buildInfo || buildInfo.version !== pkg.version) throw new Error('Build info is missing or does not match package version. Run npm.cmd run build first.');
   if (buildInfo.buildInputSha256 !== buildInputHash()) throw new Error('Source inputs changed after the build. Rebuild before generating a candidate manifest.');
 
-  const state = sourceState();
-  const candidateId = `${pkg.version}-${state.shortCommit}-${buildInfo.buildInputSha256.slice(0, 12).toLowerCase()}`;
+  const candidateId = `${pkg.version}-${buildInfo.shortCommit}-${buildInfo.buildInputSha256.slice(0, 12).toLowerCase()}`;
   const candidateRoot = path.join(ROOT, 'release', 'candidates', candidateId);
   fs.mkdirSync(candidateRoot, { recursive: true });
   const installer = path.join(candidateRoot, installerName);

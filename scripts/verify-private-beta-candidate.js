@@ -62,6 +62,13 @@ function verifyManifest(manifestPath, options = {}) {
   assert.strictEqual(releaseChannel(manifest.version), 'beta', 'Private Beta candidate version must be a beta or rc prerelease.');
   assert.match(manifest.candidateId || '', /^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$/, 'Candidate ID is invalid.');
   assert(manifest.source?.commit && manifest.source.commit !== 'unknown', 'Candidate source commit is missing.');
+  assert.match(manifest.source?.shortCommit || '', /^[0-9a-f]{12}$/i, 'Candidate source short commit is invalid.');
+  assert.match(manifest.source?.buildInputSha256 || '', /^[0-9a-f]{64}$/i, 'Candidate build input hash is invalid.');
+  assert.strictEqual(
+    manifest.candidateId,
+    `${manifest.version}-${manifest.source.shortCommit}-${manifest.source.buildInputSha256.slice(0, 12).toLowerCase()}`,
+    'Candidate ID is not bound to its build provenance.',
+  );
   if (!manifest.source.cleanCheckout) blockers.push('clean-checkout-not-proven');
 
   const expectedPublisher = manifest.signingPolicy?.expectedPublisher || '';
@@ -151,10 +158,15 @@ function selfTest() {
     const manifestPath = path.join(candidateDirectory, 'candidate-manifest.json');
     writeJson(manifestPath, {
       schemaVersion: 1,
-      candidateId: 'fixture-beta-1',
+      candidateId: `0.9.6-beta.1-0123456789ab-${'a'.repeat(12)}`,
       version: '0.9.6-beta.1',
       channel: 'beta',
-      source: { commit: 'fixture', cleanCheckout: true },
+      source: {
+        commit: '0123456789abcdef0123456789abcdef01234567',
+        shortCommit: '0123456789ab',
+        cleanCheckout: true,
+        buildInputSha256: 'A'.repeat(64),
+      },
       signingPolicy: { expectedPublisher: 'CN=Athena Test' },
       artifacts: [record],
       executableEvidence: [executableRecord, elevateRecord, pythonRecord],
