@@ -11,6 +11,7 @@ import { consumeMicrophoneGrant, hasMicrophoneGrant } from './security/Permissio
 import { getAppSettings } from '../core/config/SettingsStore';
 import { applyDesktopSettings } from './DesktopSettings';
 import { installCrashDiagnostics, recordCrashDiagnostic } from '../core/runtime/CrashDiagnostics';
+import { RendererRecoveryPolicy, SingleInstanceActivationQueue, withTimeout } from '../core/runtime/DesktopReliability';
 import { initializeDesktopUpdater } from '../core/update/DesktopUpdater';
 import { describeSteamCloudAvailability, initializeSteamPlatform } from '../core/steam/SteamPlatform';
 import { isSteamExternalNavigationAllowed } from '../core/steam/SteamSkuPolicy';
@@ -25,6 +26,12 @@ let isQuitting = false;
 let quitFinalized = false;
 let shutdownServices: (() => Promise<void>) | null = null;
 let quitCleanupPromise: Promise<void> | null = null;
+let mainWindowReady = false;
+let unresponsiveTimer: ReturnType<typeof setTimeout> | null = null;
+let unresponsiveDialogOpen = false;
+let rendererRecoveryDialogOpen = false;
+const rendererRecovery = new RendererRecoveryPolicy(2, 60_000);
+const singleInstanceActivation = new SingleInstanceActivationQueue();
 const isSmokeTest = process.argv.includes('--smoke-test') || process.env.ATHENA_SMOKE_TEST === '1';
 const steamPlatform = initializeSteamPlatform();
 const isSteamBuild = steamPlatform.state.sku === 'steam';
@@ -177,7 +184,89 @@ async function confirmExternalOpen(window: BrowserWindow, value: string): Promis
   if (result.response === 1 && !window.isDestroyed()) await shell.openExternal(value);
 }
 
+function focusPrimaryWindow(): boolean {
+  if (!singleInstanceActivation.hasPendingRequest || !mainWindowReady || !mainWindow || mainWindow.isDestroyed()) return false;
+  singleInstanceActivation.consume();
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show();
+  mainWindow.focus();
+  return true;
+}
+
+function handleRendererGone(window: BrowserWindow, reason: string, exitCode: number): void {
+  console.error(`ATHENA_RENDERER_GONE reason=${reason} exitCode=${exitCode}`);
+  recordCrashDiagnostic('renderer-gone', { reason, exitCode });
+  if (isQuitting || window.isDestroyed()) return;
+  const recovery = rendererRecovery.evaluate(reason);
+  console.error(`ATHENA_RENDERER_RECOVERY action=${recovery.action} recentFailures=${recovery.recentFailures}`);
+  if (recovery.action === 'ignore') return;
+  if (recovery.action === 'reload') {
+    setTimeout(() => {
+      if (!isQuitting && !window.isDestroyed() && !window.webContents.isDestroyed()) window.webContents.reload();
+    }, 250);
+    return;
+  }
+  if (rendererRecoveryDialogOpen) return;
+  rendererRecoveryDialogOpen = true;
+  void dialog.showMessageBox(window, {
+    type: 'error',
+    title: 'Athena 界面恢复已停止',
+    message: '界面连续崩溃，Athena 已停止自动重载，避免进入崩溃循环。',
+    detail: reason === 'integrity-failure'
+      ? 'Windows 报告了代码完整性失败。请保留诊断支持包并重新安装可信安装包。'
+      : '当前任务检查点仍保留在本机。可重启 Athena 后从执行中心继续。',
+    buttons: ['重启 Athena', '退出'],
+    defaultId: 1,
+    cancelId: 1,
+    noLink: true,
+  }).then(result => {
+    if (result.response === 0) app.relaunch();
+    isQuitting = true;
+    app.quit();
+  }).catch(error => {
+    console.error('ATHENA_RENDERER_RECOVERY_DIALOG_ERROR', error);
+    isQuitting = true;
+    app.quit();
+  }).finally(() => {
+    rendererRecoveryDialogOpen = false;
+  });
+}
+
+function clearUnresponsiveRecovery(): void {
+  if (unresponsiveTimer) clearTimeout(unresponsiveTimer);
+  unresponsiveTimer = null;
+}
+
+function handleWindowUnresponsive(window: BrowserWindow): void {
+  if (isQuitting || unresponsiveTimer || unresponsiveDialogOpen || window.isDestroyed()) return;
+  console.error('ATHENA_WINDOW_UNRESPONSIVE');
+  recordCrashDiagnostic('window-unresponsive', {});
+  unresponsiveTimer = setTimeout(() => {
+    unresponsiveTimer = null;
+    if (isQuitting || window.isDestroyed() || unresponsiveDialogOpen) return;
+    unresponsiveDialogOpen = true;
+    void dialog.showMessageBox(window, {
+      type: 'warning',
+      title: 'Athena 暂无响应',
+      message: '界面持续无响应。后台任务可能仍在保存检查点。',
+      buttons: ['继续等待', '重新载入界面', '退出 Athena'],
+      defaultId: 0,
+      cancelId: 0,
+      noLink: true,
+    }).then(result => {
+      if (result.response === 1 && !window.isDestroyed() && !window.webContents.isDestroyed()) window.webContents.reload();
+      if (result.response === 2) {
+        isQuitting = true;
+        app.quit();
+      }
+    }).catch(error => console.error('ATHENA_UNRESPONSIVE_DIALOG_ERROR', error)).finally(() => {
+      unresponsiveDialogOpen = false;
+    });
+  }, 10_000);
+}
+
 function createWindow(): void {
+  mainWindowReady = false;
   mainWindow = new BrowserWindow({
     width: isSmokeTest ? smokeWindowWidth : 1180,
     height: isSmokeTest ? smokeWindowHeight : 760,
@@ -196,40 +285,40 @@ function createWindow(): void {
     },
     show: false,
   });
+  const createdWindow = mainWindow;
 
-  mainWindow.webContents.setAudioMuted(false);
-  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    void confirmExternalOpen(mainWindow!, url);
+  createdWindow.webContents.setAudioMuted(false);
+  createdWindow.webContents.setWindowOpenHandler(({ url }) => {
+    void confirmExternalOpen(createdWindow, url);
     return { action: 'deny' };
   });
-  mainWindow.webContents.session.on('will-download', (event) => event.preventDefault());
-  mainWindow.webContents.on('will-navigate', (event, url) => {
-    if (isMainAppPage(mainWindow?.webContents ?? null, url)) return;
+  createdWindow.webContents.session.on('will-download', (event) => event.preventDefault());
+  createdWindow.webContents.on('will-navigate', (event, url) => {
+    if (isMainAppPage(createdWindow.webContents, url)) return;
     event.preventDefault();
-    if (mainWindow) void confirmExternalOpen(mainWindow, url);
+    void confirmExternalOpen(createdWindow, url);
   });
-  configureMediaPermissions(mainWindow);
-  mainWindow.webContents.on('render-process-gone', (_event, details) => {
-    console.error(`ATHENA_RENDERER_GONE reason=${details.reason} exitCode=${details.exitCode}`);
-    recordCrashDiagnostic('renderer-gone', { reason: details.reason, exitCode: details.exitCode });
+  configureMediaPermissions(createdWindow);
+  createdWindow.webContents.on('render-process-gone', (_event, details) => {
+    handleRendererGone(createdWindow, details.reason, details.exitCode);
   });
   if (isSmokeTest) {
-    mainWindow.webContents.on('console-message', (_event, _level, message) => {
+    createdWindow.webContents.on('console-message', (_event, _level, message) => {
       if (message.startsWith('ATHENA_SMOKE_')) console.log(message);
     });
   }
-  mainWindow.on('unresponsive', () => {
-    console.error('ATHENA_WINDOW_UNRESPONSIVE');
-    recordCrashDiagnostic('window-unresponsive', {});
-  });
-  mainWindow.loadURL(pathToFileURL(path.join(__dirname, '../renderer/index.html')).toString());
+  createdWindow.on('unresponsive', () => handleWindowUnresponsive(createdWindow));
+  createdWindow.on('responsive', clearUnresponsiveRecovery);
+  createdWindow.loadURL(pathToFileURL(path.join(__dirname, '../renderer/index.html')).toString());
 
   mainWindow.once('ready-to-show', () => {
+    mainWindowReady = true;
     if (!isSmokeTest) mainWindow?.show();
     else {
       if (isVoiceSmokeTest) mainWindow?.showInactive();
       logSmokeReady();
     }
+    focusPrimaryWindow();
   });
 
   mainWindow.webContents.once('did-finish-load', async () => {
@@ -1054,7 +1143,11 @@ function createWindow(): void {
       mainWindow?.hide();
     }
   });
-  mainWindow.on('closed', () => { mainWindow = null; });
+  createdWindow.on('closed', () => {
+    clearUnresponsiveRecovery();
+    mainWindowReady = false;
+    if (mainWindow === createdWindow) mainWindow = null;
+  });
 }
 
 function logSmokeReady(): void {
@@ -1109,11 +1202,15 @@ app.on('will-quit', (event) => {
   if (quitFinalized) return;
   event.preventDefault();
   quitCleanupPromise ||= (async () => {
+    clearUnresponsiveRecovery();
     const shutdown = shutdownServices;
     shutdownServices = null;
-    if (shutdown) await shutdown();
+    if (shutdown) await withTimeout(shutdown(), 15_000, 'Athena service shutdown timed out after 15 seconds');
   })().catch(error => {
     console.error('ATHENA_SHUTDOWN_ERROR', error);
+    if (error instanceof Error && /shutdown timed out/i.test(error.message)) {
+      recordCrashDiagnostic('shutdown-timeout', { name: error.name, message: error.message });
+    }
   }).finally(() => {
     quitFinalized = true;
     app.quit();
@@ -1123,4 +1220,7 @@ app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(
 
 const gotTheLock = isSmokeTest || app.requestSingleInstanceLock();
 if (!gotTheLock) app.quit();
-else app.on('second-instance', () => { if (mainWindow) { if (mainWindow.isMinimized()) mainWindow.restore(); mainWindow.focus(); } });
+else app.on('second-instance', () => {
+  singleInstanceActivation.request();
+  focusPrimaryWindow();
+});

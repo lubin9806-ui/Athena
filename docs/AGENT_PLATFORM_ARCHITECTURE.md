@@ -142,6 +142,17 @@ Chat, research, and durable execution now share one main-process routing contrac
 - The versioned routing fixture covers Chinese and English conversation, freshness, GitHub research, composite research/build tasks, direct code work, context handoff, disabled capability, and high-risk false positives. The aggregate gate then runs web search, native Agent tools, Project handoff, research tools, Project memory isolation, and actual Skill loading tests.
 - Acceptance commands: `npm.cmd run test:agent-routing` and `npm.cmd run test:agent-evals`.
 
+## Block 08C: Native Desktop Recovery
+
+The Electron shell now treats renderer failure, window hangs, duplicate launches, and orderly shutdown as explicit recovery paths.
+
+- The primary instance coalesces early duplicate-launch requests and restores, shows, and focuses the ready window. Command-line arguments from the second process are not interpreted as files, URLs, or commands. This follows Electron's documented [`requestSingleInstanceLock` and `second-instance` contract](https://www.electronjs.org/docs/latest/api/app#apprequestsingleinstancelockadditionaldata).
+- Unexpected renderer loss records minimized crash evidence and automatically reloads at most twice within 60 seconds. `launch-failed` and Windows `integrity-failure` stop immediately; a third ordinary failure opens a native restart/exit decision instead of entering a crash loop. Durable Agent checkpoints remain in the main-process SQLite store and are rediscovered by the reloaded UI. [Electron `render-process-gone`](https://www.electronjs.org/docs/latest/api/web-contents#event-render-process-gone)
+- A window that remains unresponsive for ten seconds presents native wait, reload, and exit choices. A `responsive` event cancels the pending recovery prompt, so transient long frames do not destroy UI state. [Electron BrowserWindow events](https://www.electronjs.org/docs/latest/api/browser-window#event-unresponsive)
+- App quit waits for IPC, OCR, MCP, tool, and database shutdown with a 15-second bound and records a local `shutdown-timeout` diagnostic if cleanup cannot finish. Orderly database close attempts `wal_checkpoint(TRUNCATE)` before closing the SQLite handle; checkpoint contention never prevents handle closure.
+- The acceptance drill uses the operating-system single-instance lock with a real second Electron process, force-crashes an isolated renderer and proves reload, exercises crash-loop and timeout policies, then reopens the checkpointed SQLite database and runs `quick_check`.
+- Acceptance command: `npm.cmd run test:desktop-reliability`.
+
 ## Block 01: Durable Agent Domain
 
 The canonical implementation is under `src/core/agent`. These records were introduced in SQLite schema v10; current schema v14 adds governed attachments, Project-isolated memory, local document grounding, and OCR provenance without changing their contracts:

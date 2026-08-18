@@ -123,7 +123,7 @@ const { McpConfigStore, McpIntegrationHost, describeMcpLaunch } = require(path.j
     assert.match(ipc, /await controller\.shutdown\(\)/, 'IPC disposal must await controller shutdown');
     assert.match(ipc, /args: cleanMcpArgumentList\(stdio\.args/, 'IPC must preserve approved stdio argument whitespace');
     assert.match(main, /app\.on\('will-quit'/, 'Electron quit must coordinate asynchronous integration shutdown');
-    assert.match(main, /if \(shutdown\) await shutdown\(\)/, 'Electron quit must await the active IPC services');
+    assert.match(main, /if \(shutdown\) await withTimeout\(shutdown\(\), 15_000/, 'Electron quit must await the active IPC services with a bounded timeout');
     assert.match(renderer, /argumentLines/, 'renderer must preserve stdio argument whitespace');
     assert.match(renderer, /当前 Windows 用户权限启动以下命令/);
     assert.match(renderer, /批准仅绑定当前配置指纹/);

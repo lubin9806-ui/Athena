@@ -62,8 +62,18 @@ export function getDatabase(): Database.Database {
 
 export function closeDatabase(): void {
   if (!db) return;
-  db.close();
-  db = null;
+  const closing = db;
+  try {
+    closing.pragma('wal_checkpoint(TRUNCATE)');
+  } catch {
+    // Closing the SQLite handle is still required when another reader prevents truncation.
+  } finally {
+    try {
+      closing.close();
+    } finally {
+      db = null;
+    }
+  }
 }
 
 export function getStats(): MemoryStats {

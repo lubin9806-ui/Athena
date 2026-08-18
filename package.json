@@ -36,6 +36,7 @@
     "test:release": "tsc && electron scripts/verify-release-engineering.js",
     "test:private-beta": "node scripts/verify-private-beta-candidate.js --self-test",
     "test:desktop-faults": "tsc && node scripts/verify-desktop-faults.js",
+    "test:desktop-reliability": "tsc && electron scripts/verify-desktop-reliability.js",
     "test:commercial": "tsc && node scripts/verify-commercial-readiness.js",
     "test:steam": "tsc && electron scripts/verify-steam.js && node scripts/verify-steam-candidate.js --source-only",
     "test:store": "tsc && node scripts/verify-microsoft-store.js --source-only",
