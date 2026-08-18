@@ -10,6 +10,7 @@ files:
   - resources/**/*
   - "!resources/OllamaSetup.exe"
   - config/**/*
+  - "!config/settings.json"
   - skills/**/*
   - assets/**/*
   - "!assets/steam/**/*"

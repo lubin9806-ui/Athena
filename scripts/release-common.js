@@ -45,6 +45,24 @@ function releaseChannel(version = packageMetadata().version) {
   throw new Error(`Unsupported release version: ${version}. Use x.y.z or x.y.z-beta.N.`);
 }
 
+function normalizeUpdateBaseUrl(value) {
+  if (typeof value !== 'string'
+    || value.length > 2048
+    || value !== value.trim()
+    || /[\\\r\n\t]/.test(value)
+    || /%(?:2e|2f|5c)/i.test(value)
+    || /(?:^|\/)\.{1,2}(?:\/|$)/.test(value)) return null;
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol !== 'https:' || parsed.username || parsed.password || parsed.search || parsed.hash) return null;
+    if (!parsed.hostname || (parsed.port && parsed.port !== '443')) return null;
+    parsed.pathname = parsed.pathname.replace(/\/+$/, '');
+    return parsed.toString().replace(/\/$/, '');
+  } catch {
+    return null;
+  }
+}
+
 function git(args, fallback = '') {
   if (!GIT) return fallback;
   const result = spawnSync(GIT, args, { cwd: ROOT, encoding: 'utf8', windowsHide: true });
@@ -102,6 +120,7 @@ function buildInputHash() {
   }
   const hash = crypto.createHash('sha256');
   for (const file of files.sort((left, right) => left.relative.localeCompare(right.relative))) {
+    if (file.relative === 'config/settings.json') continue;
     hash.update(file.relative);
     hash.update('\0');
     hash.update(fs.readFileSync(file.absolute));
@@ -164,6 +183,7 @@ module.exports = {
   packageMetadata,
   readJson,
   releaseChannel,
+  normalizeUpdateBaseUrl,
   sha256,
   sha512Base64,
   signingCredentialsPresent,

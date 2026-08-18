@@ -1,8 +1,8 @@
 {
   "name": "athena",
-  "version": "0.9.5",
+  "version": "0.9.6-beta.1",
   "private": true,
-  "description": "Athena - local-first AI desktop companion (Desktop 0.9.5 private beta candidate)",
+  "description": "Athena - local-first AI desktop companion (Desktop 0.9.6-beta.1 private beta candidate)",
   "author": "Athena Project",
   "license": "UNLICENSED",
   "main": "dist/app/main.js",
@@ -35,6 +35,7 @@
     "test:supply-chain": "node scripts/verify-supply-chain.js",
     "test:release": "tsc && electron scripts/verify-release-engineering.js",
     "test:private-beta": "node scripts/verify-private-beta-candidate.js --self-test",
+    "test:update-policy": "tsc && node scripts/verify-update-policy.js",
     "test:desktop-faults": "tsc && node scripts/verify-desktop-faults.js",
     "test:desktop-reliability": "tsc && electron scripts/verify-desktop-reliability.js",
     "test:commercial": "tsc && node scripts/verify-commercial-readiness.js",

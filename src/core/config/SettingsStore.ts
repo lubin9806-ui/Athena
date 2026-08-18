@@ -36,7 +36,7 @@ import type {
 } from '../../shared/types';
 import { ensureSufficientDiskSpace } from '../runtime/DiskSpaceGuard';
 
-const DEFAULT_SETTINGS: AppSettings = {
+export const DEFAULT_SETTINGS: AppSettings = {
   version: 2,
   profile: 'default',
   developerMode: false,

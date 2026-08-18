@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
-const { ROOT, packageMetadata, releaseChannel, signingCredentialsPresent, writeJson } = require('./release-common');
+const { ROOT, normalizeUpdateBaseUrl, packageMetadata, releaseChannel, signingCredentialsPresent, writeJson } = require('./release-common');
 const { main: prepareRelease } = require('./prepare-release');
 
 function run(label, script, args = []) {
@@ -52,12 +52,13 @@ function main() {
     process.exit(2);
   }
   const updateBaseUrl = process.env.ATHENA_UPDATE_BASE_URL?.trim() || '';
+  const approvedUpdateBaseUrl = normalizeUpdateBaseUrl(updateBaseUrl);
   const signingPublisher = process.env.ATHENA_SIGNING_PUBLISHER?.trim() || '';
-  if (requireSigning && !/^https:\/\//i.test(updateBaseUrl)) {
+  if (signed && !approvedUpdateBaseUrl) {
     console.error('ATHENA_RELEASE_EXTERNAL_BLOCKED https-update-feed-missing');
     process.exit(3);
   }
-  if (requireSigning && !signingPublisher) {
+  if (signed && !signingPublisher) {
     console.error('ATHENA_RELEASE_EXTERNAL_BLOCKED signing-publisher-identity-missing');
     process.exit(4);
   }
@@ -72,13 +73,13 @@ function main() {
   const version = packageMetadata().version;
   writeJson(path.join(ROOT, '.build', 'update-config.json'), {
     schemaVersion: 1,
-    enabled: signed && /^https:\/\//i.test(updateBaseUrl),
-    baseUrl: signed ? updateBaseUrl.replace(/\/$/, '') : '',
+    enabled: signed && Boolean(approvedUpdateBaseUrl),
+    baseUrl: signed ? approvedUpdateBaseUrl || '' : '',
     channel: releaseChannel(version),
     checkIntervalHours: 6,
   });
   const escapedPublisher = (signingPublisher || 'UNSIGNED ENGINEERING EVIDENCE').replace(/'/g, "''");
-  const updateUrl = signed ? updateBaseUrl.replace(/\/$/, '') : 'https://updates.invalid/athena-disabled';
+  const updateUrl = signed ? approvedUpdateBaseUrl || '' : 'https://updates.invalid/athena-disabled';
   fs.writeFileSync(path.join(ROOT, '.build', 'app-update.yml'), [
     'provider: generic',
     `url: '${updateUrl}'`,

@@ -2,7 +2,7 @@ const assert = require('assert');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { ROOT, authenticode, readJson, sha256, sha512Base64, writeJson } = require('./release-common');
+const { ROOT, authenticode, readJson, releaseChannel, sha256, sha512Base64, writeJson } = require('./release-common');
 
 function resolveManifest(argument) {
   if (!argument) throw new Error('Candidate manifest is required. Use --manifest <candidate-manifest.json>.');
@@ -11,6 +11,8 @@ function resolveManifest(argument) {
 
 function verifyRecord(record, manifestDirectory) {
   const artifact = path.resolve(manifestDirectory, record.file);
+  const allowedRoot = `${path.resolve(manifestDirectory)}${path.sep}`;
+  assert(artifact.startsWith(allowedRoot), `Candidate artifact escapes its approved root: ${record.file}`);
   assert(fs.existsSync(artifact), `Candidate artifact is missing: ${record.file}`);
   assert.strictEqual(fs.statSync(artifact).size, record.bytes, `Byte size changed: ${record.file}`);
   assert.strictEqual(sha256(artifact), record.sha256, `SHA-256 changed: ${record.file}`);
@@ -37,11 +39,14 @@ function verifyManifest(manifestPath, options = {}) {
   const blockers = [];
   assert.strictEqual(manifest.schemaVersion, 1, 'Unsupported candidate manifest schema.');
   assert.strictEqual(manifest.channel, 'beta', 'Private Beta candidate must use the beta channel.');
+  assert.strictEqual(releaseChannel(manifest.version), 'beta', 'Private Beta candidate version must be a beta or rc prerelease.');
+  assert.match(manifest.candidateId || '', /^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$/, 'Candidate ID is invalid.');
   assert(manifest.source?.commit && manifest.source.commit !== 'unknown', 'Candidate source commit is missing.');
   if (!manifest.source.cleanCheckout) blockers.push('clean-checkout-not-proven');
 
   const expectedPublisher = manifest.signingPolicy?.expectedPublisher || '';
   if (!expectedPublisher) blockers.push('publisher-missing');
+  assert((manifest.artifacts || []).length > 0, 'Candidate manifest has no artifacts.');
   for (const artifact of manifest.artifacts || []) {
     const artifactPath = verifyRecord(artifact, manifestDirectory);
     if (artifact.file.toLowerCase().endsWith('.exe') && !validSignature(inspectSignature(artifactPath), expectedPublisher)) {
@@ -101,6 +106,8 @@ function selfTest() {
     const manifestPath = path.join(candidateDirectory, 'candidate-manifest.json');
     writeJson(manifestPath, {
       schemaVersion: 1,
+      candidateId: 'fixture-beta-1',
+      version: '0.9.6-beta.1',
       channel: 'beta',
       source: { commit: 'fixture', cleanCheckout: true },
       signingPolicy: { expectedPublisher: 'CN=Athena Test' },
@@ -116,6 +123,14 @@ function selfTest() {
     assert(verifyManifest(manifestPath, { ...validOptions, requireGraduation: true }).blockers.includes('beta-validation-not-passed'));
     const invalidSignature = { ...signature, timestampSubject: null };
     assert(verifyManifest(manifestPath, { ...validOptions, inspectSignature: () => invalidSignature }).blockers.some(item => item.startsWith('invalid-signature:')));
+    const validManifest = readJson(manifestPath);
+    writeJson(manifestPath, { ...validManifest, version: '0.9.6' });
+    assert.throws(() => verifyManifest(manifestPath, validOptions), /version must be a beta/);
+    writeJson(manifestPath, { ...validManifest, artifacts: [{ ...record, file: '../outside.exe' }] });
+    assert.throws(() => verifyManifest(manifestPath, validOptions), /escapes its approved root/);
+    writeJson(manifestPath, { ...validManifest, artifacts: [] });
+    assert.throws(() => verifyManifest(manifestPath, validOptions), /no artifacts/);
+    writeJson(manifestPath, validManifest);
     fs.appendFileSync(artifact, '-tampered');
     assert.throws(() => verifyManifest(manifestPath, validOptions), /Byte size changed/);
     console.log('ATHENA_PRIVATE_BETA_GATE_OK signedCandidate=verified graduation=fail-closed tamper=blocked');

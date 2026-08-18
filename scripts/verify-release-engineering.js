@@ -12,6 +12,7 @@ const {
   sha256,
   sha512Base64,
   writeJson,
+  normalizeUpdateBaseUrl,
 } = require('./release-common');
 const { rollback, setPaused, stageCandidate } = require('./channel-control');
 const { DATABASE_SCHEMA_VERSION } = require(path.join(ROOT, 'dist', 'memory', 'database', 'index.js'));
@@ -20,18 +21,23 @@ function verifyVersionIdentity() {
   const pkg = packageMetadata();
   const lock = readJson(path.join(ROOT, 'package-lock.json'));
   const constants = fs.readFileSync(path.join(ROOT, 'src', 'shared', 'constants', 'index.ts'), 'utf8');
-  assert.strictEqual(pkg.version, '0.9.5');
+  assert.strictEqual(pkg.version, '0.9.6-beta.1');
   assert.strictEqual(lock.version, pkg.version);
   assert.strictEqual(lock.packages[''].version, pkg.version);
   assert.match(constants, /APP_VERSION = packageMetadata\.version/);
-  assert.strictEqual(releaseChannel(pkg.version), 'stable');
+  assert.strictEqual(releaseChannel(pkg.version), 'beta');
   assert.strictEqual(releaseChannel('0.9.0'), 'stable');
+  assert.strictEqual(normalizeUpdateBaseUrl('https://updates.example.test/athena/'), 'https://updates.example.test/athena');
+  assert.strictEqual(normalizeUpdateBaseUrl('https://user:pass@updates.example.test/athena'), null);
+  assert.strictEqual(normalizeUpdateBaseUrl('https://updates.example.test:444/athena'), null);
+  assert.strictEqual(normalizeUpdateBaseUrl('https://updates.example.test/athena/../other'), null);
+  assert.strictEqual(normalizeUpdateBaseUrl(' https://updates.example.test/athena'), null);
   assert.strictEqual(pkg.dependencies['electron-updater'], '6.8.9');
   const builder = fs.readFileSync(path.join(ROOT, 'electron-builder.yml'), 'utf8');
   assert.match(builder, /signAndEditExecutable: true/);
   assert.match(builder, /from: \.build\/database/);
   const workflow = fs.readFileSync(path.join(ROOT, '.github', 'workflows', 'desktop-beta.yml'), 'utf8');
-  for (const required of ['actions/checkout@v4', 'npm.cmd ci', 'release:preflight', 'build:release', 'release:verify-candidate', '--require-clean', 'WINDOWS_CSC_LINK', 'WINDOWS_SIGNING_PUBLISHER', 'ATHENA_UPDATE_BASE_URL']) {
+  for (const required of ['actions/checkout@v4', 'npm.cmd ci', 'release:preflight', 'build:release', 'release:verify-candidate', '--require-clean', 'WINDOWS_CSC_LINK', 'WINDOWS_SIGNING_PUBLISHER', 'ATHENA_UPDATE_BASE_URL', 'GITHUB_REF_NAME', 'desktop-v$version']) {
     assert(workflow.includes(required), `clean-checkout CI is missing: ${required}`);
   }
   assert.strictEqual(buildInputHash(), buildInputHash());
@@ -176,7 +182,7 @@ function main() {
     verifyChannelControls(scratch);
     verifyMigrationRecovery(scratch);
     verifyVersion3ChatWindowMigration(scratch);
-    console.log('ATHENA_RELEASE_ENGINEERING_OK version=0.9.5 channels=beta,stable migrationBackup=verified rollback=verified');
+    console.log('ATHENA_RELEASE_ENGINEERING_OK version=0.9.6-beta.1 channels=beta,stable migrationBackup=verified rollback=verified');
   } finally {
     fs.rmSync(scratch, { recursive: true, force: true });
   }

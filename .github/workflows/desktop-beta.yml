@@ -36,6 +36,14 @@ jobs:
         run: "Add-Content -LiteralPath $env:GITHUB_ENV -Value ('SOURCE_DATE_EPOCH=' + (git show -s --format=%ct HEAD))"
       - name: Install locked dependencies
         run: npm.cmd ci
+      - name: Verify release tag identity
+        if: ${{ startsWith(github.ref, 'refs/tags/') }}
+        shell: pwsh
+        run: |
+          $version = node -p "require('./package.json').version"
+          if ($env:GITHUB_REF_NAME -ne "desktop-v$version") {
+            throw "Release tag $env:GITHUB_REF_NAME does not match package version $version."
+          }
       - name: Rebuild SQLite for Electron ABI
         run: npm.cmd run rebuild:sqlite:electron
       - name: Verify release engineering

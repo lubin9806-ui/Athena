@@ -46,6 +46,9 @@ function packagedExecutables(root) {
 
 function main() {
   const pkg = packageMetadata();
+  if (releaseChannel(pkg.version) !== 'beta') {
+    throw new Error(`Private Beta candidate generation requires a beta version, received ${pkg.version}.`);
+  }
   const installerName = `Athena Setup ${pkg.version}.exe`;
   const sourceInstaller = path.join(ROOT, 'release', installerName);
   const sourceBlockmap = `${sourceInstaller}.blockmap`;

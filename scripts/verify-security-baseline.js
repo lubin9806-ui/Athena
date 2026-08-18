@@ -9,12 +9,9 @@ const htmlSource = fs.readFileSync(path.join(root, 'src/renderer/index.html'), '
 const viteSource = fs.readFileSync(path.join(root, 'vite.config.mts'), 'utf8');
 const builderSource = fs.readFileSync(path.join(root, 'electron-builder.yml'), 'utf8');
 const tsconfig = JSON.parse(fs.readFileSync(path.join(root, 'tsconfig.json'), 'utf8'));
-const config = JSON.parse(
-  process.env.ATHENA_SECURITY_BASELINE_SETTINGS_JSON
-    || fs.readFileSync(path.join(root, 'config/settings.json'), 'utf8'),
-);
 const { cleanAttachmentIds, cleanChatPayload, cleanExistingFilePath, isTrustedIpcSender, MAX_CHAT_CHARS } = require('../dist/app/ipc/validation');
 const { buildToolConfirmation, buildToolArgumentPreview } = require('../dist/core/tools/ToolRuntime');
+const { DEFAULT_SETTINGS } = require('../dist/core/config/SettingsStore');
 const permissionGate = require('../dist/app/security/PermissionGate');
 
 assert.match(mainSource, /sandbox:\s*true/);
@@ -30,9 +27,10 @@ assert.doesNotMatch(htmlSource, /unsafe-eval|unsafe-inline/);
 assert.match(viteSource, /sourcemap:\s*false/);
 assert.match(builderSource, /!\*\*\/\*\.map/);
 assert.match(builderSource, /!\*\*\/\*\.d\.ts/);
+assert.match(builderSource, /!config\/settings\.json/);
 assert.equal(tsconfig.compilerOptions.sourceMap, false);
-assert.equal(config.tools.permissionLevel, 'off');
-assert.equal(config.tools.modePermissions.execute, 'off');
+assert.equal(DEFAULT_SETTINGS.tools.permissionLevel, 'off');
+assert.equal(DEFAULT_SETTINGS.tools.modePermissions.execute, 'off');
 const handlerCount = [...ipcSource.matchAll(/ipcMain\.handle\('/g)].length;
 const trustedCheckCount = [...ipcSource.matchAll(/if \(!isTrustedSender\(event\)\)/g)].length;
 assert.equal(trustedCheckCount, handlerCount, 'every invoke handler must reject an untrusted sender');

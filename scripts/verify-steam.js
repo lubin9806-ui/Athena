@@ -179,6 +179,7 @@ async function main() {
   const builder = fs.readFileSync(path.join(ROOT, 'electron-builder.steam.yml'), 'utf8');
   assert.match(builder, /appId: com\.athena\.steam/);
   assert.match(builder, /executableName: AthenaSteam/);
+  assert.match(builder, /!config\/settings\.json/);
   assert.match(builder, /asarUnpack:[\s\S]*steamworks\.js\/dist\/win64/);
   for (const template of ['app_build_athena.vdf.template', 'depot_build_athena.vdf.template']) {
     const value = fs.readFileSync(path.join(ROOT, 'steamworks', template), 'utf8');
