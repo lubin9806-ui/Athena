@@ -29,6 +29,7 @@ import {
 import { AttachmentService } from '../attachments';
 import { ProjectDocumentService } from '../documents';
 import { LocalOcrService, OcrAgentToolBridge } from '../ocr';
+import { AgentMessageRouter } from '../routing';
 import { evaluateSteamAiContent, steamAiGuardrailRefusal } from '../steam/SteamAiGuardrails';
 import { isSteamSku } from '../steam/SteamSkuPolicy';
 import {
@@ -69,6 +70,7 @@ import type {
   AgentWorkspaceMetadata,
   AgentSkillLibrarySnapshot,
   AgentSkillSummary,
+  AgentMessageRouteDecision,
   McpIntegrationSnapshot,
   McpServerConfig,
   McpServerInput,
@@ -117,6 +119,7 @@ export class AthenaController {
   private readonly ocrTools: OcrAgentToolBridge;
   private readonly attachments: AttachmentService;
   private readonly documents: ProjectDocumentService;
+  private readonly messageRouter: AgentMessageRouter;
   private agentRunner: AgentRunner;
   private initialized = false;
   private initializePromise: Promise<void> | null = null;
@@ -133,6 +136,7 @@ export class AthenaController {
     this.attachments = new AttachmentService();
     this.ocr = new LocalOcrService();
     this.documents = new ProjectDocumentService({ ocr: this.ocr });
+    this.messageRouter = new AgentMessageRouter();
     this.agentStore = new AgentStore();
     this.agentTools = new ToolRegistry();
     this.agentComputerTools = new ComputerAgentToolBridge({
@@ -365,6 +369,34 @@ export class AthenaController {
 
     logger.info(`Athena response completed [chars=${response.content.length}]`);
     return response;
+  }
+
+  async routeMessage(
+    userMessage: string,
+    requestedMode: ConversationMode,
+    options: { forceWebSearch?: boolean; chatWindowId?: number } = {},
+  ): Promise<AgentMessageRouteDecision> {
+    if (!this.initialized) await this.initialize();
+    const settings = getAppSettings();
+    const chatWindow = (options.chatWindowId ? getChatWindow(options.chatWindowId) : null)
+      ?? ensureDefaultChatWindow();
+    const recentMessages = getChatWindowMessages(chatWindow.id, 12).map(message => ({
+      role: message.role,
+      content: message.content,
+    }));
+    const canStartDurableExecution = this.llm.capabilities.nativeToolCalls
+      && chatWindow.is_temporary !== true
+      && Boolean(chatWindow.project_id);
+    const route = this.messageRouter.route({
+      message: userMessage,
+      mode: requestedMode,
+      forceWebSearch: options.forceWebSearch,
+      webSearchEnabled: settings.webSearch.enabled,
+      canStartDurableExecution,
+      recentMessages,
+    });
+    logger.info(`Message routed [route=${route.route}, reason=${route.reason}, confidence=${route.confidence}, autoSwitch=${route.autoSwitch}]`);
+    return route;
   }
 
   async getSystemInfo(): Promise<SystemInfo> {

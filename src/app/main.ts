@@ -348,6 +348,7 @@ function createWindow(): void {
               && typeof api.getDiagnosticHealth === 'function'
               && typeof api.exportDiagnosticSupport === 'function'
               && typeof api.clearDiagnostics === 'function'
+              && typeof api.routeMessage === 'function'
               && typeof api.cancelExecution === 'function'
               && typeof api.getToolCatalog === 'function'
               && typeof api.chooseProjectDocuments === 'function'

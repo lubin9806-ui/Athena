@@ -68,6 +68,7 @@ const MAX_TEXT_TO_SPEAK_CHARS = 8_000;
 const MAX_PATH_CHARS = 2_048;
 
 const INVOKE_CHANNELS = [
+  'chat:route',
   'chat:send',
   'attachment:chooseImages',
   'attachment:preview',
@@ -182,6 +183,17 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<vo
     }
   });
 
+  ipcMain.handle('chat:route', async (event, value: unknown) => {
+    if (!isTrustedSender(event)) return null;
+    const settings = getAppSettings();
+    const payload = cleanChatPayload(value, settings.conversation.activeMode);
+    if (!payload) return null;
+    return controller.routeMessage(payload.text, payload.mode, {
+      forceWebSearch: payload.forceWebSearch,
+      chatWindowId: payload.chatWindowId,
+    });
+  });
+
   ipcMain.handle('chat:send', async (event, value: unknown) => {
     if (!isTrustedSender(event)) return null;
 
@@ -191,7 +203,9 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<vo
     const { text: userMessage, mode, forceWebSearch, chatWindowId, attachmentIds } = payload;
 
     try {
-      const response = mode === 'execute'
+      const routing = await controller.routeMessage(userMessage, mode, { forceWebSearch, chatWindowId });
+      const effectiveMode = routing.effectiveMode;
+      const response = effectiveMode === 'execute'
         ? await controller.executeAgentMessage(
           userMessage,
           chatWindowId,
@@ -200,7 +214,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<vo
         )
         : await controller.processMessage(
         userMessage,
-        mode,
+        effectiveMode,
         (chunk) => {
           if (!settings.conversation.streamResponses) return;
           if (!mainWindow.isDestroyed()) {
@@ -208,7 +222,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<vo
           }
         },
         {
-          forceWebSearch,
+          forceWebSearch: forceWebSearch || routing.route === 'web_research',
           chatWindowId,
           onWebSearchStatus: (status: WebSearchStatus) => {
             if (!mainWindow.isDestroyed()) {
@@ -224,6 +238,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<vo
           attachmentIds,
         },
         );
+      response.routing = routing;
       if (!mainWindow.isDestroyed()) {
         mainWindow.webContents.send('chat:stream', { content: '', done: true });
       }

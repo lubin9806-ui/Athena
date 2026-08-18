@@ -132,6 +132,16 @@ Desktop diagnostics are a local, user-controlled support surface rather than bac
 - The privacy center shows the local health state and offers explicit support-bundle export and diagnostics-only deletion. Athena never uploads a support bundle automatically, and deletion targets only the four known crash filenames rather than recursively removing a configured directory.
 - Acceptance command: `npm.cmd run test:diagnostics`.
 
+## Block 08B: Evaluated Message Routing
+
+Chat, research, and durable execution now share one main-process routing contract instead of relying on the selected renderer tab alone.
+
+- `AgentMessageRouter` returns a bounded `conversation`, `web_research`, or `durable_execution` decision with confidence, reason, effective mode, and optional normalized query. The renderer uses a trusted IPC preflight for immediate mode transition, while `chat:send` repeats the decision in the main process so a stale or bypassed UI cannot choose a different capability path.
+- Explicit or freshness-sensitive research, including natural requests such as finding interesting GitHub repositories, enables Athena's governed search pipeline. Direct build/edit requests and high-confidence references to an agreed plan enter the durable native-tool runner without asking the user to repeat the request. References such as "start executing this plan" require actionable recent context.
+- Discussion-only language, no-code instructions, temporary chats, missing native-tool capability, disabled web search, and bare execution references without context fail closed to conversation. Automatic routing does not grant file, terminal, network, image, Skill, or MCP permission; every downstream runtime gate and approval remains authoritative.
+- The versioned routing fixture covers Chinese and English conversation, freshness, GitHub research, composite research/build tasks, direct code work, context handoff, disabled capability, and high-risk false positives. The aggregate gate then runs web search, native Agent tools, Project handoff, research tools, Project memory isolation, and actual Skill loading tests.
+- Acceptance commands: `npm.cmd run test:agent-routing` and `npm.cmd run test:agent-evals`.
+
 ## Block 01: Durable Agent Domain
 
 The canonical implementation is under `src/core/agent`. These records were introduced in SQLite schema v10; current schema v14 adds governed attachments, Project-isolated memory, local document grounding, and OCR provenance without changing their contracts:

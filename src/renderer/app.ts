@@ -13,6 +13,7 @@ import { MicrophoneRecorder } from './voice/MicrophoneRecorder';
 declare global {
   interface Window {
     athenaAPI: {
+      routeMessage: (text: string, mode: AthenaMode, forceWebSearch?: boolean, chatWindowId?: number, attachmentIds?: string[]) => Promise<AgentMessageRouteDecision | null>;
       sendMessage: (text: string, mode: AthenaMode, forceWebSearch?: boolean, chatWindowId?: number, attachmentIds?: string[]) => Promise<{
         content: string;
         emotion?: { label: string };
@@ -26,6 +27,7 @@ declare global {
         };
         toolExecutions?: ChatToolExecution[];
         agentExecution?: { taskId: string; runId: string; status: AgentRunStatus };
+        routing?: AgentMessageRouteDecision;
       } | null>;
       chooseChatImages: (chatWindowId: number) => Promise<ChatAttachmentSnapshot[]>;
       getChatAttachmentPreview: (chatWindowId: number, attachmentId: string) => Promise<string | null>;
@@ -130,6 +132,15 @@ type MemoryKind = 'profile' | 'procedure' | 'fact' | 'event' | 'daily' | 'projec
 type MemoryReviewKind = 'profile' | 'event' | 'project' | 'procedure' | 'fact';
 type MemoryReviewStatus = 'pending' | 'applied' | 'rejected';
 type AthenaMode = 'create' | 'companion' | 'reason' | 'execute';
+
+interface AgentMessageRouteDecision {
+  route: 'conversation' | 'web_research' | 'durable_execution';
+  effectiveMode: AthenaMode;
+  confidence: 'high' | 'medium';
+  reason: string;
+  autoSwitch: boolean;
+  query?: string;
+}
 type VoiceInputState = 'idle' | 'requesting' | 'recording' | 'transcribing' | 'error';
 type AppStatusState = 'ready' | 'working' | 'offline' | 'error';
 type ToolPermissionLevel = 'off' | 'read' | 'files' | 'full';
@@ -1322,9 +1333,25 @@ async function sendMessage(text: string): Promise<void> {
   const requestChatWindowId = currentChatWindowId;
 
   const titleUpdate = autoTitleCurrentChatWindow(effectiveText);
-  const forceWebSearch = forceWebSearchForNextMessage;
-  const requestMode = currentMode;
+  let forceWebSearch = forceWebSearchForNextMessage;
+  let requestMode = currentMode;
   forceWebSearchForNextMessage = false;
+  try {
+    const routing = await window.athenaAPI.routeMessage(
+      effectiveText,
+      requestMode,
+      forceWebSearch,
+      currentChatWindowId ?? undefined,
+      queuedAttachments.map(attachment => attachment.id),
+    );
+    if (routing?.route === 'web_research') forceWebSearch = true;
+    if (routing?.route === 'durable_execution' && routing.autoSwitch && requestMode !== 'execute') {
+      await selectMode('execute');
+      requestMode = 'execute';
+    }
+  } catch (error) {
+    console.error('Message route preflight failed', error);
+  }
   toggleComposerTools(false);
   resizeInputBox();
   activeRequestMode = requestMode;
@@ -1360,6 +1387,9 @@ async function sendMessage(text: string): Promise<void> {
       queuedAttachments.map(attachment => attachment.id),
     );
     if (response) modelConnected = true;
+    const serverRoutedExecution = requestMode !== 'execute'
+      && response?.routing?.route === 'durable_execution'
+      && Boolean(response.agentExecution?.taskId);
     if (requestMode === 'execute') {
       if (response?.agentExecution?.taskId) selectedAgentTaskId = response.agentExecution.taskId;
       setAgentExecutionFeedback(response?.agentExecution ? '' : response?.content || '任务未能启动。');
@@ -1376,6 +1406,11 @@ async function sendMessage(text: string): Promise<void> {
           readPageCount: response.webSearch.readPageCount,
           searchRounds: response.webSearch.searchRounds,
         });
+      }
+      if (serverRoutedExecution && response?.agentExecution?.taskId) {
+        selectedAgentTaskId = response.agentExecution.taskId;
+        await selectMode('execute');
+        await refreshAgentWorkspace(selectedAgentTaskId);
       }
     }
   } catch (err) {

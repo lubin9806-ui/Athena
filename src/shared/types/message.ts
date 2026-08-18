@@ -64,6 +64,29 @@ export interface ChatRequest {
   message: string;
 }
 
+export type AgentMessageRoute = 'conversation' | 'web_research' | 'durable_execution';
+export type AgentMessageRouteConfidence = 'high' | 'medium';
+export type AgentMessageRouteReason =
+  | 'selected-execution-mode'
+  | 'forced-web-search'
+  | 'explicit-web-research'
+  | 'fresh-information'
+  | 'explicit-execution-handoff'
+  | 'direct-computer-action'
+  | 'execution-context-required'
+  | 'execution-unavailable'
+  | 'discussion-only'
+  | 'ordinary-conversation';
+
+export interface AgentMessageRouteDecision {
+  route: AgentMessageRoute;
+  effectiveMode: ConversationMode;
+  confidence: AgentMessageRouteConfidence;
+  reason: AgentMessageRouteReason;
+  autoSwitch: boolean;
+  query?: string;
+}
+
 export interface ChatResponse {
   content: string;
   emotion: Emotion;
@@ -75,6 +98,7 @@ export interface ChatResponse {
   contextSnapshot?: ContextSnapshotRecord;
   toolExecutions?: ToolExecutionRecord[];
   agentExecution?: AgentExecutionSummary;
+  routing?: AgentMessageRouteDecision;
 }
 
 export interface ChatStreamChunk {
