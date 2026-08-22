@@ -1,0 +1,98 @@
+{
+  "version": 1,
+  "outputDirectory": "layers-v1",
+  "atlases": [
+    {
+      "file": "head-hair-atlas-v1-alpha.png",
+      "parts": [
+        { "name": "ATH_HEAD_FACE_BASE", "rect": [60, 45, 320, 470] },
+        { "name": "ATH_HAIR_BACK_BASE", "rect": [390, 20, 390, 510] },
+        { "name": "ATH_HAIR_SIDE_L", "rect": [800, 40, 330, 490] },
+        { "name": "ATH_HAIR_SIDE_R", "rect": [1170, 40, 330, 490] },
+        { "name": "ATH_HAIR_BANGS_CENTER", "rect": [55, 530, 330, 310] },
+        { "name": "ATH_HAIR_BANGS_L", "rect": [395, 530, 315, 300] },
+        { "name": "ATH_HAIR_BANGS_R", "rect": [745, 530, 315, 300] },
+        { "name": "ATH_HAIR_LOOSE_STRAND_L", "rect": [1090, 520, 225, 405] },
+        { "name": "ATH_HAIR_LOOSE_STRAND_R", "rect": [1290, 520, 215, 405] },
+        { "name": "ATH_ACCESSORY_HAIR_CLIP", "rect": [430, 825, 175, 160] },
+        { "name": "ATH_HEAD_NECK", "rect": [700, 820, 190, 180] }
+      ]
+    },
+    {
+      "file": "eyes-brows-atlas-v1-alpha.png",
+      "parts": [
+        { "name": "ATH_EYE_L_WHITE", "rect": [120, 35, 300, 145] },
+        { "name": "ATH_EYE_R_WHITE", "rect": [440, 35, 300, 145] },
+        { "name": "ATH_EYE_L_IRIS", "rect": [210, 185, 170, 175] },
+        { "name": "ATH_EYE_R_IRIS", "rect": [465, 185, 170, 175] },
+        { "name": "ATH_EYE_L_PUPIL", "rect": [250, 365, 120, 110] },
+        { "name": "ATH_EYE_R_PUPIL", "rect": [505, 365, 120, 110] },
+        { "name": "ATH_EYE_L_HIGHLIGHT", "rect": [270, 455, 100, 100] },
+        { "name": "ATH_EYE_R_HIGHLIGHT", "rect": [505, 455, 100, 100] },
+        { "name": "ATH_EYE_L_UPPER_LASH", "rect": [120, 545, 300, 110] },
+        { "name": "ATH_EYE_R_UPPER_LASH", "rect": [445, 545, 300, 110] },
+        { "name": "ATH_EYE_L_LOWER_LASH", "rect": [180, 650, 230, 105] },
+        { "name": "ATH_EYE_R_LOWER_LASH", "rect": [460, 650, 230, 105] },
+        { "name": "ATH_EYE_L_CLOSED", "rect": [120, 740, 310, 120] },
+        { "name": "ATH_EYE_R_CLOSED", "rect": [445, 740, 310, 120] },
+        { "name": "ATH_BROW_L", "rect": [120, 850, 320, 135] },
+        { "name": "ATH_BROW_R", "rect": [440, 850, 320, 135] }
+      ]
+    },
+    {
+      "file": "mouths-atlas-v1-alpha.png",
+      "parts": [
+        { "name": "ATH_MOUTH_CLOSED", "rect": [105, 130, 290, 140] },
+        { "name": "ATH_MOUTH_SOFT_SMILE", "rect": [490, 125, 330, 155] },
+        { "name": "ATH_MOUTH_SMILE", "rect": [915, 125, 350, 165] },
+        { "name": "ATH_MOUTH_OPEN_SMALL", "rect": [1400, 120, 210, 170] },
+        { "name": "ATH_MOUTH_OPEN_MEDIUM", "rect": [110, 315, 280, 220] },
+        { "name": "ATH_MOUTH_OPEN_WIDE", "rect": [500, 310, 300, 240] },
+        { "name": "ATH_MOUTH_FORM_A", "rect": [900, 300, 320, 270] },
+        { "name": "ATH_MOUTH_FORM_I", "rect": [100, 575, 320, 210] },
+        { "name": "ATH_MOUTH_FORM_U", "rect": [445, 575, 300, 190] },
+        { "name": "ATH_MOUTH_FORM_E", "rect": [775, 565, 210, 220] },
+        { "name": "ATH_MOUTH_FORM_O", "rect": [1050, 570, 300, 200] },
+        { "name": "ATH_MOUTH_WORRIED", "rect": [1390, 575, 240, 180] }
+      ]
+    },
+    {
+      "file": "upper-body-atlas-v1-alpha.png",
+      "parts": [
+        { "name": "ATH_TORSO_BASE", "rect": [35, 60, 330, 380] },
+        { "name": "ATH_BLOUSE_BASE", "rect": [370, 55, 370, 400] },
+        { "name": "ATH_BLOUSE_SLEEVE_L", "rect": [750, 55, 200, 375] },
+        { "name": "ATH_BLOUSE_SLEEVE_R", "rect": [940, 55, 200, 375] },
+        { "name": "ATH_BLOUSE_COLLAR_L", "rect": [1125, 155, 190, 250] },
+        { "name": "ATH_BLOUSE_COLLAR_R", "rect": [1325, 155, 190, 250] },
+        { "name": "ATH_BLOUSE_POCKET", "rect": [60, 500, 230, 280] },
+        { "name": "ATH_BLOUSE_BUTTONS", "rect": [350, 445, 130, 340] },
+        { "name": "ATH_BLOUSE_CYAN_TRIM", "rect": [520, 455, 310, 310] },
+        { "name": "ATH_BLOUSE_RIBBON", "rect": [835, 440, 225, 340] },
+        { "name": "ATH_ARM_UPPER_L", "rect": [1065, 440, 210, 350] },
+        { "name": "ATH_ARM_UPPER_R", "rect": [1310, 440, 210, 350] },
+        { "name": "ATH_ARM_LOWER_L_HAND", "rect": [100, 790, 600, 190] },
+        { "name": "ATH_ARM_LOWER_R_HAND", "rect": [805, 790, 610, 190] }
+      ]
+    },
+    {
+      "file": "lower-body-atlas-v1-alpha.png",
+      "parts": [
+        { "name": "ATH_SKIRT_WAIST", "rect": [125, 0, 320, 90] },
+        { "name": "ATH_SKIRT_BASE", "rect": [45, 75, 500, 400] },
+        { "name": "ATH_SKIRT_PLEAT_01", "rect": [540, 55, 160, 420] },
+        { "name": "ATH_SKIRT_PLEAT_02", "rect": [710, 55, 160, 420] },
+        { "name": "ATH_SKIRT_PLEAT_03", "rect": [880, 55, 170, 420] },
+        { "name": "ATH_SKIRT_PLEAT_04", "rect": [1070, 55, 170, 420] },
+        { "name": "ATH_SKIRT_PLEAT_05", "rect": [1245, 55, 175, 420] },
+        { "name": "ATH_SKIRT_CYAN_ACCENT", "rect": [1400, 330, 250, 150] },
+        { "name": "ATH_LEG_L", "rect": [100, 455, 220, 480] },
+        { "name": "ATH_LEG_R", "rect": [315, 455, 220, 480] },
+        { "name": "ATH_SOCK_L", "rect": [650, 590, 160, 290] },
+        { "name": "ATH_SOCK_R", "rect": [850, 590, 160, 290] },
+        { "name": "ATH_SHOE_L", "rect": [1070, 565, 200, 315] },
+        { "name": "ATH_SHOE_R", "rect": [1330, 565, 200, 315] }
+      ]
+    }
+  ]
+}

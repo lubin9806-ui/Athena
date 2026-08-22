@@ -6,10 +6,21 @@
   "providerTarget": "live2d",
   "createdAt": "2026-08-22",
   "sourceArt": {
-    "frontReference": "source/athena-live2d-default-front-v1.png",
+    "frontReference": "source/athena-live2d-default-front-v2-alpha.png",
+    "previousFrontReference": "source/athena-live2d-default-front-v1.png",
+    "layeredPsd": "source/athena-live2d-default-layered-v1.psd",
+    "partsInventory": "source/parts/parts-inventory-v1.json",
+    "partsContactSheet": "source/parts/parts-contact-sheet-v1.png",
     "layerMap": "layer-map.json",
     "conceptBoard": "../../../docs/concepts/athena-live2d-character-concept-v1.png",
     "brief": "../../../docs/LIVE2D_DEFAULT_CHARACTER_BRIEF.md"
+  },
+  "production": {
+    "layeredSourceReady": true,
+    "partsCount": 67,
+    "psdGroups": ["Head", "Eyes", "Mouth", "Body", "SkirtAndLegs"],
+    "cubismRigged": false,
+    "cubismExported": false
   },
   "runtime": {
     "runnable": true,

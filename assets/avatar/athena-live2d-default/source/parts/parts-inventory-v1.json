@@ -1,0 +1,1212 @@
+{
+  "version": 1,
+  "count": 67,
+  "parts": [
+    {
+      "name": "ATH_HEAD_FACE_BASE",
+      "file": "layers-v1/ATH_HEAD_FACE_BASE.png",
+      "sourceAtlas": "head-hair-atlas-v1-alpha.png",
+      "sourceRect": [
+        60,
+        45,
+        320,
+        470
+      ],
+      "sourceOffset": [
+        96,
+        110
+      ],
+      "width": 240,
+      "height": 354,
+      "pixelCount": 52026
+    },
+    {
+      "name": "ATH_HAIR_BACK_BASE",
+      "file": "layers-v1/ATH_HAIR_BACK_BASE.png",
+      "sourceAtlas": "head-hair-atlas-v1-alpha.png",
+      "sourceRect": [
+        390,
+        20,
+        390,
+        510
+      ],
+      "sourceOffset": [
+        427,
+        55
+      ],
+      "width": 339,
+      "height": 456,
+      "pixelCount": 104788
+    },
+    {
+      "name": "ATH_HAIR_SIDE_L",
+      "file": "layers-v1/ATH_HAIR_SIDE_L.png",
+      "sourceAtlas": "head-hair-atlas-v1-alpha.png",
+      "sourceRect": [
+        800,
+        40,
+        330,
+        490
+      ],
+      "sourceOffset": [
+        855,
+        79
+      ],
+      "width": 201,
+      "height": 420,
+      "pixelCount": 47948
+    },
+    {
+      "name": "ATH_HAIR_SIDE_R",
+      "file": "layers-v1/ATH_HAIR_SIDE_R.png",
+      "sourceAtlas": "head-hair-atlas-v1-alpha.png",
+      "sourceRect": [
+        1170,
+        40,
+        330,
+        490
+      ],
+      "sourceOffset": [
+        1248,
+        79
+      ],
+      "width": 197,
+      "height": 420,
+      "pixelCount": 46131
+    },
+    {
+      "name": "ATH_HAIR_BANGS_CENTER",
+      "file": "layers-v1/ATH_HAIR_BANGS_CENTER.png",
+      "sourceAtlas": "head-hair-atlas-v1-alpha.png",
+      "sourceRect": [
+        55,
+        530,
+        330,
+        310
+      ],
+      "sourceOffset": [
+        94,
+        549
+      ],
+      "width": 251,
+      "height": 263,
+      "pixelCount": 34876
+    },
+    {
+      "name": "ATH_HAIR_BANGS_L",
+      "file": "layers-v1/ATH_HAIR_BANGS_L.png",
+      "sourceAtlas": "head-hair-atlas-v1-alpha.png",
+      "sourceRect": [
+        395,
+        530,
+        315,
+        300
+      ],
+      "sourceOffset": [
+        439,
+        562
+      ],
+      "width": 207,
+      "height": 237,
+      "pixelCount": 22537
+    },
+    {
+      "name": "ATH_HAIR_BANGS_R",
+      "file": "layers-v1/ATH_HAIR_BANGS_R.png",
+      "sourceAtlas": "head-hair-atlas-v1-alpha.png",
+      "sourceRect": [
+        745,
+        530,
+        315,
+        300
+      ],
+      "sourceOffset": [
+        785,
+        562
+      ],
+      "width": 209,
+      "height": 237,
+      "pixelCount": 22891
+    },
+    {
+      "name": "ATH_HAIR_LOOSE_STRAND_L",
+      "file": "layers-v1/ATH_HAIR_LOOSE_STRAND_L.png",
+      "sourceAtlas": "head-hair-atlas-v1-alpha.png",
+      "sourceRect": [
+        1090,
+        520,
+        225,
+        405
+      ],
+      "sourceOffset": [
+        1126,
+        540
+      ],
+      "width": 189,
+      "height": 371,
+      "pixelCount": 17424
+    },
+    {
+      "name": "ATH_HAIR_LOOSE_STRAND_R",
+      "file": "layers-v1/ATH_HAIR_LOOSE_STRAND_R.png",
+      "sourceAtlas": "head-hair-atlas-v1-alpha.png",
+      "sourceRect": [
+        1290,
+        520,
+        215,
+        405
+      ],
+      "sourceOffset": [
+        1306,
+        540
+      ],
+      "width": 105,
+      "height": 373,
+      "pixelCount": 17105
+    },
+    {
+      "name": "ATH_ACCESSORY_HAIR_CLIP",
+      "file": "layers-v1/ATH_ACCESSORY_HAIR_CLIP.png",
+      "sourceAtlas": "head-hair-atlas-v1-alpha.png",
+      "sourceRect": [
+        430,
+        825,
+        175,
+        160
+      ],
+      "sourceOffset": [
+        480,
+        848
+      ],
+      "width": 83,
+      "height": 87,
+      "pixelCount": 4232
+    },
+    {
+      "name": "ATH_HEAD_NECK",
+      "file": "layers-v1/ATH_HEAD_NECK.png",
+      "sourceAtlas": "head-hair-atlas-v1-alpha.png",
+      "sourceRect": [
+        700,
+        820,
+        190,
+        180
+      ],
+      "sourceOffset": [
+        733,
+        839
+      ],
+      "width": 134,
+      "height": 130,
+      "pixelCount": 8815
+    },
+    {
+      "name": "ATH_EYE_L_WHITE",
+      "file": "layers-v1/ATH_EYE_L_WHITE.png",
+      "sourceAtlas": "eyes-brows-atlas-v1-alpha.png",
+      "sourceRect": [
+        120,
+        35,
+        300,
+        145
+      ],
+      "sourceOffset": [
+        183,
+        54
+      ],
+      "width": 197,
+      "height": 112,
+      "pixelCount": 2605
+    },
+    {
+      "name": "ATH_EYE_R_WHITE",
+      "file": "layers-v1/ATH_EYE_R_WHITE.png",
+      "sourceAtlas": "eyes-brows-atlas-v1-alpha.png",
+      "sourceRect": [
+        440,
+        35,
+        300,
+        145
+      ],
+      "sourceOffset": [
+        485,
+        54
+      ],
+      "width": 196,
+      "height": 112,
+      "pixelCount": 2612
+    },
+    {
+      "name": "ATH_EYE_L_IRIS",
+      "file": "layers-v1/ATH_EYE_L_IRIS.png",
+      "sourceAtlas": "eyes-brows-atlas-v1-alpha.png",
+      "sourceRect": [
+        210,
+        185,
+        170,
+        175
+      ],
+      "sourceOffset": [
+        251,
+        208
+      ],
+      "width": 122,
+      "height": 132,
+      "pixelCount": 11394
+    },
+    {
+      "name": "ATH_EYE_R_IRIS",
+      "file": "layers-v1/ATH_EYE_R_IRIS.png",
+      "sourceAtlas": "eyes-brows-atlas-v1-alpha.png",
+      "sourceRect": [
+        465,
+        185,
+        170,
+        175
+      ],
+      "sourceOffset": [
+        493,
+        209
+      ],
+      "width": 122,
+      "height": 131,
+      "pixelCount": 11376
+    },
+    {
+      "name": "ATH_EYE_L_PUPIL",
+      "file": "layers-v1/ATH_EYE_L_PUPIL.png",
+      "sourceAtlas": "eyes-brows-atlas-v1-alpha.png",
+      "sourceRect": [
+        250,
+        365,
+        120,
+        110
+      ],
+      "sourceOffset": [
+        293,
+        383
+      ],
+      "width": 62,
+      "height": 64,
+      "pixelCount": 2373
+    },
+    {
+      "name": "ATH_EYE_R_PUPIL",
+      "file": "layers-v1/ATH_EYE_R_PUPIL.png",
+      "sourceAtlas": "eyes-brows-atlas-v1-alpha.png",
+      "sourceRect": [
+        505,
+        365,
+        120,
+        110
+      ],
+      "sourceOffset": [
+        512,
+        383
+      ],
+      "width": 63,
+      "height": 64,
+      "pixelCount": 2378
+    },
+    {
+      "name": "ATH_EYE_L_HIGHLIGHT",
+      "file": "layers-v1/ATH_EYE_L_HIGHLIGHT.png",
+      "sourceAtlas": "eyes-brows-atlas-v1-alpha.png",
+      "sourceRect": [
+        270,
+        455,
+        100,
+        100
+      ],
+      "sourceOffset": [
+        305,
+        489
+      ],
+      "width": 41,
+      "height": 39,
+      "pixelCount": 806
+    },
+    {
+      "name": "ATH_EYE_R_HIGHLIGHT",
+      "file": "layers-v1/ATH_EYE_R_HIGHLIGHT.png",
+      "sourceAtlas": "eyes-brows-atlas-v1-alpha.png",
+      "sourceRect": [
+        505,
+        455,
+        100,
+        100
+      ],
+      "sourceOffset": [
+        523,
+        489
+      ],
+      "width": 40,
+      "height": 39,
+      "pixelCount": 802
+    },
+    {
+      "name": "ATH_EYE_L_UPPER_LASH",
+      "file": "layers-v1/ATH_EYE_L_UPPER_LASH.png",
+      "sourceAtlas": "eyes-brows-atlas-v1-alpha.png",
+      "sourceRect": [
+        120,
+        545,
+        300,
+        110
+      ],
+      "sourceOffset": [
+        133,
+        568
+      ],
+      "width": 244,
+      "height": 58,
+      "pixelCount": 3547
+    },
+    {
+      "name": "ATH_EYE_R_UPPER_LASH",
+      "file": "layers-v1/ATH_EYE_R_UPPER_LASH.png",
+      "sourceAtlas": "eyes-brows-atlas-v1-alpha.png",
+      "sourceRect": [
+        445,
+        545,
+        300,
+        110
+      ],
+      "sourceOffset": [
+        475,
+        568
+      ],
+      "width": 241,
+      "height": 58,
+      "pixelCount": 3474
+    },
+    {
+      "name": "ATH_EYE_L_LOWER_LASH",
+      "file": "layers-v1/ATH_EYE_L_LOWER_LASH.png",
+      "sourceAtlas": "eyes-brows-atlas-v1-alpha.png",
+      "sourceRect": [
+        180,
+        650,
+        230,
+        105
+      ],
+      "sourceOffset": [
+        217,
+        687
+      ],
+      "width": 142,
+      "height": 34,
+      "pixelCount": 710
+    },
+    {
+      "name": "ATH_EYE_R_LOWER_LASH",
+      "file": "layers-v1/ATH_EYE_R_LOWER_LASH.png",
+      "sourceAtlas": "eyes-brows-atlas-v1-alpha.png",
+      "sourceRect": [
+        460,
+        650,
+        230,
+        105
+      ],
+      "sourceOffset": [
+        492,
+        687
+      ],
+      "width": 143,
+      "height": 33,
+      "pixelCount": 705
+    },
+    {
+      "name": "ATH_EYE_L_CLOSED",
+      "file": "layers-v1/ATH_EYE_L_CLOSED.png",
+      "sourceAtlas": "eyes-brows-atlas-v1-alpha.png",
+      "sourceRect": [
+        120,
+        740,
+        310,
+        120
+      ],
+      "sourceOffset": [
+        158,
+        788
+      ],
+      "width": 210,
+      "height": 43,
+      "pixelCount": 2977
+    },
+    {
+      "name": "ATH_EYE_R_CLOSED",
+      "file": "layers-v1/ATH_EYE_R_CLOSED.png",
+      "sourceAtlas": "eyes-brows-atlas-v1-alpha.png",
+      "sourceRect": [
+        445,
+        740,
+        310,
+        120
+      ],
+      "sourceOffset": [
+        483,
+        788
+      ],
+      "width": 208,
+      "height": 43,
+      "pixelCount": 2940
+    },
+    {
+      "name": "ATH_BROW_L",
+      "file": "layers-v1/ATH_BROW_L.png",
+      "sourceAtlas": "eyes-brows-atlas-v1-alpha.png",
+      "sourceRect": [
+        120,
+        850,
+        320,
+        135
+      ],
+      "sourceOffset": [
+        128,
+        891
+      ],
+      "width": 248,
+      "height": 48,
+      "pixelCount": 4424
+    },
+    {
+      "name": "ATH_BROW_R",
+      "file": "layers-v1/ATH_BROW_R.png",
+      "sourceAtlas": "eyes-brows-atlas-v1-alpha.png",
+      "sourceRect": [
+        440,
+        850,
+        320,
+        135
+      ],
+      "sourceOffset": [
+        476,
+        891
+      ],
+      "width": 247,
+      "height": 48,
+      "pixelCount": 4382
+    },
+    {
+      "name": "ATH_MOUTH_CLOSED",
+      "file": "layers-v1/ATH_MOUTH_CLOSED.png",
+      "sourceAtlas": "mouths-atlas-v1-alpha.png",
+      "sourceRect": [
+        105,
+        130,
+        290,
+        140
+      ],
+      "sourceOffset": [
+        157,
+        170
+      ],
+      "width": 171,
+      "height": 39,
+      "pixelCount": 3098
+    },
+    {
+      "name": "ATH_MOUTH_SOFT_SMILE",
+      "file": "layers-v1/ATH_MOUTH_SOFT_SMILE.png",
+      "sourceAtlas": "mouths-atlas-v1-alpha.png",
+      "sourceRect": [
+        490,
+        125,
+        330,
+        155
+      ],
+      "sourceOffset": [
+        557,
+        164
+      ],
+      "width": 200,
+      "height": 52,
+      "pixelCount": 5044
+    },
+    {
+      "name": "ATH_MOUTH_SMILE",
+      "file": "layers-v1/ATH_MOUTH_SMILE.png",
+      "sourceAtlas": "mouths-atlas-v1-alpha.png",
+      "sourceRect": [
+        915,
+        125,
+        350,
+        165
+      ],
+      "sourceOffset": [
+        965,
+        162
+      ],
+      "width": 249,
+      "height": 60,
+      "pixelCount": 6835
+    },
+    {
+      "name": "ATH_MOUTH_OPEN_SMALL",
+      "file": "layers-v1/ATH_MOUTH_OPEN_SMALL.png",
+      "sourceAtlas": "mouths-atlas-v1-alpha.png",
+      "sourceRect": [
+        1400,
+        120,
+        210,
+        170
+      ],
+      "sourceOffset": [
+        1453,
+        161
+      ],
+      "width": 90,
+      "height": 65,
+      "pixelCount": 3457
+    },
+    {
+      "name": "ATH_MOUTH_OPEN_MEDIUM",
+      "file": "layers-v1/ATH_MOUTH_OPEN_MEDIUM.png",
+      "sourceAtlas": "mouths-atlas-v1-alpha.png",
+      "sourceRect": [
+        110,
+        315,
+        280,
+        220
+      ],
+      "sourceOffset": [
+        166,
+        388
+      ],
+      "width": 136,
+      "height": 93,
+      "pixelCount": 8218
+    },
+    {
+      "name": "ATH_MOUTH_OPEN_WIDE",
+      "file": "layers-v1/ATH_MOUTH_OPEN_WIDE.png",
+      "sourceAtlas": "mouths-atlas-v1-alpha.png",
+      "sourceRect": [
+        500,
+        310,
+        300,
+        240
+      ],
+      "sourceOffset": [
+        577,
+        377
+      ],
+      "width": 152,
+      "height": 114,
+      "pixelCount": 11878
+    },
+    {
+      "name": "ATH_MOUTH_FORM_A",
+      "file": "layers-v1/ATH_MOUTH_FORM_A.png",
+      "sourceAtlas": "mouths-atlas-v1-alpha.png",
+      "sourceRect": [
+        900,
+        300,
+        320,
+        270
+      ],
+      "sourceOffset": [
+        985,
+        344
+      ],
+      "width": 177,
+      "height": 155,
+      "pixelCount": 19341
+    },
+    {
+      "name": "ATH_MOUTH_FORM_I",
+      "file": "layers-v1/ATH_MOUTH_FORM_I.png",
+      "sourceAtlas": "mouths-atlas-v1-alpha.png",
+      "sourceRect": [
+        100,
+        575,
+        320,
+        210
+      ],
+      "sourceOffset": [
+        151,
+        614
+      ],
+      "width": 147,
+      "height": 115,
+      "pixelCount": 11532
+    },
+    {
+      "name": "ATH_MOUTH_FORM_U",
+      "file": "layers-v1/ATH_MOUTH_FORM_U.png",
+      "sourceAtlas": "mouths-atlas-v1-alpha.png",
+      "sourceRect": [
+        445,
+        575,
+        300,
+        190
+      ],
+      "sourceOffset": [
+        467,
+        639
+      ],
+      "width": 163,
+      "height": 81,
+      "pixelCount": 8177
+    },
+    {
+      "name": "ATH_MOUTH_FORM_E",
+      "file": "layers-v1/ATH_MOUTH_FORM_E.png",
+      "sourceAtlas": "mouths-atlas-v1-alpha.png",
+      "sourceRect": [
+        775,
+        565,
+        210,
+        220
+      ],
+      "sourceOffset": [
+        812,
+        620
+      ],
+      "width": 101,
+      "height": 106,
+      "pixelCount": 7064
+    },
+    {
+      "name": "ATH_MOUTH_FORM_O",
+      "file": "layers-v1/ATH_MOUTH_FORM_O.png",
+      "sourceAtlas": "mouths-atlas-v1-alpha.png",
+      "sourceRect": [
+        1050,
+        570,
+        300,
+        200
+      ],
+      "sourceOffset": [
+        1095,
+        631
+      ],
+      "width": 165,
+      "height": 92,
+      "pixelCount": 9754
+    },
+    {
+      "name": "ATH_MOUTH_WORRIED",
+      "file": "layers-v1/ATH_MOUTH_WORRIED.png",
+      "sourceAtlas": "mouths-atlas-v1-alpha.png",
+      "sourceRect": [
+        1390,
+        575,
+        240,
+        180
+      ],
+      "sourceOffset": [
+        1446,
+        652
+      ],
+      "width": 129,
+      "height": 37,
+      "pixelCount": 2455
+    },
+    {
+      "name": "ATH_TORSO_BASE",
+      "file": "layers-v1/ATH_TORSO_BASE.png",
+      "sourceAtlas": "upper-body-atlas-v1-alpha.png",
+      "sourceRect": [
+        35,
+        60,
+        330,
+        380
+      ],
+      "sourceOffset": [
+        46,
+        86
+      ],
+      "width": 313,
+      "height": 320,
+      "pixelCount": 68157
+    },
+    {
+      "name": "ATH_BLOUSE_BASE",
+      "file": "layers-v1/ATH_BLOUSE_BASE.png",
+      "sourceAtlas": "upper-body-atlas-v1-alpha.png",
+      "sourceRect": [
+        370,
+        55,
+        370,
+        400
+      ],
+      "sourceOffset": [
+        405,
+        75
+      ],
+      "width": 334,
+      "height": 341,
+      "pixelCount": 80219
+    },
+    {
+      "name": "ATH_BLOUSE_SLEEVE_L",
+      "file": "layers-v1/ATH_BLOUSE_SLEEVE_L.png",
+      "sourceAtlas": "upper-body-atlas-v1-alpha.png",
+      "sourceRect": [
+        750,
+        55,
+        200,
+        375
+      ],
+      "sourceOffset": [
+        785,
+        90
+      ],
+      "width": 145,
+      "height": 255,
+      "pixelCount": 22411
+    },
+    {
+      "name": "ATH_BLOUSE_SLEEVE_R",
+      "file": "layers-v1/ATH_BLOUSE_SLEEVE_R.png",
+      "sourceAtlas": "upper-body-atlas-v1-alpha.png",
+      "sourceRect": [
+        940,
+        55,
+        200,
+        375
+      ],
+      "sourceOffset": [
+        966,
+        90
+      ],
+      "width": 144,
+      "height": 255,
+      "pixelCount": 22109
+    },
+    {
+      "name": "ATH_BLOUSE_COLLAR_L",
+      "file": "layers-v1/ATH_BLOUSE_COLLAR_L.png",
+      "sourceAtlas": "upper-body-atlas-v1-alpha.png",
+      "sourceRect": [
+        1125,
+        155,
+        190,
+        250
+      ],
+      "sourceOffset": [
+        1175,
+        198
+      ],
+      "width": 103,
+      "height": 178,
+      "pixelCount": 8551
+    },
+    {
+      "name": "ATH_BLOUSE_COLLAR_R",
+      "file": "layers-v1/ATH_BLOUSE_COLLAR_R.png",
+      "sourceAtlas": "upper-body-atlas-v1-alpha.png",
+      "sourceRect": [
+        1325,
+        155,
+        190,
+        250
+      ],
+      "sourceOffset": [
+        1373,
+        198
+      ],
+      "width": 103,
+      "height": 178,
+      "pixelCount": 8647
+    },
+    {
+      "name": "ATH_BLOUSE_POCKET",
+      "file": "layers-v1/ATH_BLOUSE_POCKET.png",
+      "sourceAtlas": "upper-body-atlas-v1-alpha.png",
+      "sourceRect": [
+        60,
+        500,
+        230,
+        280
+      ],
+      "sourceOffset": [
+        94,
+        539
+      ],
+      "width": 141,
+      "height": 170,
+      "pixelCount": 18993
+    },
+    {
+      "name": "ATH_BLOUSE_BUTTONS",
+      "file": "layers-v1/ATH_BLOUSE_BUTTONS.png",
+      "sourceAtlas": "upper-body-atlas-v1-alpha.png",
+      "sourceRect": [
+        350,
+        445,
+        130,
+        340
+      ],
+      "sourceOffset": [
+        397,
+        467
+      ],
+      "width": 45,
+      "height": 290,
+      "pixelCount": 10368
+    },
+    {
+      "name": "ATH_BLOUSE_CYAN_TRIM",
+      "file": "layers-v1/ATH_BLOUSE_CYAN_TRIM.png",
+      "sourceAtlas": "upper-body-atlas-v1-alpha.png",
+      "sourceRect": [
+        520,
+        455,
+        310,
+        310
+      ],
+      "sourceOffset": [
+        587,
+        502
+      ],
+      "width": 188,
+      "height": 220,
+      "pixelCount": 3859
+    },
+    {
+      "name": "ATH_BLOUSE_RIBBON",
+      "file": "layers-v1/ATH_BLOUSE_RIBBON.png",
+      "sourceAtlas": "upper-body-atlas-v1-alpha.png",
+      "sourceRect": [
+        835,
+        440,
+        225,
+        340
+      ],
+      "sourceOffset": [
+        906,
+        493
+      ],
+      "width": 82,
+      "height": 197,
+      "pixelCount": 8270
+    },
+    {
+      "name": "ATH_ARM_UPPER_L",
+      "file": "layers-v1/ATH_ARM_UPPER_L.png",
+      "sourceAtlas": "upper-body-atlas-v1-alpha.png",
+      "sourceRect": [
+        1065,
+        440,
+        210,
+        350
+      ],
+      "sourceOffset": [
+        1107,
+        473
+      ],
+      "width": 121,
+      "height": 262,
+      "pixelCount": 18867
+    },
+    {
+      "name": "ATH_ARM_UPPER_R",
+      "file": "layers-v1/ATH_ARM_UPPER_R.png",
+      "sourceAtlas": "upper-body-atlas-v1-alpha.png",
+      "sourceRect": [
+        1310,
+        440,
+        210,
+        350
+      ],
+      "sourceOffset": [
+        1356,
+        473
+      ],
+      "width": 117,
+      "height": 260,
+      "pixelCount": 18866
+    },
+    {
+      "name": "ATH_ARM_LOWER_L_HAND",
+      "file": "layers-v1/ATH_ARM_LOWER_L_HAND.png",
+      "sourceAtlas": "upper-body-atlas-v1-alpha.png",
+      "sourceRect": [
+        100,
+        790,
+        600,
+        190
+      ],
+      "sourceOffset": [
+        146,
+        826
+      ],
+      "width": 514,
+      "height": 105,
+      "pixelCount": 31346
+    },
+    {
+      "name": "ATH_ARM_LOWER_R_HAND",
+      "file": "layers-v1/ATH_ARM_LOWER_R_HAND.png",
+      "sourceAtlas": "upper-body-atlas-v1-alpha.png",
+      "sourceRect": [
+        805,
+        790,
+        610,
+        190
+      ],
+      "sourceOffset": [
+        873,
+        827
+      ],
+      "width": 495,
+      "height": 105,
+      "pixelCount": 29976
+    },
+    {
+      "name": "ATH_SKIRT_WAIST",
+      "file": "layers-v1/ATH_SKIRT_WAIST.png",
+      "sourceAtlas": "lower-body-atlas-v1-alpha.png",
+      "sourceRect": [
+        125,
+        0,
+        320,
+        90
+      ],
+      "sourceOffset": [
+        171,
+        17
+      ],
+      "width": 240,
+      "height": 55,
+      "pixelCount": 8595
+    },
+    {
+      "name": "ATH_SKIRT_BASE",
+      "file": "layers-v1/ATH_SKIRT_BASE.png",
+      "sourceAtlas": "lower-body-atlas-v1-alpha.png",
+      "sourceRect": [
+        45,
+        75,
+        500,
+        400
+      ],
+      "sourceOffset": [
+        62,
+        91
+      ],
+      "width": 462,
+      "height": 351,
+      "pixelCount": 117462
+    },
+    {
+      "name": "ATH_SKIRT_PLEAT_01",
+      "file": "layers-v1/ATH_SKIRT_PLEAT_01.png",
+      "sourceAtlas": "lower-body-atlas-v1-alpha.png",
+      "sourceRect": [
+        540,
+        55,
+        160,
+        420
+      ],
+      "sourceOffset": [
+        547,
+        66
+      ],
+      "width": 117,
+      "height": 375,
+      "pixelCount": 27369
+    },
+    {
+      "name": "ATH_SKIRT_PLEAT_02",
+      "file": "layers-v1/ATH_SKIRT_PLEAT_02.png",
+      "sourceAtlas": "lower-body-atlas-v1-alpha.png",
+      "sourceRect": [
+        710,
+        55,
+        160,
+        420
+      ],
+      "sourceOffset": [
+        737,
+        75
+      ],
+      "width": 110,
+      "height": 374,
+      "pixelCount": 26890
+    },
+    {
+      "name": "ATH_SKIRT_PLEAT_03",
+      "file": "layers-v1/ATH_SKIRT_PLEAT_03.png",
+      "sourceAtlas": "lower-body-atlas-v1-alpha.png",
+      "sourceRect": [
+        880,
+        55,
+        170,
+        420
+      ],
+      "sourceOffset": [
+        903,
+        99
+      ],
+      "width": 116,
+      "height": 358,
+      "pixelCount": 29706
+    },
+    {
+      "name": "ATH_SKIRT_PLEAT_04",
+      "file": "layers-v1/ATH_SKIRT_PLEAT_04.png",
+      "sourceAtlas": "lower-body-atlas-v1-alpha.png",
+      "sourceRect": [
+        1070,
+        55,
+        170,
+        420
+      ],
+      "sourceOffset": [
+        1118,
+        98
+      ],
+      "width": 104,
+      "height": 358,
+      "pixelCount": 22835
+    },
+    {
+      "name": "ATH_SKIRT_PLEAT_05",
+      "file": "layers-v1/ATH_SKIRT_PLEAT_05.png",
+      "sourceAtlas": "lower-body-atlas-v1-alpha.png",
+      "sourceRect": [
+        1245,
+        55,
+        175,
+        420
+      ],
+      "sourceOffset": [
+        1268,
+        105
+      ],
+      "width": 122,
+      "height": 352,
+      "pixelCount": 29741
+    },
+    {
+      "name": "ATH_SKIRT_CYAN_ACCENT",
+      "file": "layers-v1/ATH_SKIRT_CYAN_ACCENT.png",
+      "sourceAtlas": "lower-body-atlas-v1-alpha.png",
+      "sourceRect": [
+        1400,
+        330,
+        250,
+        150
+      ],
+      "sourceOffset": [
+        1435,
+        387
+      ],
+      "width": 193,
+      "height": 54,
+      "pixelCount": 1454
+    },
+    {
+      "name": "ATH_LEG_L",
+      "file": "layers-v1/ATH_LEG_L.png",
+      "sourceAtlas": "lower-body-atlas-v1-alpha.png",
+      "sourceRect": [
+        100,
+        455,
+        220,
+        480
+      ],
+      "sourceOffset": [
+        143,
+        474
+      ],
+      "width": 122,
+      "height": 444,
+      "pixelCount": 34770
+    },
+    {
+      "name": "ATH_LEG_R",
+      "file": "layers-v1/ATH_LEG_R.png",
+      "sourceAtlas": "lower-body-atlas-v1-alpha.png",
+      "sourceRect": [
+        315,
+        455,
+        220,
+        480
+      ],
+      "sourceOffset": [
+        340,
+        475
+      ],
+      "width": 120,
+      "height": 443,
+      "pixelCount": 35456
+    },
+    {
+      "name": "ATH_SOCK_L",
+      "file": "layers-v1/ATH_SOCK_L.png",
+      "sourceAtlas": "lower-body-atlas-v1-alpha.png",
+      "sourceRect": [
+        650,
+        590,
+        160,
+        290
+      ],
+      "sourceOffset": [
+        680,
+        643
+      ],
+      "width": 78,
+      "height": 182,
+      "pixelCount": 9792
+    },
+    {
+      "name": "ATH_SOCK_R",
+      "file": "layers-v1/ATH_SOCK_R.png",
+      "sourceAtlas": "lower-body-atlas-v1-alpha.png",
+      "sourceRect": [
+        850,
+        590,
+        160,
+        290
+      ],
+      "sourceOffset": [
+        887,
+        643
+      ],
+      "width": 78,
+      "height": 182,
+      "pixelCount": 9758
+    },
+    {
+      "name": "ATH_SHOE_L",
+      "file": "layers-v1/ATH_SHOE_L.png",
+      "sourceAtlas": "lower-body-atlas-v1-alpha.png",
+      "sourceRect": [
+        1070,
+        565,
+        200,
+        315
+      ],
+      "sourceOffset": [
+        1118,
+        601
+      ],
+      "width": 103,
+      "height": 235,
+      "pixelCount": 16473
+    },
+    {
+      "name": "ATH_SHOE_R",
+      "file": "layers-v1/ATH_SHOE_R.png",
+      "sourceAtlas": "lower-body-atlas-v1-alpha.png",
+      "sourceRect": [
+        1330,
+        565,
+        200,
+        315
+      ],
+      "sourceOffset": [
+        1381,
+        601
+      ],
+      "width": 104,
+      "height": 235,
+      "pixelCount": 16373
+    }
+  ]
+}

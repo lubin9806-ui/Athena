@@ -1,9 +1,11 @@
 {
   "id": "athena-live2d-default-layer-map",
-  "version": "0.1.0",
-  "sourceImage": "source/athena-live2d-default-front-v1.png",
+  "version": "0.2.0",
+  "sourceImage": "source/athena-live2d-default-front-v2-alpha.png",
+  "layeredPsd": "source/athena-live2d-default-layered-v1.psd",
+  "partsInventory": "source/parts/parts-inventory-v1.json",
   "target": "Live2D Cubism 5.3",
-  "status": "handoff_spec",
+  "status": "layered_source_ready",
   "layerNaming": {
     "prefix": "ATH",
     "separator": "_",
@@ -140,4 +142,3 @@
     "model3Json": "model/athena-live2d-default.model3.json"
   }
 }
-

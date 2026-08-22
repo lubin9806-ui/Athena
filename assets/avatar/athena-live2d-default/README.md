@@ -7,6 +7,12 @@ Current status: runnable with Athena Live2D Lite. It is not yet an official Live
 ## Files
 
 - `source/athena-live2d-default-front-v1.png`: generated full-body front reference for Live2D art separation and rigging.
+- `source/athena-live2d-default-front-v2-alpha.png`: improved adult front master with real transparent alpha and rig-friendly arm/leg gaps.
+- `source/athena-live2d-default-layered-v1.psd`: Cubism-importable layered PSD containing 67 named parts in five groups plus the alignment reference.
+- `source/parts/*-atlas-v1-alpha.png`: transparent generated source atlases for head/hair, eyes/brows, mouths, upper body, and lower body.
+- `source/parts/layers-v1/`: 67 individually sliced transparent PNG layers.
+- `source/parts/parts-inventory-v1.json`: source atlas, crop, dimensions, and pixel inventory for every layer.
+- `source/parts/parts-contact-sheet-v1.png`: visual QA sheet for all generated layers.
 - `model/athena-live2d-lite.model3.json`: drawable layered model, parameters, expressions, motions, and hit areas for Athena's dependency-free 2D host.
 - `profile.avatar.json`: runtime mappings for emotions, state motions, lip sync, pointer tracking, idle behavior, and body-part interactions.
 - `layer-map.json`: required layer names, parameters, hit areas, and motion groups for Cubism production.
@@ -36,7 +42,7 @@ A runnable Cubism Web model requires files exported from Live2D Cubism Editor, e
 - motion files
 - optional physics, pose, and user data files
 
-The generated PNG remains the visual reference for official Cubism production. It still needs layered source preparation, mesh setup, deformers, parameters, motions, physics, and Cubism export.
+The layered source preparation is now complete. The PSD still needs Cubism mesh setup, deformers, parameters, motions, physics, and `.moc3` export.
 
 ## Production Handoff
 
