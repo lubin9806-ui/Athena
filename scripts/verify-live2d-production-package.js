@@ -12,7 +12,13 @@ function main() {
   const packageRoot = path.resolve(process.argv[2] || path.join(__dirname, '..', 'assets', 'avatar', 'athena-live2d-default'));
   const handoffManifest = readJson(path.join(packageRoot, 'manifest.json'));
   const layerMap = readJson(path.join(packageRoot, 'layer-map.json'));
-  const expectedModelPath = path.join(packageRoot, handoffManifest.runtime.expectedModel3Json);
+  const expectedModelPath = path.join(packageRoot, handoffManifest.runtime.expectedCubismModel3Json);
+
+  assert.equal(handoffManifest.production.visibleEyeAndMouthDeformationPolished, true, 'eye and mouth deformation is not production-polished');
+  assert.equal(handoffManifest.production.physicsReady, true, 'physics is not production-ready');
+  assert.equal(handoffManifest.production.expressionsReady, true, 'expressions are not production-ready');
+  assert.equal(handoffManifest.production.motionsReady, true, 'motions are not production-ready');
+  assert.equal(handoffManifest.production.hitAreasReady, true, 'hit areas are not production-ready');
 
   assert.ok(fs.existsSync(expectedModelPath), `missing exported model3.json: ${expectedModelPath}`);
   const scan = scanLive2DModelPackage({
@@ -38,4 +44,3 @@ function main() {
 }
 
 main();
-

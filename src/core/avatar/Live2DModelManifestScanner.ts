@@ -174,7 +174,11 @@ function readTextures(fileReferences: JsonObject): FileReference[] {
 }
 
 function readGroupIds(groups: unknown[], target: string): string[] {
-  const group = groups.map(asObject).find(item => readOptionalString(item.Target) === target);
+  const group = groups.map(asObject).find(item => {
+    const groupTarget = readOptionalString(item.Target);
+    const groupName = readOptionalString(item.Name);
+    return groupName === target || groupTarget === target;
+  });
   return asArray(group?.Ids)
     .map(value => (typeof value === 'string' ? value : ''))
     .filter(Boolean);

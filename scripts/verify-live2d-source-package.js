@@ -15,7 +15,7 @@ async function main() {
   const contactSheetPath = path.join(PACKAGE_ROOT, manifest.sourceArt.partsContactSheet);
 
   assert.equal(manifest.production.layeredSourceReady, true);
-  assert.equal(manifest.production.cubismRigged, false);
+  assert.equal(manifest.production.partsCount, 67);
   assert.equal(inventory.count, 67);
   assert.equal(new Set(inventory.parts.map(part => part.name)).size, 67, 'part names must be unique');
   for (const required of ['ATH_HEAD_FACE_BASE', 'ATH_EYE_L_IRIS', 'ATH_MOUTH_FORM_A', 'ATH_ARM_LOWER_R_HAND', 'ATH_SKIRT_PLEAT_05', 'ATH_SHOE_R']) {

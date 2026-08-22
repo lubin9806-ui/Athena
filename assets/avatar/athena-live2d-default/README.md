@@ -2,7 +2,7 @@
 
 This folder contains Athena's default layered 2D desktop companion package and its Cubism production handoff.
 
-Current status: runnable with Athena Live2D Lite. It is not yet an official Live2D Cubism `.moc3` model.
+Current status: runnable with Athena Live2D Lite and exported as a genuine Cubism 5.3 baseline package. Athena does not load the Cubism package yet, and the Cubism rig is not production-polished.
 
 ## Files
 
@@ -14,6 +14,10 @@ Current status: runnable with Athena Live2D Lite. It is not yet an official Live
 - `source/parts/parts-inventory-v1.json`: source atlas, crop, dimensions, and pixel inventory for every layer.
 - `source/parts/parts-contact-sheet-v1.png`: visual QA sheet for all generated layers.
 - `model/athena-live2d-lite.model3.json`: drawable layered model, parameters, expressions, motions, and hit areas for Athena's dependency-free 2D host.
+- `model/athena-live2d-default.cmo3`: editable Cubism 5.3 project with generated meshes, full-body deformer hierarchy, face angle keyforms, and blink/lip-sync parameter groups.
+- `model/athena-live2d-default.model3.json`: genuine Cubism SDK manifest.
+- `model/athena-live2d-default.moc3`: genuine Cubism 5.3 runtime model binary.
+- `model/athena-live2d-default.4096/texture_00.png`: exported 4096 px Cubism texture atlas.
 - `profile.avatar.json`: runtime mappings for emotions, state motions, lip sync, pointer tracking, idle behavior, and body-part interactions.
 - `layer-map.json`: required layer names, parameters, hit areas, and motion groups for Cubism production.
 - `CUBISM_EXPORT_RUNBOOK.md`: manual Cubism Editor export checklist.
@@ -31,18 +35,19 @@ Athena Live2D Lite is runnable now through `BrowserLive2DLiteHost`. It provides:
 
 It is a custom Athena format stored in a `.model3.json`-shaped document for package compatibility. It does not contain or impersonate a Cubism `.moc3` binary.
 
-## Why Cubism Is Not Yet Runnable
+## Cubism Baseline Boundary
 
-A runnable Cubism Web model requires files exported from Live2D Cubism Editor, especially:
+The Cubism package now contains:
 
 - `.moc3`
 - `.model3.json`
-- texture PNGs
-- expression files
-- motion files
-- optional physics, pose, and user data files
+- a 4096 px texture PNG
+- display metadata
+- `EyeBlink` and `LipSync` parameter groups
 
-The layered source preparation is now complete. The PSD still needs Cubism mesh setup, deformers, parameters, motions, physics, and `.moc3` export.
+This is an automated baseline rig, not the final companion model. Angle X/Y and four-corner face keyforms exist, and eye/mouth parameters are bound, but the open/closed eye and mouth shapes still need visible manual refinement. Physics, expressions, authored motions, and hit areas are not present yet. The generated layer composition also needs default-visibility cleanup around alternate face parts.
+
+Athena continues to use the Lite model until a licensed Cubism Web runtime adapter is integrated and validated.
 
 ## Production Handoff
 
@@ -51,8 +56,8 @@ Use this folder together with:
 - `docs/LIVE2D_DEFAULT_CHARACTER_BRIEF.md`
 - `docs/LIVE2D_AVATAR_PLATFORM.md`
 
-Expected official production deliverable:
+Current Cubism baseline deliverable:
 
 - `model/athena-live2d-default.model3.json`
 
-After that file exists, Athena's Live2D manifest scanner and adapter smoke tests can verify the real package.
+Run `node scripts/verify-live2d-cubism-baseline.js` after compiling Athena to verify the exported binary, texture, parameter groups, and honest readiness flags. The stricter `verify-live2d-production-package.js` gate remains intentionally unmet until expressions, motions, hit areas, and physics are authored.

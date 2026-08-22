@@ -37,8 +37,8 @@ function createFixture() {
       },
     },
     Groups: [
-      { Target: 'EyeBlink', Ids: ['ParamEyeLOpen', 'ParamEyeROpen'] },
-      { Target: 'LipSync', Ids: ['ParamMouthOpenY'] },
+      { Target: 'Parameter', Name: 'EyeBlink', Ids: ['ParamEyeLOpen', 'ParamEyeROpen'] },
+      { Target: 'Parameter', Name: 'LipSync', Ids: ['ParamMouthOpenY'] },
     ],
     HitAreas: [
       { Id: 'Head', Name: 'Head' },
@@ -83,4 +83,3 @@ function main() {
 }
 
 main();
-
