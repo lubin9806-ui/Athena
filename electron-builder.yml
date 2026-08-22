@@ -12,6 +12,8 @@ files:
   - "!config/settings.json"
   - skills/**/*
   - assets/**/*
+  - "!assets/avatar/**/*"
+  - "!assets/vendor/live2d/**/*"
   - "!**/*.map"
   - "!**/*.d.ts"
 extraResources:

@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
+const { createCanvas, loadImage } = require('@napi-rs/canvas');
 
 const ROOT = path.resolve(__dirname, '..');
 const PACKAGE_ROOT = path.join(ROOT, 'assets', 'avatar', 'athena-live2d-default');
@@ -14,7 +15,7 @@ function sha256(filePath) {
   return crypto.createHash('sha256').update(fs.readFileSync(filePath)).digest('hex').toUpperCase();
 }
 
-function main() {
+async function main() {
   const manifest = readJson(path.join(PACKAGE_ROOT, 'manifest.json'));
   const profile = readJson(path.join(PACKAGE_ROOT, manifest.runtime.profile));
   const packageJson = readJson(path.join(ROOT, 'package.json'));
@@ -57,8 +58,14 @@ function main() {
     assert.ok(runtimeMoc.includes(Buffer.from(id, 'ascii')), `runtime MOC is missing ${id}`);
   }
   for (const texture of runtimeModel.FileReferences.Textures) {
-    assert.ok(fs.statSync(path.join(path.dirname(runtimeModelPath), texture)).size > 3000000);
+    const textureStats = await inspectTexture(path.join(path.dirname(runtimeModelPath), texture));
+    assert.equal(textureStats.width, 4096);
+    assert.equal(textureStats.height, 4096);
+    assert.ok(textureStats.visiblePixels > 500000, `texture ${texture} must contain visible avatar pixels`);
+    assert.ok(textureStats.transparentPixels > 500000, `texture ${texture} must preserve transparent background`);
   }
+  assert.equal(manifest.production.alphaFringeRepaired, true);
+  assert.equal(manifest.runtime.visibleMotionFallback, true);
   assert.equal(sha256(corePath), manifest.runtime.coreSha256);
   assert.equal(qa.result, 'pass');
   assert.equal(qa.desktop.consoleErrors, 0);
@@ -79,4 +86,22 @@ function main() {
   console.log(`ATHENA_LIVE2D_CUBISM_RUNTIME_OK moc=${runtimeMoc.length} sourceMoc=${sourceMoc.length} placements=${manifest.runtime.validatedPlacements.length} core=${manifest.runtime.coreSha256.slice(0, 12)}`);
 }
 
-main();
+async function inspectTexture(filePath) {
+  const image = await loadImage(filePath);
+  const canvas = createCanvas(image.width, image.height);
+  const context = canvas.getContext('2d');
+  context.drawImage(image, 0, 0);
+  const data = context.getImageData(0, 0, image.width, image.height).data;
+  let visiblePixels = 0;
+  let transparentPixels = 0;
+  for (let index = 3; index < data.length; index += 4) {
+    if (data[index] > 8) visiblePixels += 1;
+    else transparentPixels += 1;
+  }
+  return { width: image.width, height: image.height, visiblePixels, transparentPixels };
+}
+
+main().catch(error => {
+  console.error('ATHENA_LIVE2D_CUBISM_RUNTIME_FAILED', error);
+  process.exitCode = 1;
+});

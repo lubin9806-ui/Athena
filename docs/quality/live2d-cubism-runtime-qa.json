@@ -27,12 +27,16 @@
     },
     "motionPhysics": {
       "groupsChecked": 12,
+      "motionFilesChecked": 17,
+      "idleVariantsChecked": 6,
       "groups": ["Idle", "Greet", "Listen", "Think", "Speak", "Nod", "ShakeHead", "Wave", "TouchHead", "TouchHairClip", "Drag", "Return"],
       "physicsSettings": 3,
       "physicsOutputs": ["ParamHairFront", "ParamHairSide", "ParamHairBack"],
       "physicsLoadWarnings": 0,
       "runtimeWarnings": 0,
-      "visualAmplitude": "baseline limited; independent arm deformation is unavailable",
+      "visualAmplitude": "runtime visible motion fallback added for idle and interaction states; independent arm deformation is unavailable",
+      "visibleRuntimeMotionFallback": true,
+      "alphaFringeRepaired": true,
       "passed": true
     },
     "nativeExpressions": {
@@ -76,12 +80,23 @@
     "dedicatedPreload": true,
     "rendererSize": { "width": 341.6, "height": 581.6 },
     "visibleAlphaPixelsMinimum": 10000,
+    "movingPixelsMinimum": 350,
     "stateSync": "emotion.update",
     "lipSyncValueBridge": true,
     "boundsPersistence": true,
     "hideControl": true,
-    "electronSmoke": "ATHENA_LIVE2D_DESKTOP_PET_OK",
+    "electronSmoke": "ATHENA_LIVE2D_DESKTOP_PET_OK motion=visible",
     "passed": true
+  },
+  "releasePackaging": {
+    "runtimePathsRequired": 7,
+    "expressionsMinimum": 11,
+    "motionsMinimum": 17,
+    "privateSourceExcluded": true,
+    "retired3dExcluded": true,
+    "duplicateRawAvatarExcluded": true,
+    "engineeringDecision": "go_after_packaged_verification",
+    "publicDecision": "no_go_pending_rights_and_live2d_license_review"
   },
   "result": "pass"
 }

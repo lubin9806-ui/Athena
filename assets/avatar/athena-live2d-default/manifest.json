@@ -54,6 +54,9 @@
     "motionsReady": true,
     "motionFormat": "Cubism motion3 parameter curves",
     "motionGroupCount": 12,
+    "motionFileCount": 17,
+    "idleMotionVariantCount": 6,
+    "alphaFringeRepaired": true,
     "independentArmMotionReady": false,
     "hitAreasReady": false
   },
@@ -74,6 +77,9 @@
     "realtimeLipSync": true,
     "lipSyncSource": "WebAudio AnalyserNode RMS envelope",
     "lipSyncStopReset": true,
+    "visibleMotionFallback": true,
+    "visibleMotionFallbackScope": ["Idle", "Greet", "Listen", "Think", "Speak", "Nod", "ShakeHead", "Wave", "TouchHead", "TouchHairClip", "Drag", "Return"],
+    "alphaFringeRepair": "runtime texture RGB bleed for transparent edge pixels",
     "customEmotionBindings": true,
     "profileCustomization": "local-v1",
     "athenaAppIntegrated": true,
@@ -94,7 +100,7 @@
     "fallbackModel3Json": "model/athena-live2d-lite.model3.json",
     "validatedPlacements": ["chat_right", "chat_background", "draggable_overlay", "desktop_pet"],
     "visualQa": "../../../docs/quality/live2d-cubism-runtime-qa.json",
-    "remainingLimitations": "Broader face polish, independent arm deformation, and model-native hit areas remain production work. Wave currently uses an upper-body gesture because this baseline rig has no independent arm parameters. Profile rectangle hit areas remain active. Public distribution still requires Live2D expandable-app license review."
+    "remainingLimitations": "This remains an automated baseline Cubism rig, not a hand-polished commercial Live2D rig. Visible runtime motion fallback now guarantees idle and interaction movement even when some Cubism parameter curves are visually weak. Broader face polish, independent arm deformation, and model-native hit areas remain production work. Wave currently uses an upper-body gesture because this baseline rig has no independent arm parameters. Profile rectangle hit areas remain active. Public distribution still requires Live2D expandable-app license review."
   },
   "style": {
     "agePresentation": "adult",

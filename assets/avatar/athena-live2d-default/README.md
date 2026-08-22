@@ -2,7 +2,7 @@
 
 This folder contains Athena's default layered 2D desktop companion package and its Cubism production handoff.
 
-Current status: runnable with Athena Live2D Lite and exported as a genuine Cubism 5.3 package with parameter-bound blink, mouth-open, and smile face variants. Athena does not load the Cubism package yet, and the Cubism rig is not production-polished.
+Current status: Athena loads the genuine Cubism Web package by default, with a Lite fallback kept for emergency rendering. The package has parameter-bound blink, mouth-open, smile face variants, native expressions, motion files, physics metadata, alpha-fringe repaired runtime textures, and a visible runtime motion fallback for idle and interaction states. The Cubism rig is still an automated baseline, not a production-polished manual rig.
 
 ## Files
 
@@ -28,7 +28,7 @@ Current status: runnable with Athena Live2D Lite and exported as a genuine Cubis
 
 ## Runtime Boundary
 
-Athena Live2D Lite is runnable now through `BrowserLive2DLiteHost`. It provides:
+Athena Live2D Lite remains available through `BrowserLive2DLiteHost`. It provides:
 
 - layered canvas rendering with a transparent background
 - automatic breathing, blinking, hair sway, and gaze tracking
@@ -54,7 +54,9 @@ This is an automated baseline rig with an initial visible face-variant pass, not
 
 The clean high-quality `ATH_REFERENCE_COMPOSITE` is now the default visible ArtMesh and is included in the 4096 px atlas. The 67 generated rig parts are hidden by default but deliberately retained in the MOC3 export, so later eye, mouth, expression, and motion work can reuse their meshes without degrading the default appearance.
 
-Athena continues to use the Lite model until a licensed Cubism Web runtime adapter is integrated and validated.
+Athena now uses the Cubism Web runtime adapter first and falls back to the Lite model only when Cubism loading fails.
+
+The runtime also applies a small visible performance layer over the Cubism model. This keeps idle breathing, speaking, greeting, wave, touch-head, touch-hair-clip, drag, and return motions visible even when an automatically generated Cubism parameter curve is too weak to read on screen.
 
 ## Production Handoff
 
@@ -67,4 +69,4 @@ Current Cubism baseline deliverable:
 
 - `model/athena-live2d-default.model3.json`
 
-Run `node scripts/verify-live2d-cubism-baseline.js` after compiling Athena to verify the exported binary, texture, parameter groups, aligned face sources, and honest readiness flags. The stricter `verify-live2d-production-package.js` gate remains intentionally unmet until expression presets, motions, hit areas, physics, and broader manual polish are authored.
+Run `npm.cmd run test:live2d:desktop-pet` after compiling Athena to verify the Cubism runtime, independent desktop pet window, state sync, lip-sync bridge, visible pixels, and visible motion. The stricter `verify-live2d-production-package.js` gate remains intentionally unmet until broader manual polish, independent arm deformation, and model-native hit areas are authored.

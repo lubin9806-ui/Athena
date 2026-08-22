@@ -13,6 +13,31 @@
 					"File": "motions/Idle.motion3.json",
 					"FadeInTime": 0.45,
 					"FadeOutTime": 0.45
+				},
+				{
+					"File": "motions/Idle_LookAround.motion3.json",
+					"FadeInTime": 0.45,
+					"FadeOutTime": 0.45
+				},
+				{
+					"File": "motions/Idle_ShiftWeight.motion3.json",
+					"FadeInTime": 0.45,
+					"FadeOutTime": 0.45
+				},
+				{
+					"File": "motions/Idle_SoftNod.motion3.json",
+					"FadeInTime": 0.45,
+					"FadeOutTime": 0.45
+				},
+				{
+					"File": "motions/Idle_HairSway.motion3.json",
+					"FadeInTime": 0.45,
+					"FadeOutTime": 0.45
+				},
+				{
+					"File": "motions/Idle_DeepBreath.motion3.json",
+					"FadeInTime": 0.45,
+					"FadeOutTime": 0.45
 				}
 			],
 			"Greet": [

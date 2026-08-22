@@ -53,6 +53,10 @@ export class BrowserCubismLive2DHost implements Live2DHost {
   private fallbackActive = false;
   private fallbackReason: string | null = null;
   private baseSize: { width: number; height: number } | null = null;
+  private fittedTransform: { x: number; y: number; scale: number } | null = null;
+  private activeMotion: AvatarMotionMapping | null = null;
+  private activeMotionStartedAt = 0;
+  private idleMotionCursor = 0;
   private readonly parameterIndexes = new Map<string, number>();
   private readonly manualParameters = new Map<string, number>();
   private readonly expressionParameters = new Map<string, number>();
@@ -100,6 +104,7 @@ export class BrowserCubismLive2DHost implements Live2DHost {
       this.baseSize = { width: Math.max(1, model.width), height: Math.max(1, model.height) };
       this.indexParameters(model);
       model.internalModel.on('beforeModelUpdate', this.applyPersistentParameters);
+      app.ticker.add(this.updateVisibleMotion);
       this.resize(loadOptions.canvas);
       this.observeCanvas(loadOptions.canvas);
     } catch (error) {
@@ -150,10 +155,12 @@ export class BrowserCubismLive2DHost implements Live2DHost {
     if (this.fallbackActive) return this.options.fallbackHost?.playMotion(mapping);
     const model = this.requireModel();
     if (!hasMotionGroup(model, mapping.motionGroup)) return;
-    const requestedIndex = Number.parseInt(mapping.motionId ?? '0', 10);
+    const requestedIndex = this.resolveMotionIndex(model, mapping);
+    this.activeMotion = mapping;
+    this.activeMotionStartedAt = nowMs();
     await model.motion(
       mapping.motionGroup,
-      Number.isFinite(requestedIndex) ? requestedIndex : 0,
+      requestedIndex,
       motionPriority(mapping.priority),
       { loop: mapping.loop },
     );
@@ -234,17 +241,22 @@ export class BrowserCubismLive2DHost implements Live2DHost {
       (size.width * 0.94) / this.baseSize.width,
       (size.height * 0.96) / this.baseSize.height,
     );
-    this.model.scale.set(scale);
-    this.model.position.set(size.width / 2, size.height / 2);
+    this.fittedTransform = { x: size.width / 2, y: size.height / 2, scale };
+    this.applyVisibleMotion(nowMs());
   }
 
   private async teardownCubism(): Promise<void> {
     this.resizeObserver?.disconnect();
     this.resizeObserver = null;
+    this.app?.ticker.remove(this.updateVisibleMotion);
     this.manualParameters.clear();
     this.expressionParameters.clear();
     this.parameterIndexes.clear();
     this.baseSize = null;
+    this.fittedTransform = null;
+    this.activeMotion = null;
+    this.activeMotionStartedAt = 0;
+    this.idleMotionCursor = 0;
     if (this.model) {
       this.model.internalModel.off('beforeModelUpdate', this.applyPersistentParameters);
       this.app?.stage.removeChild(this.model);
@@ -254,6 +266,52 @@ export class BrowserCubismLive2DHost implements Live2DHost {
     this.app?.destroy(false, { children: true, texture: true, textureSource: true, context: true });
     this.app = null;
   }
+
+  private readonly updateVisibleMotion = (): void => {
+    this.applyVisibleMotion(nowMs());
+  };
+
+  private applyVisibleMotion(now: number): void {
+    if (!this.model || !this.fittedTransform) return;
+    const seconds = now / 1000;
+    const active = this.activeMotion;
+    const group = active?.motionGroup ?? 'Idle';
+    const elapsed = active ? (now - this.activeMotionStartedAt) / 1000 : 0;
+    const weight = active ? motionEnvelope(group, elapsed, active.loop) : 1;
+    const idleBob = Math.sin(seconds * 1.25) * 3.6;
+    const breath = Math.sin(seconds * 1.75) * 0.008;
+    const pose = visibleMotionPose(group, elapsed, weight);
+
+    this.model.position.set(
+      this.fittedTransform.x + pose.x,
+      this.fittedTransform.y + idleBob + pose.y,
+    );
+    this.model.scale.set(
+      this.fittedTransform.scale * (1 + pose.scaleX),
+      this.fittedTransform.scale * (1 + breath + pose.scaleY),
+    );
+    this.model.rotation = pose.rotation;
+  }
+
+  private resolveMotionIndex(model: CubismModel, mapping: AvatarMotionMapping): number {
+    const count = motionGroupCount(model, mapping.motionGroup);
+    const requestedIndex = Number.parseInt(mapping.motionId ?? '', 10);
+    if (Number.isFinite(requestedIndex)) return clamp(Math.trunc(requestedIndex), 0, Math.max(0, count - 1));
+    if (mapping.motionGroup === 'Idle' && count > 1) {
+      const index = this.idleMotionCursor % count;
+      this.idleMotionCursor = (this.idleMotionCursor + 1) % count;
+      return index;
+    }
+    return 0;
+  }
+}
+
+interface VisibleMotionPose {
+  x: number;
+  y: number;
+  rotation: number;
+  scaleX: number;
+  scaleY: number;
 }
 
 async function loadBrowserRuntime(): Promise<LoadedRuntime> {
@@ -310,16 +368,123 @@ function canvasCssSize(canvas: HTMLCanvasElement): { width: number; height: numb
 }
 
 function hasMotionGroup(model: CubismModel, group: string): boolean {
+  return motionGroupCount(model, group) > 0;
+}
+
+function motionGroupCount(model: CubismModel, group: string): number {
   const settings = model.internalModel.settings as CubismInternalModel['settings'] & {
     motions?: Record<string, unknown[]>;
   };
-  return Array.isArray(settings.motions?.[group]) && settings.motions[group].length > 0;
+  return Array.isArray(settings.motions?.[group]) ? settings.motions[group].length : 0;
 }
 
 function motionPriority(priority: AvatarMotionMapping['priority']): 1 | 2 | 3 {
   if (priority === 'idle') return 1;
   if (priority === 'urgent') return 3;
   return 2;
+}
+
+function visibleMotionPose(group: string, elapsed: number, weight: number): VisibleMotionPose {
+  const wobble = Math.sin(elapsed * 3.1);
+  const quick = Math.sin(elapsed * 8.5);
+  const pose: VisibleMotionPose = { x: 0, y: 0, rotation: 0, scaleX: 0, scaleY: 0 };
+
+  switch (group) {
+    case 'Greet':
+      pose.x = Math.sin(elapsed * 5.2) * 10 * weight;
+      pose.y = -Math.sin(Math.min(1, elapsed / 0.55) * Math.PI) * 12 * weight;
+      pose.rotation = Math.sin(elapsed * 5.2) * 0.035 * weight;
+      pose.scaleY = Math.sin(elapsed * 4.4) * 0.01 * weight;
+      break;
+    case 'Listen':
+      pose.x = -7 * weight + Math.sin(elapsed * 2.2) * 2 * weight;
+      pose.rotation = -0.018 * weight + Math.sin(elapsed * 1.5) * 0.008 * weight;
+      pose.scaleY = 0.006 * weight;
+      break;
+    case 'Think':
+      pose.x = -5 * weight + Math.sin(elapsed * 1.6) * 3 * weight;
+      pose.y = Math.sin(elapsed * 1.2) * 2 * weight;
+      pose.rotation = -0.028 * weight;
+      break;
+    case 'Speak':
+      pose.x = Math.sin(elapsed * 4.5) * 4 * weight;
+      pose.y = Math.sin(elapsed * 7.5) * 3 * weight;
+      pose.rotation = Math.sin(elapsed * 3.2) * 0.017 * weight;
+      pose.scaleY = Math.max(0, Math.sin(elapsed * 10)) * 0.012 * weight;
+      break;
+    case 'Nod':
+      pose.y = Math.sin(elapsed * 13) * 12 * weight;
+      pose.rotation = Math.sin(elapsed * 13) * 0.012 * weight;
+      pose.scaleY = -Math.max(0, Math.sin(elapsed * 13)) * 0.014 * weight;
+      break;
+    case 'ShakeHead':
+      pose.x = Math.sin(elapsed * 17) * 15 * weight;
+      pose.rotation = Math.sin(elapsed * 17) * 0.035 * weight;
+      break;
+    case 'Wave':
+      pose.x = Math.sin(elapsed * 8.5) * 9 * weight;
+      pose.rotation = Math.sin(elapsed * 8.5) * 0.045 * weight;
+      pose.y = -Math.max(0, Math.sin(elapsed * 4.2)) * 7 * weight;
+      break;
+    case 'TouchHead':
+      pose.y = 13 * weight + Math.sin(elapsed * 4.5) * 2 * weight;
+      pose.rotation = 0.03 * weight;
+      pose.scaleY = -0.018 * weight;
+      pose.scaleX = 0.006 * weight;
+      break;
+    case 'TouchHairClip':
+      pose.x = 8 * weight;
+      pose.y = 5 * weight;
+      pose.rotation = -0.038 * weight + Math.sin(elapsed * 5.2) * 0.01 * weight;
+      break;
+    case 'Drag':
+      pose.x = quick * 5 * weight;
+      pose.rotation = quick * 0.022 * weight;
+      pose.scaleX = Math.sin(elapsed * 5) * 0.012 * weight;
+      break;
+    case 'Return':
+      pose.y = -Math.sin(Math.min(1, elapsed / 1.2) * Math.PI) * 18 * weight;
+      pose.rotation = Math.sin(elapsed * 5.5) * 0.025 * weight;
+      break;
+    case 'Idle':
+    default:
+      pose.x = Math.sin(elapsed * 0.75) * 2.4 * weight;
+      pose.rotation = wobble * 0.011 * weight;
+      pose.scaleY = Math.sin(elapsed * 2.2) * 0.006 * weight;
+      break;
+  }
+
+  return pose;
+}
+
+function motionEnvelope(group: string, elapsed: number, loop: boolean): number {
+  if (loop) return 1;
+  const duration = MOTION_DURATIONS[group] ?? 2;
+  if (elapsed >= duration) return 0;
+  const fadeIn = Math.min(0.24, duration * 0.22);
+  const fadeOut = Math.min(0.42, duration * 0.28);
+  if (elapsed < fadeIn) return easeOut(elapsed / fadeIn);
+  if (elapsed > duration - fadeOut) return easeOut((duration - elapsed) / fadeOut);
+  return 1;
+}
+
+const MOTION_DURATIONS: Record<string, number> = {
+  Greet: 2.4,
+  Nod: 1.35,
+  ShakeHead: 1.6,
+  Wave: 2.8,
+  TouchHead: 2.1,
+  TouchHairClip: 2.3,
+  Return: 2.5,
+};
+
+function easeOut(value: number): number {
+  const clamped = clamp(value, 0, 1);
+  return 1 - ((1 - clamped) ** 3);
+}
+
+function nowMs(): number {
+  return typeof performance === 'undefined' ? Date.now() : performance.now();
 }
 
 function clamp(value: number, min: number, max: number): number {

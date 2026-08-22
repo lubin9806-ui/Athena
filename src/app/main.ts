@@ -1183,10 +1183,23 @@ function createWindow(): void {
               } : null;
             })()
           `);
-          const bitmap = (await petWindow.webContents.capturePage()).toBitmap();
+          const firstFrame = (await petWindow.webContents.capturePage()).toBitmap();
+          await new Promise(resolve => setTimeout(resolve, 650));
+          const secondFrame = (await petWindow.webContents.capturePage()).toBitmap();
           let visiblePixels = 0;
-          for (let index = 3; index < bitmap.length; index += 4) {
-            if (bitmap[index] > 8) visiblePixels += 1;
+          let movingPixels = 0;
+          const motionBytes = Math.min(firstFrame.length, secondFrame.length);
+          for (let index = 3; index < firstFrame.length; index += 4) {
+            if (firstFrame[index] > 8) visiblePixels += 1;
+          }
+          for (let index = 0; index < motionBytes; index += 4) {
+            const alpha = Math.max(firstFrame[index + 3] ?? 0, secondFrame[index + 3] ?? 0);
+            if (alpha <= 8) continue;
+            const delta = Math.abs((firstFrame[index] ?? 0) - (secondFrame[index] ?? 0))
+              + Math.abs((firstFrame[index + 1] ?? 0) - (secondFrame[index + 1] ?? 0))
+              + Math.abs((firstFrame[index + 2] ?? 0) - (secondFrame[index + 2] ?? 0))
+              + Math.abs((firstFrame[index + 3] ?? 0) - (secondFrame[index + 3] ?? 0));
+            if (delta > 18) movingPixels += 1;
           }
           const hidden = await petWindow.webContents.executeJavaScript('window.athenaPetAPI.hide()');
           await new Promise(resolve => setTimeout(resolve, 60));
@@ -1201,9 +1214,10 @@ function createWindow(): void {
             && Number(petState.height) >= 360
             && Number(petState.opacity) > 0
             && visiblePixels > 10_000
+            && movingPixels > 350
             && hidden === true
             && !petWindow.isVisible();
-          console.log('ATHENA_LIVE2D_DESKTOP_PET_STATE', JSON.stringify({ ...petState, embeddedState, visiblePixels, hidden: !petWindow.isVisible() }));
+          console.log('ATHENA_LIVE2D_DESKTOP_PET_STATE', JSON.stringify({ ...petState, embeddedState, visiblePixels, movingPixels, hidden: !petWindow.isVisible() }));
           if (!passed) domReady = false;
         } else {
           domReady = false;

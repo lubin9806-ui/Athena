@@ -19,6 +19,8 @@ files:
   - "!config/steam.json"
   - "!skills/**/*"
   - assets/**/*
+  - "!assets/avatar/**/*"
+  - "!assets/vendor/live2d/**/*"
   - "!assets/steam/**/*"
   - "!node_modules/steamworks.js/dist/linux64/**/*"
   - "!node_modules/steamworks.js/dist/osx/**/*"

@@ -104,11 +104,13 @@ Partner Center use remains subject to the same human ownership and Athena/Su Shi
 
 `docs/concepts/athena-live2d-character-concept-v1.png` is an internal AI-generated concept board created on 2026-08-22 from user-supplied visual reference images. The references were used for mood, hairstyle, outfit color blocking, and companion-character direction only; the concept is not a finished Live2D model and is not included in release packaging.
 
-`assets/avatar/athena-live2d-default/source/athena-live2d-default-front-v2-alpha.png` is the current AI-generated full-body source master. The package includes five generated parts atlases, 67 deterministic transparent layer slices, a visual contact sheet, a machine-readable parts inventory, and `athena-live2d-default-layered-v1.psd` generated with the MIT-licensed `ag-psd` development tool. The PSD is a real layered source handoff, but it is not proof of Cubism meshes, deformers, physics, motions, or `.moc3` export.
+`assets/avatar/athena-live2d-default/source/athena-live2d-default-front-v2-alpha.png` is the current AI-generated full-body source master. The repository retains five generated parts atlases, 67 deterministic transparent layer slices, a visual contact sheet, a machine-readable parts inventory, and `athena-live2d-default-layered-v1.psd` generated with the MIT-licensed `ag-psd` development tool.
 
-The package also contains a runnable `AthenaLive2DLite` layered JSON model with parameters, expressions, motions, hit areas, and a matching avatar profile. This custom canvas runtime is not an official Live2D Cubism `.moc3` export and must not be described as one. `assets/avatar/athena-live2d-default/layer-map.json` and `CUBISM_EXPORT_RUNBOOK.md` define the remaining official Cubism production target.
+The current model directory contains a genuine Cubism Editor project and exported `.moc3`, model, texture, physics, expression, and motion files. The export is a runnable, automatically generated baseline rig, not a hand-polished final character. Its visible face variants, motion set, physics, real-time lip sync, four in-app placements, and independent Electron desktop-pet window have passed the recorded engineering checks in `docs/quality/live2d-cubism-runtime-qa.json`.
 
-Public use, marketplace use, or bundled distribution remains Blocked pending human review, rights clearance for the supplied references, originality review, and a separate Live2D production asset handoff.
+Production source files, PSDs, layer maps, rigging notes, and the retired 3D prototype are excluded from release builds. The normal installer retains only the compiled Live2D runtime model and Cubism Core under `dist/renderer/`.
+
+Public use and marketplace distribution remain Blocked pending human review, rights clearance for the supplied references, originality review, and Live2D SDK publication-license review. Athena can load customizable avatar profiles and models, so it must be evaluated with Live2D as a potential Expandable Application before public release.
 
 ## 3D Avatar Assets
 

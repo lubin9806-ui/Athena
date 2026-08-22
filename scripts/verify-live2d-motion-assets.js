@@ -35,24 +35,30 @@ function main() {
   assert.equal(sourceModel.FileReferences.Physics, runtimeModel.FileReferences.Physics);
 
   let curveCount = 0;
+  let motionFileCount = 0;
   for (const group of requiredGroups) {
     const entries = runtimeModel.FileReferences.Motions[group];
-    assert.equal(entries.length, 1, `${group} must have one deterministic default motion`);
-    const motionPath = path.join(MODEL_ROOT, entries[0].File);
-    const document = readJson(motionPath);
-    assert.equal(document.Version, 3);
-    assert.ok(document.Meta.Duration >= 1);
-    assert.equal(document.Meta.Fps, 60);
-    assert.equal(document.Meta.CurveCount, document.Curves.length);
-    assert.equal(document.Meta.TotalSegmentCount, document.Curves.reduce((total, curve) => total + ((curve.Segments.length - 2) / 3), 0));
-    assert.equal(document.Meta.TotalPointCount, document.Curves.reduce((total, curve) => total + 1 + ((curve.Segments.length - 2) / 3), 0));
-    for (const curve of document.Curves) {
-      assert.equal(curve.Target, 'Parameter');
-      assert.ok(parameterIds.has(curve.Id), `${group} references missing parameter ${curve.Id}`);
-      assert.equal((curve.Segments.length - 2) % 3, 0, `${group}/${curve.Id} has malformed linear segments`);
-      curveCount += 1;
+    assert.ok(entries.length >= 1, `${group} must define at least one motion`);
+    if (group === 'Idle') assert.ok(entries.length >= 6, 'Idle must provide multiple ambient variants');
+    motionFileCount += entries.length;
+    for (const entry of entries) {
+      const motionPath = path.join(MODEL_ROOT, entry.File);
+      const document = readJson(motionPath);
+      assert.equal(document.Version, 3);
+      assert.ok(document.Meta.Duration >= 1);
+      assert.equal(document.Meta.Fps, 60);
+      assert.equal(document.Meta.CurveCount, document.Curves.length);
+      assert.equal(document.Meta.TotalSegmentCount, document.Curves.reduce((total, curve) => total + ((curve.Segments.length - 2) / 3), 0));
+      assert.equal(document.Meta.TotalPointCount, document.Curves.reduce((total, curve) => total + 1 + ((curve.Segments.length - 2) / 3), 0));
+      for (const curve of document.Curves) {
+        assert.equal(curve.Target, 'Parameter');
+        assert.ok(parameterIds.has(curve.Id), `${group} references missing parameter ${curve.Id}`);
+        assert.equal((curve.Segments.length - 2) % 3, 0, `${group}/${curve.Id} has malformed linear segments`);
+        curveCount += 1;
+      }
     }
   }
+  assert.ok(motionFileCount >= 17, 'motion library should include ambient variants beyond the baseline groups');
 
   const physics = readJson(path.join(MODEL_ROOT, runtimeModel.FileReferences.Physics));
   assert.equal(physics.Version, 3);
@@ -86,7 +92,7 @@ function main() {
   assert.equal(qa.desktop.motionPhysics.groupsChecked, 12);
   assert.equal(qa.desktop.motionPhysics.physicsLoadWarnings, 0);
 
-  console.log(`ATHENA_LIVE2D_MOTION_PHYSICS_OK groups=${requiredGroups.length} curves=${curveCount} physics=${physics.PhysicsSettings.length} parameters=${parameterIds.size}`);
+  console.log(`ATHENA_LIVE2D_MOTION_PHYSICS_OK groups=${requiredGroups.length} motions=${motionFileCount} curves=${curveCount} physics=${physics.PhysicsSettings.length} parameters=${parameterIds.size}`);
 }
 
 main();

@@ -23,12 +23,24 @@ registry URL when available, license, repository, and homepage.
 
 Current direct runtime packages:
 
+- `pixi.js` 8.20.0 (MIT; WebGL/canvas renderer used by the Live2D surface)
+- `untitled-pixi-live2d-engine` 1.3.5 (MIT; Cubism model adapter for PixiJS)
 - `better-sqlite3`
 - `cheerio`
 - `electron-updater` (Desktop Direct SKU only)
 - `steamworks.js` 0.4.0 (Steam SKU only; MIT; packages the Steamworks native bridge and `steam_api64.dll`)
 
 The Steam native bridge remains in the Electron main process and is unpacked from ASAR for the Windows x64 Steam build. Valve's Steamworks redistributable is used only with a real Steam-distributed AppID; see `steamworks/REDISTRIBUTABLES.md` and the Steamworks SDK terms available to partners.
+
+## Live2D Cubism
+
+Athena's Live2D runtime includes `live2dcubismcore.min.js` and an exported Cubism model. Cubism Core is proprietary software supplied separately from the MIT-licensed PixiJS adapter. Development use does not by itself establish permission to publish or redistribute an application.
+
+The official Live2D publication-license page states that release terms depend on publisher and use type. It also states that Expandable Applications require review and a special Publication License Agreement before release, including for general users and small-scale enterprises. Athena's customizable local avatar system may fall within that category, so public packages remain blocked until Live2D confirms the applicable classification and approval.
+
+- SDK publication license: https://www.live2d.com/en/sdk/license/
+- Expandable Applications: https://www.live2d.com/en/sdk/license/expandable/
+- Cubism SDK for Web download and software-license acceptance: https://www.live2d.com/en/sdk/download/web/
 
 ## Python voice requirements
 

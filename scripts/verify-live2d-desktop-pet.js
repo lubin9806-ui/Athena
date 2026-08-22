@@ -34,6 +34,7 @@ function main() {
   assert.ok(html.includes("connect-src 'self' file: data: blob:"));
   assert.ok(!html.includes("'unsafe-eval'"), 'desktop pet CSP must not enable unsafe-eval');
   assert.ok(host.includes("import('pixi.js/unsafe-eval')"), 'Pixi CSP-safe polyfill must load before renderer initialization');
+  assert.ok(host.includes('visibleMotionPose'), 'Cubism host must provide visible runtime motion fallback');
   assert.ok(vite.includes('live2dPet'));
 
   const result = spawnSync(electronPath, [ROOT, '--smoke-test'], {
@@ -46,9 +47,9 @@ function main() {
   if (result.status !== 0) process.stderr.write(output);
   assert.equal(result.status, 0, 'desktop pet Electron smoke failed');
   assert.match(output, /ATHENA_LIVE2D_PET_READY engine=cubism-web/);
-  assert.match(output, /ATHENA_LIVE2D_DESKTOP_PET_STATE .*"stateSync":"emotion.update".*"lipSyncValue":"0.720"/);
+  assert.match(output, /ATHENA_LIVE2D_DESKTOP_PET_STATE .*"stateSync":"emotion.update".*"lipSyncValue":"0.720".*"movingPixels":([3-9][5-9][0-9]|[4-9][0-9]{2}|[1-9][0-9]{3,})/);
   assert.match(output, /ATHENA_SMOKE_DOM_OK/);
-  console.log('ATHENA_LIVE2D_DESKTOP_PET_OK transparent=true alwaysOnTop=true stateSync=true pixels=verified bounds=persisted');
+  console.log('ATHENA_LIVE2D_DESKTOP_PET_OK transparent=true alwaysOnTop=true stateSync=true pixels=verified motion=visible bounds=persisted');
 }
 
 main();

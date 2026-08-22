@@ -55,6 +55,9 @@ export class AthenaLive2DCompanion {
   private activeAudio: HTMLAudioElement | null = null;
   private activeMediaSource: MediaElementAudioSourceNode | null = null;
   private activeAnalyser: AnalyserNode | null = null;
+  private idleTimer: number | null = null;
+  private lastNonIdleEventAt = Date.now();
+  private activeState: AthenaAvatarEvent['type'] = 'app.ready';
   private loaded = false;
   private destroyed = false;
 
@@ -120,6 +123,7 @@ export class AthenaLive2DCompanion {
       else delete this.options.root.dataset.fallbackReason;
       this.options.root.dataset.state = 'ready';
       await this.controller.dispatch({ type: 'app.ready' });
+      this.startIdleScheduler();
     } catch (error) {
       this.options.root.dataset.state = 'error';
       this.options.onError?.(asError(error));
@@ -132,6 +136,7 @@ export class AthenaLive2DCompanion {
     if (!this.loaded) return;
     try {
       await this.controller.dispatch(event);
+      this.noteAvatarEvent(event);
     } catch (error) {
       this.options.root.dataset.state = 'error';
       this.options.onError?.(asError(error));
@@ -202,6 +207,7 @@ export class AthenaLive2DCompanion {
     if (this.destroyed) return;
     this.destroyed = true;
     await this.stopAudioTracking();
+    this.stopIdleScheduler();
     if (this.loaded) await this.controller.destroy();
     this.loaded = false;
     await this.audioContext?.close();
@@ -231,7 +237,32 @@ export class AthenaLive2DCompanion {
 
   private handleHotZoneAction(action: AvatarHotZoneAction, hotZoneId: string): void {
     const prompt = findAthenaReplyPrompt(action);
+    this.lastNonIdleEventAt = Date.now();
     if (prompt) void this.options.onAthenaReply?.(prompt, hotZoneId);
+  }
+
+  private startIdleScheduler(): void {
+    if (this.idleTimer !== null) return;
+    this.idleTimer = window.setInterval(() => {
+      if (this.destroyed || !this.loaded || !this.preferences.enabled) return;
+      if (this.activeAudio && !this.activeAudio.paused && !this.activeAudio.ended) return;
+      if (Date.now() - this.lastNonIdleEventAt < 9_000) return;
+      if (!isIdleCompatibleEvent(this.activeState)) return;
+      void this.controller.dispatch({ type: 'activity.idle' });
+    }, 11_000);
+  }
+
+  private stopIdleScheduler(): void {
+    if (this.idleTimer === null) return;
+    window.clearInterval(this.idleTimer);
+    this.idleTimer = null;
+  }
+
+  private noteAvatarEvent(event: AthenaAvatarEvent): void {
+    this.activeState = event.type;
+    if (event.type !== 'activity.idle' && event.type !== 'app.ready') {
+      this.lastNonIdleEventAt = Date.now();
+    }
   }
 }
 
@@ -291,4 +322,13 @@ function clamp(value: unknown, min: number, max: number, fallback: number): numb
 
 function asError(value: unknown): Error {
   return value instanceof Error ? value : new Error(String(value));
+}
+
+function isIdleCompatibleEvent(type: AthenaAvatarEvent['type']): boolean {
+  return type === 'app.ready'
+    || type === 'activity.idle'
+    || type === 'voice.speaking.end'
+    || type === 'voice.listening.end'
+    || type === 'emotion.update'
+    || type === 'pointer.move';
 }
