@@ -1,0 +1,28 @@
+{
+  "id": "ATH-LIVE2D-RUNTIME-001",
+  "testedAt": "2026-08-23T01:58:00+08:00",
+  "page": "live2d-preview.html",
+  "engine": "cubism-web",
+  "model": "athena-live2d-default-sdk5.model3.json",
+  "desktop": {
+    "viewport": { "width": 1280, "height": 720 },
+    "consoleErrors": 0,
+    "placements": {
+      "chat_right": { "width": 460, "height": 676.8, "pointerEvents": "auto" },
+      "chat_background": { "width": 760, "height": 676.8, "opacity": 0.48, "pointerEvents": "none" },
+      "draggable_overlay": { "width": 540, "height": 676.8, "pointerEvents": "auto" },
+      "desktop_pet": { "width": 430, "height": 590.4, "pointerEvents": "auto" }
+    },
+    "drag": { "deltaX": -100, "deltaY": -80, "passed": true },
+    "hotZone": { "point": "head", "status": "触发区域：head", "passed": true },
+    "expression": { "id": "happy", "mouthOpen": 0.8, "passed": true }
+  },
+  "narrow": {
+    "viewport": { "width": 390, "height": 844 },
+    "documentScrollWidth": 375,
+    "consoleErrors": 0,
+    "placementsChecked": ["chat_right", "chat_background", "draggable_overlay", "desktop_pet"],
+    "horizontalOverflow": false
+  },
+  "result": "pass"
+}

@@ -23,7 +23,7 @@ class FakeLive2DHost {
 
 async function main() {
   const manifest = readJson(path.join(PACKAGE_ROOT, 'manifest.json'));
-  const model = readJson(path.join(PACKAGE_ROOT, manifest.runtime.model3Json));
+  const model = readJson(path.join(PACKAGE_ROOT, manifest.runtime.fallbackModel3Json));
   const profile = readJson(path.join(PACKAGE_ROOT, manifest.runtime.profile));
   const definition = model.AthenaLive2DLite;
 
@@ -44,7 +44,7 @@ async function main() {
   }
 
   profile.model.rootPath = PACKAGE_ROOT;
-  profile.model.model3JsonPath = path.join(PACKAGE_ROOT, manifest.runtime.model3Json);
+  profile.model.model3JsonPath = path.join(PACKAGE_ROOT, manifest.runtime.fallbackModel3Json);
   const { AvatarRuntime, Live2DAvatarAdapter } = require('../dist/renderer/avatar');
   const host = new FakeLive2DHost();
   const runtime = new AvatarRuntime(new Live2DAvatarAdapter({ canvas: {}, host }), {

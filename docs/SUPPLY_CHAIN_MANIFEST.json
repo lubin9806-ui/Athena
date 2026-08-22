@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-08-18T15:33:16.978Z",
+  "generatedAt": "2026-08-22T18:05:46.754Z",
   "project": {
     "name": "athena",
     "version": "0.9.6-beta.1",
@@ -54,6 +54,134 @@
       "homepage": null
     },
     {
+      "name": "@pixi/colord",
+      "version": "2.9.6",
+      "resolved": "https://registry.npmmirror.com/@pixi/colord/-/colord-2.9.6.tgz",
+      "license": "MIT",
+      "repository": "omgovich/colord",
+      "homepage": null
+    },
+    {
+      "name": "@pixi/sound",
+      "version": "6.0.1",
+      "resolved": "https://registry.npmmirror.com/@pixi/sound/-/sound-6.0.1.tgz",
+      "license": "MIT",
+      "repository": "git+https://github.com/pixijs/sound.git",
+      "homepage": "https://github.com/pixijs/sound#readme"
+    },
+    {
+      "name": "@pixiv/three-vrm-core",
+      "version": "3.5.5",
+      "resolved": "https://registry.npmmirror.com/@pixiv/three-vrm-core/-/three-vrm-core-3.5.5.tgz",
+      "license": "MIT",
+      "repository": "https://github.com/pixiv/three-vrm.git",
+      "homepage": null
+    },
+    {
+      "name": "@pixiv/three-vrm-materials-hdr-emissive-multiplier",
+      "version": "3.5.5",
+      "resolved": "https://registry.npmmirror.com/@pixiv/three-vrm-materials-hdr-emissive-multiplier/-/three-vrm-materials-hdr-emissive-multiplier-3.5.5.tgz",
+      "license": "MIT",
+      "repository": "https://github.com/pixiv/three-vrm.git",
+      "homepage": null
+    },
+    {
+      "name": "@pixiv/three-vrm-materials-mtoon",
+      "version": "3.5.5",
+      "resolved": "https://registry.npmmirror.com/@pixiv/three-vrm-materials-mtoon/-/three-vrm-materials-mtoon-3.5.5.tgz",
+      "license": "MIT",
+      "repository": "https://github.com/pixiv/three-vrm.git",
+      "homepage": null
+    },
+    {
+      "name": "@pixiv/three-vrm-materials-v0compat",
+      "version": "3.5.5",
+      "resolved": "https://registry.npmmirror.com/@pixiv/three-vrm-materials-v0compat/-/three-vrm-materials-v0compat-3.5.5.tgz",
+      "license": "MIT",
+      "repository": "https://github.com/pixiv/three-vrm.git",
+      "homepage": null
+    },
+    {
+      "name": "@pixiv/three-vrm-node-constraint",
+      "version": "3.5.5",
+      "resolved": "https://registry.npmmirror.com/@pixiv/three-vrm-node-constraint/-/three-vrm-node-constraint-3.5.5.tgz",
+      "license": "MIT",
+      "repository": "https://github.com/pixiv/three-vrm.git",
+      "homepage": null
+    },
+    {
+      "name": "@pixiv/three-vrm-springbone",
+      "version": "3.5.5",
+      "resolved": "https://registry.npmmirror.com/@pixiv/three-vrm-springbone/-/three-vrm-springbone-3.5.5.tgz",
+      "license": "MIT",
+      "repository": "https://github.com/pixiv/three-vrm.git",
+      "homepage": null
+    },
+    {
+      "name": "@pixiv/three-vrm",
+      "version": "3.5.5",
+      "resolved": "https://registry.npmmirror.com/@pixiv/three-vrm/-/three-vrm-3.5.5.tgz",
+      "license": "MIT",
+      "repository": "https://github.com/pixiv/three-vrm.git",
+      "homepage": null
+    },
+    {
+      "name": "@pixiv/types-vrm-0.0",
+      "version": "3.5.5",
+      "resolved": "https://registry.npmmirror.com/@pixiv/types-vrm-0.0/-/types-vrm-0.0-3.5.5.tgz",
+      "license": "MIT",
+      "repository": "https://github.com/pixiv/three-vrm.git",
+      "homepage": null
+    },
+    {
+      "name": "@pixiv/types-vrmc-materials-hdr-emissive-multiplier-1.0",
+      "version": "3.5.5",
+      "resolved": "https://registry.npmmirror.com/@pixiv/types-vrmc-materials-hdr-emissive-multiplier-1.0/-/types-vrmc-materials-hdr-emissive-multiplier-1.0-3.5.5.tgz",
+      "license": "MIT",
+      "repository": "https://github.com/pixiv/three-vrm.git",
+      "homepage": null
+    },
+    {
+      "name": "@pixiv/types-vrmc-materials-mtoon-1.0",
+      "version": "3.5.5",
+      "resolved": "https://registry.npmmirror.com/@pixiv/types-vrmc-materials-mtoon-1.0/-/types-vrmc-materials-mtoon-1.0-3.5.5.tgz",
+      "license": "MIT",
+      "repository": "https://github.com/pixiv/three-vrm.git",
+      "homepage": null
+    },
+    {
+      "name": "@pixiv/types-vrmc-node-constraint-1.0",
+      "version": "3.5.5",
+      "resolved": "https://registry.npmmirror.com/@pixiv/types-vrmc-node-constraint-1.0/-/types-vrmc-node-constraint-1.0-3.5.5.tgz",
+      "license": "MIT",
+      "repository": "https://github.com/pixiv/three-vrm.git",
+      "homepage": null
+    },
+    {
+      "name": "@pixiv/types-vrmc-springbone-1.0",
+      "version": "3.5.5",
+      "resolved": "https://registry.npmmirror.com/@pixiv/types-vrmc-springbone-1.0/-/types-vrmc-springbone-1.0-3.5.5.tgz",
+      "license": "MIT",
+      "repository": "https://github.com/pixiv/three-vrm.git",
+      "homepage": null
+    },
+    {
+      "name": "@pixiv/types-vrmc-springbone-extended-collider-1.0",
+      "version": "3.5.5",
+      "resolved": "https://registry.npmmirror.com/@pixiv/types-vrmc-springbone-extended-collider-1.0/-/types-vrmc-springbone-extended-collider-1.0-3.5.5.tgz",
+      "license": "MIT",
+      "repository": "https://github.com/pixiv/three-vrm.git",
+      "homepage": null
+    },
+    {
+      "name": "@pixiv/types-vrmc-vrm-1.0",
+      "version": "3.5.5",
+      "resolved": "https://registry.npmmirror.com/@pixiv/types-vrmc-vrm-1.0/-/types-vrmc-vrm-1.0-3.5.5.tgz",
+      "license": "MIT",
+      "repository": "https://github.com/pixiv/three-vrm.git",
+      "homepage": null
+    },
+    {
       "name": "@tesseract.js-data/chi_sim",
       "version": "1.0.0",
       "resolved": "https://registry.npmmirror.com/@tesseract.js-data/chi_sim/-/chi_sim-1.0.0.tgz",
@@ -70,6 +198,14 @@
       "homepage": "https://github.com/naptha/tessdata"
     },
     {
+      "name": "@types/earcut",
+      "version": "3.0.0",
+      "resolved": "https://registry.npmmirror.com/@types/earcut/-/earcut-3.0.0.tgz",
+      "license": "MIT",
+      "repository": "https://github.com/DefinitelyTyped/DefinitelyTyped.git",
+      "homepage": "https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/earcut"
+    },
+    {
       "name": "@types/node",
       "version": "20.19.43",
       "resolved": null,
@@ -84,6 +220,14 @@
       "license": "MIT",
       "repository": "https://github.com/DefinitelyTyped/DefinitelyTyped.git",
       "homepage": "https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/node"
+    },
+    {
+      "name": "@webgpu/types",
+      "version": "0.1.72",
+      "resolved": "https://registry.npmmirror.com/@webgpu/types/-/types-0.1.72.tgz",
+      "license": "BSD-3-Clause",
+      "repository": "gpuweb/types",
+      "homepage": "https://github.com/gpuweb/types"
     },
     {
       "name": "@xmldom/xmldom",
@@ -334,6 +478,14 @@
       "homepage": null
     },
     {
+      "name": "earcut",
+      "version": "3.2.3",
+      "resolved": "https://registry.npmmirror.com/earcut/-/earcut-3.2.3.tgz",
+      "license": "ISC",
+      "repository": "git://github.com/mapbox/earcut.git",
+      "homepage": null
+    },
+    {
       "name": "electron-updater",
       "version": "6.8.9",
       "resolved": "https://registry.npmmirror.com/electron-updater/-/electron-updater-6.8.9.tgz",
@@ -379,6 +531,14 @@
       "resolved": "https://registry.npmjs.org/entities/-/entities-7.0.1.tgz",
       "license": "BSD-2-Clause",
       "repository": "https://github.com/fb55/entities.git",
+      "homepage": null
+    },
+    {
+      "name": "eventemitter3",
+      "version": "5.0.4",
+      "resolved": "https://registry.npmmirror.com/eventemitter3/-/eventemitter3-5.0.4.tgz",
+      "license": "MIT",
+      "repository": "git://github.com/primus/eventemitter3.git",
       "homepage": null
     },
     {
@@ -444,6 +604,14 @@
       "license": "MIT",
       "repository": "https://github.com/jprichardson/node-fs-extra",
       "homepage": "https://github.com/jprichardson/node-fs-extra"
+    },
+    {
+      "name": "gifuct-js",
+      "version": "2.1.2",
+      "resolved": "https://registry.npmmirror.com/gifuct-js/-/gifuct-js-2.1.2.tgz",
+      "license": "MIT",
+      "repository": "https://github.com/matt-way/gifuct-js.git",
+      "homepage": "https://github.com/matt-way/gifuct-js"
     },
     {
       "name": "github-from-package",
@@ -550,12 +718,28 @@
       "homepage": "https://github.com/isaacs/isexe#readme"
     },
     {
+      "name": "ismobilejs",
+      "version": "1.1.1",
+      "resolved": "https://registry.npmmirror.com/ismobilejs/-/ismobilejs-1.1.1.tgz",
+      "license": "MIT",
+      "repository": "https://github.com/kaimallea/isMobile.git",
+      "homepage": "https://github.com/kaimallea/isMobile"
+    },
+    {
       "name": "jose",
       "version": "6.2.8",
       "resolved": "https://registry.npmjs.org/jose/-/jose-6.2.8.tgz",
       "license": "MIT",
       "repository": "panva/jose",
       "homepage": "https://github.com/panva/jose"
+    },
+    {
+      "name": "js-binary-schema-parser",
+      "version": "2.0.3",
+      "resolved": "https://registry.npmmirror.com/js-binary-schema-parser/-/js-binary-schema-parser-2.0.3.tgz",
+      "license": "MIT",
+      "repository": "https://github.com/matt-way/jsBinarySchemaParser.git",
+      "homepage": "https://github.com/matt-way/jsBinarySchemaParser"
     },
     {
       "name": "js-yaml",
@@ -750,6 +934,14 @@
       "homepage": "https://github.com/nodeca/pako"
     },
     {
+      "name": "parse-svg-path",
+      "version": "0.2.0",
+      "resolved": "https://registry.npmmirror.com/parse-svg-path/-/parse-svg-path-0.2.0.tgz",
+      "license": "MIT",
+      "repository": "git://github.com/jkroso/parse-svg-path.git",
+      "homepage": null
+    },
+    {
       "name": "parse5-htmlparser2-tree-adapter",
       "version": "7.1.0",
       "resolved": "https://registry.npmmirror.com/parse5-htmlparser2-tree-adapter/-/parse5-htmlparser2-tree-adapter-7.1.0.tgz",
@@ -796,6 +988,14 @@
       "license": "Apache-2.0",
       "repository": "git+https://github.com/mozilla/pdf.js.git",
       "homepage": "https://mozilla.github.io/pdf.js/"
+    },
+    {
+      "name": "pixi.js",
+      "version": "8.20.0",
+      "resolved": "https://registry.npmmirror.com/pixi.js/-/pixi.js-8.20.0.tgz",
+      "license": "MIT",
+      "repository": "https://github.com/pixijs/pixijs.git",
+      "homepage": "http://pixijs.com/"
     },
     {
       "name": "pkce-challenge",
@@ -1030,6 +1230,22 @@
       "homepage": "https://github.com/naptha/tesseract.js"
     },
     {
+      "name": "three",
+      "version": "0.185.1",
+      "resolved": "https://registry.npmmirror.com/three/-/three-0.185.1.tgz",
+      "license": "MIT",
+      "repository": "https://github.com/mrdoob/three.js",
+      "homepage": "https://threejs.org/"
+    },
+    {
+      "name": "tiny-lru",
+      "version": "11.4.7",
+      "resolved": "https://registry.npmmirror.com/tiny-lru/-/tiny-lru-11.4.7.tgz",
+      "license": "BSD-3-Clause",
+      "repository": "git://github.com/avoidwork/tiny-lru.git",
+      "homepage": "https://github.com/avoidwork/tiny-lru"
+    },
+    {
       "name": "tiny-typed-emitter",
       "version": "2.1.0",
       "resolved": "https://registry.npmmirror.com/tiny-typed-emitter/-/tiny-typed-emitter-2.1.0.tgz",
@@ -1092,6 +1308,14 @@
       "license": "MIT",
       "repository": "git+https://github.com/RyanZim/universalify.git",
       "homepage": "https://github.com/RyanZim/universalify#readme"
+    },
+    {
+      "name": "untitled-pixi-live2d-engine",
+      "version": "1.3.5",
+      "resolved": "https://registry.npmmirror.com/untitled-pixi-live2d-engine/-/untitled-pixi-live2d-engine-1.3.5.tgz",
+      "license": "MIT",
+      "repository": "https://github.com/Untitled-Story/untitled-pixi-live2d-engine.git",
+      "homepage": "https://github.com/Untitled-Story/untitled-pixi-live2d-engine"
     },
     {
       "name": "util-deprecate",
@@ -1242,7 +1466,7 @@
     }
   ],
   "localOllamaRuntime": {
-    "installedVersion": "0.32.9",
+    "installedVersion": "0.32.14",
     "defaultModel": {
       "runtimeTag": "qwen2.5:14b",
       "localOllamaId": "7cdf5a0187d5",
@@ -34515,6 +34739,11 @@
         "path": "docs/concepts/athena-interactive-runtime.png",
         "bytes": 264033,
         "sha256": "DC09BE717B73E212ED9FB52ED4217C6E065E562F45314381378E9B06A2A539EF"
+      },
+      {
+        "path": "docs/concepts/athena-live2d-character-concept-v1.png",
+        "bytes": 1961207,
+        "sha256": "05AF060A1D549FB11BBFD6D72139509545A6A380CE8F182DBA6618BA3C506B39"
       },
       {
         "path": "docs/concepts/athena-mode-color-day-v1.png",

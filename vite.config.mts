@@ -13,6 +13,12 @@ export default defineConfig({
     emptyOutDir: true,
     target: 'es2022',
     sourcemap: false,
+    rollupOptions: {
+      input: {
+        index: fileURLToPath(new URL('./src/renderer/index.html', import.meta.url)),
+        live2dPreview: fileURLToPath(new URL('./src/renderer/live2d-preview.html', import.meta.url)),
+      },
+    },
   },
   resolve: {
     alias: {

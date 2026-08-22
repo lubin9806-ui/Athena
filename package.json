@@ -24,6 +24,7 @@
     "prepare:voice-runtime": "node scripts/prepare-voice-runtime.js",
     "audit:security": "npm audit --registry=https://registry.npmjs.org/ --audit-level=high",
     "typecheck": "tsc --noEmit",
+    "test:live2d:runtime": "tsc && node scripts/verify-live2d-cubism-runtime.js",
     "test:persona": "tsc && node scripts/verify-persona-prompt.js",
     "test:modes": "tsc && node scripts/verify-conversation-modes.js",
     "test:chat-windows": "tsc && electron scripts/verify-chat-windows.js",
@@ -96,8 +97,10 @@
     "jszip": "3.10.1",
     "mammoth": "1.12.1",
     "pdfjs-dist": "6.2.108",
+    "pixi.js": "8.20.0",
     "tesseract.js": "7.0.0",
     "three": "^0.185.1",
+    "untitled-pixi-live2d-engine": "1.3.5",
     "yaml": "2.9.0"
   },
   "devDependencies": {

@@ -1,7 +1,7 @@
 {
   "id": "athena-live2d-default",
-  "version": "0.4.0-cubism-face-variants",
-  "status": "cubism_face_variants_bound",
+  "version": "0.5.0-cubism-runtime",
+  "status": "cubism_runtime_validated",
   "displayName": "Athena Live2D Default",
   "providerTarget": "live2d",
   "createdAt": "2026-08-22",
@@ -52,12 +52,23 @@
   },
   "runtime": {
     "runnable": true,
-    "engine": "athena-live2d-lite",
-    "model3Json": "model/athena-live2d-lite.model3.json",
+    "engine": "cubism-web",
+    "model3Json": "model/athena-live2d-default-sdk5.model3.json",
     "profile": "profile.avatar.json",
-    "cubismRunnable": false,
+    "cubismRunnable": true,
     "expectedCubismModel3Json": "model/athena-live2d-default.model3.json",
-    "cubismBlockedReason": "The genuine Cubism package now includes parameter-bound blink, mouth-open, and smile ArtMesh variants, but Athena still needs the Cubism Web runtime adapter and the model still needs broader face polish, physics, expression files, authored motions, and hit areas."
+    "sourceMocVersion": 6,
+    "runtimeMocVersion": 5,
+    "runtimeExportTarget": "SDK 5.0 / Cubism 5.0",
+    "core": "../../vendor/live2d/live2dcubismcore.min.js",
+    "coreSha256": "25AE938CB4FE282CE189B357BCC97E603D1E1F7EC78BF04150D401C23CDC792F",
+    "adapter": "untitled-pixi-live2d-engine@1.3.5",
+    "renderer": "pixi.js@8.20.0",
+    "fallbackEngine": "athena-live2d-lite",
+    "fallbackModel3Json": "model/athena-live2d-lite.model3.json",
+    "validatedPlacements": ["chat_right", "chat_background", "draggable_overlay", "desktop_pet"],
+    "visualQa": "../../../docs/quality/live2d-cubism-runtime-qa.json",
+    "remainingLimitations": "Broader face polish, physics, authored exp3/motion3 files, and model-native hit areas remain production work. Profile rectangle hit areas are active until native hit areas are authored."
   },
   "style": {
     "agePresentation": "adult",

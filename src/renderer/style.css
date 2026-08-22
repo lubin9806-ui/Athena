@@ -7374,6 +7374,14 @@ html[data-theme="night"] body {
   pointer-events: none;
 }
 
+.athena-live2d-canvas {
+  transform:
+    translate(var(--avatar-offset-x, 0), var(--avatar-offset-y, 0))
+    rotate(var(--avatar-rotation, 0deg))
+    scale(var(--avatar-scale-x, 1), var(--avatar-scale-y, 1));
+  transform-origin: 50% 50%;
+}
+
 [data-liquid-pressed="true"] .liquid-glass-canvas {
   filter: brightness(1.025);
 }
