@@ -1,0 +1,78 @@
+{
+  "id": "athena-live2d-default",
+  "version": "0.1.0-source",
+  "status": "source_art_only",
+  "displayName": "Athena Live2D Default",
+  "providerTarget": "live2d",
+  "createdAt": "2026-08-22",
+  "sourceArt": {
+    "frontReference": "source/athena-live2d-default-front-v1.png",
+    "conceptBoard": "../../../docs/concepts/athena-live2d-character-concept-v1.png",
+    "brief": "../../../docs/LIVE2D_DEFAULT_CHARACTER_BRIEF.md"
+  },
+  "runtime": {
+    "runnable": false,
+    "expectedModel3Json": "model/athena-live2d-default.model3.json",
+    "blockedReason": "A runnable Live2D package requires Cubism Editor export of moc3/model3.json/textures/motions from layered source art."
+  },
+  "style": {
+    "agePresentation": "adult",
+    "tone": ["warm", "intelligent", "calm", "slightly shy"],
+    "hair": "black shoulder-length layered hair with airy bangs and a small silver geometric hair clip",
+    "outfit": "white short-sleeve blouse with subtle pale-cyan Athena accents, dark navy pleated skirt, white sneakers"
+  },
+  "riggingTargets": {
+    "requiredParameters": [
+      "ParamAngleX",
+      "ParamAngleY",
+      "ParamAngleZ",
+      "ParamEyeLOpen",
+      "ParamEyeROpen",
+      "ParamEyeBallX",
+      "ParamEyeBallY",
+      "ParamMouthOpenY",
+      "ParamMouthForm"
+    ],
+    "requiredExpressions": [
+      "neutral",
+      "happy",
+      "soft_smile",
+      "thoughtful",
+      "shy",
+      "confused",
+      "surprised",
+      "focused",
+      "worried",
+      "sleepy",
+      "playful"
+    ],
+    "requiredMotionGroups": [
+      "Idle",
+      "Greet",
+      "Listen",
+      "Think",
+      "Speak",
+      "Nod",
+      "ShakeHead",
+      "Wave",
+      "TouchHead",
+      "TouchHairClip",
+      "Drag",
+      "Return"
+    ],
+    "hotZones": [
+      "Head",
+      "HairClip",
+      "Face",
+      "Shoulder",
+      "Hand",
+      "OutfitAccent"
+    ]
+  },
+  "rights": {
+    "generatedWith": "OpenAI image generation",
+    "referencePolicy": "User supplied photos were used for mood, hairstyle, and outfit color blocking only; do not copy real-person identity.",
+    "publicUse": "blocked_pending_human_review_and_rights_clearance"
+  }
+}
+

@@ -104,4 +104,6 @@ Partner Center use remains subject to the same human ownership and Athena/Su Shi
 
 `docs/concepts/athena-live2d-character-concept-v1.png` is an internal AI-generated concept board created on 2026-08-22 from user-supplied visual reference images. The references were used for mood, hairstyle, outfit color blocking, and companion-character direction only; the concept is not a finished Live2D model and is not included in release packaging.
 
+`assets/avatar/athena-live2d-default/source/athena-live2d-default-front-v1.png` is an AI-generated full-body source-art reference for Live2D separation and rigging handoff. `assets/avatar/athena-live2d-default/manifest.json` explicitly marks the package as source art only, not a runnable Cubism export.
+
 Public use, marketplace use, or bundled distribution remains Blocked pending human review, rights clearance for the supplied references, originality review, and a separate Live2D production asset handoff.
