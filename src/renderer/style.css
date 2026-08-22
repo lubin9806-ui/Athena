@@ -7359,6 +7359,21 @@ html[data-theme="night"] body {
   display: none;
 }
 
+.athena-avatar-canvas {
+  width: 100%;
+  height: 100%;
+  min-width: 160px;
+  min-height: 220px;
+  display: block;
+  background: transparent;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.athena-avatar-canvas[data-avatar-layout-mode='chat_background'] {
+  pointer-events: none;
+}
+
 [data-liquid-pressed="true"] .liquid-glass-canvas {
   filter: brightness(1.025);
 }
