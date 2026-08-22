@@ -8,6 +8,7 @@ Current status: runnable GLB placeholder, not a humanoid VRM rig.
 
 - `model/athena-3d-default.glb`: generated stylized 3D character exported from Blender.
 - `manifest.json`: runtime metadata and upgrade notes.
+- `profile.avatar.json`: Athena `AvatarCharacterProfile` with expressions, motions, lip sync, pointer tracking, hot zones, and external-control defaults.
 
 ## Runtime Target
 
@@ -21,3 +22,6 @@ The GLB is intended for Athena's Three.js avatar adapter. It is a practical desk
 
 It is not yet a full VRM humanoid with standardized bones, expressions, look-at, or spring bones. A future `.vrm` asset can replace this GLB while keeping the same AvatarRuntime contract.
 
+## Loading
+
+Use `loadAvatarCharacterProfile("assets/avatar/athena-3d-default/profile.avatar.json")` to resolve the profile's relative model paths before passing it to `AvatarRuntime`.
