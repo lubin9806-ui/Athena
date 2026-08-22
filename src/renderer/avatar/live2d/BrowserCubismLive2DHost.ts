@@ -29,6 +29,7 @@ export interface BrowserCubismLive2DHostOptions {
 type CubismModel = Live2DModel<CubismInternalModel>;
 
 const DEFAULT_CORE_SCRIPT_URL = 'vendor/live2d/live2dcubismcore.min.js';
+const ENABLE_VISIBLE_LAYERED_RUNTIME_RIG = false;
 const EXPRESSION_PARAMETERS: Record<string, Record<string, number>> = {
   neutral: {},
   happy: { ParamMouthForm: 1 },
@@ -101,8 +102,10 @@ export class BrowserCubismLive2DHost implements Live2DHost {
 
       model.anchor.set(0.5, 0.5);
       app.stage.addChild(model);
-      this.layeredRig = createLayeredPerformanceRig(runtime.pixi);
-      app.stage.addChild(this.layeredRig.root);
+      if (ENABLE_VISIBLE_LAYERED_RUNTIME_RIG) {
+        this.layeredRig = createLayeredPerformanceRig(runtime.pixi);
+        app.stage.addChild(this.layeredRig.root);
+      }
       this.app = app;
       this.baseSize = { width: Math.max(1, model.width), height: Math.max(1, model.height) };
       this.indexParameters(model);
@@ -299,7 +302,7 @@ export class BrowserCubismLive2DHost implements Live2DHost {
   }
 
   private updateLayeredRig(seconds: number, pose: VisibleMotionPose, breath: number): void {
-    if (!this.layeredRig || !this.fittedTransform) return;
+    if (!ENABLE_VISIBLE_LAYERED_RUNTIME_RIG || !this.layeredRig || !this.fittedTransform) return;
     const rig = this.layeredRig;
     const scale = this.fittedTransform.scale * 0.52;
     rig.root.visible = true;

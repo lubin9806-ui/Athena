@@ -35,7 +35,7 @@ function main() {
   assert.ok(!html.includes("'unsafe-eval'"), 'desktop pet CSP must not enable unsafe-eval');
   assert.ok(host.includes("import('pixi.js/unsafe-eval')"), 'Pixi CSP-safe polyfill must load before renderer initialization');
   assert.ok(host.includes('visibleMotionPose'), 'Cubism host must provide visible runtime motion fallback');
-  for (const contract of ['createLayeredPerformanceRig', 'hairSideL', 'eyeL', 'mouth', 'armR', 'skirt', 'sleeveR']) {
+  for (const contract of ['ENABLE_VISIBLE_LAYERED_RUNTIME_RIG = false', 'createLayeredPerformanceRig', 'hairSideL', 'eyeL', 'mouth', 'armR', 'skirt', 'sleeveR']) {
     assert.ok(host.includes(contract), `Cubism host is missing visible layered mesh contract: ${contract}`);
   }
   assert.ok(vite.includes('live2dPet'));
@@ -52,7 +52,7 @@ function main() {
   assert.match(output, /ATHENA_LIVE2D_PET_READY engine=cubism-web/);
   assert.match(output, /ATHENA_LIVE2D_DESKTOP_PET_STATE .*"stateSync":"emotion.update".*"lipSyncValue":"0.720".*"movingPixels":([3-9][5-9][0-9]|[4-9][0-9]{2}|[1-9][0-9]{3,})/);
   assert.match(output, /ATHENA_SMOKE_DOM_OK/);
-  console.log('ATHENA_LIVE2D_DESKTOP_PET_OK transparent=true alwaysOnTop=true stateSync=true pixels=verified motion=visible layeredRig=visible bounds=persisted');
+  console.log('ATHENA_LIVE2D_DESKTOP_PET_OK transparent=true alwaysOnTop=true stateSync=true pixels=verified motion=visible layeredRig=disabled bounds=persisted');
 }
 
 main();

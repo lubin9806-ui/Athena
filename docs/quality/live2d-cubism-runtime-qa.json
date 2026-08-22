@@ -39,6 +39,8 @@
       "visibleLayeredRuntimeRig": {
         "parts": ["hair", "eyes", "mouth", "brows", "arms", "skirt", "sleeves"],
         "source": "Cubism Web Pixi stage overlay using Athena's layered rig contract",
+        "enabledByDefault": false,
+        "disabledReason": "visual QA found unacceptable ghosting over the default model",
         "cubismEditorNative": false
       },
       "alphaFringeRepaired": true,
@@ -90,7 +92,7 @@
     "lipSyncValueBridge": true,
     "boundsPersistence": true,
     "hideControl": true,
-    "electronSmoke": "ATHENA_LIVE2D_DESKTOP_PET_OK motion=visible layeredRig=visible",
+    "electronSmoke": "ATHENA_LIVE2D_DESKTOP_PET_OK motion=visible layeredRig=disabled",
     "passed": true
   },
   "releasePackaging": {

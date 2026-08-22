@@ -38,8 +38,8 @@
     "referenceCompositeAtlased": true,
     "generatedRigPartsDefaultHidden": true,
     "hiddenRigPartsExported": true,
-    "visibleLayeredRuntimeRig": true,
-    "visibleLayeredRuntimeParts": ["hair", "eyes", "mouth", "brows", "arms", "skirt", "sleeves"],
+    "visibleLayeredRuntimeRig": false,
+    "visibleLayeredRuntimeParts": [],
     "expressionVariantSourceReady": true,
     "expressionVariantCount": 3,
     "expressionVariantArtMeshesAtlased": true,
@@ -102,7 +102,7 @@
     "fallbackModel3Json": "model/athena-live2d-lite.model3.json",
     "validatedPlacements": ["chat_right", "chat_background", "draggable_overlay", "desktop_pet"],
     "visualQa": "../../../docs/quality/live2d-cubism-runtime-qa.json",
-    "remainingLimitations": "This remains an automated baseline Cubism rig, not a hand-polished commercial Live2D rig. Visible runtime motion fallback and the visible layered runtime rig now make hair, eyes, mouth, brows, arms, skirt, and sleeves move independently on top of the Cubism model. The next production step is to move these visible layer controls into the Cubism Editor ArtMesh/deformer hierarchy. Model-native hit areas remain production work. Profile rectangle hit areas remain active. Public distribution still requires Live2D expandable-app license review."
+    "remainingLimitations": "This remains an automated baseline Cubism rig, not a hand-polished commercial Live2D rig. Visible runtime motion fallback keeps idle and interaction movement readable, but the experimental Pixi overlay layered rig is disabled by default after visual QA exposed unacceptable ghosting. The next production step is to use high-quality reference model structure and move real layered controls into the Cubism Editor ArtMesh/deformer hierarchy. Model-native hit areas remain production work. Profile rectangle hit areas remain active. Public distribution still requires Live2D expandable-app license review."
   },
   "style": {
     "agePresentation": "adult",
