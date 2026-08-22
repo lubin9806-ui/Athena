@@ -65,12 +65,17 @@ body[data-layout-mode='desktop_pet'] #avatar:active { cursor: grabbing; }
 .controls strong { font-size: 16px; }
 .controls label { display: grid; gap: 7px; font-size: 12px; color: #59616a; }
 .controls select, .controls input { width: 100%; }
+.controls audio { width: 100%; height: 34px; }
 .controls select {
   min-height: 34px;
   border: 1px solid #bfc6cc;
   border-radius: 4px;
   background: white;
   padding: 0 8px;
+}
+.controls input[type='file'] {
+  font-size: 11px;
+  color: #59616a;
 }
 .controls output { font-size: 12px; color: #147d68; }
 

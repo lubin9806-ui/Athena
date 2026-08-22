@@ -8,7 +8,7 @@
     "rootPath": ".",
     "model3JsonPath": "model/athena-live2d-default-sdk5.model3.json",
     "packageId": "athena-live2d-default",
-    "packageVersion": "0.5.0-cubism-runtime"
+    "packageVersion": "0.6.0-realtime-control"
   },
   "layout": {
     "mode": "desktop_pet",
@@ -93,5 +93,5 @@
     "allowedCommandTypes": ["avatar.motion.play", "avatar.expression.set", "avatar.parameter.set", "avatar.pointer.move", "avatar.hotZone.trigger"],
     "auditEnabled": true
   },
-  "notes": "Athena Cubism Web profile with a Live2D Lite fallback. The primary model is a genuine Cubism .moc3 export; authored motion, physics, expression files, and model-native hit areas remain production work."
+  "notes": "Athena Cubism Web profile with a Live2D Lite fallback, realtime WebAudio lip sync, and customizable emotion mappings. The primary model is a genuine Cubism .moc3 export; authored motion, physics, expression files, and model-native hit areas remain production work."
 }

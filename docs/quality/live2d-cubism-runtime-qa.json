@@ -1,6 +1,6 @@
 {
   "id": "ATH-LIVE2D-RUNTIME-001",
-  "testedAt": "2026-08-23T01:58:00+08:00",
+  "testedAt": "2026-08-23T02:18:00+08:00",
   "page": "live2d-preview.html",
   "engine": "cubism-web",
   "model": "athena-live2d-default-sdk5.model3.json",
@@ -15,7 +15,16 @@
     },
     "drag": { "deltaX": -100, "deltaY": -80, "passed": true },
     "hotZone": { "point": "head", "status": "触发区域：head", "passed": true },
-    "expression": { "id": "happy", "mouthOpen": 0.8, "passed": true }
+    "expression": { "id": "happy", "mouthOpen": 0.8, "passed": true },
+    "customEmotionBinding": { "emotion": "happy", "expression": "playful", "persistedAfterReload": true },
+    "realtimeLipSync": {
+      "sample": "legacy/root-artifacts/preserved-files/tts_1782940115988.mp3",
+      "analyser": "WebAudio RMS",
+      "sampledMouthValues": [0, 0.01, 0.14, 0.14, 0.08, 0.05, 0.03, 0.02, 0.01, 0.11, 0.15, 0.15, 0.12, 0.15, 0.17],
+      "peak": 0.17,
+      "resetToZeroOnEnd": true,
+      "passed": true
+    }
   },
   "narrow": {
     "viewport": { "width": 390, "height": 844 },

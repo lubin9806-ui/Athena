@@ -14,12 +14,14 @@ export interface AvatarLipSyncControllerOptions {
 
 export class AvatarLipSyncController {
   private readonly now: () => number;
+  private settings: AvatarLipSyncSettings;
   private lastUpdatedAt: number | null = null;
   private currentValue = 0;
   private running = false;
 
   constructor(private readonly options: AvatarLipSyncControllerOptions) {
     this.now = options.now ?? Date.now;
+    this.settings = cloneSettings(options.settings);
   }
 
   start(): void {
@@ -34,6 +36,18 @@ export class AvatarLipSyncController {
     this.currentValue = 0;
   }
 
+  async reset(): Promise<void> {
+    this.stop();
+    await Promise.all(this.settings.parameterIds.map(parameterId => (
+      this.options.adapter.setParameter(parameterId, this.settings.minValue)
+    )));
+  }
+
+  updateSettings(settings: AvatarLipSyncSettings): void {
+    this.settings = cloneSettings(settings);
+    this.currentValue = clamp(this.currentValue, settings.minValue, settings.maxValue);
+  }
+
   get value(): number {
     return this.currentValue;
   }
@@ -43,7 +57,7 @@ export class AvatarLipSyncController {
   }
 
   async tick(): Promise<number> {
-    const settings = this.options.settings;
+    const settings = this.settings;
     if (!this.running || !settings.enabled || settings.parameterIds.length === 0) return this.currentValue;
 
     const now = this.now();
@@ -59,6 +73,10 @@ export class AvatarLipSyncController {
     await Promise.all(settings.parameterIds.map(parameterId => this.options.adapter.setParameter(parameterId, this.currentValue)));
     return this.currentValue;
   }
+}
+
+function cloneSettings(settings: AvatarLipSyncSettings): AvatarLipSyncSettings {
+  return { ...settings, parameterIds: [...settings.parameterIds] };
 }
 
 export class StaticAudioLevelSource implements AvatarAudioLevelSource {

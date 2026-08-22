@@ -29,7 +29,7 @@ function main() {
   const sourceMoc = fs.readFileSync(sourceMocPath);
   const corePath = path.join(ROOT, 'assets', 'vendor', 'live2d', 'live2dcubismcore.min.js');
 
-  assert.equal(manifest.status, 'cubism_runtime_validated');
+  assert.ok(['cubism_runtime_validated', 'cubism_realtime_controls_validated'].includes(manifest.status));
   assert.equal(manifest.runtime.cubismRunnable, true);
   assert.equal(manifest.runtime.engine, 'cubism-web');
   assert.equal(profile.model.model3JsonPath, manifest.runtime.model3Json);

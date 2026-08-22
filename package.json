@@ -25,6 +25,7 @@
     "audit:security": "npm audit --registry=https://registry.npmjs.org/ --audit-level=high",
     "typecheck": "tsc --noEmit",
     "test:live2d:runtime": "tsc && node scripts/verify-live2d-cubism-runtime.js",
+    "test:live2d:realtime": "tsc && node scripts/verify-live2d-realtime-controls.js",
     "test:persona": "tsc && node scripts/verify-persona-prompt.js",
     "test:modes": "tsc && node scripts/verify-conversation-modes.js",
     "test:chat-windows": "tsc && electron scripts/verify-chat-windows.js",

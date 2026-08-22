@@ -19,8 +19,16 @@
           <option value="desktop_pet" selected>桌面浮窗</option>
         </select></label>
         <label>表情<select id="expression"></select></label>
+        <label>情绪<select id="emotion"></select></label>
+        <label>情绪强度<input id="emotion-intensity" type="range" min="0" max="1" step="0.01" value="1" /></label>
+        <label>情绪绑定<select id="emotion-binding"></select></label>
         <label>动作<select id="motion"></select></label>
         <label>口型<input id="mouth" type="range" min="0" max="1" step="0.01" value="0" /></label>
+        <label>语音音频<input id="speech-audio-file" type="file" accept="audio/*" /></label>
+        <audio id="speech-audio" controls></audio>
+        <label>口型灵敏度<input id="lip-sensitivity" type="range" min="0" max="4" step="0.05" /></label>
+        <label>口型平滑<input id="lip-smoothing" type="range" min="0" max="1" step="0.01" /></label>
+        <label>口型增益<input id="lip-gain" type="range" min="0" max="8" step="0.05" /></label>
         <output id="status">正在加载</output>
       </aside>
     </main>
