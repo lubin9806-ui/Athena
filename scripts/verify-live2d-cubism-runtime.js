@@ -33,6 +33,7 @@ function main() {
     'cubism_runtime_validated',
     'cubism_realtime_controls_validated',
     'cubism_motion_physics_validated',
+    'cubism_native_expressions_validated',
   ].includes(manifest.status));
   assert.equal(manifest.runtime.cubismRunnable, true);
   assert.equal(manifest.runtime.engine, 'cubism-web');

@@ -19,7 +19,7 @@ function main() {
   const parameterIds = new Set(displayInfo.Parameters.map(parameter => parameter.Id));
   const requiredGroups = manifest.riggingTargets.requiredMotionGroups;
 
-  assert.equal(manifest.status, 'cubism_motion_physics_validated');
+  assert.equal(manifest.status, 'cubism_native_expressions_validated');
   assert.equal(manifest.production.physicsReady, true);
   assert.equal(manifest.production.motionsReady, true);
   assert.equal(manifest.production.independentArmMotionReady, false);

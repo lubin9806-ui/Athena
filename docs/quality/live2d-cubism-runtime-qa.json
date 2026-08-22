@@ -34,6 +34,14 @@
       "runtimeWarnings": 0,
       "visualAmplitude": "baseline limited; independent arm deformation is unavailable",
       "passed": true
+    },
+    "nativeExpressions": {
+      "format": "Cubism exp3",
+      "expressionsChecked": 11,
+      "names": ["neutral", "happy", "soft_smile", "thoughtful", "shy", "confused", "surprised", "focused", "worried", "sleepy", "playful"],
+      "runtimeWarnings": 0,
+      "proceduralIntensityFallback": true,
+      "passed": true
     }
   },
   "narrow": {

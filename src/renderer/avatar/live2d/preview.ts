@@ -54,7 +54,7 @@ const realtimeLipSync = new AvatarRealtimeLipSyncController({
   onValue: value => { mouth.value = value.toFixed(3); },
 });
 
-for (const mapping of typedProfile.expressions) addOption(expressionSelect, mapping.expressionId);
+for (const expressionId of manifest.riggingTargets.requiredExpressions) addOption(expressionSelect, expressionId);
 for (const expressionId of uniqueExpressionIds(typedProfile)) addOption(emotionBinding, expressionId);
 for (const mapping of typedProfile.expressions) addOption(emotionSelect, mapping.emotion);
 for (const group of manifest.riggingTargets.requiredMotionGroups) addOption(motionSelect, group);
@@ -141,6 +141,7 @@ void controller.load().then(() => {
   const renderer = host.getRendererKind();
   status.value = renderer === 'cubism-web' ? 'Cubism Web 运行中' : 'Lite 回退运行中';
   document.body.dataset.avatarEngine = renderer;
+  canvas.dataset.avatarDrawables = JSON.stringify(host.getDrawableIds());
   document.body.dataset.layoutMode = typedProfile.layout.mode;
   document.body.dataset.previewReady = 'true';
 }).catch(error => {

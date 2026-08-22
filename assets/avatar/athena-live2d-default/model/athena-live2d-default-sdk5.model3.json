@@ -92,7 +92,53 @@
 					"FadeOutTime": 0.25
 				}
 			]
-		}
+		},
+		"Expressions": [
+			{
+				"Name": "neutral",
+				"File": "expressions/neutral.exp3.json"
+			},
+			{
+				"Name": "happy",
+				"File": "expressions/happy.exp3.json"
+			},
+			{
+				"Name": "soft_smile",
+				"File": "expressions/soft_smile.exp3.json"
+			},
+			{
+				"Name": "thoughtful",
+				"File": "expressions/thoughtful.exp3.json"
+			},
+			{
+				"Name": "shy",
+				"File": "expressions/shy.exp3.json"
+			},
+			{
+				"Name": "confused",
+				"File": "expressions/confused.exp3.json"
+			},
+			{
+				"Name": "surprised",
+				"File": "expressions/surprised.exp3.json"
+			},
+			{
+				"Name": "focused",
+				"File": "expressions/focused.exp3.json"
+			},
+			{
+				"Name": "worried",
+				"File": "expressions/worried.exp3.json"
+			},
+			{
+				"Name": "sleepy",
+				"File": "expressions/sleepy.exp3.json"
+			},
+			{
+				"Name": "playful",
+				"File": "expressions/playful.exp3.json"
+			}
+		]
 	},
 	"Groups": [
 		{

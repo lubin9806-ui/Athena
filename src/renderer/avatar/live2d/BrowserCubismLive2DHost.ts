@@ -119,6 +119,17 @@ export class BrowserCubismLive2DHost implements Live2DHost {
     if (this.fallbackActive) return this.options.fallbackHost?.setExpression(expressionId, intensity);
     const model = this.requireModel();
     this.expressionParameters.clear();
+    const expressionManager = model.internalModel.motionManager.expressionManager;
+    const hasNativeExpression = expressionManager?.definitions.some(definition => (
+      typeof definition === 'object'
+      && definition !== null
+      && 'Name' in definition
+      && definition.Name === expressionId
+    ));
+    if (intensity >= 0.995 && hasNativeExpression) {
+      await model.expression(expressionId);
+      return;
+    }
     const target = EXPRESSION_PARAMETERS[expressionId];
     if (target) {
       const weight = clamp(intensity, 0, 1);
@@ -129,11 +140,7 @@ export class BrowserCubismLive2DHost implements Live2DHost {
       this.applyPersistentParameters();
       return;
     }
-    try {
-      await model.expression(expressionId);
-    } catch {
-      // Imported models may omit expression files; keeping the neutral pose is intentional.
-    }
+    // Imported models may omit expression files; keeping the neutral pose is intentional.
   }
 
   async playMotion(mapping: AvatarMotionMapping): Promise<void> {
@@ -169,6 +176,11 @@ export class BrowserCubismLive2DHost implements Live2DHost {
   getRendererKind(): 'cubism-web' | 'live2d-lite' | 'unloaded' {
     if (this.fallbackActive) return 'live2d-lite';
     return this.model ? 'cubism-web' : 'unloaded';
+  }
+
+  getDrawableIds(): string[] {
+    if (this.fallbackActive || !this.model) return [];
+    return [...this.model.internalModel.getDrawableIDs()];
   }
 
   private requireModel(): CubismModel {
