@@ -118,6 +118,13 @@ contextBridge.exposeInMainWorld('athenaAPI', {
   transcribeRecording: (audioBytes: Uint8Array) => ipcRenderer.invoke('voice:transcribeRecording', audioBytes),
   requestMicrophoneAccess: () => ipcRenderer.invoke('voice:requestMicrophoneAccess'),
   getVoiceCapabilities: () => ipcRenderer.invoke('voice:capabilities'),
+  setDesktopPetWindowVisible: (visible: boolean) => ipcRenderer.invoke('avatar:desktop:setVisible', visible),
+  sendDesktopPetEvent: (event: unknown) => ipcRenderer.send('avatar:desktop:event', event),
+  onDesktopPetInteraction: (callback: (interaction: { prompt: string; hotZoneId: string }) => void) => {
+    const handler = (_: unknown, interaction: { prompt: string; hotZoneId: string }) => callback(interaction);
+    ipcRenderer.on('avatar:desktop:interaction:renderer', handler);
+    return () => ipcRenderer.removeListener('avatar:desktop:interaction:renderer', handler);
+  },
   minimize: () => ipcRenderer.send('window:minimize'),
   close: () => ipcRenderer.send('window:close'),
 });

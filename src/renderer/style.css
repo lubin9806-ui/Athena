@@ -7375,6 +7375,7 @@ html[data-theme="night"] body {
 
 #live2d-companion[data-enabled="false"],
 #live2d-companion[data-state="error"],
+#live2d-companion[data-layout="desktop_pet"],
 #app-shell[data-space="work"] #live2d-companion {
   opacity: 0;
   pointer-events: none;

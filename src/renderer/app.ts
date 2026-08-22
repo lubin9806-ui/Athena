@@ -9,8 +9,13 @@ import { MotionSystem, type AthenaSpace } from './ui/MotionSystem';
 import { SelectControlManager } from './ui/SelectControl';
 import { ThemeController } from './ui/ThemeController';
 import { MicrophoneRecorder } from './voice/MicrophoneRecorder';
-import { AthenaLive2DCompanion } from './avatar/live2d/AthenaLive2DCompanion';
+import { AthenaLive2DCompanion, emotionFromLabel } from './avatar/live2d/AthenaLive2DCompanion';
 import type { AvatarLayoutMode } from '../shared/types/avatar';
+import type { AthenaAvatarEvent } from './avatar/AvatarRuntime';
+
+type DesktopPetEvent = AthenaAvatarEvent
+  | { type: 'lipSync.update'; value: number }
+  | { type: 'preferences.update'; scale: number; opacity: number };
 
 declare global {
   interface Window {
@@ -126,6 +131,9 @@ declare global {
       transcribeRecording: (audioBytes: Uint8Array) => Promise<VoiceResult>;
       requestMicrophoneAccess: () => Promise<boolean>;
       getVoiceCapabilities: () => Promise<VoiceCapabilities | null>;
+      setDesktopPetWindowVisible: (visible: boolean) => Promise<boolean>;
+      sendDesktopPetEvent: (event: DesktopPetEvent) => void;
+      onDesktopPetInteraction: (callback: (interaction: { prompt: string; hotZoneId: string }) => void) => () => void;
       minimize: () => void;
       close: () => void;
     };
@@ -915,6 +923,10 @@ const live2dCompanion = new AthenaLive2DCompanion({
   canvas: mustGet<HTMLCanvasElement>('live2d-companion-canvas'),
   onAthenaReply: (prompt, hotZoneId) => sendAvatarInteraction(prompt, hotZoneId),
   onError: error => console.error('Live2D companion unavailable', error),
+  onLipSyncValue: value => window.athenaAPI.sendDesktopPetEvent({ type: 'lipSync.update', value }),
+  onSpeakingChange: speaking => window.athenaAPI.sendDesktopPetEvent({
+    type: speaking ? 'voice.speaking.start' : 'voice.speaking.end',
+  }),
 });
 const inputForm = mustGet<HTMLFormElement>('input-form');
 const inputBox = mustGet<HTMLTextAreaElement>('input-box');
@@ -1348,6 +1360,35 @@ function syncLive2dSettingsControls(): void {
   settingLive2dOpacity.value = String(preferences.opacity);
 }
 
+async function dispatchLive2dEvent(event: AthenaAvatarEvent): Promise<void> {
+  window.athenaAPI.sendDesktopPetEvent(event);
+  await live2dCompanion.dispatch(event);
+}
+
+async function setLive2dEmotion(label?: string, intensity = 1): Promise<void> {
+  const event: AthenaAvatarEvent = { type: 'emotion.update', emotion: emotionFromLabel(label), intensity };
+  window.athenaAPI.sendDesktopPetEvent(event);
+  await live2dCompanion.setEmotionLabel(label, intensity);
+}
+
+async function syncDesktopPetWindow(): Promise<void> {
+  const preferences = live2dCompanion.settings;
+  window.athenaAPI.sendDesktopPetEvent({
+    type: 'preferences.update',
+    scale: preferences.scale,
+    opacity: preferences.opacity,
+  });
+  const visible = preferences.enabled && preferences.layout === 'desktop_pet';
+  await window.athenaAPI.setDesktopPetWindowVisible(visible);
+}
+
+async function updateLive2dPreferences(
+  patch: Partial<{ enabled: boolean; layout: AvatarLayoutMode; scale: number; opacity: number }>,
+): Promise<void> {
+  await live2dCompanion.updatePreferences(patch);
+  await syncDesktopPetWindow();
+}
+
 async function sendAvatarInteraction(prompt: string, hotZoneId: string): Promise<void> {
   if (!prompt.trim() || isStreaming || isVoiceInputBusy()) return;
   if (!currentChatWindowId) await initializeChatWindows();
@@ -1359,7 +1400,7 @@ async function sendAvatarInteraction(prompt: string, hotZoneId: string): Promise
   setStatus('Athena 正在回应互动', 'working');
   inputBar.setDisabled(true);
   syncVoiceControls();
-  await live2dCompanion.dispatch({ type: 'chat.thinking.start' });
+  await dispatchLive2dEvent({ type: 'chat.thinking.start' });
 
   try {
     const response = await window.athenaAPI.sendMessage(
@@ -1374,11 +1415,11 @@ async function sendAvatarInteraction(prompt: string, hotZoneId: string): Promise
     } else if (response?.emotion?.label) {
       chatPanel.setLastAssistantEmotion(response.emotion.label);
     }
-    await live2dCompanion.setEmotionLabel(response?.emotion?.label);
+    await setLive2dEmotion(response?.emotion?.label);
     if (!response) throw new Error(`互动 ${hotZoneId} 暂时没有收到回复`);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    await live2dCompanion.dispatch({ type: 'chat.error', message });
+    await dispatchLive2dEvent({ type: 'chat.error', message });
   } finally {
     activeRequestMode = null;
     isStreaming = false;
@@ -1386,7 +1427,7 @@ async function sendAvatarInteraction(prompt: string, hotZoneId: string): Promise
     syncVoiceControls();
     restoreIdleStatus();
     if (currentSettingsBundle?.settings.voice.autoPlayAssistant) void speakLastAssistantMessage();
-    else void live2dCompanion.dispatch({ type: 'app.ready' });
+    else void dispatchLive2dEvent({ type: 'app.ready' });
     await refreshChatWindows();
   }
 }
@@ -1432,7 +1473,7 @@ async function sendMessage(text: string): Promise<void> {
   setStatus(modeThinkingText(requestMode), 'working');
   isStreaming = true;
   live2dStreamingStarted = false;
-  void live2dCompanion.dispatch({ type: 'chat.thinking.start' });
+  void dispatchLive2dEvent({ type: 'chat.thinking.start' });
   renderChatWindowPicker();
   setModeSwitchDisabled(true);
   inputBar.setDisabled(true);
@@ -1469,7 +1510,7 @@ async function sendMessage(text: string): Promise<void> {
       } else if (response?.emotion?.label) {
         chatPanel.setLastAssistantEmotion(response.emotion.label);
       }
-      void live2dCompanion.setEmotionLabel(response?.emotion?.label);
+      void setLive2dEmotion(response?.emotion?.label);
       if (response?.webSearch?.sources?.length) {
         chatPanel.setLastAssistantSources(response.webSearch.sources, {
           readPageCount: response.webSearch.readPageCount,
@@ -1490,7 +1531,7 @@ async function sendMessage(text: string): Promise<void> {
     }
     else {
       chatPanel.addMessage(`出错了：${message}`, 'assistant', '需要检查');
-      void live2dCompanion.dispatch({ type: 'chat.error', message });
+      void dispatchLive2dEvent({ type: 'chat.error', message });
     }
   } finally {
     if (requestChatWindowId && queuedAttachments.length > 0) {
@@ -1509,7 +1550,7 @@ async function sendMessage(text: string): Promise<void> {
     if (requestMode !== 'execute' && currentSettingsBundle?.settings.voice.autoPlayAssistant) {
       void speakLastAssistantMessage();
     } else if (requestMode !== 'execute') {
-      void live2dCompanion.dispatch({ type: 'app.ready' });
+      void dispatchLive2dEvent({ type: 'app.ready' });
     }
     await refreshChatWindows();
     await refreshWindowMemoryPanel();
@@ -1555,7 +1596,10 @@ function init(): void {
   inputForm.dataset.voiceState = 'idle';
   voiceFeedback.dataset.visible = 'false';
   syncLive2dSettingsControls();
-  void live2dCompanion.load();
+  void live2dCompanion.load().then(() => syncDesktopPetWindow());
+  window.athenaAPI.onDesktopPetInteraction(({ prompt, hotZoneId }) => {
+    void sendAvatarInteraction(prompt, hotZoneId);
+  });
   void initializeSettings();
   inputBar.onSubmit(sendMessage, () => currentPendingAttachments().length > 0);
   projectSelect.addEventListener('change', () => {
@@ -1716,16 +1760,16 @@ function init(): void {
     liquidGlassRenderer.setEnabled(settingGlassEffects.checked);
   });
   settingLive2dEnabled.addEventListener('change', () => {
-    void live2dCompanion.updatePreferences({ enabled: settingLive2dEnabled.checked });
+    void updateLive2dPreferences({ enabled: settingLive2dEnabled.checked });
   });
   settingLive2dLayout.addEventListener('change', () => {
-    void live2dCompanion.updatePreferences({ layout: settingLive2dLayout.value as AvatarLayoutMode });
+    void updateLive2dPreferences({ layout: settingLive2dLayout.value as AvatarLayoutMode });
   });
   settingLive2dScale.addEventListener('input', () => {
-    void live2dCompanion.updatePreferences({ scale: Number(settingLive2dScale.value) });
+    void updateLive2dPreferences({ scale: Number(settingLive2dScale.value) });
   });
   settingLive2dOpacity.addEventListener('input', () => {
-    void live2dCompanion.updatePreferences({ opacity: Number(settingLive2dOpacity.value) });
+    void updateLive2dPreferences({ opacity: Number(settingLive2dOpacity.value) });
   });
   settingModelProvider.addEventListener('change', () => {
     populateSelectedModelProvider();
@@ -1868,7 +1912,7 @@ function init(): void {
     } else {
       if (!live2dStreamingStarted) {
         live2dStreamingStarted = true;
-        void live2dCompanion.dispatch({ type: 'chat.streaming.start' });
+        void dispatchLive2dEvent({ type: 'chat.streaming.start' });
       }
       chatPanel.updateStreamingMessage(currentContent);
     }
@@ -1880,7 +1924,7 @@ function init(): void {
     inputBar.setDisabled(false);
     syncVoiceControls();
     setStatus('模型离线', 'offline');
-    void live2dCompanion.dispatch({ type: 'chat.error', message: error });
+    void dispatchLive2dEvent({ type: 'chat.error', message: error });
     if (activeRequestMode === 'execute') failActiveExecutionTask(error);
     else chatPanel.addMessage(`我暂时连不上本地模型：${error}`, 'assistant', '离线');
   });
@@ -5356,8 +5400,8 @@ function setVoiceInputState(state: VoiceInputState): void {
   voiceInputState = state;
   inputForm.dataset.voiceState = state;
   const isRecording = state === 'recording';
-  if (!wasRecording && isRecording) void live2dCompanion.dispatch({ type: 'voice.listening.start' });
-  if (wasRecording && !isRecording) void live2dCompanion.dispatch({ type: 'voice.listening.end' });
+  if (!wasRecording && isRecording) void dispatchLive2dEvent({ type: 'voice.listening.start' });
+  if (wasRecording && !isRecording) void dispatchLive2dEvent({ type: 'voice.listening.end' });
   voiceSttBtn.setAttribute('aria-pressed', String(isRecording));
   voiceSttBtn.title = isRecording ? '停止录音并识别' : '开始录音';
   voiceSttBtn.setAttribute('aria-label', voiceSttBtn.title);

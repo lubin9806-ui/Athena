@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'self' file: data: blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'" />
+  <title>Athena Live2D Pet</title>
+</head>
+<body>
+  <main id="live2d-pet" data-state="loading" data-enabled="true" data-layout="desktop_pet">
+    <div id="live2d-pet-drag" aria-label="拖动桌宠窗口" title="拖动桌宠窗口"><span></span><span></span><span></span></div>
+    <button id="live2d-pet-hide" type="button" aria-label="隐藏桌宠" title="隐藏桌宠">×</button>
+    <canvas id="live2d-pet-canvas" width="420" height="680" aria-label="Athena Live2D 桌宠"></canvas>
+  </main>
+  <script type="module" src="./live2d-pet.ts"></script>
+</body>
+</html>

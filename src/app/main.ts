@@ -16,6 +16,7 @@ import { initializeDesktopUpdater } from '../core/update/DesktopUpdater';
 import { describeSteamCloudAvailability, initializeSteamPlatform } from '../core/steam/SteamPlatform';
 import { isSteamExternalNavigationAllowed } from '../core/steam/SteamSkuPolicy';
 import { isMicrosoftStoreSku } from '../core/store/MicrosoftStoreSku';
+import { DesktopPetWindow } from './avatar/DesktopPetWindow';
 
 installLoggingPipeGuards();
 installCrashDiagnostics();
@@ -30,6 +31,7 @@ let mainWindowReady = false;
 let unresponsiveTimer: ReturnType<typeof setTimeout> | null = null;
 let unresponsiveDialogOpen = false;
 let rendererRecoveryDialogOpen = false;
+let desktopPetWindow: DesktopPetWindow | null = null;
 const rendererRecovery = new RendererRecoveryPolicy(2, 60_000);
 const singleInstanceActivation = new SingleInstanceActivationQueue();
 const isSmokeTest = process.argv.includes('--smoke-test') || process.env.ATHENA_SMOKE_TEST === '1';
@@ -38,6 +40,7 @@ const isSteamBuild = steamPlatform.state.sku === 'steam';
 const isMicrosoftStoreBuild = isMicrosoftStoreSku();
 const isVoiceSmokeTest = isSmokeTest && process.env.ATHENA_SMOKE_VOICE === '1';
 const isModelSmokeTest = isSmokeTest && process.env.ATHENA_SMOKE_MODEL === '1';
+const isLive2dPetSmokeTest = isSmokeTest && process.env.ATHENA_SMOKE_LIVE2D_PET === '1';
 const smokeScreenshotPath = process.env.ATHENA_SMOKE_SCREENSHOT?.trim();
 const smokeCaptureRipple = isSmokeTest && process.env.ATHENA_SMOKE_CAPTURE_RIPPLE === '1';
 const smokeAttachmentUi = isSmokeTest && process.env.ATHENA_SMOKE_ATTACHMENTS === '1';
@@ -1120,6 +1123,96 @@ function createWindow(): void {
         if (!wasVisible) mainWindow.hide();
       }
     }
+    if (domReady && isLive2dPetSmokeTest && mainWindow && desktopPetWindow) {
+      try {
+        let embeddedState: Record<string, unknown> | null = null;
+        for (let attempt = 0; attempt < 160; attempt += 1) {
+          embeddedState = await mainWindow.webContents.executeJavaScript(`
+            (() => {
+              const root = document.getElementById('live2d-companion');
+              return root ? { state: root.dataset.state, engine: root.dataset.engine, fallbackReason: root.dataset.fallbackReason } : null;
+            })()
+          `);
+          if (embeddedState?.state === 'ready') break;
+          await new Promise(resolve => setTimeout(resolve, 50));
+        }
+        const shown = await mainWindow.webContents.executeJavaScript('window.athenaAPI.setDesktopPetWindowVisible(true)');
+        const petWindow = BrowserWindow.getAllWindows().find(window => window !== mainWindow) ?? null;
+        let petState: Record<string, unknown> | null = null;
+        if (shown && petWindow) {
+          for (let attempt = 0; attempt < 160; attempt += 1) {
+            petState = await petWindow.webContents.executeJavaScript(`
+              (() => {
+                const root = document.getElementById('live2d-pet');
+                const canvas = document.getElementById('live2d-pet-canvas');
+                if (!root || !canvas) return null;
+                const rect = canvas.getBoundingClientRect();
+                return {
+                  state: root.dataset.state,
+                  engine: root.dataset.engine,
+                  lastEvent: root.dataset.lastEvent,
+                  stateSync: root.dataset.stateSync,
+                  lipSyncValue: root.dataset.lipSyncValue,
+                  width: rect.width,
+                  height: rect.height,
+                  opacity: getComputedStyle(canvas).opacity,
+                };
+              })()
+            `);
+            if (petState?.state === 'ready') break;
+            await new Promise(resolve => setTimeout(resolve, 50));
+          }
+          await mainWindow.webContents.executeJavaScript(`window.athenaAPI.sendDesktopPetEvent({ type: 'emotion.update', emotion: 'happy', intensity: 1 })`);
+          await new Promise(resolve => setTimeout(resolve, 120));
+          await mainWindow.webContents.executeJavaScript(`window.athenaAPI.sendDesktopPetEvent({ type: 'lipSync.update', value: 0.72 })`);
+          await new Promise(resolve => setTimeout(resolve, 60));
+          petState = await petWindow.webContents.executeJavaScript(`
+            (() => {
+              const root = document.getElementById('live2d-pet');
+              const canvas = document.getElementById('live2d-pet-canvas');
+              const rect = canvas?.getBoundingClientRect();
+              return root && rect ? {
+                state: root.dataset.state,
+                engine: root.dataset.engine,
+                lastEvent: root.dataset.lastEvent,
+                stateSync: root.dataset.stateSync,
+                lipSyncValue: root.dataset.lipSyncValue,
+                width: rect.width,
+                height: rect.height,
+                opacity: getComputedStyle(canvas).opacity,
+              } : null;
+            })()
+          `);
+          const bitmap = (await petWindow.webContents.capturePage()).toBitmap();
+          let visiblePixels = 0;
+          for (let index = 3; index < bitmap.length; index += 4) {
+            if (bitmap[index] > 8) visiblePixels += 1;
+          }
+          const hidden = await petWindow.webContents.executeJavaScript('window.athenaPetAPI.hide()');
+          await new Promise(resolve => setTimeout(resolve, 60));
+          const passed = petState?.state === 'ready'
+            && petState.engine === 'cubism-web'
+            && embeddedState?.state === 'ready'
+            && embeddedState.engine === 'cubism-web'
+            && petState.lastEvent === 'lipSync.update'
+            && petState.stateSync === 'emotion.update'
+            && Number(petState.lipSyncValue) === 0.72
+            && Number(petState.width) >= 240
+            && Number(petState.height) >= 360
+            && Number(petState.opacity) > 0
+            && visiblePixels > 10_000
+            && hidden === true
+            && !petWindow.isVisible();
+          console.log('ATHENA_LIVE2D_DESKTOP_PET_STATE', JSON.stringify({ ...petState, embeddedState, visiblePixels, hidden: !petWindow.isVisible() }));
+          if (!passed) domReady = false;
+        } else {
+          domReady = false;
+        }
+      } catch (error) {
+        console.error('ATHENA_LIVE2D_DESKTOP_PET_FAILED', error);
+        domReady = false;
+      }
+    }
     logSmokeReady();
     console.log(domReady ? 'ATHENA_SMOKE_DOM_OK' : 'ATHENA_SMOKE_DOM_MISSING');
     process.exitCode = domReady ? 0 : 1;
@@ -1133,6 +1226,15 @@ function createWindow(): void {
   });
 
   shutdownServices = registerIpcHandlers(mainWindow);
+  desktopPetWindow?.dispose();
+  desktopPetWindow = new DesktopPetWindow({
+    mainWindow: createdWindow,
+    preloadPath: path.join(__dirname, 'live2d-preload.js'),
+    rendererPath: path.join(__dirname, '../renderer/live2d-pet.html'),
+    iconPath: path.join(__dirname, '../../resources/su-shixia-icon.png'),
+    smokeTest: isSmokeTest,
+    shouldClose: () => isQuitting,
+  });
 
   mainWindow.center();
 
@@ -1145,6 +1247,8 @@ function createWindow(): void {
   });
   createdWindow.on('closed', () => {
     clearUnresponsiveRecovery();
+    desktopPetWindow?.dispose();
+    desktopPetWindow = null;
     mainWindowReady = false;
     if (mainWindow === createdWindow) mainWindow = null;
   });
@@ -1203,6 +1307,8 @@ app.on('will-quit', (event) => {
   event.preventDefault();
   quitCleanupPromise ||= (async () => {
     clearUnresponsiveRecovery();
+    desktopPetWindow?.dispose();
+    desktopPetWindow = null;
     const shutdown = shutdownServices;
     shutdownServices = null;
     if (shutdown) await withTimeout(shutdown(), 15_000, 'Athena service shutdown timed out after 15 seconds');

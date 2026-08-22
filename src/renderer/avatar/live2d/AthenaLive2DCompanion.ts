@@ -29,8 +29,12 @@ export interface AthenaLive2DCompanionOptions {
   root: HTMLElement;
   canvas: HTMLCanvasElement;
   storage?: Pick<Storage, 'getItem' | 'setItem'>;
+  layoutOverride?: AvatarLayoutMode;
+  lockPosition?: boolean;
   onAthenaReply?: (prompt: string, hotZoneId: string) => void | Promise<void>;
   onError?: (error: Error) => void;
+  onLipSyncValue?: (value: number) => void;
+  onSpeakingChange?: (speaking: boolean) => void;
 }
 
 const DEFAULT_PREFERENCES: AthenaLive2DPreferences = {
@@ -57,11 +61,13 @@ export class AthenaLive2DCompanion {
   constructor(private readonly options: AthenaLive2DCompanionOptions) {
     const storage = options.storage ?? window.localStorage;
     this.preferences = readAthenaLive2DPreferences(storage.getItem(ATHENA_LIVE2D_PREFERENCES_KEY));
+    if (options.layoutOverride) this.preferences.layout = options.layoutOverride;
     const customization = readAvatarProfileCustomization(storage.getItem(CUSTOMIZATION_KEY));
     const profile = applyAvatarProfileCustomization(profileDocument as AvatarCharacterProfile, customization);
     profile.model.rootPath = 'avatar/athena-live2d-default';
     profile.model.model3JsonPath = 'model/athena-live2d-default-sdk5.model3.json';
     profile.layout.mode = this.preferences.layout;
+    if (options.lockPosition !== undefined) profile.layout.lockPosition = options.lockPosition;
     profile.layout.transform = {
       ...profile.layout.transform,
       x: 0,
@@ -82,7 +88,10 @@ export class AthenaLive2DCompanion {
       settings: profile.lipSync,
       adapter: { setParameter: (parameterId, value) => this.host.setParameter(parameterId, value) },
       audioSource: this.audioSource,
-      onValue: value => { this.options.root.dataset.lipSync = value > 0.02 ? 'active' : 'idle'; },
+      onValue: value => {
+        this.options.root.dataset.lipSync = value > 0.02 ? 'active' : 'idle';
+        this.options.onLipSyncValue?.(value);
+      },
     });
     this.applyPreferences();
   }
@@ -100,8 +109,15 @@ export class AthenaLive2DCompanion {
     this.options.root.dataset.state = 'loading';
     try {
       await this.controller.load();
+      if (this.host.getRendererKind() === 'live2d-lite' && /network error/i.test(this.host.getFallbackReason() ?? '')) {
+        await new Promise(resolve => window.setTimeout(resolve, 180));
+        await this.controller.reload();
+      }
       this.loaded = true;
       this.options.root.dataset.engine = this.host.getRendererKind();
+      const fallbackReason = this.host.getFallbackReason();
+      if (fallbackReason) this.options.root.dataset.fallbackReason = fallbackReason;
+      else delete this.options.root.dataset.fallbackReason;
       this.options.root.dataset.state = 'ready';
       await this.controller.dispatch({ type: 'app.ready' });
     } catch (error) {
@@ -124,6 +140,11 @@ export class AthenaLive2DCompanion {
 
   async setEmotionLabel(label?: string, intensity = 1): Promise<void> {
     await this.dispatch({ type: 'emotion.update', emotion: emotionFromLabel(label), intensity });
+  }
+
+  async setMouthValue(value: number): Promise<void> {
+    if (!this.preferences.enabled || !this.loaded) return;
+    await this.host.setParameter('ParamMouthOpenY', Math.max(0, Math.min(1, value)));
   }
 
   async attachAudio(audio: HTMLAudioElement): Promise<void> {
@@ -188,11 +209,13 @@ export class AthenaLive2DCompanion {
   }
 
   private readonly handleAudioPlay = (): void => {
+    this.options.onSpeakingChange?.(true);
     void this.dispatch({ type: 'voice.speaking.start' });
     this.lipSync.start();
   };
 
   private readonly handleAudioStop = (): void => {
+    this.options.onSpeakingChange?.(false);
     void this.lipSync.stop().then(() => this.dispatch({ type: 'voice.speaking.end' }));
   };
 

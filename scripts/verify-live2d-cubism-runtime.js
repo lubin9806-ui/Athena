@@ -35,6 +35,7 @@ function main() {
     'cubism_motion_physics_validated',
     'cubism_native_expressions_validated',
     'athena_app_integration_validated',
+    'desktop_pet_window_validated',
   ].includes(manifest.status));
   assert.equal(manifest.runtime.cubismRunnable, true);
   assert.equal(manifest.runtime.engine, 'cubism-web');

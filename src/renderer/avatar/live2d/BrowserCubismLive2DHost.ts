@@ -28,7 +28,7 @@ export interface BrowserCubismLive2DHostOptions {
 
 type CubismModel = Live2DModel<CubismInternalModel>;
 
-const DEFAULT_CORE_SCRIPT_URL = '/vendor/live2d/live2dcubismcore.min.js';
+const DEFAULT_CORE_SCRIPT_URL = 'vendor/live2d/live2dcubismcore.min.js';
 const EXPRESSION_PARAMETERS: Record<string, Record<string, number>> = {
   neutral: {},
   happy: { ParamMouthForm: 1 },
@@ -51,6 +51,7 @@ export class BrowserCubismLive2DHost implements Live2DHost {
   private model: CubismModel | null = null;
   private resizeObserver: ResizeObserver | null = null;
   private fallbackActive = false;
+  private fallbackReason: string | null = null;
   private baseSize: { width: number; height: number } | null = null;
   private readonly parameterIndexes = new Map<string, number>();
   private readonly manualParameters = new Map<string, number>();
@@ -102,6 +103,7 @@ export class BrowserCubismLive2DHost implements Live2DHost {
       this.resize(loadOptions.canvas);
       this.observeCanvas(loadOptions.canvas);
     } catch (error) {
+      this.fallbackReason = error instanceof Error ? error.message : String(error);
       await this.teardownCubism();
       if (!this.options.fallbackHost || !loadOptions.canvas.getContext('2d')) throw error;
       await this.options.fallbackHost.load(loadOptions);
@@ -112,6 +114,7 @@ export class BrowserCubismLive2DHost implements Live2DHost {
   async unload(): Promise<void> {
     if (this.fallbackActive) await this.options.fallbackHost?.unload();
     this.fallbackActive = false;
+    this.fallbackReason = null;
     await this.teardownCubism();
   }
 
@@ -176,6 +179,10 @@ export class BrowserCubismLive2DHost implements Live2DHost {
   getRendererKind(): 'cubism-web' | 'live2d-lite' | 'unloaded' {
     if (this.fallbackActive) return 'live2d-lite';
     return this.model ? 'cubism-web' : 'unloaded';
+  }
+
+  getFallbackReason(): string | null {
+    return this.fallbackReason;
   }
 
   getDrawableIds(): string[] {
@@ -250,6 +257,8 @@ export class BrowserCubismLive2DHost implements Live2DHost {
 }
 
 async function loadBrowserRuntime(): Promise<LoadedRuntime> {
+  // @ts-expect-error Pixi publishes this CSP-safe runtime through package exports.
+  await import('pixi.js/unsafe-eval');
   const [pixi, cubism] = await Promise.all([
     import('pixi.js'),
     // The package exposes this runtime entry, but Athena's legacy Node resolver

@@ -1,7 +1,7 @@
 {
   "id": "athena-live2d-default",
-  "version": "0.9.0-athena-integration",
-  "status": "athena_app_integration_validated",
+  "version": "0.10.0-desktop-pet",
+  "status": "desktop_pet_window_validated",
   "displayName": "Athena Live2D Default",
   "providerTarget": "live2d",
   "createdAt": "2026-08-22",
@@ -80,11 +80,21 @@
     "athenaStateBindings": ["thinking", "streaming", "listening", "speaking", "emotion", "error"],
     "hotZoneAthenaReply": true,
     "appSettings": ["enabled", "layout", "scale", "opacity"],
+    "desktopPetWindow": {
+      "independentWindow": true,
+      "transparent": true,
+      "alwaysOnTop": true,
+      "skipTaskbar": true,
+      "positionPersistence": true,
+      "dedicatedPreload": true,
+      "stateSync": true,
+      "realtimeLipSync": true
+    },
     "fallbackEngine": "athena-live2d-lite",
     "fallbackModel3Json": "model/athena-live2d-lite.model3.json",
     "validatedPlacements": ["chat_right", "chat_background", "draggable_overlay", "desktop_pet"],
     "visualQa": "../../../docs/quality/live2d-cubism-runtime-qa.json",
-    "remainingLimitations": "Broader face polish, independent arm deformation, and model-native hit areas remain production work. Wave currently uses an upper-body gesture because this baseline rig has no independent arm parameters. Profile rectangle hit areas remain active."
+    "remainingLimitations": "Broader face polish, independent arm deformation, and model-native hit areas remain production work. Wave currently uses an upper-body gesture because this baseline rig has no independent arm parameters. Profile rectangle hit areas remain active. Public distribution still requires Live2D expandable-app license review."
   },
   "style": {
     "agePresentation": "adult",

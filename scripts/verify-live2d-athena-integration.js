@@ -16,7 +16,7 @@ function read(relativePath) {
 function main() {
   const manifest = JSON.parse(read('assets/avatar/athena-live2d-default/manifest.json'));
   const qa = JSON.parse(read('docs/quality/live2d-cubism-runtime-qa.json'));
-  assert.equal(manifest.status, 'athena_app_integration_validated');
+  assert.equal(manifest.status, 'desktop_pet_window_validated');
   assert.equal(manifest.runtime.athenaAppIntegrated, true);
   assert.equal(manifest.runtime.hotZoneAthenaReply, true);
   assert.equal(qa.athenaAppIntegration.passed, true);

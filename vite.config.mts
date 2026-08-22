@@ -17,6 +17,7 @@ export default defineConfig({
       input: {
         index: fileURLToPath(new URL('./src/renderer/index.html', import.meta.url)),
         live2dPreview: fileURLToPath(new URL('./src/renderer/live2d-preview.html', import.meta.url)),
+        live2dPet: fileURLToPath(new URL('./src/renderer/live2d-pet.html', import.meta.url)),
       },
     },
   },

@@ -69,6 +69,12 @@ export class Live2DCanvasController {
     this.loaded = true;
   }
 
+  async reload(): Promise<void> {
+    if (this.loaded) await this.runtime.unload();
+    this.loaded = false;
+    await this.load();
+  }
+
   async dispatch(event: AthenaAvatarEvent): Promise<AvatarHotZoneAction | null> {
     if (!this.loaded) await this.load();
     return this.runtime.dispatch(event);
