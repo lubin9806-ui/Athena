@@ -47,6 +47,8 @@ The Cubism package now contains:
 
 This is an automated baseline rig, not the final companion model. Angle X/Y and four-corner face keyforms exist, and eye/mouth parameters are bound, but the open/closed eye and mouth shapes still need visible manual refinement. Physics, expressions, authored motions, and hit areas are not present yet. The generated layer composition also needs default-visibility cleanup around alternate face parts.
 
+The clean high-quality `ATH_REFERENCE_COMPOSITE` is now the default visible ArtMesh and is included in the 4096 px atlas. The 67 generated rig parts are hidden by default but deliberately retained in the MOC3 export, so later eye, mouth, expression, and motion work can reuse their meshes without degrading the default appearance.
+
 Athena continues to use the Lite model until a licensed Cubism Web runtime adapter is integrated and validated.
 
 ## Production Handoff

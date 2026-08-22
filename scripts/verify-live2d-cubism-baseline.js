@@ -22,6 +22,11 @@ function main() {
   assert.equal(manifest.production.cubismRigged, true);
   assert.equal(manifest.production.rigQuality, 'baseline_automatic_unpolished');
   assert.equal(manifest.production.cubismExported, true);
+  assert.equal(manifest.production.defaultVisualReady, true);
+  assert.equal(manifest.production.defaultVisualSource, 'ATH_REFERENCE_COMPOSITE');
+  assert.equal(manifest.production.referenceCompositeAtlased, true);
+  assert.equal(manifest.production.generatedRigPartsDefaultHidden, true);
+  assert.equal(manifest.production.hiddenRigPartsExported, true);
   assert.equal(manifest.production.visibleEyeAndMouthDeformationPolished, false);
   assert.equal(manifest.production.physicsReady, false);
   assert.equal(manifest.production.expressionsReady, false);
