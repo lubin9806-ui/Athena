@@ -76,6 +76,8 @@ contextBridge.exposeInMainWorld('athenaAPI', {
     return () => ipcRenderer.removeListener('reminder:due', handler);
   },
   getSystemInfo: () => ipcRenderer.invoke('system:info'),
+  getFastSystemInfo: () => ipcRenderer.invoke('system:infoFast'),
+  getStartupSystemInfo: () => ipcRenderer.invoke('system:infoStartup'),
   getSettings: () => ipcRenderer.invoke('config:get'),
   saveSettings: (patch: any) => ipcRenderer.invoke('config:set', patch),
   getPersona: (profileId?: string) => ipcRenderer.invoke('persona:get', profileId),

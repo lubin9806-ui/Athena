@@ -66,6 +66,7 @@ export interface ChatRequest {
 
 export type AgentMessageRoute = 'conversation' | 'web_research' | 'durable_execution';
 export type AgentMessageRouteConfidence = 'high' | 'medium';
+export type AgentMessageRoutingMethod = 'rules' | 'model' | 'rules_fallback';
 export type AgentMessageRouteReason =
   | 'selected-execution-mode'
   | 'forced-web-search'
@@ -76,6 +77,9 @@ export type AgentMessageRouteReason =
   | 'execution-context-required'
   | 'execution-unavailable'
   | 'discussion-only'
+  | 'semantic-conversation'
+  | 'semantic-web-research'
+  | 'semantic-durable-execution'
   | 'ordinary-conversation';
 
 export interface AgentMessageRouteDecision {
@@ -83,6 +87,7 @@ export interface AgentMessageRouteDecision {
   effectiveMode: ConversationMode;
   confidence: AgentMessageRouteConfidence;
   reason: AgentMessageRouteReason;
+  routingMethod: AgentMessageRoutingMethod;
   autoSwitch: boolean;
   query?: string;
 }

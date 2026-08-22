@@ -66,6 +66,7 @@ import { cleanAttachmentIds, cleanChatPayload, cleanExistingFilePath, isTrustedI
 const MAX_RECORDING_BYTES = 12 * 1024 * 1024;
 const MAX_TEXT_TO_SPEAK_CHARS = 8_000;
 const MAX_PATH_CHARS = 2_048;
+const CONTROLLER_WARMUP_DELAY_MS = 1_500;
 
 const INVOKE_CHANNELS = [
   'chat:route',
@@ -113,6 +114,8 @@ const INVOKE_CHANNELS = [
   'mcp:remove',
   'tools:catalog',
   'system:info',
+  'system:infoFast',
+  'system:infoStartup',
   'config:get',
   'config:set',
   'persona:get',
@@ -177,11 +180,23 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<vo
     return isTrustedIpcSender(event, mainWindow);
   };
 
-  void controller.initialize().catch((error) => {
+  const reportControllerWarmupError = (error: unknown): void => {
     if (!mainWindow.isDestroyed()) {
       mainWindow.webContents.send('chat:error', error instanceof Error ? error.message : String(error));
     }
-  });
+  };
+
+  const scheduleControllerWarmup = (): void => {
+    if (shuttingDown) return;
+    const timer = setTimeout(() => {
+      void controller.initialize().catch(reportControllerWarmupError);
+    }, CONTROLLER_WARMUP_DELAY_MS);
+    const handle = timer as unknown as { unref?: () => void };
+    handle.unref?.();
+  };
+
+  if (mainWindow.isVisible()) scheduleControllerWarmup();
+  else mainWindow.once('ready-to-show', scheduleControllerWarmup);
 
   ipcMain.handle('chat:route', async (event, value: unknown) => {
     if (!isTrustedSender(event)) return null;
@@ -447,6 +462,16 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<vo
   ipcMain.handle('system:info', async (event) => {
     if (!isTrustedSender(event)) return null;
     return controller.getSystemInfo();
+  });
+
+  ipcMain.handle('system:infoFast', async (event) => {
+    if (!isTrustedSender(event)) return null;
+    return controller.getSystemInfo({ checkModel: false });
+  });
+
+  ipcMain.handle('system:infoStartup', async (event) => {
+    if (!isTrustedSender(event)) return null;
+    return controller.getSystemInfo({ checkModel: true, timeoutMs: 2_000 });
   });
 
   ipcMain.handle('execution:cancel', async (event) => {

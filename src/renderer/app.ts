@@ -81,7 +81,9 @@ declare global {
       onWebSearchStatus: (callback: (status: WebSearchStatus) => void) => () => void;
       onToolStatus: (callback: (status: ToolStatusEvent) => void) => () => void;
       onReminderDue: (callback: (job: { title: string; dueAt: string }) => void) => () => void;
-      getSystemInfo: () => Promise<{ modelConnected: boolean; modelProvider: ModelProvider; modelName: string; modelEndpoint: string; ollamaConnected: boolean; hour: number; ollamaModel: string; ollamaEndpoint: string } | null>;
+      getSystemInfo: () => Promise<{ modelConnected: boolean; modelConnectionChecked?: boolean; modelProvider: ModelProvider; modelName: string; modelEndpoint: string; ollamaConnected: boolean; hour: number; ollamaModel: string; ollamaEndpoint: string } | null>;
+      getFastSystemInfo: () => Promise<{ modelConnected: boolean; modelConnectionChecked?: boolean; modelProvider: ModelProvider; modelName: string; modelEndpoint: string; ollamaConnected: boolean; hour: number; ollamaModel: string; ollamaEndpoint: string } | null>;
+      getStartupSystemInfo: () => Promise<{ modelConnected: boolean; modelConnectionChecked?: boolean; modelProvider: ModelProvider; modelName: string; modelEndpoint: string; ollamaConnected: boolean; hour: number; ollamaModel: string; ollamaEndpoint: string } | null>;
       getSettings: () => Promise<SettingsBundle>;
       saveSettings: (patch: SettingsPatch) => Promise<SettingsBundle>;
       getPersona: (profileId?: string) => Promise<PersonaEditorState | null>;
@@ -3643,9 +3645,18 @@ async function refreshStartupModelStatus(autoConnect: boolean): Promise<void> {
     let info: Awaited<ReturnType<typeof window.athenaAPI.getSystemInfo>> = null;
     for (let attempt = 0; attempt < 3 && !info; attempt += 1) {
       if (attempt > 0) await new Promise(resolve => window.setTimeout(resolve, 320 * attempt));
-      info = await window.athenaAPI.getSystemInfo();
+      info = await window.athenaAPI.getFastSystemInfo();
     }
     if (!info) throw new Error('主进程没有返回模型状态');
+    if (info.modelConnectionChecked === false) {
+      modelConnected = null;
+      if (!chatPanel.hasMessages()) {
+        chatPanel.addMessage(`${greetingForHour(info.hour)}，${currentPersonaLabel()}在。窗口先打开好了，模型连接我在后台短检测。`, 'assistant', '待命');
+      }
+      setStatus(`${modelProviderLabel(info.modelProvider)} · 检测中`, 'working');
+      window.setTimeout(() => void refreshDeferredStartupModelStatus(), 300);
+      return;
+    }
     modelConnected = info.modelConnected;
     if (info.modelConnected) {
       if (chatPanel.hasMessages()) {
@@ -3670,6 +3681,25 @@ async function refreshStartupModelStatus(autoConnect: boolean): Promise<void> {
       return;
     }
     chatPanel.addMessage('窗口已经准备好了，但模型状态暂时无法读取。请打开模型设置查看诊断结果。', 'assistant', '需要检查');
+    setStatus('模型状态未知', 'error');
+  }
+}
+
+async function refreshDeferredStartupModelStatus(): Promise<void> {
+  try {
+    const info = await window.athenaAPI.getStartupSystemInfo();
+    if (!info) return;
+    modelConnected = info.modelConnectionChecked === false ? null : info.modelConnected;
+    if (info.modelConnected) {
+      setStatus(`${modelProviderLabel(info.modelProvider)} · ${info.modelName} · 已连接`, 'ready');
+    } else if (info.modelConnectionChecked === false) {
+      setStatus(`${modelProviderLabel(info.modelProvider)} · 待检测`, 'ready');
+    } else {
+      setStatus(`${modelProviderLabel(info.modelProvider)} · 模型不可用`, 'offline');
+    }
+  } catch (error) {
+    console.error('Failed to refresh deferred startup model status', error);
+    modelConnected = null;
     setStatus('模型状态未知', 'error');
   }
 }

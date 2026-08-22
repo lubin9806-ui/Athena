@@ -1,5 +1,6 @@
 import type {
   AgentMessageRouteDecision,
+  AgentMessageRoute,
   ConversationMode,
   MessageRole,
 } from '../../shared/types';
@@ -22,9 +23,47 @@ export interface AgentMessageRoutingInput {
   webSearchEnabled: boolean;
   canStartDurableExecution: boolean;
   recentMessages?: RoutingHistoryItem[];
+  semanticRoutingAllowed?: boolean;
+}
+
+export interface SemanticRoutingPrediction {
+  route: AgentMessageRoute;
+  confidence: 'high' | 'medium' | 'low';
+  explicitActionConsent: boolean;
+  referencesPriorContext: boolean;
+  query?: string;
+}
+
+export interface SemanticRoutingClassifier {
+  classify(input: AgentMessageRoutingInput, signal: AbortSignal): Promise<SemanticRoutingPrediction>;
+}
+
+interface AgentMessageRouterOptions {
+  semanticClassifier?: SemanticRoutingClassifier;
+  semanticTimeoutMs?: number;
+  cacheTtlMs?: number;
+  now?: () => number;
+}
+
+interface CachedRoute {
+  expiresAt: number;
+  decision: AgentMessageRouteDecision;
 }
 
 export class AgentMessageRouter {
+  private readonly semanticClassifier?: SemanticRoutingClassifier;
+  private readonly semanticTimeoutMs: number;
+  private readonly cacheTtlMs: number;
+  private readonly now: () => number;
+  private readonly cache = new Map<string, CachedRoute>();
+
+  constructor(options: AgentMessageRouterOptions = {}) {
+    this.semanticClassifier = options.semanticClassifier;
+    this.semanticTimeoutMs = clampInteger(options.semanticTimeoutMs ?? 8_000, 500, 30_000);
+    this.cacheTtlMs = clampInteger(options.cacheTtlMs ?? 15_000, 1_000, 60_000);
+    this.now = options.now ?? Date.now;
+  }
+
   route(input: AgentMessageRoutingInput): AgentMessageRouteDecision {
     const message = input.message.trim();
     if (input.mode === 'execute') {
@@ -70,6 +109,45 @@ export class AgentMessageRouter {
 
     return decision('conversation', input.mode, 'medium', 'ordinary-conversation', false);
   }
+
+  async routeAdaptive(input: AgentMessageRoutingInput): Promise<AgentMessageRouteDecision> {
+    const rulesDecision = this.route(input);
+    if (!this.semanticClassifier || !shouldRequestSemanticReview(input, rulesDecision)) return rulesDecision;
+
+    const cacheKey = routingCacheKey(input);
+    const cached = this.cache.get(cacheKey);
+    if (cached && cached.expiresAt > this.now()) return structuredClone(cached.decision);
+    if (cached) this.cache.delete(cacheKey);
+
+    let resolved: AgentMessageRouteDecision;
+    try {
+      const signal = AbortSignal.timeout(this.semanticTimeoutMs);
+      const prediction = await this.semanticClassifier.classify(input, signal);
+      resolved = adjudicateSemanticPrediction(input, rulesDecision, prediction);
+    } catch {
+      resolved = { ...rulesDecision, routingMethod: 'rules_fallback' };
+    }
+
+    this.remember(cacheKey, resolved);
+    return structuredClone(resolved);
+  }
+
+  clearCache(): void {
+    this.cache.clear();
+  }
+
+  private remember(key: string, route: AgentMessageRouteDecision): void {
+    const now = this.now();
+    for (const [candidate, cached] of this.cache) {
+      if (cached.expiresAt <= now) this.cache.delete(candidate);
+    }
+    while (this.cache.size >= 64) {
+      const oldest = this.cache.keys().next().value as string | undefined;
+      if (!oldest) break;
+      this.cache.delete(oldest);
+    }
+    this.cache.set(key, { expiresAt: now + this.cacheTtlMs, decision: structuredClone(route) });
+  }
 }
 
 function decision(
@@ -85,9 +163,83 @@ function decision(
     effectiveMode,
     confidence,
     reason,
+    routingMethod: 'rules',
     autoSwitch,
     ...(query ? { query } : {}),
   };
+}
+
+function shouldRequestSemanticReview(
+  input: AgentMessageRoutingInput,
+  rulesDecision: AgentMessageRouteDecision,
+): boolean {
+  if (input.semanticRoutingAllowed === false) return false;
+  if (rulesDecision.reason !== 'ordinary-conversation' || rulesDecision.confidence !== 'medium') return false;
+  const message = input.message.trim();
+  if (message.length < 4 || isClearlyCasualConversation(message)) return false;
+  return true;
+}
+
+function adjudicateSemanticPrediction(
+  input: AgentMessageRoutingInput,
+  rulesDecision: AgentMessageRouteDecision,
+  prediction: SemanticRoutingPrediction,
+): AgentMessageRouteDecision {
+  if (prediction.route === 'conversation') {
+    return {
+      ...decision('conversation', input.mode, prediction.confidence === 'high' ? 'high' : 'medium', 'semantic-conversation', false),
+      routingMethod: 'model',
+    };
+  }
+
+  if (prediction.route === 'web_research') {
+    if (!input.webSearchEnabled || prediction.confidence === 'low') return rulesDecision;
+    const query = normalizeSemanticQuery(prediction.query) || extractSearchQuery(input.message.trim());
+    return {
+      ...decision('web_research', input.mode, prediction.confidence === 'high' ? 'high' : 'medium', 'semantic-web-research', false, query),
+      routingMethod: 'model',
+    };
+  }
+
+  if (!input.canStartDurableExecution) {
+    return decision('conversation', input.mode, 'high', 'execution-unavailable', false);
+  }
+  if (prediction.confidence !== 'high' || !prediction.explicitActionConsent) return rulesDecision;
+  if (prediction.referencesPriorContext && !hasActionableContext(input.recentMessages || [])) {
+    return decision('conversation', input.mode, 'high', 'execution-context-required', false);
+  }
+  return {
+    ...decision('durable_execution', 'execute', 'high', 'semantic-durable-execution', true),
+    routingMethod: 'model',
+  };
+}
+
+function normalizeSemanticQuery(value: string | undefined): string {
+  if (!value) return '';
+  return value.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 300);
+}
+
+function routingCacheKey(input: AgentMessageRoutingInput): string {
+  return JSON.stringify({
+    message: input.message.trim(),
+    mode: input.mode,
+    forceWebSearch: input.forceWebSearch === true,
+    webSearchEnabled: input.webSearchEnabled,
+    canStartDurableExecution: input.canStartDurableExecution,
+    semanticRoutingAllowed: input.semanticRoutingAllowed !== false,
+    recentMessages: (input.recentMessages || []).slice(-12).map(item => ({
+      role: item.role,
+      content: item.content.slice(0, 2_000),
+    })),
+  });
+}
+
+function isClearlyCasualConversation(message: string): boolean {
+  return /^(?:你好|您好|嗨|哈喽|早上好|早安|午安|晚上好|晚安|谢谢|多谢|再见|拜拜|在吗|hello|hi|hey|thanks|thank you|good(?: morning| afternoon| evening| night)|bye)[。！!,.?？\s]*$/i.test(message);
+}
+
+function clampInteger(value: number, min: number, max: number): number {
+  return Math.round(Math.max(min, Math.min(max, value)));
 }
 
 function isDiscussionOnly(message: string): boolean {

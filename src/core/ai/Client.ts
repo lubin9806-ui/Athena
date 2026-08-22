@@ -151,6 +151,7 @@ export class LLMClient {
     schema: Record<string, unknown>,
     mode: ConversationMode = 'reason',
     overrides?: ChatGenerationOverrides,
+    signal?: AbortSignal,
   ): Promise<string> {
     const schemaInstruction: ChatMessage = {
       role: 'system',
@@ -163,6 +164,7 @@ export class LLMClient {
       messages: [schemaInstruction, ...messages],
       responseFormat,
       mode,
+      signal,
       overrides: { ...overrides, temperature: overrides?.temperature ?? 0.1, maxTokens: overrides?.maxTokens ?? 1536 },
     });
     return response.content;

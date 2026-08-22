@@ -3,6 +3,7 @@ export interface SystemInfo {
   hour: number;
   platform: string;
   modelConnected: boolean;
+  modelConnectionChecked?: boolean;
   modelProvider: string;
   modelName: string;
   modelEndpoint: string;

@@ -29,7 +29,7 @@ import {
 import { AttachmentService } from '../attachments';
 import { ProjectDocumentService } from '../documents';
 import { LocalOcrService, OcrAgentToolBridge } from '../ocr';
-import { AgentMessageRouter } from '../routing';
+import { AgentMessageRouter, ModelSemanticRoutingClassifier } from '../routing';
 import { evaluateSteamAiContent, steamAiGuardrailRefusal } from '../steam/SteamAiGuardrails';
 import { isSteamSku } from '../steam/SteamSkuPolicy';
 import {
@@ -89,6 +89,7 @@ import type {
 } from '../../shared/types';
 
 const logger = createLogger('AthenaController');
+const STARTUP_MAINTENANCE_DELAY_MS = 5_000;
 
 interface ProcessMessageOptions {
   forceWebSearch?: boolean;
@@ -119,7 +120,7 @@ export class AthenaController {
   private readonly ocrTools: OcrAgentToolBridge;
   private readonly attachments: AttachmentService;
   private readonly documents: ProjectDocumentService;
-  private readonly messageRouter: AgentMessageRouter;
+  private messageRouter: AgentMessageRouter;
   private agentRunner: AgentRunner;
   private initialized = false;
   private initializePromise: Promise<void> | null = null;
@@ -136,7 +137,7 @@ export class AthenaController {
     this.attachments = new AttachmentService();
     this.ocr = new LocalOcrService();
     this.documents = new ProjectDocumentService({ ocr: this.ocr });
-    this.messageRouter = new AgentMessageRouter();
+    this.messageRouter = this.createMessageRouter();
     this.agentStore = new AgentStore();
     this.agentTools = new ToolRegistry();
     this.agentComputerTools = new ComputerAgentToolBridge({
@@ -213,23 +214,12 @@ export class AthenaController {
     if (temporaryWindowsDeleted > 0) {
       logger.info(`Cleaned up ${temporaryWindowsDeleted} temporary chat windows and ${temporaryAttachmentsDeleted} attachment files.`);
     }
-    const staleAttachmentsDeleted = this.attachments.cleanupStalePending();
-    if (staleAttachmentsDeleted > 0) logger.info(`Cleaned up ${staleAttachmentsDeleted} stale pending attachments.`);
-    const retention = applyDataRetention();
-    if (retention.messagesDeleted > 0 || retention.activityDeleted > 0) {
-      logger.info(`Data retention applied: messages=${retention.messagesDeleted}, activity=${retention.activityDeleted}`);
-    }
-    const memoryRetention = await this.applyMemoryRetentionMaintenance();
-    if (memoryRetention.dailySummariesGenerated > 0 || memoryRetention.rawEventsPruned > 0 || (memoryRetention.llmRefinedSummaries ?? 0) > 0) {
-      logger.info(`Memory retention applied: daily_summaries=${memoryRetention.dailySummariesGenerated}, llm_refined=${memoryRetention.llmRefinedSummaries ?? 0}, raw_events_pruned=${memoryRetention.rawEventsPruned}`);
-    }
-    const indexStats = rebuildMemoryIndex();
-    logger.info(`Memory index ready: messages=${indexStats.messages}, profile=${indexStats.profile}, events=${indexStats.events}, daily_memory_summaries=${indexStats.daily_memory_summaries}, procedural_memories=${indexStats.procedural_memories}, memory_facts=${indexStats.memory_facts}, project_notes=${indexStats.project_notes}, project_document_chunks=${indexStats.project_document_chunks}`);
     this.emotion.setBaseEmotion(new Date().getHours());
     const settings = getAppSettings();
     this.applyToolPermission(settings.tools, settings.conversation.activeMode);
     this.initialized = true;
     this.scheduleDailyMemoryMaintenance();
+    this.scheduleStartupMaintenance();
     logger.info('Athena initialized.');
     globalEventBus.emit('athena:ready');
   }
@@ -387,27 +377,33 @@ export class AthenaController {
     const canStartDurableExecution = this.llm.capabilities.nativeToolCalls
       && chatWindow.is_temporary !== true
       && Boolean(chatWindow.project_id);
-    const route = this.messageRouter.route({
+    const route = await this.messageRouter.routeAdaptive({
       message: userMessage,
       mode: requestedMode,
       forceWebSearch: options.forceWebSearch,
       webSearchEnabled: settings.webSearch.enabled,
       canStartDurableExecution,
       recentMessages,
+      semanticRoutingAllowed: evaluateSteamAiContent(userMessage).allowed
+        && canRouteModelRequest(this.llm.providerName, canUseNetworkCapability('remoteModel')),
     });
-    logger.info(`Message routed [route=${route.route}, reason=${route.reason}, confidence=${route.confidence}, autoSwitch=${route.autoSwitch}]`);
+    logger.info(`Message routed [route=${route.route}, reason=${route.reason}, method=${route.routingMethod}, confidence=${route.confidence}, autoSwitch=${route.autoSwitch}]`);
     return route;
   }
 
-  async getSystemInfo(): Promise<SystemInfo> {
+  async getSystemInfo(options: { checkModel?: boolean; timeoutMs?: number } = {}): Promise<SystemInfo> {
     const stats = getStats();
-    const modelConnected = await this.llm.checkConnection();
+    const modelConnectionChecked = options.checkModel !== false;
+    const modelConnected = modelConnectionChecked
+      ? await withOptionalTimeout(this.llm.checkConnection(), options.timeoutMs, false)
+      : false;
     const now = new Date();
     return {
       time: now.toLocaleString('zh-CN'),
       hour: now.getHours(),
       platform: process.platform,
       modelConnected,
+      modelConnectionChecked,
       modelProvider: this.llm.providerName,
       modelName: this.llm.modelName,
       modelEndpoint: this.llm.endpoint,
@@ -423,8 +419,15 @@ export class AthenaController {
     this.llm = new LLMClient();
     this.conversation = new Conversation(this.llm);
     this.agentRunner = new AgentRunner(this.llm, this.agentTools, undefined, this.agentStore);
+    this.messageRouter = this.createMessageRouter();
     const settings = getAppSettings();
     this.applyToolPermission(settings.tools, settings.conversation.activeMode);
+  }
+
+  private createMessageRouter(): AgentMessageRouter {
+    return new AgentMessageRouter({
+      semanticClassifier: new ModelSemanticRoutingClassifier(this.llm),
+    });
   }
 
   applyToolPermission(settings: ToolSettings, mode: ConversationMode): ToolSettings {
@@ -816,6 +819,37 @@ export class AthenaController {
     logger.info(`Daily memory maintenance scheduled in ${Math.round(delayMs / 60000)} minutes.`);
   }
 
+  private scheduleStartupMaintenance(): void {
+    const timer = setTimeout(() => {
+      void this.runStartupMaintenance();
+    }, STARTUP_MAINTENANCE_DELAY_MS);
+    const handle = timer as unknown as { unref?: () => void };
+    handle.unref?.();
+  }
+
+  private async runStartupMaintenance(): Promise<void> {
+    if (this.memoryMaintenanceRunning) return;
+    this.memoryMaintenanceRunning = true;
+    try {
+      const staleAttachmentsDeleted = this.attachments.cleanupStalePending();
+      if (staleAttachmentsDeleted > 0) logger.info(`Cleaned up ${staleAttachmentsDeleted} stale pending attachments.`);
+      const retention = applyDataRetention();
+      if (retention.messagesDeleted > 0 || retention.activityDeleted > 0) {
+        logger.info(`Data retention applied: messages=${retention.messagesDeleted}, activity=${retention.activityDeleted}`);
+      }
+      const memoryRetention = await this.applyMemoryRetentionMaintenance();
+      if (memoryRetention.dailySummariesGenerated > 0 || memoryRetention.rawEventsPruned > 0 || (memoryRetention.llmRefinedSummaries ?? 0) > 0) {
+        logger.info(`Memory retention applied: daily_summaries=${memoryRetention.dailySummariesGenerated}, llm_refined=${memoryRetention.llmRefinedSummaries ?? 0}, raw_events_pruned=${memoryRetention.rawEventsPruned}`);
+      }
+      const indexStats = rebuildMemoryIndex();
+      logger.info(`Memory index ready: messages=${indexStats.messages}, profile=${indexStats.profile}, events=${indexStats.events}, daily_memory_summaries=${indexStats.daily_memory_summaries}, procedural_memories=${indexStats.procedural_memories}, memory_facts=${indexStats.memory_facts}, project_notes=${indexStats.project_notes}, project_document_chunks=${indexStats.project_document_chunks}`);
+    } catch (error) {
+      logger.warn(`Startup maintenance failed: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      this.memoryMaintenanceRunning = false;
+    }
+  }
+
   private async runScheduledMemoryMaintenance(): Promise<void> {
     if (this.memoryMaintenanceRunning) return;
     this.memoryMaintenanceRunning = true;
@@ -1081,6 +1115,18 @@ function safeParseJsonObject(value: string): Record<string, unknown> | null {
       return null;
     }
   }
+}
+
+async function withOptionalTimeout<T>(promise: Promise<T>, timeoutMs: number | undefined, fallback: T): Promise<T> {
+  if (!timeoutMs || !Number.isFinite(timeoutMs) || timeoutMs <= 0) return promise;
+  return Promise.race([
+    promise,
+    new Promise<T>(resolve => {
+      const timer = setTimeout(() => resolve(fallback), Math.round(timeoutMs));
+      const handle = timer as unknown as { unref?: () => void };
+      handle.unref?.();
+    }),
+  ]);
 }
 
 function buildRetrievedContext(
