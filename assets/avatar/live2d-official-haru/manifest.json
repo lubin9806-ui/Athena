@@ -1,0 +1,28 @@
+{
+  "id": "live2d-official-haru",
+  "displayName": "Haru Official Live2D Reference",
+  "status": "internal_reference_default",
+  "source": {
+    "name": "Live2D Cubism Web Samples - Haru",
+    "homepage": "https://www.live2d.com/en/learn/sample/",
+    "repository": "https://github.com/Live2D/CubismWebSamples",
+    "license": "Live2D Free Material License / sample model terms",
+    "terms": "https://www.live2d.com/eula/live2d-sample-model-terms_en.html"
+  },
+  "runtime": {
+    "model3Json": "Haru.model3.json",
+    "moc3": "Haru.moc3",
+    "textures": 2,
+    "expressions": 8,
+    "motions": 27,
+    "physics": true,
+    "pose": true,
+    "sounds": 4,
+    "athenaDefaultVariant": true
+  },
+  "releaseGate": {
+    "internalUse": true,
+    "publicDistribution": "blocked_pending_live2d_license_and_rights_review"
+  },
+  "notes": "Used to provide a real Cubism quality baseline while Athena's original character rig is rebuilt."
+}

@@ -9,6 +9,14 @@ const ASAR_PATH = path.join(ROOT, 'release', 'win-unpacked', 'resources', 'app.a
 const REQUIRED_RUNTIME_ENTRIES = [
   'dist/app/live2d-preload.js',
   'dist/renderer/live2d-pet.html',
+  'dist/renderer/avatar/live2d-official-haru/Haru.model3.json',
+  'dist/renderer/avatar/live2d-official-haru/Haru.moc3',
+  'dist/renderer/avatar/live2d-official-haru/Haru.physics3.json',
+  'dist/renderer/avatar/live2d-official-haru/Haru.pose3.json',
+  'dist/renderer/avatar/live2d-official-haru/Haru.2048/texture_00.png',
+  'dist/renderer/avatar/live2d-official-haru/Haru.2048/texture_01.png',
+  'dist/renderer/avatar/live2d-official-haru/expressions/F01.exp3.json',
+  'dist/renderer/avatar/live2d-official-haru/motions/haru_g_idle.motion3.json',
   'dist/renderer/avatar/athena-live2d-default/model/athena-live2d-default-sdk5.model3.json',
   'dist/renderer/avatar/athena-live2d-default/model/athena-live2d-default-sdk5.moc3',
   'dist/renderer/avatar/athena-live2d-default/model/athena-live2d-default.physics3.json',
@@ -65,20 +73,30 @@ function verifyBuiltRenderer() {
 function verifyAsar() {
   assert.ok(fs.existsSync(ASAR_PATH), `Desktop package is missing: ${ASAR_PATH}`);
   const entries = asar.listPackage(ASAR_PATH).map(value => value.replace(/^\\/, '').replace(/\\/g, '/'));
+  const asarHeader = asar.getRawHeader(ASAR_PATH).header;
   for (const required of REQUIRED_RUNTIME_ENTRIES) {
     assert.ok(entries.includes(required), `Packaged Live2D runtime asset is missing: ${required}`);
   }
   const expressionCount = entries.filter(value => /\/expressions\/[^/]+\.exp3\.json$/.test(value)).length;
   const motionCount = entries.filter(value => /\/motions\/[^/]+\.motion3\.json$/.test(value)).length;
-  assert.ok(expressionCount >= 11, `Expected at least 11 packaged expressions, found ${expressionCount}`);
-  assert.ok(motionCount >= 17, `Expected at least 17 packaged motions including idle variants, found ${motionCount}`);
+  assert.ok(expressionCount >= 19, `Expected at least 19 packaged expressions including Haru reference expressions, found ${expressionCount}`);
+  assert.ok(motionCount >= 44, `Expected at least 44 packaged motions including Haru reference motions and Athena idle variants, found ${motionCount}`);
   for (const pattern of FORBIDDEN_ENTRY_PATTERNS) {
     const leaked = entries.find(value => pattern.test(value));
     assert.equal(leaked, undefined, `Private or duplicate avatar asset leaked into ASAR: ${leaked}`);
   }
-  const core = asar.extractFile(ASAR_PATH, 'dist/renderer/vendor/live2d/live2dcubismcore.min.js');
-  assert.ok(core.length > 200_000, 'Packaged Cubism Core is unexpectedly small.');
-  console.log(`ATHENA_LIVE2D_PACKAGE_OK entries=${entries.length} expressions=${expressionCount} motions=${motionCount} privateSources=excluded coreBytes=${core.length}`);
+  const core = findAsarEntry(asarHeader, 'dist/renderer/vendor/live2d/live2dcubismcore.min.js');
+  assert.ok(core.size > 200_000, 'Packaged Cubism Core is unexpectedly small.');
+  console.log(`ATHENA_LIVE2D_PACKAGE_OK entries=${entries.length} expressions=${expressionCount} motions=${motionCount} privateSources=excluded coreBytes=${core.size}`);
+}
+
+function findAsarEntry(header, relativePath) {
+  let cursor = header;
+  for (const segment of relativePath.split('/')) {
+    cursor = cursor.files?.[segment];
+    assert.ok(cursor, `ASAR header is missing ${relativePath}`);
+  }
+  return cursor;
 }
 
 verifySourceContract();

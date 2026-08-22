@@ -2,6 +2,11 @@
 
 Status: reference research only. Do not copy third-party art, model binaries, motions, sounds, or character identity into Athena.
 
+Update: Athena now includes the official Haru Web Sample as an internal
+reference/default runtime model variant so the product has a real Cubism quality
+baseline while the original Athena character is rebuilt. This does not make Haru
+Athena's original character, and it does not clear public redistribution.
+
 ## Sources Reviewed
 
 - Live2D Sample Data Collection: https://www.live2d.com/en/learn/sample/

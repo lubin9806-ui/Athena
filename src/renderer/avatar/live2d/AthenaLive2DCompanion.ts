@@ -1,5 +1,6 @@
-import profileDocument from '../../../../assets/avatar/athena-live2d-default/profile.avatar.json';
+import athenaProfileDocument from '../../../../assets/avatar/athena-live2d-default/profile.avatar.json';
 import liteModelDocument from '../../../../assets/avatar/athena-live2d-default/model/athena-live2d-lite.model3.json';
+import haruProfileDocument from '../../../../assets/avatar/live2d-official-haru/profile.avatar.json';
 import type {
   AvatarCharacterProfile,
   AvatarHotZoneAction,
@@ -23,7 +24,10 @@ export interface AthenaLive2DPreferences {
   layout: AvatarLayoutMode;
   scale: number;
   opacity: number;
+  modelVariant: AthenaLive2DModelVariant;
 }
+
+export type AthenaLive2DModelVariant = 'official_haru' | 'athena_default';
 
 export interface AthenaLive2DCompanionOptions {
   root: HTMLElement;
@@ -43,6 +47,7 @@ const DEFAULT_PREFERENCES: AthenaLive2DPreferences = {
   layout: 'chat_right',
   scale: 1,
   opacity: 0.98,
+  modelVariant: 'official_haru',
 };
 
 export class AthenaLive2DCompanion {
@@ -66,9 +71,10 @@ export class AthenaLive2DCompanion {
     this.preferences = readAthenaLive2DPreferences(storage.getItem(ATHENA_LIVE2D_PREFERENCES_KEY));
     if (options.layoutOverride) this.preferences.layout = options.layoutOverride;
     const customization = readAvatarProfileCustomization(storage.getItem(CUSTOMIZATION_KEY));
-    const profile = applyAvatarProfileCustomization(profileDocument as AvatarCharacterProfile, customization);
-    profile.model.rootPath = 'avatar/athena-live2d-default';
-    profile.model.model3JsonPath = 'model/athena-live2d-default-sdk5.model3.json';
+    const selectedModel = live2dModelConfig(this.preferences.modelVariant);
+    const profile = applyAvatarProfileCustomization(selectedModel.profile, customization);
+    profile.model.rootPath = selectedModel.rootPath;
+    profile.model.model3JsonPath = selectedModel.model3JsonPath;
     profile.layout.mode = this.preferences.layout;
     if (options.lockPosition !== undefined) profile.layout.lockPosition = options.lockPosition;
     profile.layout.transform = {
@@ -304,6 +310,7 @@ function sanitizePreferences(value: Partial<AthenaLive2DPreferences>): AthenaLiv
     layout: isLayoutMode(value.layout) ? value.layout : DEFAULT_PREFERENCES.layout,
     scale: clamp(value.scale, 0.55, 1.45, DEFAULT_PREFERENCES.scale),
     opacity: clamp(value.opacity, 0.3, 1, DEFAULT_PREFERENCES.opacity),
+    modelVariant: isModelVariant(value.modelVariant) ? value.modelVariant : DEFAULT_PREFERENCES.modelVariant,
   };
 }
 
@@ -318,6 +325,29 @@ function clamp(value: unknown, min: number, max: number, fallback: number): numb
   return typeof value === 'number' && Number.isFinite(value)
     ? Math.max(min, Math.min(max, value))
     : fallback;
+}
+
+function live2dModelConfig(variant: AthenaLive2DModelVariant): {
+  profile: AvatarCharacterProfile;
+  rootPath: string;
+  model3JsonPath: string;
+} {
+  if (variant === 'athena_default') {
+    return {
+      profile: athenaProfileDocument as AvatarCharacterProfile,
+      rootPath: 'avatar/athena-live2d-default',
+      model3JsonPath: 'model/athena-live2d-default-sdk5.model3.json',
+    };
+  }
+  return {
+    profile: haruProfileDocument as AvatarCharacterProfile,
+    rootPath: 'avatar/live2d-official-haru',
+    model3JsonPath: 'Haru.model3.json',
+  };
+}
+
+function isModelVariant(value: unknown): value is AthenaLive2DModelVariant {
+  return value === 'official_haru' || value === 'athena_default';
 }
 
 function asError(value: unknown): Error {

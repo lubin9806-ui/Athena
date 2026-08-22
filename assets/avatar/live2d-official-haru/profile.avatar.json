@@ -1,0 +1,102 @@
+{
+  "id": "live2d-official-haru",
+  "displayName": "Haru Official Live2D Reference",
+  "provider": "live2d",
+  "enabled": true,
+  "model": {
+    "source": "localDirectory",
+    "rootPath": ".",
+    "model3JsonPath": "Haru.model3.json",
+    "packageId": "live2d-official-haru",
+    "packageVersion": "official-sample-reference"
+  },
+  "marketplace": {
+    "packageId": "live2d-official-haru",
+    "version": "official-sample-reference",
+    "displayName": "Haru Official Live2D Reference",
+    "author": "Live2D Inc.",
+    "license": "Live2D Free Material License / sample model terms",
+    "homepage": "https://www.live2d.com/en/learn/sample/",
+    "tags": ["reference", "official-sample", "quality-benchmark"]
+  },
+  "layout": {
+    "mode": "desktop_pet",
+    "transform": { "x": 32, "y": 80, "scale": 1, "opacity": 1, "rotationDeg": 0, "mirrored": false },
+    "alwaysOnTop": true,
+    "clickThroughMode": "transparentOnly",
+    "transparentBackground": true,
+    "lockPosition": false
+  },
+  "expressions": [
+    { "emotion": "peaceful", "expressionId": "F01", "intensityScale": 1 },
+    { "emotion": "happy", "expressionId": "F02", "intensityScale": 1 },
+    { "emotion": "thoughtful", "expressionId": "F05", "intensityScale": 1 },
+    { "emotion": "shy", "expressionId": "F04", "intensityScale": 1 },
+    { "emotion": "confused", "expressionId": "F06", "intensityScale": 1 },
+    { "emotion": "excited", "expressionId": "F03", "intensityScale": 1 },
+    { "emotion": "tired", "expressionId": "F08", "intensityScale": 1 },
+    { "emotion": "playful", "expressionId": "F07", "intensityScale": 1 },
+    { "emotion": "soft", "expressionId": "F01", "intensityScale": 1 }
+  ],
+  "motions": [
+    { "state": "idle", "motionGroup": "Idle", "priority": "idle", "loop": true, "fadeInMs": 500, "fadeOutMs": 500 },
+    { "state": "listening", "motionGroup": "Idle", "motionId": "1", "priority": "focused", "loop": true, "fadeInMs": 500, "fadeOutMs": 500 },
+    { "state": "thinking", "motionGroup": "TapBody", "motionId": "1", "priority": "focused", "loop": false, "fadeInMs": 500, "fadeOutMs": 500, "fallbackMotionGroup": "Idle" },
+    { "state": "streaming", "motionGroup": "TapBody", "motionId": "2", "priority": "normal", "loop": false, "fadeInMs": 500, "fadeOutMs": 500, "fallbackMotionGroup": "Idle" },
+    { "state": "speaking", "motionGroup": "TapBody", "motionId": "0", "priority": "focused", "loop": false, "fadeInMs": 500, "fadeOutMs": 500, "fallbackMotionGroup": "Idle" },
+    { "state": "interrupted", "motionGroup": "TapBody", "motionId": "3", "priority": "urgent", "loop": false, "fadeInMs": 200, "fadeOutMs": 400, "fallbackMotionGroup": "Idle" },
+    { "state": "error", "motionGroup": "TapBody", "motionId": "1", "priority": "urgent", "loop": false, "fadeInMs": 250, "fadeOutMs": 400, "fallbackMotionGroup": "Idle" },
+    { "state": "sleepy", "motionGroup": "Idle", "priority": "idle", "loop": true, "fadeInMs": 600, "fadeOutMs": 600 },
+    { "state": "away", "motionGroup": "Idle", "priority": "idle", "loop": true, "fadeInMs": 600, "fadeOutMs": 600 }
+  ],
+  "parameters": [
+    { "id": "ParamAngleX", "label": "Head X", "min": -30, "max": 30, "defaultValue": 0, "favorite": true },
+    { "id": "ParamAngleY", "label": "Head Y", "min": -30, "max": 30, "defaultValue": 0, "favorite": true },
+    { "id": "ParamAngleZ", "label": "Head Z", "min": -30, "max": 30, "defaultValue": 0, "favorite": true },
+    { "id": "ParamEyeBallX", "label": "Eye X", "min": -1, "max": 1, "defaultValue": 0, "favorite": false },
+    { "id": "ParamEyeBallY", "label": "Eye Y", "min": -1, "max": 1, "defaultValue": 0, "favorite": false },
+    { "id": "ParamMouthOpenY", "label": "Mouth Open", "min": 0, "max": 1, "defaultValue": 0, "favorite": true },
+    { "id": "ParamMouthForm", "label": "Mouth Form", "min": -1, "max": 1, "defaultValue": 0, "favorite": true }
+  ],
+  "lipSync": {
+    "enabled": true,
+    "source": "ttsAudio",
+    "parameterIds": ["ParamMouthOpenY"],
+    "sensitivity": 1,
+    "smoothing": 0.62,
+    "gain": 1,
+    "attackMs": 35,
+    "releaseMs": 130,
+    "minValue": 0,
+    "maxValue": 1
+  },
+  "pointerTracking": {
+    "enabled": true,
+    "headParameterIds": ["ParamAngleX", "ParamAngleY", "ParamAngleZ"],
+    "eyeParameterIds": ["ParamEyeBallX", "ParamEyeBallY"],
+    "strength": 0.7,
+    "smoothing": 0.48
+  },
+  "idle": {
+    "enabled": true,
+    "idleDelayMs": 12000,
+    "sleepyDelayMs": 300000,
+    "awayDelayMs": 900000,
+    "motionGroups": ["Idle"],
+    "randomize": true
+  },
+  "hotZones": [
+    { "id": "head", "label": "Head", "hitAreaName": "Head", "rect": { "x": 0.32, "y": 0.04, "width": 0.36, "height": 0.28 }, "action": { "type": "composite", "actions": [{ "type": "playMotion", "motionGroup": "TapBody", "motionId": "0" }, { "type": "setExpression", "expressionId": "F04" }, { "type": "athenaReply", "promptTemplate": "用户轻触了你的头部。以 Athena 桌宠伴侣身份，用自然、简短、温柔但不过度亲昵的中文回应。" }] }, "cooldownMs": 1400, "enabled": true },
+    { "id": "body", "label": "Body", "hitAreaName": "Body", "rect": { "x": 0.28, "y": 0.31, "width": 0.44, "height": 0.42 }, "action": { "type": "composite", "actions": [{ "type": "playMotion", "motionGroup": "TapBody", "motionId": "2" }, { "type": "athenaReply", "promptTemplate": "用户点了你的身体区域。用桌宠陪伴语气给出一句简短反馈，可以主动询问是否需要帮忙。" }] }, "cooldownMs": 1400, "enabled": true }
+  ],
+  "externalControl": {
+    "transport": "disabled",
+    "enabled": false,
+    "host": "127.0.0.1",
+    "port": 0,
+    "requireToken": true,
+    "allowedCommandTypes": ["avatar.motion.play", "avatar.expression.set", "avatar.parameter.set", "avatar.pointer.move", "avatar.hotZone.trigger"],
+    "auditEnabled": true
+  },
+  "notes": "Official Live2D Haru sample integrated as a local quality benchmark/reference model. Keep rights and license review separate from Athena's original default character."
+}

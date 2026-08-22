@@ -36,11 +36,21 @@ The Steam native bridge remains in the Electron main process and is unpacked fro
 
 Athena's Live2D runtime includes `live2dcubismcore.min.js` and an exported Cubism model. Cubism Core is proprietary software supplied separately from the MIT-licensed PixiJS adapter. Development use does not by itself establish permission to publish or redistribute an application.
 
+Athena also includes the official Haru sample model as an internal reference/default
+runtime model variant. The copied package contains `Haru.moc3`, `Haru.model3.json`,
+textures, expressions, physics, motions, and sounds from Live2D's official sample
+materials. The upstream Cubism Web Samples repository states that Haru and the
+other sample models are governed by the Live2D Free Material License and the
+sample-model terms. This is acceptable only as an internal engineering reference
+until release/license review confirms redistribution rights for Athena's use.
+
 The official Live2D publication-license page states that release terms depend on publisher and use type. It also states that Expandable Applications require review and a special Publication License Agreement before release, including for general users and small-scale enterprises. Athena's customizable local avatar system may fall within that category, so public packages remain blocked until Live2D confirms the applicable classification and approval.
 
 - SDK publication license: https://www.live2d.com/en/sdk/license/
 - Expandable Applications: https://www.live2d.com/en/sdk/license/expandable/
 - Cubism SDK for Web download and software-license acceptance: https://www.live2d.com/en/sdk/download/web/
+- Official sample model collection: https://www.live2d.com/en/learn/sample/
+- Haru/sample model terms: https://www.live2d.com/eula/live2d-sample-model-terms_en.html
 
 ## Python voice requirements
 

@@ -104,6 +104,13 @@ Partner Center use remains subject to the same human ownership and Athena/Su Shi
 
 `docs/concepts/athena-live2d-character-concept-v1.png` is an internal AI-generated concept board created on 2026-08-22 from user-supplied visual reference images. The references were used for mood, hairstyle, outfit color blocking, and companion-character direction only; the concept is not a finished Live2D model and is not included in release packaging.
 
+`assets/avatar/live2d-official-haru/` is a copied official Live2D Haru sample
+package used as Athena's current internal reference/default model variant. It
+contains the upstream Cubism model, textures, expressions, motions, sounds,
+physics, pose, display-info, and Athena profile mapping. Haru is not an original
+Athena character asset; it is a quality benchmark used while the original Athena
+model is rebuilt.
+
 `assets/avatar/athena-live2d-default/source/athena-live2d-default-front-v2-alpha.png` is the current AI-generated full-body source master. The repository retains five generated parts atlases, 67 deterministic transparent layer slices, a visual contact sheet, a machine-readable parts inventory, and `athena-live2d-default-layered-v1.psd` generated with the MIT-licensed `ag-psd` development tool.
 
 The current model directory contains a genuine Cubism Editor project and exported `.moc3`, model, texture, physics, expression, and motion files. The export is a runnable, automatically generated baseline rig, not a hand-polished final character. Its visible face variants, motion set, physics, real-time lip sync, four in-app placements, and independent Electron desktop-pet window have passed the recorded engineering checks in `docs/quality/live2d-cubism-runtime-qa.json`.

@@ -33,6 +33,7 @@ function main() {
     layout: 'chat_right',
     scale: 1,
     opacity: 0.98,
+    modelVariant: 'official_haru',
   });
   assert.deepEqual(readAthenaLive2DPreferences(JSON.stringify({
     version: 1,
@@ -40,13 +41,23 @@ function main() {
     layout: 'desktop_pet',
     scale: 9,
     opacity: -2,
+    modelVariant: 'athena_default',
   })), {
     version: 1,
     enabled: false,
     layout: 'desktop_pet',
     scale: 1.45,
     opacity: 0.3,
+    modelVariant: 'athena_default',
   });
+  assert.deepEqual(readAthenaLive2DPreferences(JSON.stringify({
+    version: 1,
+    enabled: true,
+    layout: 'chat_background',
+    scale: 1,
+    opacity: 1,
+    modelVariant: 'unknown',
+  })).modelVariant, 'official_haru');
 
   assert.equal(findAthenaReplyPrompt({
     type: 'composite',
@@ -59,6 +70,7 @@ function main() {
   const html = read('src/renderer/index.html');
   const app = read('src/renderer/app.ts');
   const css = read('src/renderer/style.css');
+  const live2dCompanion = read('src/renderer/avatar/live2d/AthenaLive2DCompanion.ts');
   for (const id of [
     'live2d-companion',
     'live2d-companion-canvas',
@@ -68,6 +80,13 @@ function main() {
     'setting-live2d-opacity',
   ]) {
     assert.ok(html.includes(`id="${id}"`), `renderer HTML missing ${id}`);
+  }
+  for (const contract of [
+    'modelVariant',
+    'official_haru',
+    'live2d-official-haru',
+  ]) {
+    assert.ok(live2dCompanion.includes(contract), `Live2D companion integration missing ${contract}`);
   }
   for (const contract of [
     'chat.thinking.start',
