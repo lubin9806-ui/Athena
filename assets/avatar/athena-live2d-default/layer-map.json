@@ -1,0 +1,143 @@
+{
+  "id": "athena-live2d-default-layer-map",
+  "version": "0.1.0",
+  "sourceImage": "source/athena-live2d-default-front-v1.png",
+  "target": "Live2D Cubism 5.3",
+  "status": "handoff_spec",
+  "layerNaming": {
+    "prefix": "ATH",
+    "separator": "_",
+    "notes": "Use stable ASCII layer names so exported motions and parameter maps remain script-friendly."
+  },
+  "groups": [
+    {
+      "name": "Head",
+      "requiredLayers": [
+        "ATH_HEAD_FACE_BASE",
+        "ATH_HEAD_NECK",
+        "ATH_HAIR_BACK_BASE",
+        "ATH_HAIR_SIDE_L",
+        "ATH_HAIR_SIDE_R",
+        "ATH_HAIR_BANGS_CENTER",
+        "ATH_HAIR_BANGS_L",
+        "ATH_HAIR_BANGS_R",
+        "ATH_HAIR_LOOSE_STRANDS",
+        "ATH_ACCESSORY_HAIR_CLIP"
+      ]
+    },
+    {
+      "name": "Eyes",
+      "requiredLayers": [
+        "ATH_EYE_L_WHITE",
+        "ATH_EYE_L_IRIS",
+        "ATH_EYE_L_PUPIL",
+        "ATH_EYE_L_HIGHLIGHT",
+        "ATH_EYE_L_UPPER_LASH",
+        "ATH_EYE_L_LOWER_LASH",
+        "ATH_EYE_R_WHITE",
+        "ATH_EYE_R_IRIS",
+        "ATH_EYE_R_PUPIL",
+        "ATH_EYE_R_HIGHLIGHT",
+        "ATH_EYE_R_UPPER_LASH",
+        "ATH_EYE_R_LOWER_LASH",
+        "ATH_BROW_L",
+        "ATH_BROW_R"
+      ]
+    },
+    {
+      "name": "Mouth",
+      "requiredLayers": [
+        "ATH_MOUTH_CLOSED",
+        "ATH_MOUTH_SMILE",
+        "ATH_MOUTH_OPEN_SMALL",
+        "ATH_MOUTH_OPEN_WIDE",
+        "ATH_MOUTH_FORM_A",
+        "ATH_MOUTH_FORM_I",
+        "ATH_MOUTH_FORM_U",
+        "ATH_MOUTH_FORM_E",
+        "ATH_MOUTH_FORM_O"
+      ]
+    },
+    {
+      "name": "Body",
+      "requiredLayers": [
+        "ATH_TORSO_BASE",
+        "ATH_BLOUSE_BASE",
+        "ATH_BLOUSE_COLLAR_L",
+        "ATH_BLOUSE_COLLAR_R",
+        "ATH_BLOUSE_SLEEVE_L",
+        "ATH_BLOUSE_SLEEVE_R",
+        "ATH_BLOUSE_BUTTONS",
+        "ATH_BLOUSE_CYAN_TRIM",
+        "ATH_ARM_UPPER_L",
+        "ATH_ARM_LOWER_L",
+        "ATH_HAND_L",
+        "ATH_ARM_UPPER_R",
+        "ATH_ARM_LOWER_R",
+        "ATH_HAND_R"
+      ]
+    },
+    {
+      "name": "SkirtAndLegs",
+      "requiredLayers": [
+        "ATH_SKIRT_WAIST",
+        "ATH_SKIRT_PLEAT_01",
+        "ATH_SKIRT_PLEAT_02",
+        "ATH_SKIRT_PLEAT_03",
+        "ATH_SKIRT_PLEAT_04",
+        "ATH_SKIRT_PLEAT_05",
+        "ATH_SKIRT_CYAN_ACCENT",
+        "ATH_LEG_L",
+        "ATH_LEG_R",
+        "ATH_SOCK_L",
+        "ATH_SOCK_R",
+        "ATH_SHOE_L",
+        "ATH_SHOE_R"
+      ]
+    }
+  ],
+  "requiredParameters": [
+    { "id": "ParamAngleX", "min": -30, "max": 30, "default": 0 },
+    { "id": "ParamAngleY", "min": -30, "max": 30, "default": 0 },
+    { "id": "ParamAngleZ", "min": -30, "max": 30, "default": 0 },
+    { "id": "ParamBodyAngleX", "min": -10, "max": 10, "default": 0 },
+    { "id": "ParamBodyAngleY", "min": -10, "max": 10, "default": 0 },
+    { "id": "ParamEyeLOpen", "min": 0, "max": 1, "default": 1 },
+    { "id": "ParamEyeROpen", "min": 0, "max": 1, "default": 1 },
+    { "id": "ParamEyeBallX", "min": -1, "max": 1, "default": 0 },
+    { "id": "ParamEyeBallY", "min": -1, "max": 1, "default": 0 },
+    { "id": "ParamMouthOpenY", "min": 0, "max": 1, "default": 0 },
+    { "id": "ParamMouthForm", "min": -1, "max": 1, "default": 0 },
+    { "id": "ParamBreath", "min": 0, "max": 1, "default": 0.5 },
+    { "id": "ParamHairFront", "min": -1, "max": 1, "default": 0 },
+    { "id": "ParamHairSide", "min": -1, "max": 1, "default": 0 },
+    { "id": "ParamHairBack", "min": -1, "max": 1, "default": 0 }
+  ],
+  "requiredHitAreas": [
+    { "id": "Head", "targetLayers": ["ATH_HEAD_FACE_BASE", "ATH_HAIR_BANGS_CENTER"] },
+    { "id": "HairClip", "targetLayers": ["ATH_ACCESSORY_HAIR_CLIP"] },
+    { "id": "Face", "targetLayers": ["ATH_HEAD_FACE_BASE"] },
+    { "id": "Shoulder", "targetLayers": ["ATH_BLOUSE_SLEEVE_L", "ATH_BLOUSE_SLEEVE_R"] },
+    { "id": "Hand", "targetLayers": ["ATH_HAND_L", "ATH_HAND_R"] },
+    { "id": "OutfitAccent", "targetLayers": ["ATH_BLOUSE_CYAN_TRIM", "ATH_SKIRT_CYAN_ACCENT"] }
+  ],
+  "requiredMotionGroups": [
+    "Idle",
+    "Greet",
+    "Listen",
+    "Think",
+    "Speak",
+    "Nod",
+    "ShakeHead",
+    "Wave",
+    "TouchHead",
+    "TouchHairClip",
+    "Drag",
+    "Return"
+  ],
+  "exportTarget": {
+    "directory": "model",
+    "model3Json": "model/athena-live2d-default.model3.json"
+  }
+}
+

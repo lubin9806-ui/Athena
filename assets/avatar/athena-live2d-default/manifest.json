@@ -7,6 +7,7 @@
   "createdAt": "2026-08-22",
   "sourceArt": {
     "frontReference": "source/athena-live2d-default-front-v1.png",
+    "layerMap": "layer-map.json",
     "conceptBoard": "../../../docs/concepts/athena-live2d-character-concept-v1.png",
     "brief": "../../../docs/LIVE2D_DEFAULT_CHARACTER_BRIEF.md"
   },
@@ -75,4 +76,3 @@
     "publicUse": "blocked_pending_human_review_and_rights_clearance"
   }
 }
-

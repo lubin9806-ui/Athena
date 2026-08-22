@@ -7,6 +7,8 @@ Current status: source art only. It is not yet a runnable Live2D Cubism model.
 ## Files
 
 - `source/athena-live2d-default-front-v1.png`: generated full-body front reference for Live2D art separation and rigging.
+- `layer-map.json`: required layer names, parameters, hit areas, and motion groups for Cubism production.
+- `CUBISM_EXPORT_RUNBOOK.md`: manual Cubism Editor export checklist.
 - `manifest.json`: machine-readable handoff metadata.
 
 ## Why This Is Not Yet Runnable
@@ -34,4 +36,3 @@ Expected next production deliverable:
 - `model/athena-live2d-default.model3.json`
 
 After that file exists, Athena's Live2D manifest scanner and adapter smoke tests can verify the real package.
-
