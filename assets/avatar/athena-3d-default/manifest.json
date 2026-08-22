@@ -1,0 +1,49 @@
+{
+  "id": "athena-3d-default",
+  "version": "0.1.0",
+  "status": "runnable_glb_placeholder",
+  "displayName": "Athena 3D Default",
+  "providerTarget": "gltf",
+  "createdAt": "2026-08-22",
+  "generator": {
+    "tool": "Blender",
+    "script": "../../../scripts/create-athena-3d-avatar.py"
+  },
+  "runtime": {
+    "runnable": true,
+    "modelPath": "model/athena-3d-default.glb",
+    "format": "glb",
+    "upgradeTarget": "vrm"
+  },
+  "style": {
+    "agePresentation": "adult",
+    "tone": ["warm", "intelligent", "calm", "desktop companion"],
+    "hair": "black shoulder-length layered hair with small silver geometric hair clip",
+    "outfit": "white short-sleeve blouse with pale-cyan Athena accents, dark navy pleated skirt, white sneakers"
+  },
+  "semanticObjects": {
+    "head": "ATH_HEAD",
+    "mouth": "ATH_MOUTH_NEUTRAL",
+    "hairClip": "ATH_HAIR_CLIP_A",
+    "leftHand": "ATH_HAND_L",
+    "rightHand": "ATH_HAND_R"
+  },
+  "hotZones": [
+    "ATH_TARGET_HEAD",
+    "ATH_TARGET_HAIR_CLIP",
+    "ATH_TARGET_FACE",
+    "ATH_TARGET_HAND_L",
+    "ATH_TARGET_HAND_R"
+  ],
+  "limitations": [
+    "not a VRM humanoid rig yet",
+    "no skeletal animation clips yet",
+    "lip sync is implemented as a future mouth-object transform path",
+    "production visual quality should be improved by a 3D artist or VRoid/VRM workflow later"
+  ],
+  "rights": {
+    "generatedWith": "Blender procedural geometry plus Athena-generated concept direction",
+    "publicUse": "blocked_pending_human_review"
+  }
+}
+

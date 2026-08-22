@@ -107,3 +107,9 @@ Partner Center use remains subject to the same human ownership and Athena/Su Shi
 `assets/avatar/athena-live2d-default/source/athena-live2d-default-front-v1.png` is an AI-generated full-body source-art reference for Live2D separation and rigging handoff. `assets/avatar/athena-live2d-default/manifest.json` explicitly marks the package as source art only, not a runnable Cubism export. `assets/avatar/athena-live2d-default/layer-map.json` and `CUBISM_EXPORT_RUNBOOK.md` define the manual Cubism production target and must not be treated as runtime proof.
 
 Public use, marketplace use, or bundled distribution remains Blocked pending human review, rights clearance for the supplied references, originality review, and a separate Live2D production asset handoff.
+
+## 3D Avatar Assets
+
+`assets/avatar/athena-3d-default/model/athena-3d-default.glb` is a runnable GLB placeholder generated locally with Blender on 2026-08-22 from procedural geometry and the Athena Live2D concept direction. It is intended for internal 3D desktop-pet prototyping, not as a final VRM humanoid rig or public production character.
+
+Public use, marketplace use, or bundled distribution remains Blocked pending human review, originality review, and a final avatar asset approval.
