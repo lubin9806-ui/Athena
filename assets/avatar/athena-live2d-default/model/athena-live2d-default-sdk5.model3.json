@@ -5,7 +5,94 @@
 		"Textures": [
 			"athena-live2d-default-sdk5.4096/texture_00.png"
 		],
-		"DisplayInfo": "athena-live2d-default-sdk5.cdi3.json"
+		"DisplayInfo": "athena-live2d-default-sdk5.cdi3.json",
+		"Physics": "athena-live2d-default.physics3.json",
+		"Motions": {
+			"Idle": [
+				{
+					"File": "motions/Idle.motion3.json",
+					"FadeInTime": 0.45,
+					"FadeOutTime": 0.45
+				}
+			],
+			"Greet": [
+				{
+					"File": "motions/Greet.motion3.json",
+					"FadeInTime": 0.2,
+					"FadeOutTime": 0.25
+				}
+			],
+			"Listen": [
+				{
+					"File": "motions/Listen.motion3.json",
+					"FadeInTime": 0.2,
+					"FadeOutTime": 0.25
+				}
+			],
+			"Think": [
+				{
+					"File": "motions/Think.motion3.json",
+					"FadeInTime": 0.2,
+					"FadeOutTime": 0.25
+				}
+			],
+			"Speak": [
+				{
+					"File": "motions/Speak.motion3.json",
+					"FadeInTime": 0.2,
+					"FadeOutTime": 0.25
+				}
+			],
+			"Nod": [
+				{
+					"File": "motions/Nod.motion3.json",
+					"FadeInTime": 0.2,
+					"FadeOutTime": 0.25
+				}
+			],
+			"ShakeHead": [
+				{
+					"File": "motions/ShakeHead.motion3.json",
+					"FadeInTime": 0.2,
+					"FadeOutTime": 0.25
+				}
+			],
+			"Wave": [
+				{
+					"File": "motions/Wave.motion3.json",
+					"FadeInTime": 0.2,
+					"FadeOutTime": 0.25
+				}
+			],
+			"TouchHead": [
+				{
+					"File": "motions/TouchHead.motion3.json",
+					"FadeInTime": 0.2,
+					"FadeOutTime": 0.25
+				}
+			],
+			"TouchHairClip": [
+				{
+					"File": "motions/TouchHairClip.motion3.json",
+					"FadeInTime": 0.2,
+					"FadeOutTime": 0.25
+				}
+			],
+			"Drag": [
+				{
+					"File": "motions/Drag.motion3.json",
+					"FadeInTime": 0.2,
+					"FadeOutTime": 0.25
+				}
+			],
+			"Return": [
+				{
+					"File": "motions/Return.motion3.json",
+					"FadeInTime": 0.2,
+					"FadeOutTime": 0.25
+				}
+			]
+		}
 	},
 	"Groups": [
 		{

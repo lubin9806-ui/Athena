@@ -150,8 +150,35 @@ export class Live2DCanvasController {
     ));
     if (!hotZone) return;
     void this.runtime.dispatch({ type: 'hotZone.trigger', hotZoneId: hotZone.id }).then(action => {
-      if (action) this.options.onHotZoneAction?.(action, hotZone.id);
+      if (!action) return;
+      return this.applyHotZoneVisualAction(action).then(() => {
+        this.options.onHotZoneAction?.(action, hotZone.id);
+      });
     });
+  }
+
+  private async applyHotZoneVisualAction(action: AvatarHotZoneAction): Promise<void> {
+    if (action.type === 'composite') {
+      for (const child of action.actions ?? []) await this.applyHotZoneVisualAction(child);
+      return;
+    }
+    if (action.type === 'setExpression' && action.expressionId) {
+      await this.options.host.setExpression(action.expressionId, 1);
+      return;
+    }
+    if (action.type === 'playMotion' && action.motionGroup) {
+      const configured = this.options.profile.motions.find(mapping => (
+        mapping.motionGroup === action.motionGroup
+        && (!action.motionId || mapping.motionId === action.motionId)
+      ));
+      await this.options.host.playMotion(configured ?? {
+        state: 'idle',
+        motionGroup: action.motionGroup,
+        motionId: action.motionId,
+        priority: 'focused',
+        loop: false,
+      });
+    }
   }
 
   private applyLayout(mode: AvatarLayoutMode): void {

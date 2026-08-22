@@ -24,6 +24,16 @@
       "peak": 0.17,
       "resetToZeroOnEnd": true,
       "passed": true
+    },
+    "motionPhysics": {
+      "groupsChecked": 12,
+      "groups": ["Idle", "Greet", "Listen", "Think", "Speak", "Nod", "ShakeHead", "Wave", "TouchHead", "TouchHairClip", "Drag", "Return"],
+      "physicsSettings": 3,
+      "physicsOutputs": ["ParamHairFront", "ParamHairSide", "ParamHairBack"],
+      "physicsLoadWarnings": 0,
+      "runtimeWarnings": 0,
+      "visualAmplitude": "baseline limited; independent arm deformation is unavailable",
+      "passed": true
     }
   },
   "narrow": {

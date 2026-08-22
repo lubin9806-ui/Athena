@@ -35,9 +35,9 @@ function main() {
   assert.equal(manifest.production.visibleMouthOpenVariantBound, true);
   assert.equal(manifest.production.visibleSmileVariantBound, true);
   assert.equal(manifest.production.visibleEyeAndMouthDeformationPolished, false);
-  assert.equal(manifest.production.physicsReady, false);
+  assert.equal(manifest.production.physicsReady, true);
   assert.equal(manifest.production.expressionsReady, false);
-  assert.equal(manifest.production.motionsReady, false);
+  assert.equal(manifest.production.motionsReady, true);
   assert.equal(manifest.production.hitAreasReady, false);
   assert.ok(fs.statSync(path.join(PACKAGE_ROOT, manifest.production.cubismProject)).size > 1000000);
   const expressionMetadataPath = path.join(PACKAGE_ROOT, manifest.sourceArt.expressionVariantsMetadata);

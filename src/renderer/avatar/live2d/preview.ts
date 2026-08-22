@@ -1,5 +1,6 @@
 import './preview.css';
 import profile from '../../../../assets/avatar/athena-live2d-default/profile.avatar.json';
+import manifest from '../../../../assets/avatar/athena-live2d-default/manifest.json';
 import modelDocument from '../../../../assets/avatar/athena-live2d-default/model/athena-live2d-lite.model3.json';
 import type { AvatarCharacterProfile, AvatarLayoutMode, AvatarMotionMapping } from '../../../shared/types/avatar';
 import type { EmotionType } from '../../../shared/types/emotion';
@@ -56,7 +57,7 @@ const realtimeLipSync = new AvatarRealtimeLipSyncController({
 for (const mapping of typedProfile.expressions) addOption(expressionSelect, mapping.expressionId);
 for (const expressionId of uniqueExpressionIds(typedProfile)) addOption(emotionBinding, expressionId);
 for (const mapping of typedProfile.expressions) addOption(emotionSelect, mapping.emotion);
-for (const mapping of uniqueMotions(typedProfile.motions)) addOption(motionSelect, mapping.motionGroup);
+for (const group of manifest.riggingTargets.requiredMotionGroups) addOption(motionSelect, group);
 layoutSelect.value = typedProfile.layout.mode;
 lipSensitivity.value = String(typedProfile.lipSync.sensitivity);
 lipSmoothing.value = String(typedProfile.lipSync.smoothing);
@@ -91,8 +92,13 @@ emotionBinding.addEventListener('change', () => {
   void controller.dispatch({ type: 'emotion.update', emotion, intensity: Number(emotionIntensity.value) });
 });
 motionSelect.addEventListener('change', () => {
-  const mapping = typedProfile.motions.find(item => item.motionGroup === motionSelect.value);
-  if (mapping) void host.playMotion(mapping);
+  const mapping = typedProfile.motions.find(item => item.motionGroup === motionSelect.value) ?? {
+    state: 'idle',
+    motionGroup: motionSelect.value,
+    priority: 'focused',
+    loop: motionSelect.value === 'Idle' || motionSelect.value === 'Drag',
+  } satisfies AvatarMotionMapping;
+  void host.playMotion(mapping);
 });
 layoutSelect.addEventListener('change', () => {
   const mode = layoutSelect.value as AvatarLayoutMode;
@@ -211,8 +217,4 @@ function uniqueExpressionIds(character: AvatarCharacterProfile): string[] {
   return [...new Set(character.expressions.flatMap(mapping => (
     [mapping.expressionId, mapping.fallbackExpressionId].filter(Boolean) as string[]
   )))];
-}
-
-function uniqueMotions(motions: AvatarMotionMapping[]): AvatarMotionMapping[] {
-  return motions.filter((motion, index) => motions.findIndex(candidate => candidate.motionGroup === motion.motionGroup) === index);
 }

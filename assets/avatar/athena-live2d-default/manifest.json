@@ -1,7 +1,7 @@
 {
   "id": "athena-live2d-default",
-  "version": "0.6.0-realtime-control",
-  "status": "cubism_realtime_controls_validated",
+  "version": "0.7.0-motion-physics",
+  "status": "cubism_motion_physics_validated",
   "displayName": "Athena Live2D Default",
   "providerTarget": "live2d",
   "createdAt": "2026-08-22",
@@ -45,9 +45,14 @@
     "visibleMouthOpenVariantBound": true,
     "visibleSmileVariantBound": true,
     "visibleEyeAndMouthDeformationPolished": false,
-    "physicsReady": false,
+    "physicsReady": true,
+    "physicsFile": "model/athena-live2d-default.physics3.json",
+    "physicsSettingsCount": 3,
     "expressionsReady": false,
-    "motionsReady": false,
+    "motionsReady": true,
+    "motionFormat": "Cubism motion3 parameter curves",
+    "motionGroupCount": 12,
+    "independentArmMotionReady": false,
     "hitAreasReady": false
   },
   "runtime": {
@@ -73,7 +78,7 @@
     "fallbackModel3Json": "model/athena-live2d-lite.model3.json",
     "validatedPlacements": ["chat_right", "chat_background", "draggable_overlay", "desktop_pet"],
     "visualQa": "../../../docs/quality/live2d-cubism-runtime-qa.json",
-    "remainingLimitations": "Broader face polish, physics, authored exp3/motion3 files, and model-native hit areas remain production work. Profile rectangle hit areas are active until native hit areas are authored."
+    "remainingLimitations": "Broader face polish, independent arm deformation, authored exp3 files, and model-native hit areas remain production work. Wave currently uses an upper-body gesture because this baseline rig has no independent arm parameters. Profile rectangle hit areas remain active."
   },
   "style": {
     "agePresentation": "adult",

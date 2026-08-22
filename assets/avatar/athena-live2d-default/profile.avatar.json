@@ -8,7 +8,7 @@
     "rootPath": ".",
     "model3JsonPath": "model/athena-live2d-default-sdk5.model3.json",
     "packageId": "athena-live2d-default",
-    "packageVersion": "0.6.0-realtime-control"
+    "packageVersion": "0.7.0-motion-physics"
   },
   "layout": {
     "mode": "desktop_pet",
@@ -78,10 +78,10 @@
     "randomize": true
   },
   "hotZones": [
-    { "id": "hair_clip", "label": "Hair Clip", "hitAreaName": "HairClip", "rect": { "x": 0.56, "y": 0.08, "width": 0.12, "height": 0.09 }, "action": { "type": "composite", "actions": [{ "type": "setExpression", "expressionId": "shy" }, { "type": "athenaReply", "promptTemplate": "用户点到了你的银色发夹。用轻松、带一点害羞但克制的中文回应。" }] }, "cooldownMs": 1800, "enabled": true },
-    { "id": "head", "label": "Head", "hitAreaName": "Head", "rect": { "x": 0.3, "y": 0.04, "width": 0.4, "height": 0.25 }, "action": { "type": "athenaReply", "promptTemplate": "用户轻触了你的头部。以 Athena 桌宠伴侣身份，用自然、简短、温柔但不过度亲昵的中文回应。" }, "cooldownMs": 1400, "enabled": true },
-    { "id": "face", "label": "Face", "hitAreaName": "Face", "rect": { "x": 0.36, "y": 0.14, "width": 0.28, "height": 0.19 }, "action": { "type": "athenaReply", "promptTemplate": "用户点了你的脸部区域。用自然、友好、保持边界感的中文回应。" }, "cooldownMs": 1800, "enabled": true },
-    { "id": "hand", "label": "Hand", "hitAreaName": "Hand", "rect": { "x": 0.1, "y": 0.58, "width": 0.8, "height": 0.22 }, "action": { "type": "athenaReply", "promptTemplate": "用户点了你的手。用桌宠陪伴语气给出一句简短反馈，可以主动询问是否需要帮忙。" }, "cooldownMs": 1400, "enabled": true },
+    { "id": "hair_clip", "label": "Hair Clip", "hitAreaName": "HairClip", "rect": { "x": 0.56, "y": 0.08, "width": 0.12, "height": 0.09 }, "action": { "type": "composite", "actions": [{ "type": "playMotion", "motionGroup": "TouchHairClip" }, { "type": "setExpression", "expressionId": "shy" }, { "type": "athenaReply", "promptTemplate": "用户点到了你的银色发夹。用轻松、带一点害羞但克制的中文回应。" }] }, "cooldownMs": 1800, "enabled": true },
+    { "id": "head", "label": "Head", "hitAreaName": "Head", "rect": { "x": 0.3, "y": 0.04, "width": 0.4, "height": 0.25 }, "action": { "type": "composite", "actions": [{ "type": "playMotion", "motionGroup": "TouchHead" }, { "type": "athenaReply", "promptTemplate": "用户轻触了你的头部。以 Athena 桌宠伴侣身份，用自然、简短、温柔但不过度亲昵的中文回应。" }] }, "cooldownMs": 1400, "enabled": true },
+    { "id": "face", "label": "Face", "hitAreaName": "Face", "rect": { "x": 0.36, "y": 0.14, "width": 0.28, "height": 0.19 }, "action": { "type": "composite", "actions": [{ "type": "setExpression", "expressionId": "shy" }, { "type": "athenaReply", "promptTemplate": "用户点了你的脸部区域。用自然、友好、保持边界感的中文回应。" }] }, "cooldownMs": 1800, "enabled": true },
+    { "id": "hand", "label": "Hand", "hitAreaName": "Hand", "rect": { "x": 0.1, "y": 0.58, "width": 0.8, "height": 0.22 }, "action": { "type": "composite", "actions": [{ "type": "playMotion", "motionGroup": "Wave" }, { "type": "athenaReply", "promptTemplate": "用户点了你的手。用桌宠陪伴语气给出一句简短反馈，可以主动询问是否需要帮忙。" }] }, "cooldownMs": 1400, "enabled": true },
     { "id": "outfit_accent", "label": "Outfit Accent", "hitAreaName": "OutfitAccent", "rect": { "x": 0.31, "y": 0.32, "width": 0.38, "height": 0.29 }, "action": { "type": "playMotion", "motionGroup": "Greet" }, "cooldownMs": 1200, "enabled": true }
   ],
   "externalControl": {
@@ -93,5 +93,5 @@
     "allowedCommandTypes": ["avatar.motion.play", "avatar.expression.set", "avatar.parameter.set", "avatar.pointer.move", "avatar.hotZone.trigger"],
     "auditEnabled": true
   },
-  "notes": "Athena Cubism Web profile with a Live2D Lite fallback, realtime WebAudio lip sync, and customizable emotion mappings. The primary model is a genuine Cubism .moc3 export; authored motion, physics, expression files, and model-native hit areas remain production work."
+  "notes": "Athena Cubism Web profile with a Live2D Lite fallback, realtime WebAudio lip sync, customizable emotion mappings, 12 parameter motion groups, and three hair physics chains. The primary model is a genuine Cubism .moc3 export; independent arm rigging, authored exp3 files, and model-native hit areas remain production work."
 }
