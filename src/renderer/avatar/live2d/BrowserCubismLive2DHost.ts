@@ -1,4 +1,4 @@
-import type { Application } from 'pixi.js';
+import type { Application, Container, Graphics } from 'pixi.js';
 import type {
   CubismIdHandle,
   CubismInternalModel,
@@ -54,6 +54,7 @@ export class BrowserCubismLive2DHost implements Live2DHost {
   private fallbackReason: string | null = null;
   private baseSize: { width: number; height: number } | null = null;
   private fittedTransform: { x: number; y: number; scale: number } | null = null;
+  private layeredRig: LayeredPerformanceRig | null = null;
   private activeMotion: AvatarMotionMapping | null = null;
   private activeMotionStartedAt = 0;
   private idleMotionCursor = 0;
@@ -100,6 +101,8 @@ export class BrowserCubismLive2DHost implements Live2DHost {
 
       model.anchor.set(0.5, 0.5);
       app.stage.addChild(model);
+      this.layeredRig = createLayeredPerformanceRig(runtime.pixi);
+      app.stage.addChild(this.layeredRig.root);
       this.app = app;
       this.baseSize = { width: Math.max(1, model.width), height: Math.max(1, model.height) };
       this.indexParameters(model);
@@ -254,6 +257,7 @@ export class BrowserCubismLive2DHost implements Live2DHost {
     this.parameterIndexes.clear();
     this.baseSize = null;
     this.fittedTransform = null;
+    this.layeredRig = null;
     this.activeMotion = null;
     this.activeMotionStartedAt = 0;
     this.idleMotionCursor = 0;
@@ -291,6 +295,60 @@ export class BrowserCubismLive2DHost implements Live2DHost {
       this.fittedTransform.scale * (1 + breath + pose.scaleY),
     );
     this.model.rotation = pose.rotation;
+    this.updateLayeredRig(seconds, pose, breath);
+  }
+
+  private updateLayeredRig(seconds: number, pose: VisibleMotionPose, breath: number): void {
+    if (!this.layeredRig || !this.fittedTransform) return;
+    const rig = this.layeredRig;
+    const scale = this.fittedTransform.scale * 0.52;
+    rig.root.visible = true;
+    rig.root.alpha = 0.34;
+    rig.root.position.set(
+      this.fittedTransform.x - (450 * scale) + pose.x,
+      this.fittedTransform.y - (650 * scale) + pose.y,
+    );
+    rig.root.scale.set(scale);
+    rig.root.rotation = pose.rotation * 0.55;
+
+    const mouthOpen = clamp(this.manualParameters.get('ParamMouthOpenY') ?? this.expressionParameters.get('ParamMouthOpenY') ?? 0, 0, 1);
+    const mouthForm = clamp(this.expressionParameters.get('ParamMouthForm') ?? this.manualParameters.get('ParamMouthForm') ?? 0, -1, 1);
+    const eyeOpen = clamp(Math.min(
+      this.expressionParameters.get('ParamEyeLOpen') ?? 1,
+      this.expressionParameters.get('ParamEyeROpen') ?? 1,
+    ), 0, 1);
+    const hairSwing = Math.sin(seconds * 1.8) * 5 + pose.rotation * 140;
+    const skirtSwing = Math.sin(seconds * 1.45) * 3 + pose.x * 0.25;
+    const sleeveSwing = Math.sin(seconds * 2.2) * 2.5 + pose.rotation * 70;
+    const wave = pose.rotation * 10;
+
+    rig.hairBack.rotation = hairSwing * 0.0018;
+    rig.hairSideL.rotation = -0.035 + hairSwing * 0.0034;
+    rig.hairSideR.rotation = 0.035 + hairSwing * 0.0034;
+    rig.bangs.rotation = hairSwing * 0.0022;
+    rig.hairClip.rotation = -0.24 + hairSwing * 0.003;
+    rig.head.rotation = pose.rotation * 0.45;
+    rig.face.rotation = pose.rotation * 0.35;
+    rig.face.y = 300 + Math.sin(seconds * 1.25) * 1.2;
+
+    rig.eyeL.scale.y = Math.max(0.12, eyeOpen);
+    rig.eyeR.scale.y = Math.max(0.12, eyeOpen);
+    rig.eyeL.position.x = 358 + (this.manualParameters.get('ParamEyeBallX') ?? 0) * 4;
+    rig.eyeR.position.x = 482 + (this.manualParameters.get('ParamEyeBallX') ?? 0) * 4;
+    rig.browL.rotation = -0.09 - mouthForm * 0.035;
+    rig.browR.rotation = 0.09 + mouthForm * 0.035;
+    rig.mouth.scale.set(1 + Math.max(0, mouthForm) * 0.28, 0.55 + mouthOpen * 1.25);
+    rig.mouth.y = 440 + mouthOpen * 5;
+
+    rig.torso.scale.y = 1 + breath * 0.012;
+    rig.sleeveL.rotation = -0.14 - sleeveSwing * 0.003;
+    rig.sleeveR.rotation = 0.14 + sleeveSwing * 0.003 + wave * 0.012;
+    rig.armL.rotation = -0.08 + sleeveSwing * 0.003;
+    rig.armR.rotation = 0.08 + wave * 0.055;
+    rig.skirt.rotation = skirtSwing * 0.003;
+    rig.pleatL.rotation = -0.035 + skirtSwing * 0.004;
+    rig.pleatC.rotation = skirtSwing * 0.002;
+    rig.pleatR.rotation = 0.035 + skirtSwing * 0.004;
   }
 
   private resolveMotionIndex(model: CubismModel, mapping: AvatarMotionMapping): number {
@@ -312,6 +370,31 @@ interface VisibleMotionPose {
   rotation: number;
   scaleX: number;
   scaleY: number;
+}
+
+interface LayeredPerformanceRig {
+  root: Container;
+  hairBack: Container;
+  hairSideL: Container;
+  hairSideR: Container;
+  bangs: Container;
+  hairClip: Container;
+  head: Container;
+  face: Container;
+  eyeL: Container;
+  eyeR: Container;
+  browL: Container;
+  browR: Container;
+  mouth: Container;
+  torso: Container;
+  sleeveL: Container;
+  sleeveR: Container;
+  armL: Container;
+  armR: Container;
+  skirt: Container;
+  pleatL: Container;
+  pleatC: Container;
+  pleatR: Container;
 }
 
 async function loadBrowserRuntime(): Promise<LoadedRuntime> {
@@ -457,6 +540,108 @@ function visibleMotionPose(group: string, elapsed: number, weight: number): Visi
   return pose;
 }
 
+function createLayeredPerformanceRig(pixi: PixiRuntime): LayeredPerformanceRig {
+  const root = new pixi.Container();
+  root.label = 'athena-visible-layered-performance-rig';
+  root.sortableChildren = true;
+
+  const hairBack = pivotedLayer(pixi, root, 'hair-back', 450, 320, 1);
+  hairBack.addChild(ellipse(pixi, 225, 108, 450, 520, 0x11141a));
+
+  const torso = pivotedLayer(pixi, root, 'torso', 450, 760, 3);
+  torso.addChild(poly(pixi, [[280, 585], [620, 585], [690, 925], [210, 925]], 0xf7f8fc, 0.5));
+  torso.addChild(roundRect(pixi, 260, 570, 380, 330, 40, 0xffffff, 0.42));
+  torso.addChild(poly(pixi, [[332, 575], [445, 625], [390, 710], [310, 615]], 0xffffff, 0.54));
+  torso.addChild(poly(pixi, [[568, 575], [455, 625], [510, 710], [590, 615]], 0xffffff, 0.54));
+  torso.addChild(roundRect(pixi, 338, 622, 224, 8, 4, 0x92dff2, 0.58));
+
+  const sleeveL = pivotedLayer(pixi, root, 'sleeve-left', 275, 610, 4);
+  sleeveL.addChild(poly(pixi, [[250, 590], [340, 610], [315, 735], [220, 720]], 0xf8f9fc, 0.48));
+  const sleeveR = pivotedLayer(pixi, root, 'sleeve-right', 625, 610, 4);
+  sleeveR.addChild(poly(pixi, [[650, 590], [560, 610], [585, 735], [680, 720]], 0xf8f9fc, 0.48));
+
+  const armL = pivotedLayer(pixi, root, 'arm-left', 248, 650, 2);
+  armL.addChild(roundRect(pixi, 210, 612, 58, 255, 29, 0xf3cdbc, 0.35));
+  armL.addChild(roundRect(pixi, 174, 810, 58, 225, 29, 0xf3cdbc, 0.35));
+  armL.addChild(ellipse(pixi, 154, 998, 88, 76, 0xf3cdbc, 0.35));
+  const armR = pivotedLayer(pixi, root, 'arm-right', 652, 650, 2);
+  armR.addChild(roundRect(pixi, 632, 612, 58, 255, 29, 0xf3cdbc, 0.35));
+  armR.addChild(roundRect(pixi, 668, 810, 58, 225, 29, 0xf3cdbc, 0.35));
+  armR.addChild(ellipse(pixi, 660, 998, 88, 76, 0xf3cdbc, 0.35));
+
+  const skirt = pivotedLayer(pixi, root, 'skirt', 450, 905, 5);
+  skirt.addChild(poly(pixi, [[250, 890], [650, 890], [720, 1085], [180, 1085]], 0x101d34, 0.42));
+  const pleatL = pivotedLayer(pixi, skirt, 'pleat-left', 320, 890, 1);
+  pleatL.addChild(poly(pixi, [[230, 900], [350, 900], [330, 1082], [198, 1082]], 0x263c5a, 0.44));
+  const pleatC = pivotedLayer(pixi, skirt, 'pleat-center', 450, 890, 2);
+  pleatC.addChild(poly(pixi, [[385, 900], [520, 900], [535, 1082], [360, 1082]], 0x1f314c, 0.5));
+  const pleatR = pivotedLayer(pixi, skirt, 'pleat-right', 580, 890, 1);
+  pleatR.addChild(poly(pixi, [[548, 900], [670, 900], [702, 1082], [570, 1082]], 0x263c5a, 0.44));
+  skirt.addChild(roundRect(pixi, 566, 1015, 54, 146, 6, 0x92dff2, 0.48));
+
+  const hairSideL = pivotedLayer(pixi, root, 'hair-side-left', 305, 260, 8);
+  hairSideL.addChild(poly(pixi, [[305, 210], [205, 325], [205, 620], [290, 605], [325, 390]], 0x0d1016, 0.66));
+  const hairSideR = pivotedLayer(pixi, root, 'hair-side-right', 595, 260, 8);
+  hairSideR.addChild(poly(pixi, [[595, 210], [695, 330], [690, 615], [610, 606], [575, 390]], 0x0d1016, 0.66));
+
+  const head = pivotedLayer(pixi, root, 'head', 450, 365, 9);
+  head.addChild(ellipse(pixi, 285, 180, 330, 370, 0xf7d2c1, 0.36));
+  const face = pivotedLayer(pixi, head, 'face', 450, 365, 1);
+  face.addChild(ellipse(pixi, 324, 390, 70, 34, 0xf3959e, 0.18));
+  face.addChild(ellipse(pixi, 506, 390, 70, 34, 0xf3959e, 0.18));
+
+  const eyeL = pivotedLayer(pixi, head, 'eye-left', 392, 370, 4);
+  eyeL.addChild(ellipse(pixi, 350, 348, 84, 44, 0xffffff, 0.78));
+  eyeL.addChild(ellipse(pixi, 374, 356, 32, 34, 0x2f3948, 0.82));
+  eyeL.addChild(ellipse(pixi, 388, 346, 8, 8, 0xffffff, 0.85));
+  const eyeR = pivotedLayer(pixi, head, 'eye-right', 508, 370, 4);
+  eyeR.addChild(ellipse(pixi, 466, 348, 84, 44, 0xffffff, 0.78));
+  eyeR.addChild(ellipse(pixi, 490, 356, 32, 34, 0x2f3948, 0.82));
+  eyeR.addChild(ellipse(pixi, 504, 346, 8, 8, 0xffffff, 0.85));
+
+  const browL = pivotedLayer(pixi, head, 'brow-left', 392, 320, 5);
+  browL.addChild(roundRect(pixi, 356, 316, 72, 8, 4, 0x1b1d24, 0.74));
+  const browR = pivotedLayer(pixi, head, 'brow-right', 508, 320, 5);
+  browR.addChild(roundRect(pixi, 474, 316, 72, 8, 4, 0x1b1d24, 0.74));
+
+  const mouth = pivotedLayer(pixi, head, 'mouth', 450, 458, 5);
+  mouth.addChild(ellipse(pixi, 410, 440, 80, 36, 0x9d4d5f, 0.76));
+
+  const bangs = pivotedLayer(pixi, root, 'bangs', 450, 180, 11);
+  bangs.addChild(poly(pixi, [[305, 190], [450, 122], [598, 188], [560, 254], [505, 220], [462, 300], [412, 222], [354, 258]], 0x0f1218, 0.72));
+  bangs.addChild(poly(pixi, [[312, 192], [248, 292], [300, 310], [358, 224]], 0x171a20, 0.66));
+  bangs.addChild(poly(pixi, [[590, 194], [646, 294], [596, 314], [540, 222]], 0x171a20, 0.66));
+
+  const hairClip = pivotedLayer(pixi, root, 'hair-clip', 626, 266, 12);
+  hairClip.addChild(roundRect(pixi, 584, 252, 82, 18, 7, 0xd8dde2, 0.78));
+  hairClip.addChild(roundRect(pixi, 602, 255, 38, 12, 4, 0x92dff2, 0.72));
+
+  return {
+    root,
+    hairBack,
+    hairSideL,
+    hairSideR,
+    bangs,
+    hairClip,
+    head,
+    face,
+    eyeL,
+    eyeR,
+    browL,
+    browR,
+    mouth,
+    torso,
+    sleeveL,
+    sleeveR,
+    armL,
+    armR,
+    skirt,
+    pleatL,
+    pleatC,
+    pleatR,
+  };
+}
+
 function motionEnvelope(group: string, elapsed: number, loop: boolean): number {
   if (loop) return 1;
   const duration = MOTION_DURATIONS[group] ?? 2;
@@ -481,6 +666,62 @@ const MOTION_DURATIONS: Record<string, number> = {
 function easeOut(value: number): number {
   const clamped = clamp(value, 0, 1);
   return 1 - ((1 - clamped) ** 3);
+}
+
+function pivotedLayer(pixi: PixiRuntime, parent: Container, label: string, pivotX: number, pivotY: number, zIndex: number): Container {
+  const layer = new pixi.Container();
+  layer.label = label;
+  layer.pivot.set(pivotX, pivotY);
+  layer.position.set(pivotX, pivotY);
+  layer.zIndex = zIndex;
+  parent.addChild(layer);
+  return layer;
+}
+
+function ellipse(pixi: PixiRuntime, x: number, y: number, width: number, height: number, color: number, alpha = 1): Graphics {
+  const graphic = new pixi.Graphics();
+  drawEllipse(graphic, x, y, width, height, color, alpha);
+  return graphic;
+}
+
+function roundRect(
+  pixi: PixiRuntime,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radius: number,
+  color: number,
+  alpha = 1,
+): Graphics {
+  const graphic = new pixi.Graphics();
+  const target = graphic as unknown as {
+    roundRect: (x: number, y: number, width: number, height: number, radius: number) => unknown;
+    fill: (style: { color: number; alpha: number }) => unknown;
+  };
+  target.roundRect(x, y, width, height, radius);
+  target.fill({ color, alpha });
+  return graphic;
+}
+
+function poly(pixi: PixiRuntime, points: number[][], color: number, alpha = 1): Graphics {
+  const graphic = new pixi.Graphics();
+  const target = graphic as unknown as {
+    poly: (points: number[]) => unknown;
+    fill: (style: { color: number; alpha: number }) => unknown;
+  };
+  target.poly(points.flatMap(point => [point[0] ?? 0, point[1] ?? 0]));
+  target.fill({ color, alpha });
+  return graphic;
+}
+
+function drawEllipse(graphic: Graphics, x: number, y: number, width: number, height: number, color: number, alpha: number): void {
+  const target = graphic as unknown as {
+    ellipse: (x: number, y: number, halfWidth: number, halfHeight: number) => unknown;
+    fill: (style: { color: number; alpha: number }) => unknown;
+  };
+  target.ellipse(x + width / 2, y + height / 2, width / 2, height / 2);
+  target.fill({ color, alpha });
 }
 
 function nowMs(): number {

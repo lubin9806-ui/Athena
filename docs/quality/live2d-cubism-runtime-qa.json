@@ -36,6 +36,11 @@
       "runtimeWarnings": 0,
       "visualAmplitude": "runtime visible motion fallback added for idle and interaction states; independent arm deformation is unavailable",
       "visibleRuntimeMotionFallback": true,
+      "visibleLayeredRuntimeRig": {
+        "parts": ["hair", "eyes", "mouth", "brows", "arms", "skirt", "sleeves"],
+        "source": "Cubism Web Pixi stage overlay using Athena's layered rig contract",
+        "cubismEditorNative": false
+      },
       "alphaFringeRepaired": true,
       "passed": true
     },
@@ -85,7 +90,7 @@
     "lipSyncValueBridge": true,
     "boundsPersistence": true,
     "hideControl": true,
-    "electronSmoke": "ATHENA_LIVE2D_DESKTOP_PET_OK motion=visible",
+    "electronSmoke": "ATHENA_LIVE2D_DESKTOP_PET_OK motion=visible layeredRig=visible",
     "passed": true
   },
   "releasePackaging": {
