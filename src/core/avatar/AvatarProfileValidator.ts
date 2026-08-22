@@ -42,6 +42,9 @@ export function validateAvatarProfile(profile: AvatarCharacterProfile): AvatarVa
   if (profile.provider === 'live2d' && !profile.model.model3JsonPath) {
     issue(issues, 'model.model3JsonPath', 'Live2D profiles must point to a .model3.json file.', 'error');
   }
+  if ((profile.provider === 'gltf' || profile.provider === 'vrm') && !profile.model.modelPath) {
+    issue(issues, 'model.modelPath', '3D avatar profiles must point to a model file.', 'error');
+  }
   requireText(issues, 'model.rootPath', profile.model.rootPath);
   if (!LAYOUT_MODES.has(profile.layout.mode)) issue(issues, 'layout.mode', 'Unknown avatar layout mode.', 'error');
   validateRange(issues, 'layout.transform.scale', profile.layout.transform.scale, 0.1, 4);
@@ -141,4 +144,3 @@ function validateRange(issues: AvatarValidationIssue[], path: string, value: num
 function issue(issues: AvatarValidationIssue[], path: string, message: string, severity: AvatarValidationIssue['severity']): void {
   issues.push({ path, message, severity });
 }
-

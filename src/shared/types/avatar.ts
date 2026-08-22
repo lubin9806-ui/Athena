@@ -71,6 +71,7 @@ export interface AvatarModelSource {
   source: AvatarPackageSource;
   rootPath: string;
   model3JsonPath?: string;
+  modelPath?: string;
   packageId?: string;
   packageVersion?: string;
 }
@@ -242,4 +243,3 @@ export interface AvatarExternalCommand {
   ttlMs?: number;
   payload?: Record<string, unknown>;
 }
-
