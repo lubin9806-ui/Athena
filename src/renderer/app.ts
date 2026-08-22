@@ -9,6 +9,8 @@ import { MotionSystem, type AthenaSpace } from './ui/MotionSystem';
 import { SelectControlManager } from './ui/SelectControl';
 import { ThemeController } from './ui/ThemeController';
 import { MicrophoneRecorder } from './voice/MicrophoneRecorder';
+import { AthenaLive2DCompanion } from './avatar/live2d/AthenaLive2DCompanion';
+import type { AvatarLayoutMode } from '../shared/types/avatar';
 
 declare global {
   interface Window {
@@ -908,6 +910,12 @@ const chatPanel = new ChatPanel(
   mustGet<HTMLElement>('chat-container'),
   attachment => window.athenaAPI.getChatAttachmentPreview(attachment.window_id, attachment.id),
 );
+const live2dCompanion = new AthenaLive2DCompanion({
+  root: mustGet<HTMLElement>('live2d-companion'),
+  canvas: mustGet<HTMLCanvasElement>('live2d-companion-canvas'),
+  onAthenaReply: (prompt, hotZoneId) => sendAvatarInteraction(prompt, hotZoneId),
+  onError: error => console.error('Live2D companion unavailable', error),
+});
 const inputForm = mustGet<HTMLFormElement>('input-form');
 const inputBox = mustGet<HTMLTextAreaElement>('input-box');
 const inputBar = new InputBar(
@@ -1073,6 +1081,10 @@ const settingWebSearchMaxPages = mustGet<HTMLInputElement>('setting-web-search-m
 const settingStartupIntro = mustGet<HTMLInputElement>('setting-startup-intro');
 const settingCompactMode = mustGet<HTMLInputElement>('setting-compact-mode');
 const settingGlassEffects = mustGet<HTMLInputElement>('setting-glass-effects');
+const settingLive2dEnabled = mustGet<HTMLInputElement>('setting-live2d-enabled');
+const settingLive2dLayout = mustGet<HTMLSelectElement>('setting-live2d-layout');
+const settingLive2dScale = mustGet<HTMLInputElement>('setting-live2d-scale');
+const settingLive2dOpacity = mustGet<HTMLInputElement>('setting-live2d-opacity');
 const settingAnimationLevel = mustGet<HTMLSelectElement>('setting-animation-level');
 const settingTheme = mustGet<HTMLSelectElement>('setting-theme');
 const modelSettingsSection = mustGet<HTMLDetailsElement>('model-settings-section');
@@ -1158,6 +1170,7 @@ const NEW_CHAT_TITLE = '新对话';
 let isStreaming = false;
 let isOcrImporting = false;
 let currentContent = '';
+let live2dStreamingStarted = false;
 let currentImportPreview: MemoryImportPreview | null = null;
 let currentMemoryReviewItems: MemoryReviewItem[] = [];
 let currentSettingsBundle: SettingsBundle | null = null;
@@ -1327,6 +1340,57 @@ function skipStartupIntro(): void {
   appShell.dataset.intro = 'entered';
 }
 
+function syncLive2dSettingsControls(): void {
+  const preferences = live2dCompanion.settings;
+  settingLive2dEnabled.checked = preferences.enabled;
+  settingLive2dLayout.value = preferences.layout;
+  settingLive2dScale.value = String(preferences.scale);
+  settingLive2dOpacity.value = String(preferences.opacity);
+}
+
+async function sendAvatarInteraction(prompt: string, hotZoneId: string): Promise<void> {
+  if (!prompt.trim() || isStreaming || isVoiceInputBusy()) return;
+  if (!currentChatWindowId) await initializeChatWindows();
+
+  isStreaming = true;
+  live2dStreamingStarted = false;
+  activeRequestMode = 'companion';
+  currentContent = '';
+  setStatus('Athena 正在回应互动', 'working');
+  inputBar.setDisabled(true);
+  syncVoiceControls();
+  await live2dCompanion.dispatch({ type: 'chat.thinking.start' });
+
+  try {
+    const response = await window.athenaAPI.sendMessage(
+      prompt,
+      'companion',
+      false,
+      currentChatWindowId ?? undefined,
+    );
+    if (response) modelConnected = true;
+    if (!currentContent && response?.content) {
+      chatPanel.addMessage(response.content, 'assistant', response.emotion?.label);
+    } else if (response?.emotion?.label) {
+      chatPanel.setLastAssistantEmotion(response.emotion.label);
+    }
+    await live2dCompanion.setEmotionLabel(response?.emotion?.label);
+    if (!response) throw new Error(`互动 ${hotZoneId} 暂时没有收到回复`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    await live2dCompanion.dispatch({ type: 'chat.error', message });
+  } finally {
+    activeRequestMode = null;
+    isStreaming = false;
+    inputBar.setDisabled(false);
+    syncVoiceControls();
+    restoreIdleStatus();
+    if (currentSettingsBundle?.settings.voice.autoPlayAssistant) void speakLastAssistantMessage();
+    else void live2dCompanion.dispatch({ type: 'app.ready' });
+    await refreshChatWindows();
+  }
+}
+
 async function sendMessage(text: string): Promise<void> {
   const queuedAttachments = currentPendingAttachments();
   const effectiveText = text.trim() || (queuedAttachments.length > 0 ? '请查看并理解这些图片。' : '');
@@ -1367,6 +1431,8 @@ async function sendMessage(text: string): Promise<void> {
   }
   setStatus(modeThinkingText(requestMode), 'working');
   isStreaming = true;
+  live2dStreamingStarted = false;
+  void live2dCompanion.dispatch({ type: 'chat.thinking.start' });
   renderChatWindowPicker();
   setModeSwitchDisabled(true);
   inputBar.setDisabled(true);
@@ -1403,6 +1469,7 @@ async function sendMessage(text: string): Promise<void> {
       } else if (response?.emotion?.label) {
         chatPanel.setLastAssistantEmotion(response.emotion.label);
       }
+      void live2dCompanion.setEmotionLabel(response?.emotion?.label);
       if (response?.webSearch?.sources?.length) {
         chatPanel.setLastAssistantSources(response.webSearch.sources, {
           readPageCount: response.webSearch.readPageCount,
@@ -1421,7 +1488,10 @@ async function sendMessage(text: string): Promise<void> {
       setAgentExecutionFeedback(`任务未启动：${message}`);
       failActiveExecutionTask(message);
     }
-    else chatPanel.addMessage(`出错了：${message}`, 'assistant', '需要检查');
+    else {
+      chatPanel.addMessage(`出错了：${message}`, 'assistant', '需要检查');
+      void live2dCompanion.dispatch({ type: 'chat.error', message });
+    }
   } finally {
     if (requestChatWindowId && queuedAttachments.length > 0) {
       await reconcileQueuedAttachments(requestChatWindowId, queuedAttachments);
@@ -1438,6 +1508,8 @@ async function sendMessage(text: string): Promise<void> {
     restoreIdleStatus();
     if (requestMode !== 'execute' && currentSettingsBundle?.settings.voice.autoPlayAssistant) {
       void speakLastAssistantMessage();
+    } else if (requestMode !== 'execute') {
+      void live2dCompanion.dispatch({ type: 'app.ready' });
     }
     await refreshChatWindows();
     await refreshWindowMemoryPanel();
@@ -1482,6 +1554,8 @@ function init(): void {
   appShell.dataset.sidebar = window.innerWidth <= 860 ? 'closed' : 'open';
   inputForm.dataset.voiceState = 'idle';
   voiceFeedback.dataset.visible = 'false';
+  syncLive2dSettingsControls();
+  void live2dCompanion.load();
   void initializeSettings();
   inputBar.onSubmit(sendMessage, () => currentPendingAttachments().length > 0);
   projectSelect.addEventListener('change', () => {
@@ -1641,6 +1715,18 @@ function init(): void {
     appShell.dataset.glass = String(settingGlassEffects.checked);
     liquidGlassRenderer.setEnabled(settingGlassEffects.checked);
   });
+  settingLive2dEnabled.addEventListener('change', () => {
+    void live2dCompanion.updatePreferences({ enabled: settingLive2dEnabled.checked });
+  });
+  settingLive2dLayout.addEventListener('change', () => {
+    void live2dCompanion.updatePreferences({ layout: settingLive2dLayout.value as AvatarLayoutMode });
+  });
+  settingLive2dScale.addEventListener('input', () => {
+    void live2dCompanion.updatePreferences({ scale: Number(settingLive2dScale.value) });
+  });
+  settingLive2dOpacity.addEventListener('input', () => {
+    void live2dCompanion.updatePreferences({ opacity: Number(settingLive2dOpacity.value) });
+  });
   settingModelProvider.addEventListener('change', () => {
     populateSelectedModelProvider();
     void refreshModelCredentialStatus();
@@ -1755,6 +1841,7 @@ function init(): void {
     clearRecordingTimers();
     void microphoneRecorder.cancel();
     currentAudio?.pause();
+    void live2dCompanion.destroy();
     liveGlass.dispose();
     liquidGlassRenderer.dispose();
     motionSystem.dispose();
@@ -1779,6 +1866,10 @@ function init(): void {
       executionCurrentResult.textContent = currentContent;
       executionCurrentResult.dataset.visible = 'true';
     } else {
+      if (!live2dStreamingStarted) {
+        live2dStreamingStarted = true;
+        void live2dCompanion.dispatch({ type: 'chat.streaming.start' });
+      }
       chatPanel.updateStreamingMessage(currentContent);
     }
   });
@@ -1789,6 +1880,7 @@ function init(): void {
     inputBar.setDisabled(false);
     syncVoiceControls();
     setStatus('模型离线', 'offline');
+    void live2dCompanion.dispatch({ type: 'chat.error', message: error });
     if (activeRequestMode === 'execute') failActiveExecutionTask(error);
     else chatPanel.addMessage(`我暂时连不上本地模型：${error}`, 'assistant', '离线');
   });
@@ -5260,9 +5352,12 @@ function syncVoiceControls(): void {
 }
 
 function setVoiceInputState(state: VoiceInputState): void {
+  const wasRecording = voiceInputState === 'recording';
   voiceInputState = state;
   inputForm.dataset.voiceState = state;
   const isRecording = state === 'recording';
+  if (!wasRecording && isRecording) void live2dCompanion.dispatch({ type: 'voice.listening.start' });
+  if (wasRecording && !isRecording) void live2dCompanion.dispatch({ type: 'voice.listening.end' });
   voiceSttBtn.setAttribute('aria-pressed', String(isRecording));
   voiceSttBtn.title = isRecording ? '停止录音并识别' : '开始录音';
   voiceSttBtn.setAttribute('aria-label', voiceSttBtn.title);
@@ -5586,11 +5681,12 @@ async function speakLastAssistantMessage(): Promise<void> {
     stopCurrentAudio();
     showVoiceFeedback('正在朗读回复 · 系统默认输出设备');
     setStatus('正在朗读', 'working');
-    const playback = await window.athenaAPI.playAudioFile(result.audioPath);
-    if (!playback.ok) {
+    if (live2dCompanion.isEnabled) {
       await playAudioInRenderer(result.audioPath);
     } else {
-      showVoiceFeedback('朗读完成', 'success', 1800);
+      const playback = await window.athenaAPI.playAudioFile(result.audioPath);
+      if (!playback.ok) await playAudioInRenderer(result.audioPath);
+      else showVoiceFeedback('朗读完成', 'success', 1800);
     }
   } catch (error) {
     stopCurrentAudio();
@@ -5628,6 +5724,7 @@ async function playAudioInRenderer(audioPath: string): Promise<void> {
       // Default playback still works when explicit sink selection is unavailable.
     }
   }
+  await live2dCompanion.attachAudio(audio);
   await waitForAudioReady(audio);
   await audio.play();
 }
@@ -5654,10 +5751,12 @@ function waitForAudioReady(audio: HTMLAudioElement): Promise<void> {
 }
 
 function stopCurrentAudio(): void {
-  if (!currentAudio) return;
-  currentAudio.pause();
-  currentAudio.currentTime = 0;
-  currentAudio = null;
+  if (currentAudio) {
+    currentAudio.pause();
+    currentAudio.currentTime = 0;
+    currentAudio = null;
+  }
+  void live2dCompanion.stopAudioTracking();
 }
 
 function toFileUrl(filePath: string): string {

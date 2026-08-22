@@ -8,7 +8,7 @@
     "rootPath": ".",
     "model3JsonPath": "model/athena-live2d-default-sdk5.model3.json",
     "packageId": "athena-live2d-default",
-    "packageVersion": "0.8.0-native-expressions"
+    "packageVersion": "0.9.0-athena-integration"
   },
   "layout": {
     "mode": "desktop_pet",
@@ -93,5 +93,5 @@
     "allowedCommandTypes": ["avatar.motion.play", "avatar.expression.set", "avatar.parameter.set", "avatar.pointer.move", "avatar.hotZone.trigger"],
     "auditEnabled": true
   },
-  "notes": "Athena Cubism Web profile with a Live2D Lite fallback, realtime WebAudio lip sync, customizable emotion mappings, 11 native Cubism expressions, 12 parameter motion groups, and three hair physics chains. The primary model is a genuine Cubism .moc3 export; independent arm rigging and model-native hit areas remain production work."
+  "notes": "Athena Cubism Web profile integrated into the desktop chat with four selectable placements, realtime chat/voice/emotion state bindings, hot-zone replies, and local visual preferences. It includes a Live2D Lite fallback, 11 native Cubism expressions, 12 parameter motion groups, and three hair physics chains. The primary model is a genuine Cubism .moc3 export; broader visual polish, independent arm rigging, model-native hit areas, and a separate always-on-top desktop window remain production work."
 }

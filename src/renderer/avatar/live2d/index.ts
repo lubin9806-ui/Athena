@@ -5,3 +5,4 @@ export * from './BrowserCubismLive2DHost';
 export * from './Live2DCanvasController';
 export * from './Live2DHost';
 export * from './AvatarProfileCustomization';
+export * from './AthenaLive2DCompanion';

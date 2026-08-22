@@ -51,5 +51,21 @@
     "placementsChecked": ["chat_right", "chat_background", "draggable_overlay", "desktop_pet"],
     "horizontalOverflow": false
   },
+  "athenaAppIntegration": {
+    "surface": "desktop renderer",
+    "electronViewport": { "width": 1184, "height": 763 },
+    "engine": "cubism-web",
+    "canvasVisible": true,
+    "modelPixelsVisible": true,
+    "chatOverlap": false,
+    "composerOverlap": false,
+    "settingsOverflow": false,
+    "stateBindings": ["thinking", "streaming", "listening", "speaking", "emotion", "error"],
+    "settings": ["enabled", "layout", "scale", "opacity"],
+    "hotZoneReplyBound": true,
+    "ttsAnalyserBound": true,
+    "electronSmoke": "ATHENA_SMOKE_DOM_OK",
+    "passed": true
+  },
   "result": "pass"
 }

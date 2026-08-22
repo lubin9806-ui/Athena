@@ -7359,6 +7359,146 @@ html[data-theme="night"] body {
   display: none;
 }
 
+/* Live2D companion stays isolated from the chat and settings layout contracts. */
+#live2d-companion {
+  position: absolute;
+  z-index: 2;
+  width: clamp(280px, 31vw, 420px);
+  height: calc(100% - 18px);
+  right: 8px;
+  bottom: 0;
+  overflow: visible;
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 180ms ease, transform 220ms ease;
+}
+
+#live2d-companion[data-enabled="false"],
+#live2d-companion[data-state="error"],
+#app-shell[data-space="work"] #live2d-companion {
+  opacity: 0;
+  pointer-events: none;
+}
+
+#live2d-companion-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  cursor: default;
+  pointer-events: auto;
+  touch-action: none;
+  transform-origin: center bottom;
+  transform:
+    translate(var(--avatar-offset-x, 0), var(--avatar-offset-y, 0))
+    rotate(var(--avatar-rotation, 0deg))
+    scale(var(--avatar-scale-x, 1), var(--avatar-scale-y, 1));
+}
+
+#live2d-companion[data-state="loading"] #live2d-companion-canvas {
+  opacity: 0;
+}
+
+#live2d-companion[data-state="ready"] #live2d-companion-canvas {
+  opacity: var(--live2d-companion-opacity, 0.98);
+  transition: opacity 240ms ease;
+}
+
+#live2d-companion[data-layout="chat_background"] {
+  z-index: 0;
+  width: min(54vw, 600px);
+  height: 96%;
+  right: 3%;
+  opacity: 0.34;
+}
+
+#live2d-companion[data-layout="chat_background"] #live2d-companion-canvas {
+  pointer-events: none;
+}
+
+#live2d-companion[data-layout="draggable_overlay"] {
+  z-index: 4;
+  width: clamp(260px, 28vw, 390px);
+  height: min(74vh, 620px);
+  right: 24px;
+  bottom: 20px;
+}
+
+#live2d-companion[data-layout="draggable_overlay"] #live2d-companion-canvas,
+#live2d-companion[data-layout="desktop_pet"] #live2d-companion-canvas {
+  cursor: grab;
+}
+
+#live2d-companion[data-layout="draggable_overlay"] #live2d-companion-canvas:active,
+#live2d-companion[data-layout="desktop_pet"] #live2d-companion-canvas:active {
+  cursor: grabbing;
+}
+
+#live2d-companion[data-layout="desktop_pet"] {
+  z-index: 4;
+  width: clamp(240px, 24vw, 330px);
+  height: min(66vh, 540px);
+  right: 16px;
+  bottom: 12px;
+}
+
+#chat-container {
+  z-index: 1;
+}
+
+#stage:has(#live2d-companion[data-enabled="true"][data-layout="chat_right"]) #chat-container {
+  padding-right: max(330px, calc((100% - 820px) / 2));
+}
+
+.live2d-range-field input[type="range"] {
+  width: min(190px, 46%);
+  accent-color: var(--accent);
+}
+
+@media (max-width: 980px) {
+  #live2d-companion[data-layout="chat_right"] {
+    z-index: 0;
+    width: min(46vw, 360px);
+    opacity: 0.3;
+  }
+
+  #live2d-companion[data-layout="chat_right"] #live2d-companion-canvas {
+    pointer-events: none;
+  }
+
+  #stage:has(#live2d-companion[data-enabled="true"][data-layout="chat_right"]) #chat-container {
+    padding-right: max(40px, calc((100% - 820px) / 2));
+  }
+}
+
+@media (max-width: 720px) {
+  #live2d-companion {
+    width: min(58vw, 300px);
+    height: 62%;
+    right: -18px;
+    bottom: 44px;
+  }
+
+  #live2d-companion[data-layout="chat_right"],
+  #live2d-companion[data-layout="chat_background"] {
+    opacity: 0.22;
+  }
+
+  #live2d-companion[data-layout="draggable_overlay"],
+  #live2d-companion[data-layout="desktop_pet"] {
+    width: min(54vw, 280px);
+    height: 56%;
+    right: 0;
+    bottom: 54px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #live2d-companion,
+  #live2d-companion-canvas {
+    transition-duration: 1ms !important;
+  }
+}
+
 .athena-avatar-canvas {
   width: 100%;
   height: 100%;

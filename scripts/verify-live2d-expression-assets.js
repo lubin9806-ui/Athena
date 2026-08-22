@@ -19,7 +19,10 @@ function main() {
   const required = manifest.riggingTargets.requiredExpressions;
   const runtimeExpressions = runtimeModel.FileReferences.Expressions;
 
-  assert.equal(manifest.status, 'cubism_native_expressions_validated');
+  assert.ok([
+    'cubism_native_expressions_validated',
+    'athena_app_integration_validated',
+  ].includes(manifest.status));
   assert.equal(manifest.production.expressionsReady, true);
   assert.equal(manifest.production.expressionCount, 11);
   assert.deepEqual(runtimeExpressions.map(item => item.Name), required);

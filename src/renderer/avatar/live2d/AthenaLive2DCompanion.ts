@@ -1,0 +1,271 @@
+import profileDocument from '../../../../assets/avatar/athena-live2d-default/profile.avatar.json';
+import liteModelDocument from '../../../../assets/avatar/athena-live2d-default/model/athena-live2d-lite.model3.json';
+import type {
+  AvatarCharacterProfile,
+  AvatarHotZoneAction,
+  AvatarLayoutMode,
+} from '../../../shared/types/avatar';
+import type { EmotionType } from '../../../shared/types/emotion';
+import { StaticAudioLevelSource, WebAudioAnalyserLevelSource } from '../AvatarLipSyncController';
+import { AvatarRealtimeLipSyncController, MutableAudioLevelSource } from '../AvatarRealtimeLipSyncController';
+import type { AthenaAvatarEvent } from '../AvatarRuntime';
+import { applyAvatarProfileCustomization, readAvatarProfileCustomization } from './AvatarProfileCustomization';
+import { BrowserCubismLive2DHost } from './BrowserCubismLive2DHost';
+import { BrowserLive2DLiteHost } from './BrowserLive2DLiteHost';
+import { Live2DCanvasController } from './Live2DCanvasController';
+
+const CUSTOMIZATION_KEY = 'athena.live2d.default.customization.v1';
+export const ATHENA_LIVE2D_PREFERENCES_KEY = 'athena.live2d.companion.v1';
+
+export interface AthenaLive2DPreferences {
+  version: 1;
+  enabled: boolean;
+  layout: AvatarLayoutMode;
+  scale: number;
+  opacity: number;
+}
+
+export interface AthenaLive2DCompanionOptions {
+  root: HTMLElement;
+  canvas: HTMLCanvasElement;
+  storage?: Pick<Storage, 'getItem' | 'setItem'>;
+  onAthenaReply?: (prompt: string, hotZoneId: string) => void | Promise<void>;
+  onError?: (error: Error) => void;
+}
+
+const DEFAULT_PREFERENCES: AthenaLive2DPreferences = {
+  version: 1,
+  enabled: true,
+  layout: 'chat_right',
+  scale: 1,
+  opacity: 0.98,
+};
+
+export class AthenaLive2DCompanion {
+  private readonly host: BrowserCubismLive2DHost;
+  private readonly controller: Live2DCanvasController;
+  private readonly audioSource = new MutableAudioLevelSource(new StaticAudioLevelSource(0));
+  private readonly lipSync: AvatarRealtimeLipSyncController;
+  private preferences: AthenaLive2DPreferences;
+  private audioContext: AudioContext | null = null;
+  private activeAudio: HTMLAudioElement | null = null;
+  private activeMediaSource: MediaElementAudioSourceNode | null = null;
+  private activeAnalyser: AnalyserNode | null = null;
+  private loaded = false;
+  private destroyed = false;
+
+  constructor(private readonly options: AthenaLive2DCompanionOptions) {
+    const storage = options.storage ?? window.localStorage;
+    this.preferences = readAthenaLive2DPreferences(storage.getItem(ATHENA_LIVE2D_PREFERENCES_KEY));
+    const customization = readAvatarProfileCustomization(storage.getItem(CUSTOMIZATION_KEY));
+    const profile = applyAvatarProfileCustomization(profileDocument as AvatarCharacterProfile, customization);
+    profile.model.rootPath = 'avatar/athena-live2d-default';
+    profile.model.model3JsonPath = 'model/athena-live2d-default-sdk5.model3.json';
+    profile.layout.mode = this.preferences.layout;
+    profile.layout.transform = {
+      ...profile.layout.transform,
+      x: 0,
+      y: 0,
+      scale: this.preferences.scale,
+      opacity: this.preferences.opacity,
+    };
+
+    const fallbackHost = new BrowserLive2DLiteHost({ fetchModel: async () => liteModelDocument });
+    this.host = new BrowserCubismLive2DHost({ fallbackHost });
+    this.controller = new Live2DCanvasController({
+      profile,
+      host: this.host,
+      canvas: options.canvas,
+      onHotZoneAction: (action, hotZoneId) => this.handleHotZoneAction(action, hotZoneId),
+    });
+    this.lipSync = new AvatarRealtimeLipSyncController({
+      settings: profile.lipSync,
+      adapter: { setParameter: (parameterId, value) => this.host.setParameter(parameterId, value) },
+      audioSource: this.audioSource,
+      onValue: value => { this.options.root.dataset.lipSync = value > 0.02 ? 'active' : 'idle'; },
+    });
+    this.applyPreferences();
+  }
+
+  get isEnabled(): boolean {
+    return this.preferences.enabled;
+  }
+
+  get settings(): AthenaLive2DPreferences {
+    return { ...this.preferences };
+  }
+
+  async load(): Promise<void> {
+    if (this.destroyed || this.loaded || !this.preferences.enabled) return;
+    this.options.root.dataset.state = 'loading';
+    try {
+      await this.controller.load();
+      this.loaded = true;
+      this.options.root.dataset.engine = this.host.getRendererKind();
+      this.options.root.dataset.state = 'ready';
+      await this.controller.dispatch({ type: 'app.ready' });
+    } catch (error) {
+      this.options.root.dataset.state = 'error';
+      this.options.onError?.(asError(error));
+    }
+  }
+
+  async dispatch(event: AthenaAvatarEvent): Promise<void> {
+    if (!this.preferences.enabled || this.destroyed) return;
+    if (!this.loaded) await this.load();
+    if (!this.loaded) return;
+    try {
+      await this.controller.dispatch(event);
+    } catch (error) {
+      this.options.root.dataset.state = 'error';
+      this.options.onError?.(asError(error));
+    }
+  }
+
+  async setEmotionLabel(label?: string, intensity = 1): Promise<void> {
+    await this.dispatch({ type: 'emotion.update', emotion: emotionFromLabel(label), intensity });
+  }
+
+  async attachAudio(audio: HTMLAudioElement): Promise<void> {
+    if (!this.preferences.enabled || this.destroyed) return;
+    if (!this.loaded) await this.load();
+    if (!this.loaded) return;
+    await this.stopAudioTracking();
+    const context = this.audioContext ?? new AudioContext({ latencyHint: 'interactive' });
+    this.audioContext = context;
+    const source = context.createMediaElementSource(audio);
+    const analyser = context.createAnalyser();
+    analyser.fftSize = 512;
+    analyser.smoothingTimeConstant = 0.35;
+    source.connect(analyser);
+    analyser.connect(context.destination);
+    this.audioSource.use(new WebAudioAnalyserLevelSource(analyser));
+    this.activeAudio = audio;
+    this.activeMediaSource = source;
+    this.activeAnalyser = analyser;
+    audio.addEventListener('play', this.handleAudioPlay);
+    audio.addEventListener('pause', this.handleAudioStop);
+    audio.addEventListener('ended', this.handleAudioStop);
+    if (context.state === 'suspended') await context.resume();
+  }
+
+  async stopAudioTracking(): Promise<void> {
+    if (this.activeAudio) {
+      this.activeAudio.removeEventListener('play', this.handleAudioPlay);
+      this.activeAudio.removeEventListener('pause', this.handleAudioStop);
+      this.activeAudio.removeEventListener('ended', this.handleAudioStop);
+      this.activeAudio = null;
+    }
+    this.activeMediaSource?.disconnect();
+    this.activeAnalyser?.disconnect();
+    this.activeMediaSource = null;
+    this.activeAnalyser = null;
+    await this.lipSync.stop();
+    this.options.root.dataset.lipSync = 'idle';
+    if (this.loaded) await this.dispatch({ type: 'voice.speaking.end' });
+  }
+
+  async updatePreferences(patch: Partial<Omit<AthenaLive2DPreferences, 'version'>>): Promise<void> {
+    const wasEnabled = this.preferences.enabled;
+    this.preferences = sanitizePreferences({ ...this.preferences, ...patch, version: 1 });
+    (this.options.storage ?? window.localStorage).setItem(
+      ATHENA_LIVE2D_PREFERENCES_KEY,
+      JSON.stringify(this.preferences),
+    );
+    this.applyPreferences();
+    if (!wasEnabled && this.preferences.enabled) await this.load();
+    if (wasEnabled && !this.preferences.enabled) await this.stopAudioTracking();
+  }
+
+  async destroy(): Promise<void> {
+    if (this.destroyed) return;
+    this.destroyed = true;
+    await this.stopAudioTracking();
+    if (this.loaded) await this.controller.destroy();
+    this.loaded = false;
+    await this.audioContext?.close();
+    this.audioContext = null;
+  }
+
+  private readonly handleAudioPlay = (): void => {
+    void this.dispatch({ type: 'voice.speaking.start' });
+    this.lipSync.start();
+  };
+
+  private readonly handleAudioStop = (): void => {
+    void this.lipSync.stop().then(() => this.dispatch({ type: 'voice.speaking.end' }));
+  };
+
+  private applyPreferences(): void {
+    this.options.root.dataset.enabled = String(this.preferences.enabled);
+    this.options.root.dataset.layout = this.preferences.layout;
+    this.options.root.style.setProperty('--live2d-companion-scale', String(this.preferences.scale));
+    this.options.root.style.setProperty('--live2d-companion-opacity', String(this.preferences.opacity));
+    this.controller.updateLayoutMode(this.preferences.layout);
+    this.options.canvas.style.setProperty('--avatar-scale-x', String(this.preferences.scale));
+    this.options.canvas.style.setProperty('--avatar-scale-y', String(this.preferences.scale));
+  }
+
+  private handleHotZoneAction(action: AvatarHotZoneAction, hotZoneId: string): void {
+    const prompt = findAthenaReplyPrompt(action);
+    if (prompt) void this.options.onAthenaReply?.(prompt, hotZoneId);
+  }
+}
+
+export function readAthenaLive2DPreferences(value: string | null): AthenaLive2DPreferences {
+  if (!value) return { ...DEFAULT_PREFERENCES };
+  try {
+    return sanitizePreferences(JSON.parse(value) as Partial<AthenaLive2DPreferences>);
+  } catch {
+    return { ...DEFAULT_PREFERENCES };
+  }
+}
+
+export function emotionFromLabel(label?: string): EmotionType {
+  const value = label?.trim().toLowerCase() ?? '';
+  if (/开心|高兴|愉快|happy/.test(value)) return 'happy';
+  if (/思考|沉思|认真|thought/.test(value)) return 'thoughtful';
+  if (/害羞|腼腆|shy/.test(value)) return 'shy';
+  if (/疑惑|困惑|不解|confus/.test(value)) return 'confused';
+  if (/期待|兴奋|惊喜|excited/.test(value)) return 'excited';
+  if (/困|疲惫|疲倦|tired|sleep/.test(value)) return 'tired';
+  if (/调皮|俏皮|playful/.test(value)) return 'playful';
+  if (/温柔|柔和|安慰|soft/.test(value)) return 'soft';
+  return 'peaceful';
+}
+
+export function findAthenaReplyPrompt(action: AvatarHotZoneAction): string | null {
+  if (action.type === 'athenaReply') return action.promptTemplate?.trim() || null;
+  for (const child of action.actions ?? []) {
+    const prompt = findAthenaReplyPrompt(child);
+    if (prompt) return prompt;
+  }
+  return null;
+}
+
+function sanitizePreferences(value: Partial<AthenaLive2DPreferences>): AthenaLive2DPreferences {
+  return {
+    version: 1,
+    enabled: value.enabled !== false,
+    layout: isLayoutMode(value.layout) ? value.layout : DEFAULT_PREFERENCES.layout,
+    scale: clamp(value.scale, 0.55, 1.45, DEFAULT_PREFERENCES.scale),
+    opacity: clamp(value.opacity, 0.3, 1, DEFAULT_PREFERENCES.opacity),
+  };
+}
+
+function isLayoutMode(value: unknown): value is AvatarLayoutMode {
+  return value === 'chat_right'
+    || value === 'chat_background'
+    || value === 'draggable_overlay'
+    || value === 'desktop_pet';
+}
+
+function clamp(value: unknown, min: number, max: number, fallback: number): number {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? Math.max(min, Math.min(max, value))
+    : fallback;
+}
+
+function asError(value: unknown): Error {
+  return value instanceof Error ? value : new Error(String(value));
+}
