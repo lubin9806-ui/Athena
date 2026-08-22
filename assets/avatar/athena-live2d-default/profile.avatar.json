@@ -1,0 +1,97 @@
+{
+  "id": "athena-live2d-default",
+  "displayName": "Athena Live2D Default",
+  "provider": "live2d",
+  "enabled": true,
+  "model": {
+    "source": "localDirectory",
+    "rootPath": ".",
+    "model3JsonPath": "model/athena-live2d-lite.model3.json",
+    "packageId": "athena-live2d-default",
+    "packageVersion": "0.2.0-lite"
+  },
+  "layout": {
+    "mode": "desktop_pet",
+    "transform": { "x": 32, "y": 80, "scale": 1, "opacity": 1, "rotationDeg": 0, "mirrored": false },
+    "alwaysOnTop": true,
+    "clickThroughMode": "transparentOnly",
+    "transparentBackground": true,
+    "lockPosition": false
+  },
+  "expressions": [
+    { "emotion": "peaceful", "expressionId": "soft_smile", "intensityScale": 0.75, "fallbackExpressionId": "neutral" },
+    { "emotion": "happy", "expressionId": "happy", "intensityScale": 1 },
+    { "emotion": "thoughtful", "expressionId": "thoughtful", "intensityScale": 0.9 },
+    { "emotion": "shy", "expressionId": "shy", "intensityScale": 0.9 },
+    { "emotion": "confused", "expressionId": "confused", "intensityScale": 0.95 },
+    { "emotion": "excited", "expressionId": "surprised", "intensityScale": 0.9, "fallbackExpressionId": "happy" },
+    { "emotion": "tired", "expressionId": "sleepy", "intensityScale": 1 },
+    { "emotion": "playful", "expressionId": "playful", "intensityScale": 1 },
+    { "emotion": "soft", "expressionId": "soft_smile", "intensityScale": 0.85 }
+  ],
+  "motions": [
+    { "state": "idle", "motionGroup": "Idle", "priority": "idle", "loop": true, "fadeInMs": 450, "fadeOutMs": 450 },
+    { "state": "listening", "motionGroup": "Listen", "priority": "focused", "loop": true, "fadeInMs": 250, "fadeOutMs": 300, "fallbackMotionGroup": "Idle" },
+    { "state": "thinking", "motionGroup": "Think", "priority": "focused", "loop": true, "fadeInMs": 250, "fadeOutMs": 300, "fallbackMotionGroup": "Idle" },
+    { "state": "streaming", "motionGroup": "Speak", "priority": "normal", "loop": true, "fadeInMs": 200, "fadeOutMs": 260, "fallbackMotionGroup": "Idle" },
+    { "state": "speaking", "motionGroup": "Speak", "priority": "focused", "loop": true, "fadeInMs": 160, "fadeOutMs": 220, "fallbackMotionGroup": "Idle" },
+    { "state": "interrupted", "motionGroup": "ShakeHead", "priority": "urgent", "loop": false, "fadeInMs": 80, "fadeOutMs": 180, "fallbackMotionGroup": "Idle" },
+    { "state": "error", "motionGroup": "Think", "priority": "urgent", "loop": false, "fadeInMs": 120, "fadeOutMs": 260, "fallbackMotionGroup": "Idle" },
+    { "state": "sleepy", "motionGroup": "Idle", "priority": "idle", "loop": true, "fadeInMs": 500, "fadeOutMs": 500 },
+    { "state": "away", "motionGroup": "Return", "priority": "idle", "loop": true, "fadeInMs": 600, "fadeOutMs": 600, "fallbackMotionGroup": "Idle" }
+  ],
+  "parameters": [
+    { "id": "ParamAngleX", "label": "Head X", "min": -30, "max": 30, "defaultValue": 0, "favorite": true },
+    { "id": "ParamAngleY", "label": "Head Y", "min": -30, "max": 30, "defaultValue": 0, "favorite": true },
+    { "id": "ParamAngleZ", "label": "Head Z", "min": -30, "max": 30, "defaultValue": 0, "favorite": true },
+    { "id": "ParamEyeBallX", "label": "Eye X", "min": -1, "max": 1, "defaultValue": 0, "favorite": false },
+    { "id": "ParamEyeBallY", "label": "Eye Y", "min": -1, "max": 1, "defaultValue": 0, "favorite": false },
+    { "id": "ParamMouthOpenY", "label": "Mouth Open", "min": 0, "max": 1, "defaultValue": 0, "favorite": true },
+    { "id": "ParamMouthForm", "label": "Mouth Form", "min": -1, "max": 1, "defaultValue": 0, "favorite": true },
+    { "id": "ParamHairSwing", "label": "Hair Swing", "min": -1, "max": 1, "defaultValue": 0, "favorite": false }
+  ],
+  "lipSync": {
+    "enabled": true,
+    "source": "ttsAudio",
+    "parameterIds": ["ParamMouthOpenY"],
+    "sensitivity": 1,
+    "smoothing": 0.62,
+    "gain": 1,
+    "attackMs": 35,
+    "releaseMs": 130,
+    "minValue": 0,
+    "maxValue": 1
+  },
+  "pointerTracking": {
+    "enabled": true,
+    "headParameterIds": ["ParamAngleX", "ParamAngleY", "ParamAngleZ"],
+    "eyeParameterIds": ["ParamEyeBallX", "ParamEyeBallY"],
+    "strength": 0.7,
+    "smoothing": 0.48
+  },
+  "idle": {
+    "enabled": true,
+    "idleDelayMs": 30000,
+    "sleepyDelayMs": 300000,
+    "awayDelayMs": 900000,
+    "motionGroups": ["Idle", "Think"],
+    "randomize": true
+  },
+  "hotZones": [
+    { "id": "head", "label": "Head", "hitAreaName": "Head", "action": { "type": "athenaReply", "promptTemplate": "用户轻触了你的头部。以 Athena 桌宠伴侣身份，用自然、简短、温柔但不过度亲昵的中文回应。" }, "cooldownMs": 1400, "enabled": true },
+    { "id": "hair_clip", "label": "Hair Clip", "hitAreaName": "HairClip", "action": { "type": "composite", "actions": [{ "type": "setExpression", "expressionId": "shy" }, { "type": "athenaReply", "promptTemplate": "用户点到了你的银色发夹。用轻松、带一点害羞但克制的中文回应。" }] }, "cooldownMs": 1800, "enabled": true },
+    { "id": "face", "label": "Face", "hitAreaName": "Face", "action": { "type": "athenaReply", "promptTemplate": "用户点了你的脸部区域。用自然、友好、保持边界感的中文回应。" }, "cooldownMs": 1800, "enabled": true },
+    { "id": "hand", "label": "Hand", "hitAreaName": "Hand", "action": { "type": "athenaReply", "promptTemplate": "用户点了你的手。用桌宠陪伴语气给出一句简短反馈，可以主动询问是否需要帮忙。" }, "cooldownMs": 1400, "enabled": true },
+    { "id": "outfit_accent", "label": "Outfit Accent", "hitAreaName": "OutfitAccent", "action": { "type": "playMotion", "motionGroup": "Greet" }, "cooldownMs": 1200, "enabled": true }
+  ],
+  "externalControl": {
+    "transport": "disabled",
+    "enabled": false,
+    "host": "127.0.0.1",
+    "port": 0,
+    "requireToken": true,
+    "allowedCommandTypes": ["avatar.motion.play", "avatar.expression.set", "avatar.parameter.set", "avatar.pointer.move", "avatar.hotZone.trigger"],
+    "auditEnabled": true
+  },
+  "notes": "Runnable Athena Live2D Lite profile. This is a custom layered 2D runtime package, not a Cubism .moc3 export."
+}

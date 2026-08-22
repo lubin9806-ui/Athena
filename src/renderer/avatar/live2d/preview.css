@@ -1,0 +1,66 @@
+:root {
+  color: #20242b;
+  background: #e9edf1;
+  font-family: "Segoe UI", sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+body { margin: 0; min-width: 320px; min-height: 100vh; }
+
+.preview-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(320px, 1fr) 240px;
+}
+
+.stage {
+  min-height: 620px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background-color: #cdd7dc;
+  background-image:
+    linear-gradient(45deg, rgba(255, 255, 255, 0.32) 25%, transparent 25%),
+    linear-gradient(-45deg, rgba(255, 255, 255, 0.32) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, rgba(255, 255, 255, 0.32) 75%),
+    linear-gradient(-45deg, transparent 75%, rgba(255, 255, 255, 0.32) 75%);
+  background-size: 32px 32px;
+  background-position: 0 0, 0 16px, 16px -16px, -16px 0;
+}
+
+#avatar {
+  width: min(72vw, 630px);
+  height: min(94vh, 910px);
+  min-width: 300px;
+  min-height: 520px;
+  touch-action: none;
+}
+
+.controls {
+  padding: 24px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  background: #f8f9fa;
+  border-left: 1px solid #c8cdd2;
+}
+
+.controls strong { font-size: 16px; }
+.controls label { display: grid; gap: 7px; font-size: 12px; color: #59616a; }
+.controls select, .controls input { width: 100%; }
+.controls select {
+  min-height: 34px;
+  border: 1px solid #bfc6cc;
+  border-radius: 4px;
+  background: white;
+  padding: 0 8px;
+}
+.controls output { font-size: 12px; color: #147d68; }
+
+@media (max-width: 720px) {
+  .preview-shell { grid-template-columns: 1fr; grid-template-rows: minmax(520px, 1fr) auto; }
+  .stage { min-height: 520px; }
+  #avatar { width: min(92vw, 520px); height: 74vh; }
+  .controls { border-left: 0; border-top: 1px solid #c8cdd2; padding: 14px; gap: 10px; }
+}

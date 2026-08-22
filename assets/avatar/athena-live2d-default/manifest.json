@@ -1,7 +1,7 @@
 {
   "id": "athena-live2d-default",
-  "version": "0.1.0-source",
-  "status": "source_art_only",
+  "version": "0.2.0-lite",
+  "status": "runnable_live2d_lite",
   "displayName": "Athena Live2D Default",
   "providerTarget": "live2d",
   "createdAt": "2026-08-22",
@@ -12,9 +12,13 @@
     "brief": "../../../docs/LIVE2D_DEFAULT_CHARACTER_BRIEF.md"
   },
   "runtime": {
-    "runnable": false,
-    "expectedModel3Json": "model/athena-live2d-default.model3.json",
-    "blockedReason": "A runnable Live2D package requires Cubism Editor export of moc3/model3.json/textures/motions from layered source art."
+    "runnable": true,
+    "engine": "athena-live2d-lite",
+    "model3Json": "model/athena-live2d-lite.model3.json",
+    "profile": "profile.avatar.json",
+    "cubismRunnable": false,
+    "expectedCubismModel3Json": "model/athena-live2d-default.model3.json",
+    "cubismBlockedReason": "An official Cubism package still requires Cubism Editor mesh, deformer, parameter, physics, motion, and moc3 export work."
   },
   "style": {
     "agePresentation": "adult",

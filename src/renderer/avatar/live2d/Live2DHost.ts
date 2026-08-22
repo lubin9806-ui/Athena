@@ -16,6 +16,7 @@ export interface Live2DHost {
   playMotion(mapping: AvatarMotionMapping): Promise<void>;
   setParameter(parameterId: string, value: number): Promise<void>;
   updatePointer(point: AvatarPoint): Promise<void>;
+  hitTestCanvasPoint?(point: AvatarPoint): string[];
 }
 
 export class MissingLive2DHost implements Live2DHost {
@@ -33,4 +34,3 @@ export class MissingLive2DHost implements Live2DHost {
 
   async updatePointer(): Promise<void> {}
 }
-
