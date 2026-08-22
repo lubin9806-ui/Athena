@@ -1,3 +1,4 @@
 export * from './AvatarRuntime';
+export * from './AvatarLipSyncController';
 export * from './MockAvatarAdapter';
 export * from './live2d';
