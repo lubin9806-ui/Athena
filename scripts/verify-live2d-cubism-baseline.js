@@ -17,7 +17,8 @@ function main() {
   const model = readJson(modelPath);
   const mocPath = path.join(path.dirname(modelPath), model.FileReferences.Moc);
   const texturePaths = model.FileReferences.Textures.map(file => path.join(path.dirname(modelPath), file));
-  const mocHeader = fs.readFileSync(mocPath).subarray(0, 4).toString('ascii');
+  const mocBuffer = fs.readFileSync(mocPath);
+  const mocHeader = mocBuffer.subarray(0, 4).toString('ascii');
 
   assert.equal(manifest.production.cubismRigged, true);
   assert.equal(manifest.production.rigQuality, 'baseline_automatic_unpolished');
@@ -27,16 +28,39 @@ function main() {
   assert.equal(manifest.production.referenceCompositeAtlased, true);
   assert.equal(manifest.production.generatedRigPartsDefaultHidden, true);
   assert.equal(manifest.production.hiddenRigPartsExported, true);
+  assert.equal(manifest.production.expressionVariantSourceReady, true);
+  assert.equal(manifest.production.expressionVariantCount, 3);
+  assert.equal(manifest.production.expressionVariantArtMeshesAtlased, true);
+  assert.equal(manifest.production.visibleBlinkVariantBound, true);
+  assert.equal(manifest.production.visibleMouthOpenVariantBound, true);
+  assert.equal(manifest.production.visibleSmileVariantBound, true);
   assert.equal(manifest.production.visibleEyeAndMouthDeformationPolished, false);
   assert.equal(manifest.production.physicsReady, false);
   assert.equal(manifest.production.expressionsReady, false);
   assert.equal(manifest.production.motionsReady, false);
   assert.equal(manifest.production.hitAreasReady, false);
   assert.ok(fs.statSync(path.join(PACKAGE_ROOT, manifest.production.cubismProject)).size > 1000000);
+  const expressionMetadataPath = path.join(PACKAGE_ROOT, manifest.sourceArt.expressionVariantsMetadata);
+  const expressionPsdPath = path.join(PACKAGE_ROOT, manifest.sourceArt.expressionVariantsPsd);
+  const expressionSheetPath = path.join(PACKAGE_ROOT, manifest.sourceArt.expressionVariantsContactSheet);
+  const expressionMetadata = readJson(expressionMetadataPath);
+  assert.deepEqual(expressionMetadata.variants.map(variant => variant.id), ['blink', 'speak', 'happy']);
+  assert.ok(fs.statSync(expressionPsdPath).size > 500000, 'expression variant PSD is unexpectedly small');
+  assert.ok(fs.statSync(expressionSheetPath).size > 100000, 'expression contact sheet is unexpectedly small');
+  for (const variant of expressionMetadata.variants) {
+    const variantPath = path.join(path.dirname(expressionMetadataPath), variant.output);
+    assert.ok(fs.statSync(variantPath).size > 20000, `expression variant is unexpectedly small: ${variant.id}`);
+    assert.equal(variant.width, 899);
+    assert.equal(variant.height, 1750);
+  }
   assert.equal(mocHeader, 'MOC3', 'exported file does not have a Cubism MOC3 header');
-  assert.ok(fs.statSync(mocPath).size > 50000, 'exported moc3 is unexpectedly small');
+  assert.ok(fs.statSync(mocPath).size > 92000, 'exported moc3 does not include the face-variant rig revision');
   assert.equal(texturePaths.length, 1);
-  assert.ok(fs.statSync(texturePaths[0]).size > 1000000, 'exported texture is unexpectedly small');
+  assert.ok(fs.statSync(texturePaths[0]).size > 3000000, 'exported texture does not include the face-variant atlas revision');
+
+  for (const artMeshId of ['ATH_EXPRESSION_BLINK_PATCH', 'ATH_EXPRESSION_SPEAK_PATCH', 'ATH_EXPRESSION_HAPPY_PATCH']) {
+    assert.ok(mocBuffer.includes(Buffer.from(artMeshId, 'ascii')), `exported MOC3 is missing ${artMeshId}`);
+  }
 
   const groups = Object.fromEntries(model.Groups.map(group => [group.Name, group.Ids]));
   assert.deepEqual(groups.EyeBlink, ['ParamEyeLOpen', 'ParamEyeROpen']);
@@ -51,7 +75,7 @@ function main() {
   assert.ok(scan.referencedFiles.some(file => file.kind === 'texture' && file.exists));
   assert.ok(scan.inventory.lipSyncParameters.includes('ParamMouthOpenY'));
 
-  console.log(`ATHENA_LIVE2D_CUBISM_BASELINE_OK moc=${fs.statSync(mocPath).size} textures=${texturePaths.length} eyeBlink=2 lipSync=1 rig=${manifest.production.rigQuality}`);
+  console.log(`ATHENA_LIVE2D_CUBISM_FACE_VARIANTS_OK moc=${fs.statSync(mocPath).size} textures=${texturePaths.length} variants=${expressionMetadata.variants.length} eyeBlink=2 lipSync=1 rig=${manifest.production.rigQuality}`);
 }
 
 main();

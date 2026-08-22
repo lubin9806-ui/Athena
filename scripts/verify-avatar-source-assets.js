@@ -17,7 +17,7 @@ function main() {
   const expectedCubismModelPath = path.join(PACKAGE_ROOT, manifest.runtime.expectedCubismModel3Json);
 
   assert.equal(manifest.id, 'athena-live2d-default');
-  assert.equal(manifest.status, 'cubism_exported_baseline');
+  assert.equal(manifest.status, 'cubism_face_variants_bound');
   assert.equal(manifest.providerTarget, 'live2d');
   assert.equal(manifest.runtime.runnable, true);
   assert.equal(manifest.runtime.engine, 'athena-live2d-lite');
@@ -30,7 +30,7 @@ function main() {
   assert.ok(Array.isArray(manifest.riggingTargets.requiredParameters));
   assert.ok(manifest.riggingTargets.requiredParameters.includes('ParamMouthOpenY'));
   assert.ok(manifest.riggingTargets.requiredMotionGroups.includes('Speak'));
-  console.log('ATHENA_AVATAR_SOURCE_ASSETS_OK package=athena-live2d-default status=cubism_exported_baseline lite=true cubismExport=true cubismRuntime=false');
+  console.log('ATHENA_AVATAR_SOURCE_ASSETS_OK package=athena-live2d-default status=cubism_face_variants_bound lite=true cubismExport=true cubismRuntime=false');
 }
 
 main();

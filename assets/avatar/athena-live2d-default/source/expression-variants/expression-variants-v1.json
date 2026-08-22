@@ -1,0 +1,85 @@
+{
+  "version": 1,
+  "master": "source/athena-live2d-default-front-v2-alpha.png",
+  "purpose": "Aligned feathered expression patches for Cubism opacity switching.",
+  "variants": [
+    {
+      "id": "blink",
+      "raw": "raw/blink-generated.png",
+      "output": "ATH_EXPRESSION_BLINK_PATCH.png",
+      "width": 899,
+      "height": 1750,
+      "rawBounds": {
+        "left": 221,
+        "top": 57,
+        "right": 702,
+        "bottom": 1610
+      },
+      "transform": {
+        "scaleX": 1.0062370062370063,
+        "scaleY": 0.9961365099806826,
+        "translateX": -2.378378378378386,
+        "translateY": 0.22021893110109403
+      },
+      "patch": {
+        "centerX": 450,
+        "centerY": 190,
+        "radiusX": 104,
+        "radiusY": 76,
+        "featherStart": 0.68
+      }
+    },
+    {
+      "id": "speak",
+      "raw": "raw/speak-generated.png",
+      "output": "ATH_EXPRESSION_SPEAK_PATCH.png",
+      "width": 899,
+      "height": 1750,
+      "rawBounds": {
+        "left": 225,
+        "top": 59,
+        "right": 705,
+        "bottom": 1611
+      },
+      "transform": {
+        "scaleX": 1.0083333333333333,
+        "scaleY": 0.9967783505154639,
+        "translateX": -6.875,
+        "translateY": -1.8099226804123703
+      },
+      "patch": {
+        "centerX": 450,
+        "centerY": 239,
+        "radiusX": 63,
+        "radiusY": 50,
+        "featherStart": 0.62
+      }
+    },
+    {
+      "id": "happy",
+      "raw": "raw/happy-generated.png",
+      "output": "ATH_EXPRESSION_HAPPY_PATCH.png",
+      "width": 899,
+      "height": 1750,
+      "rawBounds": {
+        "left": 225,
+        "top": 60,
+        "right": 708,
+        "bottom": 1611
+      },
+      "transform": {
+        "scaleX": 1.0020703933747412,
+        "scaleY": 0.9974210186976145,
+        "translateX": -5.465838509316768,
+        "translateY": -2.845261121856865
+      },
+      "patch": {
+        "centerX": 450,
+        "centerY": 209,
+        "radiusX": 102,
+        "radiusY": 104,
+        "featherStart": 0.7
+      }
+    }
+  ]
+}

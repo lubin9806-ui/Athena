@@ -1,7 +1,7 @@
 {
   "id": "athena-live2d-default",
-  "version": "0.3.0-cubism-baseline",
-  "status": "cubism_exported_baseline",
+  "version": "0.4.0-cubism-face-variants",
+  "status": "cubism_face_variants_bound",
   "displayName": "Athena Live2D Default",
   "providerTarget": "live2d",
   "createdAt": "2026-08-22",
@@ -11,6 +11,9 @@
     "layeredPsd": "source/athena-live2d-default-layered-v1.psd",
     "partsInventory": "source/parts/parts-inventory-v1.json",
     "partsContactSheet": "source/parts/parts-contact-sheet-v1.png",
+    "expressionVariantsPsd": "source/expression-variants/athena-live2d-expression-variants-v1.psd",
+    "expressionVariantsMetadata": "source/expression-variants/expression-variants-v1.json",
+    "expressionVariantsContactSheet": "source/expression-variants/expression-variants-contact-sheet-v1.png",
     "layerMap": "layer-map.json",
     "conceptBoard": "../../../docs/concepts/athena-live2d-character-concept-v1.png",
     "brief": "../../../docs/LIVE2D_DEFAULT_CHARACTER_BRIEF.md"
@@ -35,6 +38,12 @@
     "referenceCompositeAtlased": true,
     "generatedRigPartsDefaultHidden": true,
     "hiddenRigPartsExported": true,
+    "expressionVariantSourceReady": true,
+    "expressionVariantCount": 3,
+    "expressionVariantArtMeshesAtlased": true,
+    "visibleBlinkVariantBound": true,
+    "visibleMouthOpenVariantBound": true,
+    "visibleSmileVariantBound": true,
     "visibleEyeAndMouthDeformationPolished": false,
     "physicsReady": false,
     "expressionsReady": false,
@@ -48,7 +57,7 @@
     "profile": "profile.avatar.json",
     "cubismRunnable": false,
     "expectedCubismModel3Json": "model/athena-live2d-default.model3.json",
-    "cubismBlockedReason": "The genuine Cubism baseline package is exported, but Athena still needs the Cubism Web runtime adapter and the model still needs visible eye/mouth polish, physics, expressions, motions, and hit areas."
+    "cubismBlockedReason": "The genuine Cubism package now includes parameter-bound blink, mouth-open, and smile ArtMesh variants, but Athena still needs the Cubism Web runtime adapter and the model still needs broader face polish, physics, expression files, authored motions, and hit areas."
   },
   "style": {
     "agePresentation": "adult",

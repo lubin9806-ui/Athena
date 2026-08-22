@@ -140,6 +140,10 @@
 	"ParameterGroups": [],
 	"Parts": [
 		{
+			"Id": "Part",
+			"Name": "athena-live2d-expression-variants-v1.psd"
+		},
+		{
 			"Id": "SkirtAndLegs",
 			"Name": "SkirtAndLegs"
 		},
@@ -158,6 +162,10 @@
 		{
 			"Id": "Head",
 			"Name": "Head"
+		},
+		{
+			"Id": "ExpressionVariants",
+			"Name": "ExpressionVariants"
 		}
 	]
 }

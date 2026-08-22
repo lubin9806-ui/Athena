@@ -2,7 +2,7 @@
 
 This folder contains Athena's default layered 2D desktop companion package and its Cubism production handoff.
 
-Current status: runnable with Athena Live2D Lite and exported as a genuine Cubism 5.3 baseline package. Athena does not load the Cubism package yet, and the Cubism rig is not production-polished.
+Current status: runnable with Athena Live2D Lite and exported as a genuine Cubism 5.3 package with parameter-bound blink, mouth-open, and smile face variants. Athena does not load the Cubism package yet, and the Cubism rig is not production-polished.
 
 ## Files
 
@@ -13,6 +13,9 @@ Current status: runnable with Athena Live2D Lite and exported as a genuine Cubis
 - `source/parts/layers-v1/`: 67 individually sliced transparent PNG layers.
 - `source/parts/parts-inventory-v1.json`: source atlas, crop, dimensions, and pixel inventory for every layer.
 - `source/parts/parts-contact-sheet-v1.png`: visual QA sheet for all generated layers.
+- `source/expression-variants/athena-live2d-expression-variants-v1.psd`: three aligned face patches imported into Cubism as separate ArtMeshes.
+- `source/expression-variants/expression-variants-v1.json`: reproducible alignment, crop, and feather metadata for the blink, mouth-open, and smile patches.
+- `source/expression-variants/expression-variants-contact-sheet-v1.png`: visual QA sheet comparing the three face variants.
 - `model/athena-live2d-lite.model3.json`: drawable layered model, parameters, expressions, motions, and hit areas for Athena's dependency-free 2D host.
 - `model/athena-live2d-default.cmo3`: editable Cubism 5.3 project with generated meshes, full-body deformer hierarchy, face angle keyforms, and blink/lip-sync parameter groups.
 - `model/athena-live2d-default.model3.json`: genuine Cubism SDK manifest.
@@ -44,8 +47,10 @@ The Cubism package now contains:
 - a 4096 px texture PNG
 - display metadata
 - `EyeBlink` and `LipSync` parameter groups
+- separately atlased blink, mouth-open, and smile ArtMeshes
+- blink opacity bound to `ParamEyeLOpen`, mouth-open opacity bound to `ParamMouthOpenY`, and smile opacity bound to `ParamMouthForm`
 
-This is an automated baseline rig, not the final companion model. Angle X/Y and four-corner face keyforms exist, and eye/mouth parameters are bound, but the open/closed eye and mouth shapes still need visible manual refinement. Physics, expressions, authored motions, and hit areas are not present yet. The generated layer composition also needs default-visibility cleanup around alternate face parts.
+This is an automated baseline rig with an initial visible face-variant pass, not the final companion model. Angle X/Y and four-corner face keyforms exist, and the blink, mouth-open, and smile patches are parameter-bound. Broader face deformation polish, physics, `.exp3.json` expression presets, authored motions, and hit areas are not present yet.
 
 The clean high-quality `ATH_REFERENCE_COMPOSITE` is now the default visible ArtMesh and is included in the 4096 px atlas. The 67 generated rig parts are hidden by default but deliberately retained in the MOC3 export, so later eye, mouth, expression, and motion work can reuse their meshes without degrading the default appearance.
 
@@ -62,4 +67,4 @@ Current Cubism baseline deliverable:
 
 - `model/athena-live2d-default.model3.json`
 
-Run `node scripts/verify-live2d-cubism-baseline.js` after compiling Athena to verify the exported binary, texture, parameter groups, and honest readiness flags. The stricter `verify-live2d-production-package.js` gate remains intentionally unmet until expressions, motions, hit areas, and physics are authored.
+Run `node scripts/verify-live2d-cubism-baseline.js` after compiling Athena to verify the exported binary, texture, parameter groups, aligned face sources, and honest readiness flags. The stricter `verify-live2d-production-package.js` gate remains intentionally unmet until expression presets, motions, hit areas, physics, and broader manual polish are authored.
