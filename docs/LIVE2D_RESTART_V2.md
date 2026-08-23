@@ -308,6 +308,17 @@ Produced on 2026-08-24:
 
 Stage 3M status: `RUNTIME HOT-ZONE POLICY PROOF READY, CUBISM RUNTIME PROOF STILL NO-GO`. The proof runs against the compiled `AthenaLive2DCompanion` helper and confirms normal/private prompt boundaries for all current Su Shixia hot zones. It proves the Lite runtime prompt boundary and public private-asset exclusion logic. It does not prove a genuine Cubism `.moc3` load, authored Cubism motion playback, or final public distribution readiness.
 
+## Stage 3N Current Evidence
+
+Produced on 2026-08-24:
+
+- hot-zone event proof: `docs/quality/su-shixia-hot-zone-event-proof.json`;
+- proof generator: `scripts/generate-su-shixia-hot-zone-event-proof.js`;
+- proof verifier: `scripts/verify-su-shixia-hot-zone-event-proof.js`;
+- npm command: `npm.cmd run test:live2d:su-shixia-hot-zone-events`.
+
+Stage 3N status: `CANVAS HOT-ZONE EVENT PROOF READY, PIXEL/CUBISM PROOF STILL SEPARATE`. The proof runs the compiled `Live2DCanvasController` path and confirms representative pointer hits for face, hand, chest, thigh, and hair clip route through hit-test, visual action, runtime event emission, and persona reply callback. It does not prove real Cubism `.moc3` loading or browser pixel output.
+
 ## Acceptance Gates
 
 V2 cannot become the final public Cubism default until all are true:

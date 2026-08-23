@@ -150,10 +150,8 @@ export class Live2DCanvasController {
     const rect = this.canvas.getBoundingClientRect();
     const canvasPoint: AvatarPoint = { x: clientX - rect.left, y: clientY - rect.top };
     const hitAreas = this.options.host.hitTestCanvasPoint?.(canvasPoint) ?? [];
-    const hotZone = this.options.profile.hotZones.find(zone => zone.enabled && (
-      (zone.hitAreaName && hitAreas.includes(zone.hitAreaName))
-      || (zone.rect && pointInsideHotZone(canvasPoint, zone.rect, rect))
-    ));
+    const hotZone = this.options.profile.hotZones.find(zone => zone.enabled && zone.hitAreaName && hitAreas.includes(zone.hitAreaName))
+      ?? this.options.profile.hotZones.find(zone => zone.enabled && zone.rect && pointInsideHotZone(canvasPoint, zone.rect, rect));
     if (!hotZone) return;
     void this.runtime.dispatch({ type: 'hotZone.trigger', hotZoneId: hotZone.id }).then(action => {
       if (!action) return;

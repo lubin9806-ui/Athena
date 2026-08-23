@@ -1,0 +1,197 @@
+{
+  "version": 1,
+  "generatedAt": "2026-08-24",
+  "packageId": "su-shixia-live2d-v2",
+  "status": "go",
+  "runtimeModule": "dist/renderer/avatar/live2d/Live2DCanvasController",
+  "coverage": {
+    "representativeZones": [
+      "face_cheek",
+      "left_hand",
+      "chest",
+      "left_thigh",
+      "hair_clip"
+    ],
+    "callbackCount": 5,
+    "runtimeEvents": [
+      "avatar.load",
+      "avatar.motion",
+      "avatar.state",
+      "avatar.hotZone",
+      "avatar.hotZone",
+      "avatar.hotZone",
+      "avatar.hotZone",
+      "avatar.hotZone"
+    ],
+    "motionGroups": [
+      "TouchFace",
+      "TouchPalm",
+      "TouchChest",
+      "TouchThigh",
+      "TouchHairClip"
+    ],
+    "expressions": [
+      "shy",
+      "happy",
+      "shy",
+      "shy",
+      "shy"
+    ]
+  },
+  "checks": [
+    {
+      "id": "controller-loaded-profile",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "id": "representative-zone-count",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "id": "all-cases-hit-tested",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "id": "all-cases-callback-received",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "id": "all-cases-play-motion",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "id": "all-cases-set-expression",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "id": "all-cases-have-prompt-template",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "id": "normal-mode-boundary-generated",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "id": "private-zone-private-attempt-covered",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "id": "controller-unloaded",
+      "status": "pass",
+      "detail": ""
+    }
+  ],
+  "cases": [
+    {
+      "id": "face_cheek",
+      "hitAreaName": "Face",
+      "bodyPart": "脸颊",
+      "sensitivity": "affectionate",
+      "pointer": {
+        "x": 500,
+        "y": 370
+      },
+      "callbackReceived": true,
+      "motionGroup": "TouchFace",
+      "expressionId": "shy",
+      "hitTestAreas": [
+        "Face"
+      ],
+      "promptTemplatePresent": true,
+      "normalModePromptBoundary": true,
+      "privateAttemptMode": "normal"
+    },
+    {
+      "id": "left_hand",
+      "hitAreaName": "LeftHand",
+      "bodyPart": "手",
+      "sensitivity": "affectionate",
+      "pointer": {
+        "x": 225,
+        "y": 1460.0000000000002
+      },
+      "callbackReceived": true,
+      "motionGroup": "TouchPalm",
+      "expressionId": "happy",
+      "hitTestAreas": [
+        "LeftHand"
+      ],
+      "promptTemplatePresent": true,
+      "normalModePromptBoundary": true,
+      "privateAttemptMode": "normal"
+    },
+    {
+      "id": "chest",
+      "hitAreaName": "Chest",
+      "bodyPart": "胸口",
+      "sensitivity": "private",
+      "pointer": {
+        "x": 500,
+        "y": 799.9999999999999
+      },
+      "callbackReceived": true,
+      "motionGroup": "TouchChest",
+      "expressionId": "shy",
+      "hitTestAreas": [
+        "Chest"
+      ],
+      "promptTemplatePresent": true,
+      "normalModePromptBoundary": true,
+      "privateAttemptMode": "private_opt_in"
+    },
+    {
+      "id": "left_thigh",
+      "hitAreaName": "LeftThigh",
+      "bodyPart": "大腿",
+      "sensitivity": "private",
+      "pointer": {
+        "x": 395,
+        "y": 1450.0000000000002
+      },
+      "callbackReceived": true,
+      "motionGroup": "TouchThigh",
+      "expressionId": "shy",
+      "hitTestAreas": [
+        "LeftThigh"
+      ],
+      "promptTemplatePresent": true,
+      "normalModePromptBoundary": true,
+      "privateAttemptMode": "private_opt_in"
+    },
+    {
+      "id": "hair_clip",
+      "hitAreaName": "HairClip",
+      "bodyPart": "银色 A 字发夹",
+      "sensitivity": "affectionate",
+      "pointer": {
+        "x": 590.0000000000001,
+        "y": 200
+      },
+      "callbackReceived": true,
+      "motionGroup": "TouchHairClip",
+      "expressionId": "shy",
+      "hitTestAreas": [
+        "HairClip"
+      ],
+      "promptTemplatePresent": true,
+      "normalModePromptBoundary": true,
+      "privateAttemptMode": "normal"
+    }
+  ],
+  "boundary": {
+    "provesCanvasPointerToHotZoneAction": true,
+    "provesPersonaReplyCallback": true,
+    "provesCompiledControllerPath": true,
+    "proofDoesNotVerifyRealCubismMoc3": true,
+    "proofDoesNotVerifyBrowserPixelRendering": true
+  }
+}

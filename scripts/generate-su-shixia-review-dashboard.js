@@ -144,6 +144,7 @@ function main() {
   const interactionMatrix = readJson(path.join(PACKAGE_ROOT, manifest.sourceArt.interactionMatrix));
   const interactionAudit = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-interaction-readiness-audit.json'));
   const runtimePolicyProof = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-runtime-policy-proof.json'));
+  const hotZoneEventProof = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-hot-zone-event-proof.json'));
   const orientationContract = readJson(path.join(PACKAGE_ROOT, manifest.sourceArt.orientationContract));
   const orientationAudit = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-orientation-readiness-audit.json'));
 
@@ -349,6 +350,8 @@ function main() {
       ${interactionSummaryTable(interactionMatrix, interactionAudit)}
       <h3>Runtime Policy Proof</h3>
       ${runtimePolicyProofTable(runtimePolicyProof)}
+      <h3>Hot Zone Event Proof</h3>
+      ${hotZoneEventProofTable(hotZoneEventProof)}
       ${interactionZoneTable(interactionMatrix.zones)}
     </section>
 
@@ -486,6 +489,18 @@ function runtimePolicyProofTable(proof) {
           <tr><th>Boundary</th><td>${Object.entries(proof.boundary).map(([key, value]) => `<code>${escapeHtml(key)}=${escapeHtml(value)}</code>`).join(' ')}</td></tr>
         </tbody>
       </table>`;
+}
+
+function hotZoneEventProofTable(proof) {
+  const rows = proof.cases.map(item => [
+    `<code>${escapeHtml(item.id)}</code>`,
+    `<code>${escapeHtml(item.hitAreaName)}</code>`,
+    `<code>${escapeHtml(item.motionGroup)}</code>`,
+    `<code>${escapeHtml(item.expressionId)}</code>`,
+    `<code>${escapeHtml(item.privateAttemptMode)}</code>`,
+  ]);
+  return `${simpleTable(['Zone', 'Hit Area', 'Motion', 'Expression', 'Private Attempt'], rows, true)}
+      <p class="note">Event proof status: <code>${escapeHtml(proof.status)}</code>; callbacks: <code>${proof.coverage.callbackCount}</code>; Cubism moc3 proof: <code>false</code>.</p>`;
 }
 
 function interactionZoneTable(zones) {

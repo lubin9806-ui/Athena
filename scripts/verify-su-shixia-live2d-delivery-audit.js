@@ -18,6 +18,7 @@ function main() {
   assert.equal(manifest.sourceArt.interactionMatrix, 'source/review/interaction-matrix-v1.json');
   assert.equal(manifest.sourceArt.interactionReadinessAudit, '../../../docs/quality/su-shixia-interaction-readiness-audit.json');
   assert.equal(manifest.sourceArt.runtimePolicyProof, '../../../docs/quality/su-shixia-runtime-policy-proof.json');
+  assert.equal(manifest.sourceArt.hotZoneEventProof, '../../../docs/quality/su-shixia-hot-zone-event-proof.json');
   assert.equal(manifest.sourceArt.orientationContract, 'source/review/orientation-contract-v1.json');
   assert.equal(manifest.sourceArt.orientationReadinessAudit, '../../../docs/quality/su-shixia-orientation-readiness-audit.json');
   assert.equal(manifest.production.deliveryAuditReady, true);
@@ -30,6 +31,7 @@ function main() {
   assert.equal(manifest.production.interactionMatrixReady, true);
   assert.equal(manifest.production.interactionReadinessAuditReady, true);
   assert.equal(manifest.production.runtimePolicyProofReady, true);
+  assert.equal(manifest.production.hotZoneEventProofReady, true);
   assert.equal(manifest.production.orientationContractReady, true);
   assert.equal(manifest.production.orientationReadinessAuditReady, true);
   assert.equal(report.version, 1);
@@ -57,6 +59,8 @@ function main() {
   assert.ok(report.blockers.includes('genuine-cubism-export:cubism-export-ready'));
   assert.ok(report.stages.find(item => item.id === 'interaction').checks.some(item => item.id === 'interaction-audit-go' && item.status === 'pass'));
   assert.ok(report.stages.find(item => item.id === 'interaction').checks.some(item => item.id === 'runtime-policy-proof-go' && item.status === 'pass'));
+  assert.ok(report.stages.find(item => item.id === 'interaction').checks.some(item => item.id === 'hot-zone-event-proof-go' && item.status === 'pass'));
+  assert.ok(report.stages.find(item => item.id === 'interaction').checks.some(item => item.id === 'hot-zone-callback-proof' && item.status === 'pass'));
   assert.ok(report.stages.find(item => item.id === 'interaction').checks.some(item => item.id === 'compiled-helper-policy-coverage' && item.status === 'pass'));
   assert.ok(report.stages.find(item => item.id === 'interaction').checks.some(item => item.id === 'interaction-visual-qa-representatives' && item.status === 'pass'));
   assert.ok(report.blockers.includes('appearance-and-wardrobe:true-outfit-swap'));

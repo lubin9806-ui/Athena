@@ -16,6 +16,7 @@ function main() {
   const wardrobeAudit = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-wardrobe-readiness-audit.json'));
   const interactionAudit = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-interaction-readiness-audit.json'));
   const runtimePolicyProof = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-runtime-policy-proof.json'));
+  const hotZoneEventProof = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-hot-zone-event-proof.json'));
   const orientationAudit = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-orientation-readiness-audit.json'));
 
   const stages = [
@@ -65,6 +66,9 @@ function main() {
       check('interaction-readiness-audit-ready', manifest.production.interactionReadinessAuditReady === true),
       check('runtime-policy-proof-ready', manifest.production.runtimePolicyProofReady === true),
       check('runtime-policy-proof-go', runtimePolicyProof.status === 'go'),
+      check('hot-zone-event-proof-ready', manifest.production.hotZoneEventProofReady === true),
+      check('hot-zone-event-proof-go', hotZoneEventProof.status === 'go'),
+      check('hot-zone-callback-proof', hotZoneEventProof.coverage.callbackCount >= 5),
       check('compiled-helper-policy-coverage', runtimePolicyProof.coverage.totalZones === profile.hotZones.length),
       check('runtime-normal-mode-boundary-proof', runtimePolicyProof.boundary.normalModeAdultEscalationAllowed === false),
       check('runtime-private-asset-boundary-proof', runtimePolicyProof.boundary.publicPackagePrivateAssetsAllowed === false),

@@ -228,6 +228,21 @@
           "detail": ""
         },
         {
+          "id": "hot-zone-event-proof-ready",
+          "status": "pass",
+          "detail": ""
+        },
+        {
+          "id": "hot-zone-event-proof-go",
+          "status": "pass",
+          "detail": ""
+        },
+        {
+          "id": "hot-zone-callback-proof",
+          "status": "pass",
+          "detail": ""
+        },
+        {
           "id": "compiled-helper-policy-coverage",
           "status": "pass",
           "detail": ""

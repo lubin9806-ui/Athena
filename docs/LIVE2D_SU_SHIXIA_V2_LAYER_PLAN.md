@@ -355,3 +355,14 @@ Produced on 2026-08-24:
 - npm command: `npm.cmd run test:live2d:su-shixia-runtime-policy`.
 
 Stage 3M status: `RUNTIME HOT-ZONE POLICY PROOF READY`. The proof uses the compiled `AthenaLive2DCompanion` helper to verify all 37 current hot zones in normal mode and private-opt-in attempts. Private-capable zones enter `private_opt_in` only when allowed by zone metadata; non-private zones fall back to normal even under a private-mode attempt. Sensitive and private zones in normal mode include the no-adult-escalation boundary. This is still Lite runtime policy evidence, not genuine Cubism export evidence.
+
+## Stage 3N Hot-Zone Event Proof
+
+Produced on 2026-08-24:
+
+- hot-zone event proof: `docs/quality/su-shixia-hot-zone-event-proof.json`;
+- proof generator: `scripts/generate-su-shixia-hot-zone-event-proof.js`;
+- proof verifier: `scripts/verify-su-shixia-hot-zone-event-proof.js`;
+- npm command: `npm.cmd run test:live2d:su-shixia-hot-zone-events`.
+
+Stage 3N status: `CANVAS HOT-ZONE EVENT PROOF READY`. The proof uses the compiled `Live2DCanvasController` and a fake Live2D host to prove representative canvas pointer hits route to `hotZone.trigger`, visual actions, runtime events, and the persona callback for face, hand, chest, thigh, and hair clip. It does not validate browser pixel rendering, true Cubism `.moc3`, or full orientation-specific hit maps.
