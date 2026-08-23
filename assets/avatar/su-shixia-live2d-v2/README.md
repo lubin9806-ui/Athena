@@ -21,6 +21,7 @@ Included:
 - Athena avatar profile configured as the default Su Shixia V2 model variant;
 - reference-driven motion groups mapped from Haru official sample groups and Su Shixia interaction storyboards;
 - 14 semantic touch zones for hair, face, hands, clothing, torso, legs, and feet.
+- Cubism Editor handoff package with rig spec, motion templates, physics template, display info template, and export runbook.
 
 Not included:
 
@@ -43,4 +44,4 @@ npm.cmd run test:live2d:su-shixia-source
 npm.cmd run test:live2d:su-shixia-runtime
 ```
 
-The Lite runtime preview is allowed for local Athena integration and review. Source directories must remain excluded from public installers. Public distribution stays blocked pending source refinement, rights review, Live2D license review, genuine Cubism rigging, and runtime QA.
+The Lite runtime preview is allowed for local Athena integration and review. The Cubism handoff package is ready for Editor work, but a genuine `.moc3` has not been exported. Source and handoff directories must remain excluded from public installers. Public distribution stays blocked pending source refinement, rights review, Live2D license review, genuine Cubism rigging, and runtime QA.

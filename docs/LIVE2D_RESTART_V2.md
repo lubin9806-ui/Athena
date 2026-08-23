@@ -157,8 +157,12 @@ Produced on 2026-08-24:
 - reproducible runtime gate: `npm.cmd run test:live2d:su-shixia-runtime`;
 - Athena integration gate: `npm.cmd run test:live2d:integration`;
 - desktop pet smoke gate: `npm.cmd run test:live2d:desktop-pet`.
+- Cubism Editor handoff package: `assets/avatar/su-shixia-live2d-v2/cubism-handoff`;
+- 13 `.motion3.json` reference templates plus physics and display-info templates.
 
 Stage 3A status: `LITE RUNTIME PREVIEW READY`. Su Shixia V2 is now the default Athena Live2D model variant for local preview and desktop-pet smoke. This is not a genuine Cubism export: `cubismProjectReady` and `cubismExportReady` remain false. Haru remains the Cubism Web quality benchmark and motion reference source, not Athena's default identity.
+
+Cubism Editor 5.3 is installed locally at `C:\Program Files\Live2D Cubism 5.3`, but no supported headless `.moc3` export command was found. The current handoff is therefore ready for Editor-based rigging/export, not an automated Cubism build.
 
 ## Acceptance Gates
 

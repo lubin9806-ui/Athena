@@ -1,0 +1,392 @@
+{
+  "id": "su-shixia-live2d-v2-cubism-rig-spec",
+  "status": "cubism_editor_handoff_ready",
+  "sourcePsd": "../source/su-shixia-front-layered-v1.psd",
+  "canvas": {
+    "width": 919,
+    "height": 1712
+  },
+  "parameters": [
+    {
+      "id": "ParamAngleX",
+      "label": "Angle X",
+      "min": -30,
+      "max": 30,
+      "defaultValue": 0,
+      "group": "head"
+    },
+    {
+      "id": "ParamAngleY",
+      "label": "Angle Y",
+      "min": -30,
+      "max": 30,
+      "defaultValue": 0,
+      "group": "head"
+    },
+    {
+      "id": "ParamAngleZ",
+      "label": "Angle Z",
+      "min": -30,
+      "max": 30,
+      "defaultValue": 0,
+      "group": "head"
+    },
+    {
+      "id": "ParamEyeLOpen",
+      "label": "Left Eye Open",
+      "min": 0,
+      "max": 1,
+      "defaultValue": 1,
+      "group": "eye"
+    },
+    {
+      "id": "ParamEyeROpen",
+      "label": "Right Eye Open",
+      "min": 0,
+      "max": 1,
+      "defaultValue": 1,
+      "group": "eye"
+    },
+    {
+      "id": "ParamEyeBallX",
+      "label": "Eye Ball X",
+      "min": -1,
+      "max": 1,
+      "defaultValue": 0,
+      "group": "eye"
+    },
+    {
+      "id": "ParamEyeBallY",
+      "label": "Eye Ball Y",
+      "min": -1,
+      "max": 1,
+      "defaultValue": 0,
+      "group": "eye"
+    },
+    {
+      "id": "ParamMouthOpenY",
+      "label": "Mouth Open Y",
+      "min": 0,
+      "max": 1,
+      "defaultValue": 0,
+      "group": "mouth"
+    },
+    {
+      "id": "ParamMouthForm",
+      "label": "Mouth Form",
+      "min": -1,
+      "max": 1,
+      "defaultValue": 0,
+      "group": "mouth"
+    },
+    {
+      "id": "ParamBodyAngleX",
+      "label": "Body Angle X",
+      "min": -10,
+      "max": 10,
+      "defaultValue": 0,
+      "group": "body"
+    },
+    {
+      "id": "ParamBodyAngleY",
+      "label": "Body Angle Y",
+      "min": -10,
+      "max": 10,
+      "defaultValue": 0,
+      "group": "body"
+    },
+    {
+      "id": "ParamBodyAngleZ",
+      "label": "Body Angle Z",
+      "min": -10,
+      "max": 10,
+      "defaultValue": 0,
+      "group": "body"
+    },
+    {
+      "id": "ParamBreath",
+      "label": "Breath",
+      "min": 0,
+      "max": 1,
+      "defaultValue": 0,
+      "group": "body"
+    },
+    {
+      "id": "ParamHairFront",
+      "label": "Hair Front Swing",
+      "min": -1,
+      "max": 1,
+      "defaultValue": 0,
+      "group": "physics"
+    },
+    {
+      "id": "ParamHairSide",
+      "label": "Hair Side Swing",
+      "min": -1,
+      "max": 1,
+      "defaultValue": 0,
+      "group": "physics"
+    },
+    {
+      "id": "ParamHairBack",
+      "label": "Hair Back Swing",
+      "min": -1,
+      "max": 1,
+      "defaultValue": 0,
+      "group": "physics"
+    },
+    {
+      "id": "ParamSkirtSwing",
+      "label": "Skirt Swing",
+      "min": -1,
+      "max": 1,
+      "defaultValue": 0,
+      "group": "physics"
+    },
+    {
+      "id": "ParamArmL",
+      "label": "Left Arm Pose",
+      "min": -1,
+      "max": 1,
+      "defaultValue": 0,
+      "group": "arm"
+    },
+    {
+      "id": "ParamArmR",
+      "label": "Right Arm Pose",
+      "min": -1,
+      "max": 1,
+      "defaultValue": 0,
+      "group": "arm"
+    },
+    {
+      "id": "ParamHandCheek",
+      "label": "Cheek Touch Hand Overlay",
+      "min": 0,
+      "max": 1,
+      "defaultValue": 0,
+      "group": "arm"
+    }
+  ],
+  "deformers": [
+    {
+      "id": "Root",
+      "parent": null,
+      "parameters": [
+        "ParamBodyAngleX",
+        "ParamBodyAngleY",
+        "ParamBodyAngleZ"
+      ]
+    },
+    {
+      "id": "Body",
+      "parent": "Root",
+      "parameters": [
+        "ParamBreath",
+        "ParamBodyAngleX",
+        "ParamBodyAngleZ"
+      ]
+    },
+    {
+      "id": "Head",
+      "parent": "Root",
+      "parameters": [
+        "ParamAngleX",
+        "ParamAngleY",
+        "ParamAngleZ"
+      ]
+    },
+    {
+      "id": "Eyes",
+      "parent": "Head",
+      "parameters": [
+        "ParamEyeBallX",
+        "ParamEyeBallY",
+        "ParamEyeLOpen",
+        "ParamEyeROpen"
+      ]
+    },
+    {
+      "id": "Mouth",
+      "parent": "Head",
+      "parameters": [
+        "ParamMouthOpenY",
+        "ParamMouthForm"
+      ]
+    },
+    {
+      "id": "HairFront",
+      "parent": "Head",
+      "parameters": [
+        "ParamAngleX",
+        "ParamHairFront"
+      ]
+    },
+    {
+      "id": "HairSide",
+      "parent": "Head",
+      "parameters": [
+        "ParamAngleX",
+        "ParamHairSide"
+      ]
+    },
+    {
+      "id": "HairBack",
+      "parent": "Head",
+      "parameters": [
+        "ParamBodyAngleX",
+        "ParamHairBack"
+      ]
+    },
+    {
+      "id": "Arms",
+      "parent": "Body",
+      "parameters": [
+        "ParamArmL",
+        "ParamArmR",
+        "ParamHandCheek"
+      ]
+    },
+    {
+      "id": "Skirt",
+      "parent": "Body",
+      "parameters": [
+        "ParamBodyAngleX",
+        "ParamSkirtSwing"
+      ]
+    },
+    {
+      "id": "Legs",
+      "parent": "Root",
+      "parameters": [
+        "ParamBodyAngleX"
+      ]
+    }
+  ],
+  "meshGroups": [
+    {
+      "id": "Head",
+      "parts": [
+        "SSX_HEAD_FACE_BASE",
+        "SSX_HEAD_NECK"
+      ]
+    },
+    {
+      "id": "Eyes",
+      "parts": [
+        "SSX_EYE_L_WHITE",
+        "SSX_EYE_L_IRIS",
+        "SSX_EYE_L_PUPIL",
+        "SSX_EYE_L_HIGHLIGHT",
+        "SSX_EYE_L_UPPER_LASH",
+        "SSX_EYE_L_LOWER_LASH",
+        "SSX_EYE_L_CLOSED",
+        "SSX_EYE_R_WHITE",
+        "SSX_EYE_R_IRIS",
+        "SSX_EYE_R_PUPIL",
+        "SSX_EYE_R_HIGHLIGHT",
+        "SSX_EYE_R_UPPER_LASH",
+        "SSX_EYE_R_LOWER_LASH",
+        "SSX_EYE_R_CLOSED"
+      ]
+    },
+    {
+      "id": "Brows",
+      "parts": [
+        "SSX_BROW_L",
+        "SSX_BROW_R"
+      ]
+    },
+    {
+      "id": "Mouth",
+      "parts": [
+        "SSX_MOUTH_CLOSED",
+        "SSX_MOUTH_OPEN_SMALL",
+        "SSX_MOUTH_OPEN_WIDE",
+        "SSX_MOUTH_FORM_EI",
+        "SSX_MOUTH_FORM_OU",
+        "SSX_MOUTH_FORM_MBP"
+      ]
+    },
+    {
+      "id": "Hair",
+      "parts": [
+        "SSX_HAIR_REAR_CENTER",
+        "SSX_HAIR_REAR_LEFT",
+        "SSX_HAIR_REAR_RIGHT",
+        "SSX_HAIR_BANGS_CENTER",
+        "SSX_HAIR_BANGS_LEFT",
+        "SSX_HAIR_BANGS_RIGHT",
+        "SSX_HAIR_SIDE_LOCK_LEFT",
+        "SSX_HAIR_SIDE_LOCK_RIGHT",
+        "SSX_HAIR_LOOSE_STRANDS"
+      ]
+    },
+    {
+      "id": "Accessory",
+      "parts": [
+        "SSX_ACCESSORY_HAIR_CLIP"
+      ]
+    },
+    {
+      "id": "Body",
+      "parts": [
+        "SSX_TORSO_BASE",
+        "SSX_BLOUSE_FRONT",
+        "SSX_BLOUSE_COLLAR_L",
+        "SSX_BLOUSE_COLLAR_R",
+        "SSX_BLOUSE_SLEEVE_L",
+        "SSX_BLOUSE_SLEEVE_R",
+        "SSX_BLOUSE_BUTTON_PLACKET",
+        "SSX_BLOUSE_BACK_FILL"
+      ]
+    },
+    {
+      "id": "Arms",
+      "parts": [
+        "SSX_ARM_UPPER_L",
+        "SSX_ARM_LOWER_L",
+        "SSX_HAND_NEUTRAL_L",
+        "SSX_HAND_CHEEK_L",
+        "SSX_ARM_UPPER_R",
+        "SSX_ARM_LOWER_R",
+        "SSX_HAND_NEUTRAL_R",
+        "SSX_HAND_CHEEK_R"
+      ]
+    },
+    {
+      "id": "Skirt",
+      "parts": [
+        "SSX_WAIST_PELVIS_BASE",
+        "SSX_SKIRT_WAIST",
+        "SSX_SKIRT_REAR_BASE",
+        "SSX_SKIRT_FRONT_BASE",
+        "SSX_SKIRT_PLEATS_L",
+        "SSX_SKIRT_PLEATS_CENTER",
+        "SSX_SKIRT_PLEATS_R",
+        "SSX_SKIRT_HEM_UNDERSIDE"
+      ]
+    },
+    {
+      "id": "Legs",
+      "parts": [
+        "SSX_THIGH_L",
+        "SSX_CALF_L",
+        "SSX_KNEE_OVERLAY_L",
+        "SSX_THIGH_R",
+        "SSX_CALF_R",
+        "SSX_KNEE_OVERLAY_R",
+        "SSX_SHOE_L",
+        "SSX_SHOE_R"
+      ]
+    }
+  ],
+  "requiredExports": [
+    "model/su-shixia-live2d-v2.moc3",
+    "model/su-shixia-live2d-v2.model3.json",
+    "model/su-shixia-live2d-v2.physics3.json",
+    "model/su-shixia-live2d-v2.cdi3.json",
+    "model/textures/texture_00.png"
+  ],
+  "notAutomated": "Cubism Editor 5.3 is installed locally, but no supported headless moc3 export command was found. Mesh/deformer authoring and export remain a manual Editor step."
+}

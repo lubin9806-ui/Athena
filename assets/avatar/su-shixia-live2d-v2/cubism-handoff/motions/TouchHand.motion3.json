@@ -1,0 +1,48 @@
+{
+  "Version": 3,
+  "Meta": {
+    "Name": "TouchHand",
+    "Duration": 1.7,
+    "Fps": 30,
+    "Loop": false,
+    "AreBeziersRestricted": true,
+    "CurveCount": 2,
+    "TotalSegmentCount": 5,
+    "TotalPointCount": 7,
+    "UserDataCount": 0,
+    "TotalUserDataSize": 0
+  },
+  "Curves": [
+    {
+      "Target": "Parameter",
+      "Id": "ParamArmR",
+      "Segments": [
+        0,
+        0,
+        0,
+        0.35,
+        0.8,
+        0,
+        1.15,
+        0.35,
+        0,
+        1.7,
+        0
+      ]
+    },
+    {
+      "Target": "Parameter",
+      "Id": "ParamMouthForm",
+      "Segments": [
+        0,
+        0,
+        0,
+        0.35,
+        0.45,
+        0,
+        1.7,
+        0
+      ]
+    }
+  ]
+}

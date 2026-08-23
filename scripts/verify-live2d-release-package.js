@@ -30,6 +30,7 @@ const FORBIDDEN_ENTRY_PATTERNS = [
   /(?:^|\/)athena-live2d-default\/layer-map\.json$/,
   /(?:^|\/)su-shixia-live2d-v2\/source(?:\/|$)/,
   /(?:^|\/)su-shixia-live2d-v2\/layer-map\.json$/,
+  /(?:^|\/)su-shixia-live2d-v2\/cubism-handoff(?:\/|$)/,
   /(?:^|\/)su-shixia-live2d-v2-private(?:\/|$)/,
   /(?:^|\/)athena-3d-default(?:\/|$)/,
   /(?:^|\/)live2d-official-haru\/sounds(?:\/|$)/,
@@ -49,6 +50,7 @@ function verifySourceContract() {
     'avatar/athena-live2d-default/layer-map.json',
     'avatar/su-shixia-live2d-v2/source',
     'avatar/su-shixia-live2d-v2/layer-map.json',
+    'avatar/su-shixia-live2d-v2/cubism-handoff',
     'avatar/su-shixia-live2d-v2-private',
     'avatar/athena-3d-default',
   ]) {
@@ -73,6 +75,7 @@ function verifyBuiltRenderer() {
     'dist/renderer/avatar/athena-live2d-default/layer-map.json',
     'dist/renderer/avatar/su-shixia-live2d-v2/source',
     'dist/renderer/avatar/su-shixia-live2d-v2/layer-map.json',
+    'dist/renderer/avatar/su-shixia-live2d-v2/cubism-handoff',
     'dist/renderer/avatar/su-shixia-live2d-v2-private',
     'dist/renderer/avatar/athena-3d-default',
     'dist/renderer/avatar/live2d-official-haru/sounds',

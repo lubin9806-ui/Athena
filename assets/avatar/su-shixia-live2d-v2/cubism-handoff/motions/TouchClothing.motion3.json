@@ -1,0 +1,48 @@
+{
+  "Version": 3,
+  "Meta": {
+    "Name": "TouchClothing",
+    "Duration": 1.6,
+    "Fps": 30,
+    "Loop": false,
+    "AreBeziersRestricted": true,
+    "CurveCount": 2,
+    "TotalSegmentCount": 5,
+    "TotalPointCount": 7,
+    "UserDataCount": 0,
+    "TotalUserDataSize": 0
+  },
+  "Curves": [
+    {
+      "Target": "Parameter",
+      "Id": "ParamBodyAngleZ",
+      "Segments": [
+        0,
+        0,
+        0,
+        0.32,
+        -3,
+        0,
+        0.78,
+        2,
+        0,
+        1.6,
+        0
+      ]
+    },
+    {
+      "Target": "Parameter",
+      "Id": "ParamMouthForm",
+      "Segments": [
+        0,
+        0,
+        0,
+        0.3,
+        -0.22,
+        0,
+        1.6,
+        0
+      ]
+    }
+  ]
+}

@@ -12,6 +12,7 @@ function prunePrivateAvatarSources() {
     'avatar/athena-live2d-default/README.md',
     'avatar/su-shixia-live2d-v2/source',
     'avatar/su-shixia-live2d-v2/layer-map.json',
+    'avatar/su-shixia-live2d-v2/cubism-handoff',
     'avatar/su-shixia-live2d-v2-private',
     'avatar/athena-3d-default',
   ];

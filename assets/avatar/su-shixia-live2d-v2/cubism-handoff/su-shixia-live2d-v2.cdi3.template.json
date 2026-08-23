@@ -1,0 +1,291 @@
+{
+  "Version": 3,
+  "ParameterGroups": [
+    {
+      "Id": "ParamGroupHead",
+      "GroupName": "Head",
+      "Ids": [
+        "ParamAngleX",
+        "ParamAngleY",
+        "ParamAngleZ"
+      ]
+    },
+    {
+      "Id": "ParamGroupEye",
+      "GroupName": "Eye",
+      "Ids": [
+        "ParamEyeLOpen",
+        "ParamEyeROpen",
+        "ParamEyeBallX",
+        "ParamEyeBallY"
+      ]
+    },
+    {
+      "Id": "ParamGroupMouth",
+      "GroupName": "Mouth",
+      "Ids": [
+        "ParamMouthOpenY",
+        "ParamMouthForm"
+      ]
+    },
+    {
+      "Id": "ParamGroupBody",
+      "GroupName": "Body",
+      "Ids": [
+        "ParamBodyAngleX",
+        "ParamBodyAngleY",
+        "ParamBodyAngleZ",
+        "ParamBreath"
+      ]
+    },
+    {
+      "Id": "ParamGroupPhysics",
+      "GroupName": "Physics",
+      "Ids": [
+        "ParamHairFront",
+        "ParamHairSide",
+        "ParamHairBack",
+        "ParamSkirtSwing"
+      ]
+    },
+    {
+      "Id": "ParamGroupArms",
+      "GroupName": "Arms",
+      "Ids": [
+        "ParamArmL",
+        "ParamArmR",
+        "ParamHandCheek"
+      ]
+    }
+  ],
+  "Parameters": [
+    {
+      "Id": "ParamAngleX",
+      "GroupId": "ParamGroupHead",
+      "Name": "Angle X"
+    },
+    {
+      "Id": "ParamAngleY",
+      "GroupId": "ParamGroupHead",
+      "Name": "Angle Y"
+    },
+    {
+      "Id": "ParamAngleZ",
+      "GroupId": "ParamGroupHead",
+      "Name": "Angle Z"
+    },
+    {
+      "Id": "ParamEyeLOpen",
+      "GroupId": "ParamGroupEye",
+      "Name": "Left Eye Open"
+    },
+    {
+      "Id": "ParamEyeROpen",
+      "GroupId": "ParamGroupEye",
+      "Name": "Right Eye Open"
+    },
+    {
+      "Id": "ParamEyeBallX",
+      "GroupId": "ParamGroupEye",
+      "Name": "Eye Ball X"
+    },
+    {
+      "Id": "ParamEyeBallY",
+      "GroupId": "ParamGroupEye",
+      "Name": "Eye Ball Y"
+    },
+    {
+      "Id": "ParamMouthOpenY",
+      "GroupId": "ParamGroupMouth",
+      "Name": "Mouth Open Y"
+    },
+    {
+      "Id": "ParamMouthForm",
+      "GroupId": "ParamGroupMouth",
+      "Name": "Mouth Form"
+    },
+    {
+      "Id": "ParamBodyAngleX",
+      "GroupId": "ParamGroupBody",
+      "Name": "Body Angle X"
+    },
+    {
+      "Id": "ParamBodyAngleY",
+      "GroupId": "ParamGroupBody",
+      "Name": "Body Angle Y"
+    },
+    {
+      "Id": "ParamBodyAngleZ",
+      "GroupId": "ParamGroupBody",
+      "Name": "Body Angle Z"
+    },
+    {
+      "Id": "ParamBreath",
+      "GroupId": "ParamGroupBody",
+      "Name": "Breath"
+    },
+    {
+      "Id": "ParamHairFront",
+      "GroupId": "ParamGroupPhysics",
+      "Name": "Hair Front Swing"
+    },
+    {
+      "Id": "ParamHairSide",
+      "GroupId": "ParamGroupPhysics",
+      "Name": "Hair Side Swing"
+    },
+    {
+      "Id": "ParamHairBack",
+      "GroupId": "ParamGroupPhysics",
+      "Name": "Hair Back Swing"
+    },
+    {
+      "Id": "ParamSkirtSwing",
+      "GroupId": "ParamGroupPhysics",
+      "Name": "Skirt Swing"
+    },
+    {
+      "Id": "ParamArmL",
+      "GroupId": "ParamGroupArm",
+      "Name": "Left Arm Pose"
+    },
+    {
+      "Id": "ParamArmR",
+      "GroupId": "ParamGroupArm",
+      "Name": "Right Arm Pose"
+    },
+    {
+      "Id": "ParamHandCheek",
+      "GroupId": "ParamGroupArm",
+      "Name": "Cheek Touch Hand Overlay"
+    }
+  ],
+  "PartGroups": [
+    {
+      "Id": "PartGroupHead",
+      "GroupName": "Head",
+      "Ids": [
+        "SSX_HEAD_FACE_BASE",
+        "SSX_HEAD_NECK"
+      ]
+    },
+    {
+      "Id": "PartGroupEyes",
+      "GroupName": "Eyes",
+      "Ids": [
+        "SSX_EYE_L_WHITE",
+        "SSX_EYE_L_IRIS",
+        "SSX_EYE_L_PUPIL",
+        "SSX_EYE_L_HIGHLIGHT",
+        "SSX_EYE_L_UPPER_LASH",
+        "SSX_EYE_L_LOWER_LASH",
+        "SSX_EYE_L_CLOSED",
+        "SSX_EYE_R_WHITE",
+        "SSX_EYE_R_IRIS",
+        "SSX_EYE_R_PUPIL",
+        "SSX_EYE_R_HIGHLIGHT",
+        "SSX_EYE_R_UPPER_LASH",
+        "SSX_EYE_R_LOWER_LASH",
+        "SSX_EYE_R_CLOSED"
+      ]
+    },
+    {
+      "Id": "PartGroupBrows",
+      "GroupName": "Brows",
+      "Ids": [
+        "SSX_BROW_L",
+        "SSX_BROW_R"
+      ]
+    },
+    {
+      "Id": "PartGroupMouth",
+      "GroupName": "Mouth",
+      "Ids": [
+        "SSX_MOUTH_CLOSED",
+        "SSX_MOUTH_OPEN_SMALL",
+        "SSX_MOUTH_OPEN_WIDE",
+        "SSX_MOUTH_FORM_EI",
+        "SSX_MOUTH_FORM_OU",
+        "SSX_MOUTH_FORM_MBP"
+      ]
+    },
+    {
+      "Id": "PartGroupHair",
+      "GroupName": "Hair",
+      "Ids": [
+        "SSX_HAIR_REAR_CENTER",
+        "SSX_HAIR_REAR_LEFT",
+        "SSX_HAIR_REAR_RIGHT",
+        "SSX_HAIR_BANGS_CENTER",
+        "SSX_HAIR_BANGS_LEFT",
+        "SSX_HAIR_BANGS_RIGHT",
+        "SSX_HAIR_SIDE_LOCK_LEFT",
+        "SSX_HAIR_SIDE_LOCK_RIGHT",
+        "SSX_HAIR_LOOSE_STRANDS"
+      ]
+    },
+    {
+      "Id": "PartGroupAccessory",
+      "GroupName": "Accessory",
+      "Ids": [
+        "SSX_ACCESSORY_HAIR_CLIP"
+      ]
+    },
+    {
+      "Id": "PartGroupBody",
+      "GroupName": "Body",
+      "Ids": [
+        "SSX_TORSO_BASE",
+        "SSX_BLOUSE_FRONT",
+        "SSX_BLOUSE_COLLAR_L",
+        "SSX_BLOUSE_COLLAR_R",
+        "SSX_BLOUSE_SLEEVE_L",
+        "SSX_BLOUSE_SLEEVE_R",
+        "SSX_BLOUSE_BUTTON_PLACKET",
+        "SSX_BLOUSE_BACK_FILL"
+      ]
+    },
+    {
+      "Id": "PartGroupArms",
+      "GroupName": "Arms",
+      "Ids": [
+        "SSX_ARM_UPPER_L",
+        "SSX_ARM_LOWER_L",
+        "SSX_HAND_NEUTRAL_L",
+        "SSX_HAND_CHEEK_L",
+        "SSX_ARM_UPPER_R",
+        "SSX_ARM_LOWER_R",
+        "SSX_HAND_NEUTRAL_R",
+        "SSX_HAND_CHEEK_R"
+      ]
+    },
+    {
+      "Id": "PartGroupSkirt",
+      "GroupName": "Skirt",
+      "Ids": [
+        "SSX_WAIST_PELVIS_BASE",
+        "SSX_SKIRT_WAIST",
+        "SSX_SKIRT_REAR_BASE",
+        "SSX_SKIRT_FRONT_BASE",
+        "SSX_SKIRT_PLEATS_L",
+        "SSX_SKIRT_PLEATS_CENTER",
+        "SSX_SKIRT_PLEATS_R",
+        "SSX_SKIRT_HEM_UNDERSIDE"
+      ]
+    },
+    {
+      "Id": "PartGroupLegs",
+      "GroupName": "Legs",
+      "Ids": [
+        "SSX_THIGH_L",
+        "SSX_CALF_L",
+        "SSX_KNEE_OVERLAY_L",
+        "SSX_THIGH_R",
+        "SSX_CALF_R",
+        "SSX_KNEE_OVERLAY_R",
+        "SSX_SHOE_L",
+        "SSX_SHOE_R"
+      ]
+    }
+  ]
+}

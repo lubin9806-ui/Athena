@@ -19,6 +19,7 @@
     "runtimeProfile": "profile.avatar.json",
     "liteRuntimeModel": "model/su-shixia-live2d-v2-lite.model3.json",
     "liteRuntimeLayersDirectory": "model/layers-v1",
+    "cubismHandoffDirectory": "cubism-handoff",
     "rawDirectory": "source/raw",
     "rawPartsDirectory": "source/parts/raw"
   },
@@ -36,6 +37,11 @@
     "runtimeReady": true,
     "athenaDefaultVariant": true,
     "motionReferenceDriven": true,
+    "cubismEditorInstalledLocally": true,
+    "cubismHandoffReady": true,
+    "cubismMotionTemplateCount": 13,
+    "cubismPhysicsTemplateReady": true,
+    "cubismHeadlessExportAvailable": false,
     "motionReferenceSources": [
       "Live2D/CubismWebSamples Haru official sample motion groups",
       "Live2D Cubism motion3 JSON format",
