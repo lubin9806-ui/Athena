@@ -25,6 +25,7 @@
     "cubismHandoffDirectory": "cubism-handoff",
     "cubismEditorReadinessChecklist": "cubism-handoff/CUBISM_EDITOR_READINESS_CHECKLIST.md",
     "cubismExportGate": "cubism-handoff/export-gate.json",
+    "cubismExportAuditReport": "../../../docs/quality/su-shixia-cubism-export-audit.json",
     "rawDirectory": "source/raw",
     "rawPartsDirectory": "source/parts/raw"
   },
@@ -56,6 +57,7 @@
     "cubismHandoffReady": true,
     "cubismEditorReadinessChecklistReady": true,
     "cubismExportGateReady": true,
+    "cubismExportAuditReady": true,
     "cubismAppearanceVisibilityParamReady": true,
     "cubismMotionTemplateCount": 37,
     "cubismPhysicsTemplateReady": true,

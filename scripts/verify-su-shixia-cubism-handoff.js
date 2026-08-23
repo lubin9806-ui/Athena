@@ -11,6 +11,8 @@ function main() {
   const physics = readJson(path.join(HANDOFF_ROOT, 'su-shixia-live2d-v2.physics3.template.json'));
   const cdi = readJson(path.join(HANDOFF_ROOT, 'su-shixia-live2d-v2.cdi3.template.json'));
   const exportGate = readJson(path.join(HANDOFF_ROOT, 'export-gate.json'));
+  const auditReport = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-cubism-export-audit.json'));
+  const packageJson = readJson(path.join(ROOT, 'package.json'));
   const profile = readJson(path.join(ROOT, 'assets', 'avatar', 'su-shixia-live2d-v2', 'profile.avatar.json'));
   const runbook = fs.readFileSync(path.join(HANDOFF_ROOT, 'CUBISM_EXPORT_RUNBOOK.md'), 'utf8');
   const checklist = fs.readFileSync(path.join(HANDOFF_ROOT, 'CUBISM_EDITOR_READINESS_CHECKLIST.md'), 'utf8');
@@ -19,10 +21,14 @@ function main() {
 
   assert.equal(manifest.sourceArt.cubismEditorReadinessChecklist, 'cubism-handoff/CUBISM_EDITOR_READINESS_CHECKLIST.md');
   assert.equal(manifest.sourceArt.cubismExportGate, 'cubism-handoff/export-gate.json');
+  assert.equal(manifest.sourceArt.cubismExportAuditReport, '../../../docs/quality/su-shixia-cubism-export-audit.json');
   assert.equal(manifest.production.cubismEditorReadinessChecklistReady, true);
   assert.equal(manifest.production.cubismExportGateReady, true);
+  assert.equal(manifest.production.cubismExportAuditReady, true);
   assert.equal(manifest.production.cubismAppearanceVisibilityParamReady, true);
   assert.equal(manifest.production.cubismExportReady, false);
+  assert.ok(packageJson.scripts['test:live2d:su-shixia-cubism-audit'].includes('audit-su-shixia-cubism-export.js'));
+  assert.ok(packageJson.scripts['test:live2d:su-shixia-cubism-required'].includes('--require-go'));
   assert.equal(spec.status, 'cubism_editor_handoff_ready');
   assert.equal(spec.parameters.length, 21);
   assert.ok(spec.parameters.some(item => item.id === 'ParamMouthOpenY'));
@@ -48,6 +54,11 @@ function main() {
   assert.ok(exportGate.requiredRuntimeFiles.some(item => item.kind === 'moc3' && item.magic === 'MOC3'));
   assert.ok(exportGate.requiredRuntimeProof.some(item => item.includes('cubism-web')));
   assert.ok(exportGate.noGoUntil.some(item => item.includes('moc3 header')));
+  assert.equal(auditReport.status, 'no_go');
+  assert.equal(auditReport.goNoGoBoundary.liteRuntimePreview, 'go');
+  assert.equal(auditReport.goNoGoBoundary.cubismEditorHandoff, 'go');
+  assert.equal(auditReport.goNoGoBoundary.genuineCubismExport, 'no_go');
+  assert.ok(auditReport.blockingItems.includes('runtime-file:moc3'));
   assert.ok(runbook.includes('Do not mark `.moc3` ready'));
   assert.ok(runbook.includes('Wardrobe Boundary'));
   assert.ok(checklist.includes('NO-GO for public Cubism default'));

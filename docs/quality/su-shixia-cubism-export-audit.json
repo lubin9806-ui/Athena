@@ -1,0 +1,163 @@
+{
+  "version": 1,
+  "generatedAt": "2026-08-24",
+  "packageId": "su-shixia-live2d-v2",
+  "status": "no_go",
+  "conclusion": "Su Shixia V2 remains NO-GO for genuine Cubism release because export/runtime proof is incomplete.",
+  "exportGate": "cubism-handoff/export-gate.json",
+  "requireGoMode": false,
+  "runtimeFiles": [
+    {
+      "kind": "model3",
+      "path": "model/su-shixia-live2d-v2.model3.json",
+      "exists": false,
+      "size": 0
+    },
+    {
+      "kind": "moc3",
+      "path": "model/su-shixia-live2d-v2.moc3",
+      "exists": false,
+      "size": 0
+    },
+    {
+      "kind": "physics3",
+      "path": "model/su-shixia-live2d-v2.physics3.json",
+      "exists": false,
+      "size": 0
+    },
+    {
+      "kind": "cdi3",
+      "path": "model/su-shixia-live2d-v2.cdi3.json",
+      "exists": false,
+      "size": 0
+    },
+    {
+      "kind": "texture",
+      "path": "model/textures/texture_00.png",
+      "exists": false,
+      "size": 0
+    }
+  ],
+  "model3": {
+    "exists": false,
+    "validJson": false,
+    "moc": null,
+    "textureCount": 0,
+    "motionGroupCount": 0,
+    "expressionCount": 0
+  },
+  "runtimeProof": {
+    "path": "docs/quality/su-shixia-cubism-runtime-proof.json",
+    "exists": false
+  },
+  "checks": [
+    {
+      "id": "manifest.cubismExportReady",
+      "status": "pass",
+      "detail": "expected=false actual=false"
+    },
+    {
+      "id": "exportGate.status",
+      "status": "pass",
+      "detail": "expected=manual_export_required actual=manual_export_required"
+    },
+    {
+      "id": "exportGate.headlessExportAvailable",
+      "status": "pass",
+      "detail": "expected=false actual=false"
+    },
+    {
+      "id": "runtime-file:model3",
+      "status": "fail",
+      "detail": "missing"
+    },
+    {
+      "id": "runtime-file:moc3",
+      "status": "fail",
+      "detail": "missing"
+    },
+    {
+      "id": "runtime-file:physics3",
+      "status": "fail",
+      "detail": "missing"
+    },
+    {
+      "id": "runtime-file:cdi3",
+      "status": "fail",
+      "detail": "missing"
+    },
+    {
+      "id": "runtime-file:texture",
+      "status": "fail",
+      "detail": "missing"
+    },
+    {
+      "id": "model3:json",
+      "status": "fail",
+      "detail": "missing exported Cubism model3.json"
+    },
+    {
+      "id": "model3:moc-reference",
+      "status": "fail",
+      "detail": "missing exported Cubism model3.json"
+    },
+    {
+      "id": "model3:textures",
+      "status": "fail",
+      "detail": "missing exported Cubism model3.json"
+    },
+    {
+      "id": "model3:motions",
+      "status": "fail",
+      "detail": "missing exported Cubism model3.json"
+    },
+    {
+      "id": "model3:expressions",
+      "status": "fail",
+      "detail": "missing exported Cubism model3.json"
+    },
+    {
+      "id": "runtime-proof:cubism-web",
+      "status": "fail",
+      "detail": "missing runtime proof JSON"
+    },
+    {
+      "id": "runtime-proof:lip-sync",
+      "status": "fail",
+      "detail": "missing runtime proof JSON"
+    },
+    {
+      "id": "runtime-proof:visual-delta",
+      "status": "fail",
+      "detail": "missing runtime proof JSON"
+    },
+    {
+      "id": "runtime-proof:hot-zone-policy",
+      "status": "fail",
+      "detail": "missing runtime proof JSON"
+    }
+  ],
+  "blockingItems": [
+    "runtime-file:model3",
+    "runtime-file:moc3",
+    "runtime-file:physics3",
+    "runtime-file:cdi3",
+    "runtime-file:texture",
+    "model3:json",
+    "model3:moc-reference",
+    "model3:textures",
+    "model3:motions",
+    "model3:expressions",
+    "runtime-proof:cubism-web",
+    "runtime-proof:lip-sync",
+    "runtime-proof:visual-delta",
+    "runtime-proof:hot-zone-policy"
+  ],
+  "goNoGoBoundary": {
+    "liteRuntimePreview": "go",
+    "cubismEditorHandoff": "go",
+    "genuineCubismExport": "no_go",
+    "publicDistribution": "no_go",
+    "reason": "Public distribution is blocked until genuine Cubism export, Cubism Web runtime proof, visual review, rights review, and Live2D license review pass."
+  }
+}

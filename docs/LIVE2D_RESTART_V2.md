@@ -203,6 +203,17 @@ Produced on 2026-08-24:
 
 Stage 3D status: `CUBISM EDITOR HANDOFF GATE READY, EXPORT STILL MANUAL NO-GO`. The handoff now specifies how to prove a real `.moc3` export: required files, `MOC3` header, Cubism Web runtime load without Lite fallback, visible motion/expression proof, lip-sync proof, hot-zone policy proof, and remaining visual/rights/license review gates. It still does not create the Cubism project or export the `.moc3`.
 
+## Stage 3E Current Evidence
+
+Produced on 2026-08-24:
+
+- Cubism export audit script: `scripts/audit-su-shixia-cubism-export.js`;
+- current machine-readable audit report: `docs/quality/su-shixia-cubism-export-audit.json`;
+- npm audit command: `npm.cmd run test:live2d:su-shixia-cubism-audit`;
+- future hard export gate: `npm.cmd run test:live2d:su-shixia-cubism-required`.
+
+Stage 3E status: `EXPORT AUDIT READY, CURRENT RESULT NO-GO`. The audit command intentionally exits successfully while reporting `SU_SHIXIA_CUBISM_EXPORT_AUDIT_NO_GO` so normal source/runtime checks can preserve the current truth. The required command uses `--require-go` and must fail until the exported `.moc3`, exported `model3.json`, texture, physics/display files, Cubism Web proof, lip-sync proof, visual-delta proof, and hot-zone policy proof all exist.
+
 ## Acceptance Gates
 
 V2 cannot become the final public Cubism default until all are true:
