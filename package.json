@@ -31,6 +31,7 @@
     "test:live2d:integration": "tsc && node scripts/verify-live2d-athena-integration.js",
     "test:live2d:desktop-pet": "node scripts/clean-dist.js && vite build --config vite.config.mts && tsc && node scripts/verify-live2d-desktop-pet.js",
     "test:live2d:package": "node scripts/verify-live2d-release-package.js",
+    "test:live2d:su-shixia-source": "node scripts/build-su-shixia-live2d-source.js && node scripts/verify-su-shixia-live2d-source.js",
     "test:persona": "tsc && node scripts/verify-persona-prompt.js",
     "test:modes": "tsc && node scripts/verify-conversation-modes.js",
     "test:chat-windows": "tsc && electron scripts/verify-chat-windows.js",

@@ -1,0 +1,73 @@
+{
+  "id": "su-shixia-live2d-v2-layer-map",
+  "version": "0.1.0",
+  "sourceImage": "source/su-shixia-front-master-v2-alpha.png",
+  "layeredPsd": "source/su-shixia-front-layered-v1.psd",
+  "partsInventory": "source/parts/parts-inventory-v1.json",
+  "target": "Live2D Cubism 5",
+  "status": "automated_baseline_review_required",
+  "layerNaming": {
+    "prefix": "SSX",
+    "separator": "_",
+    "notes": "Stable ASCII names are required across source revisions and orientation packages."
+  },
+  "groups": [
+    { "name": "Head", "expectedCount": 12 },
+    { "name": "Eyes", "expectedCount": 16 },
+    { "name": "Mouth", "expectedCount": 6 },
+    { "name": "Body", "expectedCount": 16 },
+    { "name": "SkirtAndLegs", "expectedCount": 16 }
+  ],
+  "orientationStates": [
+    "front",
+    "front_three_quarter_left",
+    "profile_left",
+    "rear_three_quarter_left",
+    "back",
+    "rear_three_quarter_right",
+    "profile_right",
+    "front_three_quarter_right"
+  ],
+  "currentOrientationCoverage": ["front"],
+  "requiredParameters": [
+    { "id": "ParamAngleX", "min": -30, "max": 30, "default": 0 },
+    { "id": "ParamAngleY", "min": -30, "max": 30, "default": 0 },
+    { "id": "ParamAngleZ", "min": -30, "max": 30, "default": 0 },
+    { "id": "ParamBodyAngleX", "min": -10, "max": 10, "default": 0 },
+    { "id": "ParamBodyAngleY", "min": -10, "max": 10, "default": 0 },
+    { "id": "ParamBodyAngleZ", "min": -10, "max": 10, "default": 0 },
+    { "id": "ParamEyeLOpen", "min": 0, "max": 1, "default": 1 },
+    { "id": "ParamEyeROpen", "min": 0, "max": 1, "default": 1 },
+    { "id": "ParamEyeBallX", "min": -1, "max": 1, "default": 0 },
+    { "id": "ParamEyeBallY", "min": -1, "max": 1, "default": 0 },
+    { "id": "ParamMouthOpenY", "min": 0, "max": 1, "default": 0 },
+    { "id": "ParamMouthForm", "min": -1, "max": 1, "default": 0 },
+    { "id": "ParamBreath", "min": 0, "max": 1, "default": 0.5 },
+    { "id": "ParamBlush", "min": 0, "max": 1, "default": 0 },
+    { "id": "ParamLeanX", "min": -1, "max": 1, "default": 0 },
+    { "id": "ParamWeightShift", "min": -1, "max": 1, "default": 0 }
+  ],
+  "interactionZoneFamilies": [
+    "hair",
+    "head",
+    "face",
+    "neck",
+    "shoulder",
+    "arm",
+    "hand",
+    "torso",
+    "waist",
+    "back",
+    "hip",
+    "leg",
+    "knee",
+    "foot",
+    "garment",
+    "accessory"
+  ],
+  "packageBoundaries": {
+    "publicSource": true,
+    "adultPrivateExtensions": "separate_manifest_required",
+    "crossPackageReferencesAllowed": false
+  }
+}

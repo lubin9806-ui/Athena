@@ -112,7 +112,22 @@ Produced on 2026-08-23:
 - mouth-shape direction: `docs/concepts/su-shixia-live2d-v2-mouth-shapes-v1.png`;
 - turn and face-touch motion storyboard: `docs/concepts/su-shixia-live2d-v2-turn-touch-storyboard-v1.png`.
 
-Stage 1 status: `REVIEW REQUIRED`. These artifacts define direction and production requirements. They are not a layered PSD, Cubism project, `.moc3`, runtime turn implementation, or adult content package.
+Stage 1 status: `BASELINE ACCEPTED FOR STAGE 2`. The user approved continuing from the current visual baseline on 2026-08-23. These artifacts still define direction rather than runtime proof.
+
+## Stage 2 Current Evidence
+
+Produced on 2026-08-23:
+
+- source-only package: `assets/avatar/su-shixia-live2d-v2`;
+- transparent front master: `source/su-shixia-front-master-v2-alpha.png`;
+- five transparent source-part atlases;
+- 66 named `SSX_*` transparent slices;
+- machine-readable parts layout and inventory;
+- 1500 x 3360 visual contact sheet;
+- grouped `source/su-shixia-front-layered-v1.psd` generated with `ag-psd`;
+- reproducible build and verification gate: `npm.cmd run test:live2d:su-shixia-source`.
+
+Stage 2 status: `AUTOMATED BASELINE REVIEW REQUIRED`. The package passes structural, alpha, naming, part-count, contact-sheet, and PSD-readback checks. Human refinement is still required for hidden fill, seams, hand anatomy, mouth style, target alignment, and deformation readiness. Profile, back, and adult-only private source packages do not exist yet.
 
 ## Acceptance Gates
 
@@ -128,4 +143,4 @@ V2 cannot become the default until all are true:
 
 ## Immediate Next Step
 
-Use the selected V3 concept as a temporary visual target and complete the Stage 1 model sheet: turnarounds, facial landmarks, expression range, mouth-shape direction, and hair/outfit separation notes. Do not start layered-source or Cubism work until that sheet receives human approval.
+Perform Stage 2B source refinement on the front package: inspect every `SSX_*` part against the master, correct hidden fill and seams, refine mouth and hand consistency, and produce an alignment preview. Do not start genuine Cubism rigging until the refined source receives human approval. Multi-view profile and back packages follow the approved front-source method; adult-only private assets remain a separate later package boundary.

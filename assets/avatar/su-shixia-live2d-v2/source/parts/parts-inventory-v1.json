@@ -1,0 +1,1656 @@
+{
+  "version": 1,
+  "count": 66,
+  "parts": [
+    {
+      "name": "SSX_HEAD_FACE_BASE",
+      "group": "Head",
+      "file": "layers-v1/SSX_HEAD_FACE_BASE.png",
+      "sourceAtlas": "head-hair-atlas-v1-alpha.png",
+      "sourceRect": [
+        0,
+        0,
+        384,
+        341
+      ],
+      "sourceOffset": [
+        122,
+        34
+      ],
+      "width": 179,
+      "height": 262,
+      "pixelCount": 27796,
+      "targetRect": [
+        365,
+        85,
+        190,
+        275
+      ]
+    },
+    {
+      "name": "SSX_HEAD_NECK",
+      "group": "Head",
+      "file": "layers-v1/SSX_HEAD_NECK.png",
+      "sourceAtlas": "head-hair-atlas-v1-alpha.png",
+      "sourceRect": [
+        384,
+        0,
+        384,
+        341
+      ],
+      "sourceOffset": [
+        483,
+        85
+      ],
+      "width": 127,
+      "height": 213,
+      "pixelCount": 13861,
+      "targetRect": [
+        405,
+        255,
+        110,
+        125
+      ]
+    },
+    {
+      "name": "SSX_HAIR_REAR_CENTER",
+      "group": "Head",
+      "file": "layers-v1/SSX_HAIR_REAR_CENTER.png",
+      "sourceAtlas": "head-hair-atlas-v1-alpha.png",
+      "sourceRect": [
+        768,
+        0,
+        384,
+        341
+      ],
+      "sourceOffset": [
+        769,
+        26
+      ],
+      "width": 247,
+      "height": 315,
+      "pixelCount": 45927,
+      "targetRect": [
+        330,
+        40,
+        260,
+        330
+      ]
+    },
+    {
+      "name": "SSX_HAIR_REAR_LEFT",
+      "group": "Head",
+      "file": "layers-v1/SSX_HAIR_REAR_LEFT.png",
+      "sourceAtlas": "head-hair-atlas-v1-alpha.png",
+      "sourceRect": [
+        1152,
+        0,
+        384,
+        341
+      ],
+      "sourceOffset": [
+        1184,
+        40
+      ],
+      "width": 168,
+      "height": 294,
+      "pixelCount": 22344,
+      "targetRect": [
+        325,
+        70,
+        150,
+        310
+      ]
+    },
+    {
+      "name": "SSX_HAIR_REAR_RIGHT",
+      "group": "Head",
+      "file": "layers-v1/SSX_HAIR_REAR_RIGHT.png",
+      "sourceAtlas": "head-hair-atlas-v1-alpha.png",
+      "sourceRect": [
+        0,
+        341,
+        384,
+        341
+      ],
+      "sourceOffset": [
+        154,
+        373
+      ],
+      "width": 164,
+      "height": 295,
+      "pixelCount": 22020,
+      "targetRect": [
+        445,
+        70,
+        150,
+        310
+      ]
+    },
+    {
+      "name": "SSX_HAIR_BANGS_CENTER",
+      "group": "Head",
+      "file": "layers-v1/SSX_HAIR_BANGS_CENTER.png",
+      "sourceAtlas": "head-hair-atlas-v1-alpha.png",
+      "sourceRect": [
+        384,
+        341,
+        384,
+        341
+      ],
+      "sourceOffset": [
+        465,
+        404
+      ],
+      "width": 244,
+      "height": 205,
+      "pixelCount": 21276,
+      "targetRect": [
+        350,
+        45,
+        220,
+        165
+      ]
+    },
+    {
+      "name": "SSX_HAIR_BANGS_LEFT",
+      "group": "Head",
+      "file": "layers-v1/SSX_HAIR_BANGS_LEFT.png",
+      "sourceAtlas": "head-hair-atlas-v1-alpha.png",
+      "sourceRect": [
+        768,
+        341,
+        384,
+        341
+      ],
+      "sourceOffset": [
+        843,
+        388
+      ],
+      "width": 144,
+      "height": 279,
+      "pixelCount": 13515,
+      "targetRect": [
+        335,
+        55,
+        170,
+        180
+      ]
+    },
+    {
+      "name": "SSX_HAIR_BANGS_RIGHT",
+      "group": "Head",
+      "file": "layers-v1/SSX_HAIR_BANGS_RIGHT.png",
+      "sourceAtlas": "head-hair-atlas-v1-alpha.png",
+      "sourceRect": [
+        1152,
+        341,
+        384,
+        341
+      ],
+      "sourceOffset": [
+        1200,
+        388
+      ],
+      "width": 140,
+      "height": 281,
+      "pixelCount": 13594,
+      "targetRect": [
+        415,
+        55,
+        170,
+        180
+      ]
+    },
+    {
+      "name": "SSX_HAIR_SIDE_LOCK_LEFT",
+      "group": "Head",
+      "file": "layers-v1/SSX_HAIR_SIDE_LOCK_LEFT.png",
+      "sourceAtlas": "head-hair-atlas-v1-alpha.png",
+      "sourceRect": [
+        0,
+        682,
+        384,
+        342
+      ],
+      "sourceOffset": [
+        176,
+        701
+      ],
+      "width": 128,
+      "height": 282,
+      "pixelCount": 16787,
+      "targetRect": [
+        325,
+        115,
+        130,
+        270
+      ]
+    },
+    {
+      "name": "SSX_HAIR_SIDE_LOCK_RIGHT",
+      "group": "Head",
+      "file": "layers-v1/SSX_HAIR_SIDE_LOCK_RIGHT.png",
+      "sourceAtlas": "head-hair-atlas-v1-alpha.png",
+      "sourceRect": [
+        384,
+        682,
+        384,
+        342
+      ],
+      "sourceOffset": [
+        556,
+        699
+      ],
+      "width": 127,
+      "height": 282,
+      "pixelCount": 16821,
+      "targetRect": [
+        465,
+        115,
+        130,
+        270
+      ]
+    },
+    {
+      "name": "SSX_HAIR_LOOSE_STRANDS",
+      "group": "Head",
+      "file": "layers-v1/SSX_HAIR_LOOSE_STRANDS.png",
+      "sourceAtlas": "head-hair-atlas-v1-alpha.png",
+      "sourceRect": [
+        768,
+        682,
+        384,
+        342
+      ],
+      "sourceOffset": [
+        857,
+        703
+      ],
+      "width": 171,
+      "height": 279,
+      "pixelCount": 1791,
+      "targetRect": [
+        315,
+        90,
+        290,
+        305
+      ]
+    },
+    {
+      "name": "SSX_ACCESSORY_HAIR_CLIP",
+      "group": "Head",
+      "file": "layers-v1/SSX_ACCESSORY_HAIR_CLIP.png",
+      "sourceAtlas": "head-hair-atlas-v1-alpha.png",
+      "sourceRect": [
+        1152,
+        682,
+        384,
+        342
+      ],
+      "sourceOffset": [
+        1205,
+        765
+      ],
+      "width": 129,
+      "height": 145,
+      "pixelCount": 5292,
+      "targetRect": [
+        510,
+        115,
+        48,
+        48
+      ]
+    },
+    {
+      "name": "SSX_EYE_L_WHITE",
+      "group": "Eyes",
+      "file": "layers-v1/SSX_EYE_L_WHITE.png",
+      "sourceAtlas": "eyes-brows-atlas-v1-alpha.png",
+      "sourceRect": [
+        0,
+        0,
+        313,
+        313
+      ],
+      "sourceOffset": [
+        56,
+        123
+      ],
+      "width": 232,
+      "height": 106,
+      "pixelCount": 14588,
+      "targetRect": [
+        388,
+        169,
+        58,
+        32
+      ]
+    },
+    {
+      "name": "SSX_EYE_L_IRIS",
+      "group": "Eyes",
+      "file": "layers-v1/SSX_EYE_L_IRIS.png",
+      "sourceAtlas": "eyes-brows-atlas-v1-alpha.png",
+      "sourceRect": [
+        313,
+        0,
+        314,
+        313
+      ],
+      "sourceOffset": [
+        399,
+        88
+      ],
+      "width": 169,
+      "height": 168,
+      "pixelCount": 17851,
+      "targetRect": [
+        402,
+        169,
+        30,
+        30
+      ]
+    },
+    {
+      "name": "SSX_EYE_L_PUPIL",
+      "group": "Eyes",
+      "file": "layers-v1/SSX_EYE_L_PUPIL.png",
+      "sourceAtlas": "eyes-brows-atlas-v1-alpha.png",
+      "sourceRect": [
+        627,
+        0,
+        313,
+        313
+      ],
+      "sourceOffset": [
+        729,
+        123
+      ],
+      "width": 100,
+      "height": 99,
+      "pixelCount": 5990,
+      "targetRect": [
+        410,
+        176,
+        15,
+        15
+      ]
+    },
+    {
+      "name": "SSX_EYE_L_HIGHLIGHT",
+      "group": "Eyes",
+      "file": "layers-v1/SSX_EYE_L_HIGHLIGHT.png",
+      "sourceAtlas": "eyes-brows-atlas-v1-alpha.png",
+      "sourceRect": [
+        940,
+        0,
+        314,
+        313
+      ],
+      "sourceOffset": [
+        1038,
+        136
+      ],
+      "width": 61,
+      "height": 61,
+      "pixelCount": 1294,
+      "targetRect": [
+        408,
+        171,
+        10,
+        10
+      ]
+    },
+    {
+      "name": "SSX_EYE_L_UPPER_LASH",
+      "group": "Eyes",
+      "file": "layers-v1/SSX_EYE_L_UPPER_LASH.png",
+      "sourceAtlas": "eyes-brows-atlas-v1-alpha.png",
+      "sourceRect": [
+        0,
+        313,
+        313,
+        314
+      ],
+      "sourceOffset": [
+        51,
+        418
+      ],
+      "width": 244,
+      "height": 90,
+      "pixelCount": 4833,
+      "targetRect": [
+        383,
+        158,
+        69,
+        30
+      ]
+    },
+    {
+      "name": "SSX_EYE_L_LOWER_LASH",
+      "group": "Eyes",
+      "file": "layers-v1/SSX_EYE_L_LOWER_LASH.png",
+      "sourceAtlas": "eyes-brows-atlas-v1-alpha.png",
+      "sourceRect": [
+        313,
+        313,
+        314,
+        314
+      ],
+      "sourceOffset": [
+        375,
+        466
+      ],
+      "width": 202,
+      "height": 40,
+      "pixelCount": 1566,
+      "targetRect": [
+        387,
+        185,
+        64,
+        16
+      ]
+    },
+    {
+      "name": "SSX_BROW_L",
+      "group": "Eyes",
+      "file": "layers-v1/SSX_BROW_L.png",
+      "sourceAtlas": "eyes-brows-atlas-v1-alpha.png",
+      "sourceRect": [
+        627,
+        313,
+        313,
+        314
+      ],
+      "sourceOffset": [
+        656,
+        420
+      ],
+      "width": 255,
+      "height": 59,
+      "pixelCount": 4857,
+      "targetRect": [
+        384,
+        141,
+        67,
+        20
+      ]
+    },
+    {
+      "name": "SSX_EYE_L_CLOSED",
+      "group": "Eyes",
+      "file": "layers-v1/SSX_EYE_L_CLOSED.png",
+      "sourceAtlas": "eyes-brows-atlas-v1-alpha.png",
+      "sourceRect": [
+        940,
+        313,
+        314,
+        314
+      ],
+      "sourceOffset": [
+        991,
+        461
+      ],
+      "width": 223,
+      "height": 47,
+      "pixelCount": 2637,
+      "targetRect": [
+        383,
+        171,
+        70,
+        26
+      ]
+    },
+    {
+      "name": "SSX_EYE_R_WHITE",
+      "group": "Eyes",
+      "file": "layers-v1/SSX_EYE_R_WHITE.png",
+      "sourceAtlas": "eyes-brows-atlas-v1-alpha.png",
+      "sourceRect": [
+        0,
+        627,
+        313,
+        313
+      ],
+      "sourceOffset": [
+        52,
+        747
+      ],
+      "width": 231,
+      "height": 105,
+      "pixelCount": 14442,
+      "targetRect": [
+        457,
+        169,
+        58,
+        32
+      ]
+    },
+    {
+      "name": "SSX_EYE_R_IRIS",
+      "group": "Eyes",
+      "file": "layers-v1/SSX_EYE_R_IRIS.png",
+      "sourceAtlas": "eyes-brows-atlas-v1-alpha.png",
+      "sourceRect": [
+        313,
+        627,
+        314,
+        313
+      ],
+      "sourceOffset": [
+        398,
+        710
+      ],
+      "width": 170,
+      "height": 168,
+      "pixelCount": 17882,
+      "targetRect": [
+        471,
+        169,
+        30,
+        30
+      ]
+    },
+    {
+      "name": "SSX_EYE_R_PUPIL",
+      "group": "Eyes",
+      "file": "layers-v1/SSX_EYE_R_PUPIL.png",
+      "sourceAtlas": "eyes-brows-atlas-v1-alpha.png",
+      "sourceRect": [
+        627,
+        627,
+        313,
+        313
+      ],
+      "sourceOffset": [
+        732,
+        748
+      ],
+      "width": 96,
+      "height": 96,
+      "pixelCount": 5585,
+      "targetRect": [
+        479,
+        176,
+        15,
+        15
+      ]
+    },
+    {
+      "name": "SSX_EYE_R_HIGHLIGHT",
+      "group": "Eyes",
+      "file": "layers-v1/SSX_EYE_R_HIGHLIGHT.png",
+      "sourceAtlas": "eyes-brows-atlas-v1-alpha.png",
+      "sourceRect": [
+        940,
+        627,
+        314,
+        313
+      ],
+      "sourceOffset": [
+        1053,
+        761
+      ],
+      "width": 63,
+      "height": 61,
+      "pixelCount": 1307,
+      "targetRect": [
+        477,
+        171,
+        10,
+        10
+      ]
+    },
+    {
+      "name": "SSX_EYE_R_UPPER_LASH",
+      "group": "Eyes",
+      "file": "layers-v1/SSX_EYE_R_UPPER_LASH.png",
+      "sourceAtlas": "eyes-brows-atlas-v1-alpha.png",
+      "sourceRect": [
+        0,
+        940,
+        313,
+        314
+      ],
+      "sourceOffset": [
+        40,
+        1040
+      ],
+      "width": 246,
+      "height": 90,
+      "pixelCount": 4793,
+      "targetRect": [
+        452,
+        158,
+        69,
+        30
+      ]
+    },
+    {
+      "name": "SSX_EYE_R_LOWER_LASH",
+      "group": "Eyes",
+      "file": "layers-v1/SSX_EYE_R_LOWER_LASH.png",
+      "sourceAtlas": "eyes-brows-atlas-v1-alpha.png",
+      "sourceRect": [
+        313,
+        940,
+        314,
+        314
+      ],
+      "sourceOffset": [
+        372,
+        1088
+      ],
+      "width": 202,
+      "height": 39,
+      "pixelCount": 1604,
+      "targetRect": [
+        456,
+        185,
+        64,
+        16
+      ]
+    },
+    {
+      "name": "SSX_BROW_R",
+      "group": "Eyes",
+      "file": "layers-v1/SSX_BROW_R.png",
+      "sourceAtlas": "eyes-brows-atlas-v1-alpha.png",
+      "sourceRect": [
+        627,
+        940,
+        313,
+        314
+      ],
+      "sourceOffset": [
+        650,
+        1043
+      ],
+      "width": 255,
+      "height": 59,
+      "pixelCount": 4933,
+      "targetRect": [
+        453,
+        141,
+        67,
+        20
+      ]
+    },
+    {
+      "name": "SSX_EYE_R_CLOSED",
+      "group": "Eyes",
+      "file": "layers-v1/SSX_EYE_R_CLOSED.png",
+      "sourceAtlas": "eyes-brows-atlas-v1-alpha.png",
+      "sourceRect": [
+        940,
+        940,
+        314,
+        314
+      ],
+      "sourceOffset": [
+        977,
+        1085
+      ],
+      "width": 209,
+      "height": 45,
+      "pixelCount": 2428,
+      "targetRect": [
+        452,
+        171,
+        70,
+        26
+      ]
+    },
+    {
+      "name": "SSX_MOUTH_CLOSED",
+      "group": "Mouth",
+      "file": "layers-v1/SSX_MOUTH_CLOSED.png",
+      "sourceAtlas": "mouths-atlas-v1-alpha.png",
+      "sourceRect": [
+        0,
+        0,
+        512,
+        512
+      ],
+      "sourceOffset": [
+        136,
+        240
+      ],
+      "width": 275,
+      "height": 127,
+      "pixelCount": 21075,
+      "targetRect": [
+        421,
+        229,
+        78,
+        48
+      ]
+    },
+    {
+      "name": "SSX_MOUTH_OPEN_SMALL",
+      "group": "Mouth",
+      "file": "layers-v1/SSX_MOUTH_OPEN_SMALL.png",
+      "sourceAtlas": "mouths-atlas-v1-alpha.png",
+      "sourceRect": [
+        512,
+        0,
+        512,
+        512
+      ],
+      "sourceOffset": [
+        637,
+        234
+      ],
+      "width": 251,
+      "height": 145,
+      "pixelCount": 22471,
+      "targetRect": [
+        421,
+        229,
+        78,
+        48
+      ]
+    },
+    {
+      "name": "SSX_MOUTH_OPEN_WIDE",
+      "group": "Mouth",
+      "file": "layers-v1/SSX_MOUTH_OPEN_WIDE.png",
+      "sourceAtlas": "mouths-atlas-v1-alpha.png",
+      "sourceRect": [
+        1024,
+        0,
+        512,
+        512
+      ],
+      "sourceOffset": [
+        1147,
+        172
+      ],
+      "width": 227,
+      "height": 256,
+      "pixelCount": 41644,
+      "targetRect": [
+        417,
+        221,
+        86,
+        66
+      ]
+    },
+    {
+      "name": "SSX_MOUTH_FORM_EI",
+      "group": "Mouth",
+      "file": "layers-v1/SSX_MOUTH_FORM_EI.png",
+      "sourceAtlas": "mouths-atlas-v1-alpha.png",
+      "sourceRect": [
+        0,
+        512,
+        512,
+        512
+      ],
+      "sourceOffset": [
+        131,
+        642
+      ],
+      "width": 288,
+      "height": 160,
+      "pixelCount": 29578,
+      "targetRect": [
+        416,
+        227,
+        88,
+        52
+      ]
+    },
+    {
+      "name": "SSX_MOUTH_FORM_OU",
+      "group": "Mouth",
+      "file": "layers-v1/SSX_MOUTH_FORM_OU.png",
+      "sourceAtlas": "mouths-atlas-v1-alpha.png",
+      "sourceRect": [
+        512,
+        512,
+        512,
+        512
+      ],
+      "sourceOffset": [
+        674,
+        626
+      ],
+      "width": 166,
+      "height": 190,
+      "pixelCount": 21781,
+      "targetRect": [
+        426,
+        222,
+        68,
+        64
+      ]
+    },
+    {
+      "name": "SSX_MOUTH_FORM_MBP",
+      "group": "Mouth",
+      "file": "layers-v1/SSX_MOUTH_FORM_MBP.png",
+      "sourceAtlas": "mouths-atlas-v1-alpha.png",
+      "sourceRect": [
+        1024,
+        512,
+        512,
+        512
+      ],
+      "sourceOffset": [
+        1132,
+        664
+      ],
+      "width": 261,
+      "height": 119,
+      "pixelCount": 18550,
+      "targetRect": [
+        421,
+        229,
+        78,
+        48
+      ]
+    },
+    {
+      "name": "SSX_TORSO_BASE",
+      "group": "Body",
+      "file": "layers-v1/SSX_TORSO_BASE.png",
+      "sourceAtlas": "upper-body-atlas-v1-alpha.png",
+      "sourceRect": [
+        0,
+        0,
+        313,
+        313
+      ],
+      "sourceOffset": [
+        55,
+        22
+      ],
+      "width": 218,
+      "height": 291,
+      "pixelCount": 42676,
+      "targetRect": [
+        335,
+        275,
+        250,
+        310
+      ]
+    },
+    {
+      "name": "SSX_BLOUSE_FRONT",
+      "group": "Body",
+      "file": "layers-v1/SSX_BLOUSE_FRONT.png",
+      "sourceAtlas": "upper-body-atlas-v1-alpha.png",
+      "sourceRect": [
+        313,
+        0,
+        314,
+        313
+      ],
+      "sourceOffset": [
+        359,
+        38
+      ],
+      "width": 241,
+      "height": 275,
+      "pixelCount": 45751,
+      "targetRect": [
+        285,
+        300,
+        350,
+        300
+      ]
+    },
+    {
+      "name": "SSX_BLOUSE_COLLAR_L",
+      "group": "Body",
+      "file": "layers-v1/SSX_BLOUSE_COLLAR_L.png",
+      "sourceAtlas": "upper-body-atlas-v1-alpha.png",
+      "sourceRect": [
+        627,
+        0,
+        313,
+        313
+      ],
+      "sourceOffset": [
+        730,
+        64
+      ],
+      "width": 134,
+      "height": 203,
+      "pixelCount": 6628,
+      "targetRect": [
+        350,
+        302,
+        110,
+        95
+      ]
+    },
+    {
+      "name": "SSX_BLOUSE_COLLAR_R",
+      "group": "Body",
+      "file": "layers-v1/SSX_BLOUSE_COLLAR_R.png",
+      "sourceAtlas": "upper-body-atlas-v1-alpha.png",
+      "sourceRect": [
+        940,
+        0,
+        314,
+        313
+      ],
+      "sourceOffset": [
+        989,
+        64
+      ],
+      "width": 134,
+      "height": 202,
+      "pixelCount": 6655,
+      "targetRect": [
+        460,
+        302,
+        110,
+        95
+      ]
+    },
+    {
+      "name": "SSX_BLOUSE_SLEEVE_L",
+      "group": "Body",
+      "file": "layers-v1/SSX_BLOUSE_SLEEVE_L.png",
+      "sourceAtlas": "upper-body-atlas-v1-alpha.png",
+      "sourceRect": [
+        0,
+        313,
+        313,
+        314
+      ],
+      "sourceOffset": [
+        83,
+        313
+      ],
+      "width": 162,
+      "height": 289,
+      "pixelCount": 22215,
+      "targetRect": [
+        270,
+        345,
+        130,
+        165
+      ]
+    },
+    {
+      "name": "SSX_BLOUSE_SLEEVE_R",
+      "group": "Body",
+      "file": "layers-v1/SSX_BLOUSE_SLEEVE_R.png",
+      "sourceAtlas": "upper-body-atlas-v1-alpha.png",
+      "sourceRect": [
+        313,
+        313,
+        314,
+        314
+      ],
+      "sourceOffset": [
+        380,
+        313
+      ],
+      "width": 198,
+      "height": 289,
+      "pixelCount": 23264,
+      "targetRect": [
+        520,
+        345,
+        130,
+        165
+      ]
+    },
+    {
+      "name": "SSX_BLOUSE_BUTTON_PLACKET",
+      "group": "Body",
+      "file": "layers-v1/SSX_BLOUSE_BUTTON_PLACKET.png",
+      "sourceAtlas": "upper-body-atlas-v1-alpha.png",
+      "sourceRect": [
+        627,
+        313,
+        313,
+        314
+      ],
+      "sourceOffset": [
+        752,
+        371
+      ],
+      "width": 48,
+      "height": 255,
+      "pixelCount": 8340,
+      "targetRect": [
+        440,
+        340,
+        40,
+        205
+      ]
+    },
+    {
+      "name": "SSX_BLOUSE_BACK_FILL",
+      "group": "Body",
+      "file": "layers-v1/SSX_BLOUSE_BACK_FILL.png",
+      "sourceAtlas": "upper-body-atlas-v1-alpha.png",
+      "sourceRect": [
+        940,
+        313,
+        314,
+        314
+      ],
+      "sourceOffset": [
+        966,
+        364
+      ],
+      "width": 200,
+      "height": 257,
+      "pixelCount": 39330,
+      "targetRect": [
+        300,
+        295,
+        320,
+        310
+      ]
+    },
+    {
+      "name": "SSX_ARM_UPPER_L",
+      "group": "Body",
+      "file": "layers-v1/SSX_ARM_UPPER_L.png",
+      "sourceAtlas": "upper-body-atlas-v1-alpha.png",
+      "sourceRect": [
+        0,
+        627,
+        313,
+        313
+      ],
+      "sourceOffset": [
+        109,
+        656
+      ],
+      "width": 119,
+      "height": 238,
+      "pixelCount": 12762,
+      "targetRect": [
+        260,
+        430,
+        85,
+        230
+      ]
+    },
+    {
+      "name": "SSX_ARM_LOWER_L",
+      "group": "Body",
+      "file": "layers-v1/SSX_ARM_LOWER_L.png",
+      "sourceAtlas": "upper-body-atlas-v1-alpha.png",
+      "sourceRect": [
+        313,
+        627,
+        314,
+        313
+      ],
+      "sourceOffset": [
+        429,
+        657
+      ],
+      "width": 102,
+      "height": 225,
+      "pixelCount": 10023,
+      "targetRect": [
+        220,
+        610,
+        125,
+        245
+      ]
+    },
+    {
+      "name": "SSX_HAND_NEUTRAL_L",
+      "group": "Body",
+      "file": "layers-v1/SSX_HAND_NEUTRAL_L.png",
+      "sourceAtlas": "upper-body-atlas-v1-alpha.png",
+      "sourceRect": [
+        627,
+        627,
+        313,
+        313
+      ],
+      "sourceOffset": [
+        729,
+        663
+      ],
+      "width": 99,
+      "height": 237,
+      "pixelCount": 12544,
+      "targetRect": [
+        202,
+        785,
+        105,
+        155
+      ]
+    },
+    {
+      "name": "SSX_HAND_CHEEK_L",
+      "group": "Body",
+      "file": "layers-v1/SSX_HAND_CHEEK_L.png",
+      "sourceAtlas": "upper-body-atlas-v1-alpha.png",
+      "sourceRect": [
+        940,
+        627,
+        314,
+        313
+      ],
+      "sourceOffset": [
+        997,
+        655
+      ],
+      "width": 108,
+      "height": 240,
+      "pixelCount": 9662,
+      "targetRect": [
+        300,
+        160,
+        135,
+        250
+      ]
+    },
+    {
+      "name": "SSX_ARM_UPPER_R",
+      "group": "Body",
+      "file": "layers-v1/SSX_ARM_UPPER_R.png",
+      "sourceAtlas": "upper-body-atlas-v1-alpha.png",
+      "sourceRect": [
+        0,
+        940,
+        313,
+        314
+      ],
+      "sourceOffset": [
+        101,
+        953
+      ],
+      "width": 119,
+      "height": 236,
+      "pixelCount": 12447,
+      "targetRect": [
+        575,
+        430,
+        85,
+        230
+      ]
+    },
+    {
+      "name": "SSX_ARM_LOWER_R",
+      "group": "Body",
+      "file": "layers-v1/SSX_ARM_LOWER_R.png",
+      "sourceAtlas": "upper-body-atlas-v1-alpha.png",
+      "sourceRect": [
+        313,
+        940,
+        314,
+        314
+      ],
+      "sourceOffset": [
+        425,
+        949
+      ],
+      "width": 104,
+      "height": 222,
+      "pixelCount": 9846,
+      "targetRect": [
+        575,
+        610,
+        125,
+        245
+      ]
+    },
+    {
+      "name": "SSX_HAND_NEUTRAL_R",
+      "group": "Body",
+      "file": "layers-v1/SSX_HAND_NEUTRAL_R.png",
+      "sourceAtlas": "upper-body-atlas-v1-alpha.png",
+      "sourceRect": [
+        627,
+        940,
+        313,
+        314
+      ],
+      "sourceOffset": [
+        712,
+        940
+      ],
+      "width": 98,
+      "height": 240,
+      "pixelCount": 12764,
+      "targetRect": [
+        612,
+        785,
+        105,
+        155
+      ]
+    },
+    {
+      "name": "SSX_HAND_CHEEK_R",
+      "group": "Body",
+      "file": "layers-v1/SSX_HAND_CHEEK_R.png",
+      "sourceAtlas": "upper-body-atlas-v1-alpha.png",
+      "sourceRect": [
+        940,
+        940,
+        314,
+        314
+      ],
+      "sourceOffset": [
+        1009,
+        940
+      ],
+      "width": 107,
+      "height": 235,
+      "pixelCount": 9627,
+      "targetRect": [
+        485,
+        160,
+        135,
+        250
+      ]
+    },
+    {
+      "name": "SSX_WAIST_PELVIS_BASE",
+      "group": "SkirtAndLegs",
+      "file": "layers-v1/SSX_WAIST_PELVIS_BASE.png",
+      "sourceAtlas": "lower-body-atlas-v1-alpha.png",
+      "sourceRect": [
+        0,
+        0,
+        313,
+        313
+      ],
+      "sourceOffset": [
+        67,
+        33
+      ],
+      "width": 205,
+      "height": 263,
+      "pixelCount": 41212,
+      "targetRect": [
+        330,
+        520,
+        260,
+        430
+      ]
+    },
+    {
+      "name": "SSX_SKIRT_WAIST",
+      "group": "SkirtAndLegs",
+      "file": "layers-v1/SSX_SKIRT_WAIST.png",
+      "sourceAtlas": "lower-body-atlas-v1-alpha.png",
+      "sourceRect": [
+        313,
+        0,
+        314,
+        313
+      ],
+      "sourceOffset": [
+        369,
+        137
+      ],
+      "width": 202,
+      "height": 52,
+      "pixelCount": 6144,
+      "targetRect": [
+        280,
+        535,
+        360,
+        65
+      ]
+    },
+    {
+      "name": "SSX_SKIRT_REAR_BASE",
+      "group": "SkirtAndLegs",
+      "file": "layers-v1/SSX_SKIRT_REAR_BASE.png",
+      "sourceAtlas": "lower-body-atlas-v1-alpha.png",
+      "sourceRect": [
+        627,
+        0,
+        313,
+        313
+      ],
+      "sourceOffset": [
+        665,
+        72
+      ],
+      "width": 229,
+      "height": 195,
+      "pixelCount": 35077,
+      "targetRect": [
+        270,
+        560,
+        380,
+        405
+      ]
+    },
+    {
+      "name": "SSX_SKIRT_FRONT_BASE",
+      "group": "SkirtAndLegs",
+      "file": "layers-v1/SSX_SKIRT_FRONT_BASE.png",
+      "sourceAtlas": "lower-body-atlas-v1-alpha.png",
+      "sourceRect": [
+        940,
+        0,
+        314,
+        313
+      ],
+      "sourceOffset": [
+        973,
+        73
+      ],
+      "width": 224,
+      "height": 201,
+      "pixelCount": 32491,
+      "targetRect": [
+        270,
+        560,
+        380,
+        405
+      ]
+    },
+    {
+      "name": "SSX_SKIRT_PLEATS_L",
+      "group": "SkirtAndLegs",
+      "file": "layers-v1/SSX_SKIRT_PLEATS_L.png",
+      "sourceAtlas": "lower-body-atlas-v1-alpha.png",
+      "sourceRect": [
+        0,
+        313,
+        313,
+        314
+      ],
+      "sourceOffset": [
+        59,
+        352
+      ],
+      "width": 205,
+      "height": 240,
+      "pixelCount": 32545,
+      "targetRect": [
+        270,
+        560,
+        155,
+        405
+      ]
+    },
+    {
+      "name": "SSX_SKIRT_PLEATS_CENTER",
+      "group": "SkirtAndLegs",
+      "file": "layers-v1/SSX_SKIRT_PLEATS_CENTER.png",
+      "sourceAtlas": "lower-body-atlas-v1-alpha.png",
+      "sourceRect": [
+        313,
+        313,
+        314,
+        314
+      ],
+      "sourceOffset": [
+        355,
+        366
+      ],
+      "width": 233,
+      "height": 219,
+      "pixelCount": 36059,
+      "targetRect": [
+        380,
+        560,
+        160,
+        405
+      ]
+    },
+    {
+      "name": "SSX_SKIRT_PLEATS_R",
+      "group": "SkirtAndLegs",
+      "file": "layers-v1/SSX_SKIRT_PLEATS_R.png",
+      "sourceAtlas": "lower-body-atlas-v1-alpha.png",
+      "sourceRect": [
+        627,
+        313,
+        313,
+        314
+      ],
+      "sourceOffset": [
+        674,
+        352
+      ],
+      "width": 194,
+      "height": 239,
+      "pixelCount": 30758,
+      "targetRect": [
+        495,
+        560,
+        155,
+        405
+      ]
+    },
+    {
+      "name": "SSX_SKIRT_HEM_UNDERSIDE",
+      "group": "SkirtAndLegs",
+      "file": "layers-v1/SSX_SKIRT_HEM_UNDERSIDE.png",
+      "sourceAtlas": "lower-body-atlas-v1-alpha.png",
+      "sourceRect": [
+        940,
+        313,
+        314,
+        314
+      ],
+      "sourceOffset": [
+        958,
+        458
+      ],
+      "width": 254,
+      "height": 79,
+      "pixelCount": 13576,
+      "targetRect": [
+        275,
+        920,
+        370,
+        55
+      ]
+    },
+    {
+      "name": "SSX_THIGH_L",
+      "group": "SkirtAndLegs",
+      "file": "layers-v1/SSX_THIGH_L.png",
+      "sourceAtlas": "lower-body-atlas-v1-alpha.png",
+      "sourceRect": [
+        0,
+        627,
+        313,
+        313
+      ],
+      "sourceOffset": [
+        82,
+        661
+      ],
+      "width": 147,
+      "height": 223,
+      "pixelCount": 22739,
+      "targetRect": [
+        325,
+        930,
+        120,
+        330
+      ]
+    },
+    {
+      "name": "SSX_CALF_L",
+      "group": "SkirtAndLegs",
+      "file": "layers-v1/SSX_CALF_L.png",
+      "sourceAtlas": "lower-body-atlas-v1-alpha.png",
+      "sourceRect": [
+        313,
+        627,
+        314,
+        313
+      ],
+      "sourceOffset": [
+        418,
+        638
+      ],
+      "width": 85,
+      "height": 302,
+      "pixelCount": 13287,
+      "targetRect": [
+        335,
+        1200,
+        105,
+        365
+      ]
+    },
+    {
+      "name": "SSX_SHOE_L",
+      "group": "SkirtAndLegs",
+      "file": "layers-v1/SSX_SHOE_L.png",
+      "sourceAtlas": "lower-body-atlas-v1-alpha.png",
+      "sourceRect": [
+        627,
+        627,
+        313,
+        313
+      ],
+      "sourceOffset": [
+        667,
+        696
+      ],
+      "width": 207,
+      "height": 136,
+      "pixelCount": 11656,
+      "targetRect": [
+        325,
+        1510,
+        125,
+        160
+      ]
+    },
+    {
+      "name": "SSX_KNEE_OVERLAY_L",
+      "group": "SkirtAndLegs",
+      "file": "layers-v1/SSX_KNEE_OVERLAY_L.png",
+      "sourceAtlas": "lower-body-atlas-v1-alpha.png",
+      "sourceRect": [
+        940,
+        627,
+        314,
+        313
+      ],
+      "sourceOffset": [
+        1028,
+        698
+      ],
+      "width": 108,
+      "height": 150,
+      "pixelCount": 12468,
+      "targetRect": [
+        330,
+        1100,
+        110,
+        120
+      ]
+    },
+    {
+      "name": "SSX_THIGH_R",
+      "group": "SkirtAndLegs",
+      "file": "layers-v1/SSX_THIGH_R.png",
+      "sourceAtlas": "lower-body-atlas-v1-alpha.png",
+      "sourceRect": [
+        0,
+        940,
+        313,
+        314
+      ],
+      "sourceOffset": [
+        88,
+        950
+      ],
+      "width": 146,
+      "height": 224,
+      "pixelCount": 22642,
+      "targetRect": [
+        475,
+        930,
+        120,
+        330
+      ]
+    },
+    {
+      "name": "SSX_CALF_R",
+      "group": "SkirtAndLegs",
+      "file": "layers-v1/SSX_CALF_R.png",
+      "sourceAtlas": "lower-body-atlas-v1-alpha.png",
+      "sourceRect": [
+        313,
+        940,
+        314,
+        314
+      ],
+      "sourceOffset": [
+        420,
+        940
+      ],
+      "width": 83,
+      "height": 237,
+      "pixelCount": 12392,
+      "targetRect": [
+        480,
+        1200,
+        105,
+        365
+      ]
+    },
+    {
+      "name": "SSX_SHOE_R",
+      "group": "SkirtAndLegs",
+      "file": "layers-v1/SSX_SHOE_R.png",
+      "sourceAtlas": "lower-body-atlas-v1-alpha.png",
+      "sourceRect": [
+        627,
+        940,
+        313,
+        314
+      ],
+      "sourceOffset": [
+        668,
+        993
+      ],
+      "width": 207,
+      "height": 138,
+      "pixelCount": 11930,
+      "targetRect": [
+        470,
+        1510,
+        125,
+        160
+      ]
+    },
+    {
+      "name": "SSX_KNEE_OVERLAY_R",
+      "group": "SkirtAndLegs",
+      "file": "layers-v1/SSX_KNEE_OVERLAY_R.png",
+      "sourceAtlas": "lower-body-atlas-v1-alpha.png",
+      "sourceRect": [
+        940,
+        940,
+        314,
+        314
+      ],
+      "sourceOffset": [
+        1031,
+        988
+      ],
+      "width": 104,
+      "height": 146,
+      "pixelCount": 11652,
+      "targetRect": [
+        480,
+        1100,
+        110,
+        120
+      ]
+    }
+  ]
+}

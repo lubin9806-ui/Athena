@@ -1,0 +1,1107 @@
+{
+  "version": 1,
+  "outputDirectory": "layers-v1",
+  "atlases": [
+    {
+      "file": "head-hair-atlas-v1-alpha.png",
+      "columns": 4,
+      "rows": 3,
+      "width": 1536,
+      "height": 1024,
+      "parts": [
+        {
+          "name": "SSX_HEAD_FACE_BASE",
+          "group": "Head",
+          "sourceRect": [
+            0,
+            0,
+            384,
+            341
+          ],
+          "targetRect": [
+            365,
+            85,
+            190,
+            275
+          ]
+        },
+        {
+          "name": "SSX_HEAD_NECK",
+          "group": "Head",
+          "sourceRect": [
+            384,
+            0,
+            384,
+            341
+          ],
+          "targetRect": [
+            405,
+            255,
+            110,
+            125
+          ]
+        },
+        {
+          "name": "SSX_HAIR_REAR_CENTER",
+          "group": "Head",
+          "sourceRect": [
+            768,
+            0,
+            384,
+            341
+          ],
+          "targetRect": [
+            330,
+            40,
+            260,
+            330
+          ]
+        },
+        {
+          "name": "SSX_HAIR_REAR_LEFT",
+          "group": "Head",
+          "sourceRect": [
+            1152,
+            0,
+            384,
+            341
+          ],
+          "targetRect": [
+            325,
+            70,
+            150,
+            310
+          ]
+        },
+        {
+          "name": "SSX_HAIR_REAR_RIGHT",
+          "group": "Head",
+          "sourceRect": [
+            0,
+            341,
+            384,
+            341
+          ],
+          "targetRect": [
+            445,
+            70,
+            150,
+            310
+          ]
+        },
+        {
+          "name": "SSX_HAIR_BANGS_CENTER",
+          "group": "Head",
+          "sourceRect": [
+            384,
+            341,
+            384,
+            341
+          ],
+          "targetRect": [
+            350,
+            45,
+            220,
+            165
+          ]
+        },
+        {
+          "name": "SSX_HAIR_BANGS_LEFT",
+          "group": "Head",
+          "sourceRect": [
+            768,
+            341,
+            384,
+            341
+          ],
+          "targetRect": [
+            335,
+            55,
+            170,
+            180
+          ]
+        },
+        {
+          "name": "SSX_HAIR_BANGS_RIGHT",
+          "group": "Head",
+          "sourceRect": [
+            1152,
+            341,
+            384,
+            341
+          ],
+          "targetRect": [
+            415,
+            55,
+            170,
+            180
+          ]
+        },
+        {
+          "name": "SSX_HAIR_SIDE_LOCK_LEFT",
+          "group": "Head",
+          "sourceRect": [
+            0,
+            682,
+            384,
+            342
+          ],
+          "targetRect": [
+            325,
+            115,
+            130,
+            270
+          ]
+        },
+        {
+          "name": "SSX_HAIR_SIDE_LOCK_RIGHT",
+          "group": "Head",
+          "sourceRect": [
+            384,
+            682,
+            384,
+            342
+          ],
+          "targetRect": [
+            465,
+            115,
+            130,
+            270
+          ]
+        },
+        {
+          "name": "SSX_HAIR_LOOSE_STRANDS",
+          "group": "Head",
+          "sourceRect": [
+            768,
+            682,
+            384,
+            342
+          ],
+          "targetRect": [
+            315,
+            90,
+            290,
+            305
+          ]
+        },
+        {
+          "name": "SSX_ACCESSORY_HAIR_CLIP",
+          "group": "Head",
+          "sourceRect": [
+            1152,
+            682,
+            384,
+            342
+          ],
+          "targetRect": [
+            510,
+            115,
+            48,
+            48
+          ]
+        }
+      ]
+    },
+    {
+      "file": "eyes-brows-atlas-v1-alpha.png",
+      "columns": 4,
+      "rows": 4,
+      "width": 1254,
+      "height": 1254,
+      "parts": [
+        {
+          "name": "SSX_EYE_L_WHITE",
+          "group": "Eyes",
+          "sourceRect": [
+            0,
+            0,
+            313,
+            313
+          ],
+          "targetRect": [
+            388,
+            169,
+            58,
+            32
+          ]
+        },
+        {
+          "name": "SSX_EYE_L_IRIS",
+          "group": "Eyes",
+          "sourceRect": [
+            313,
+            0,
+            314,
+            313
+          ],
+          "targetRect": [
+            402,
+            169,
+            30,
+            30
+          ]
+        },
+        {
+          "name": "SSX_EYE_L_PUPIL",
+          "group": "Eyes",
+          "sourceRect": [
+            627,
+            0,
+            313,
+            313
+          ],
+          "targetRect": [
+            410,
+            176,
+            15,
+            15
+          ]
+        },
+        {
+          "name": "SSX_EYE_L_HIGHLIGHT",
+          "group": "Eyes",
+          "sourceRect": [
+            940,
+            0,
+            314,
+            313
+          ],
+          "targetRect": [
+            408,
+            171,
+            10,
+            10
+          ]
+        },
+        {
+          "name": "SSX_EYE_L_UPPER_LASH",
+          "group": "Eyes",
+          "sourceRect": [
+            0,
+            313,
+            313,
+            314
+          ],
+          "targetRect": [
+            383,
+            158,
+            69,
+            30
+          ]
+        },
+        {
+          "name": "SSX_EYE_L_LOWER_LASH",
+          "group": "Eyes",
+          "sourceRect": [
+            313,
+            313,
+            314,
+            314
+          ],
+          "targetRect": [
+            387,
+            185,
+            64,
+            16
+          ]
+        },
+        {
+          "name": "SSX_BROW_L",
+          "group": "Eyes",
+          "sourceRect": [
+            627,
+            313,
+            313,
+            314
+          ],
+          "targetRect": [
+            384,
+            141,
+            67,
+            20
+          ]
+        },
+        {
+          "name": "SSX_EYE_L_CLOSED",
+          "group": "Eyes",
+          "sourceRect": [
+            940,
+            313,
+            314,
+            314
+          ],
+          "targetRect": [
+            383,
+            171,
+            70,
+            26
+          ]
+        },
+        {
+          "name": "SSX_EYE_R_WHITE",
+          "group": "Eyes",
+          "sourceRect": [
+            0,
+            627,
+            313,
+            313
+          ],
+          "targetRect": [
+            457,
+            169,
+            58,
+            32
+          ]
+        },
+        {
+          "name": "SSX_EYE_R_IRIS",
+          "group": "Eyes",
+          "sourceRect": [
+            313,
+            627,
+            314,
+            313
+          ],
+          "targetRect": [
+            471,
+            169,
+            30,
+            30
+          ]
+        },
+        {
+          "name": "SSX_EYE_R_PUPIL",
+          "group": "Eyes",
+          "sourceRect": [
+            627,
+            627,
+            313,
+            313
+          ],
+          "targetRect": [
+            479,
+            176,
+            15,
+            15
+          ]
+        },
+        {
+          "name": "SSX_EYE_R_HIGHLIGHT",
+          "group": "Eyes",
+          "sourceRect": [
+            940,
+            627,
+            314,
+            313
+          ],
+          "targetRect": [
+            477,
+            171,
+            10,
+            10
+          ]
+        },
+        {
+          "name": "SSX_EYE_R_UPPER_LASH",
+          "group": "Eyes",
+          "sourceRect": [
+            0,
+            940,
+            313,
+            314
+          ],
+          "targetRect": [
+            452,
+            158,
+            69,
+            30
+          ]
+        },
+        {
+          "name": "SSX_EYE_R_LOWER_LASH",
+          "group": "Eyes",
+          "sourceRect": [
+            313,
+            940,
+            314,
+            314
+          ],
+          "targetRect": [
+            456,
+            185,
+            64,
+            16
+          ]
+        },
+        {
+          "name": "SSX_BROW_R",
+          "group": "Eyes",
+          "sourceRect": [
+            627,
+            940,
+            313,
+            314
+          ],
+          "targetRect": [
+            453,
+            141,
+            67,
+            20
+          ]
+        },
+        {
+          "name": "SSX_EYE_R_CLOSED",
+          "group": "Eyes",
+          "sourceRect": [
+            940,
+            940,
+            314,
+            314
+          ],
+          "targetRect": [
+            452,
+            171,
+            70,
+            26
+          ]
+        }
+      ]
+    },
+    {
+      "file": "mouths-atlas-v1-alpha.png",
+      "columns": 3,
+      "rows": 2,
+      "width": 1536,
+      "height": 1024,
+      "parts": [
+        {
+          "name": "SSX_MOUTH_CLOSED",
+          "group": "Mouth",
+          "sourceRect": [
+            0,
+            0,
+            512,
+            512
+          ],
+          "targetRect": [
+            421,
+            229,
+            78,
+            48
+          ]
+        },
+        {
+          "name": "SSX_MOUTH_OPEN_SMALL",
+          "group": "Mouth",
+          "sourceRect": [
+            512,
+            0,
+            512,
+            512
+          ],
+          "targetRect": [
+            421,
+            229,
+            78,
+            48
+          ]
+        },
+        {
+          "name": "SSX_MOUTH_OPEN_WIDE",
+          "group": "Mouth",
+          "sourceRect": [
+            1024,
+            0,
+            512,
+            512
+          ],
+          "targetRect": [
+            417,
+            221,
+            86,
+            66
+          ]
+        },
+        {
+          "name": "SSX_MOUTH_FORM_EI",
+          "group": "Mouth",
+          "sourceRect": [
+            0,
+            512,
+            512,
+            512
+          ],
+          "targetRect": [
+            416,
+            227,
+            88,
+            52
+          ]
+        },
+        {
+          "name": "SSX_MOUTH_FORM_OU",
+          "group": "Mouth",
+          "sourceRect": [
+            512,
+            512,
+            512,
+            512
+          ],
+          "targetRect": [
+            426,
+            222,
+            68,
+            64
+          ]
+        },
+        {
+          "name": "SSX_MOUTH_FORM_MBP",
+          "group": "Mouth",
+          "sourceRect": [
+            1024,
+            512,
+            512,
+            512
+          ],
+          "targetRect": [
+            421,
+            229,
+            78,
+            48
+          ]
+        }
+      ]
+    },
+    {
+      "file": "upper-body-atlas-v1-alpha.png",
+      "columns": 4,
+      "rows": 4,
+      "width": 1254,
+      "height": 1254,
+      "parts": [
+        {
+          "name": "SSX_TORSO_BASE",
+          "group": "Body",
+          "sourceRect": [
+            0,
+            0,
+            313,
+            313
+          ],
+          "targetRect": [
+            335,
+            275,
+            250,
+            310
+          ]
+        },
+        {
+          "name": "SSX_BLOUSE_FRONT",
+          "group": "Body",
+          "sourceRect": [
+            313,
+            0,
+            314,
+            313
+          ],
+          "targetRect": [
+            285,
+            300,
+            350,
+            300
+          ]
+        },
+        {
+          "name": "SSX_BLOUSE_COLLAR_L",
+          "group": "Body",
+          "sourceRect": [
+            627,
+            0,
+            313,
+            313
+          ],
+          "targetRect": [
+            350,
+            302,
+            110,
+            95
+          ]
+        },
+        {
+          "name": "SSX_BLOUSE_COLLAR_R",
+          "group": "Body",
+          "sourceRect": [
+            940,
+            0,
+            314,
+            313
+          ],
+          "targetRect": [
+            460,
+            302,
+            110,
+            95
+          ]
+        },
+        {
+          "name": "SSX_BLOUSE_SLEEVE_L",
+          "group": "Body",
+          "sourceRect": [
+            0,
+            313,
+            313,
+            314
+          ],
+          "targetRect": [
+            270,
+            345,
+            130,
+            165
+          ]
+        },
+        {
+          "name": "SSX_BLOUSE_SLEEVE_R",
+          "group": "Body",
+          "sourceRect": [
+            313,
+            313,
+            314,
+            314
+          ],
+          "targetRect": [
+            520,
+            345,
+            130,
+            165
+          ]
+        },
+        {
+          "name": "SSX_BLOUSE_BUTTON_PLACKET",
+          "group": "Body",
+          "sourceRect": [
+            627,
+            313,
+            313,
+            314
+          ],
+          "targetRect": [
+            440,
+            340,
+            40,
+            205
+          ]
+        },
+        {
+          "name": "SSX_BLOUSE_BACK_FILL",
+          "group": "Body",
+          "sourceRect": [
+            940,
+            313,
+            314,
+            314
+          ],
+          "targetRect": [
+            300,
+            295,
+            320,
+            310
+          ]
+        },
+        {
+          "name": "SSX_ARM_UPPER_L",
+          "group": "Body",
+          "sourceRect": [
+            0,
+            627,
+            313,
+            313
+          ],
+          "targetRect": [
+            260,
+            430,
+            85,
+            230
+          ]
+        },
+        {
+          "name": "SSX_ARM_LOWER_L",
+          "group": "Body",
+          "sourceRect": [
+            313,
+            627,
+            314,
+            313
+          ],
+          "targetRect": [
+            220,
+            610,
+            125,
+            245
+          ]
+        },
+        {
+          "name": "SSX_HAND_NEUTRAL_L",
+          "group": "Body",
+          "sourceRect": [
+            627,
+            627,
+            313,
+            313
+          ],
+          "targetRect": [
+            202,
+            785,
+            105,
+            155
+          ]
+        },
+        {
+          "name": "SSX_HAND_CHEEK_L",
+          "group": "Body",
+          "sourceRect": [
+            940,
+            627,
+            314,
+            313
+          ],
+          "targetRect": [
+            300,
+            160,
+            135,
+            250
+          ]
+        },
+        {
+          "name": "SSX_ARM_UPPER_R",
+          "group": "Body",
+          "sourceRect": [
+            0,
+            940,
+            313,
+            314
+          ],
+          "targetRect": [
+            575,
+            430,
+            85,
+            230
+          ]
+        },
+        {
+          "name": "SSX_ARM_LOWER_R",
+          "group": "Body",
+          "sourceRect": [
+            313,
+            940,
+            314,
+            314
+          ],
+          "targetRect": [
+            575,
+            610,
+            125,
+            245
+          ]
+        },
+        {
+          "name": "SSX_HAND_NEUTRAL_R",
+          "group": "Body",
+          "sourceRect": [
+            627,
+            940,
+            313,
+            314
+          ],
+          "targetRect": [
+            612,
+            785,
+            105,
+            155
+          ]
+        },
+        {
+          "name": "SSX_HAND_CHEEK_R",
+          "group": "Body",
+          "sourceRect": [
+            940,
+            940,
+            314,
+            314
+          ],
+          "targetRect": [
+            485,
+            160,
+            135,
+            250
+          ]
+        }
+      ]
+    },
+    {
+      "file": "lower-body-atlas-v1-alpha.png",
+      "columns": 4,
+      "rows": 4,
+      "width": 1254,
+      "height": 1254,
+      "parts": [
+        {
+          "name": "SSX_WAIST_PELVIS_BASE",
+          "group": "SkirtAndLegs",
+          "sourceRect": [
+            0,
+            0,
+            313,
+            313
+          ],
+          "targetRect": [
+            330,
+            520,
+            260,
+            430
+          ]
+        },
+        {
+          "name": "SSX_SKIRT_WAIST",
+          "group": "SkirtAndLegs",
+          "sourceRect": [
+            313,
+            0,
+            314,
+            313
+          ],
+          "targetRect": [
+            280,
+            535,
+            360,
+            65
+          ]
+        },
+        {
+          "name": "SSX_SKIRT_REAR_BASE",
+          "group": "SkirtAndLegs",
+          "sourceRect": [
+            627,
+            0,
+            313,
+            313
+          ],
+          "targetRect": [
+            270,
+            560,
+            380,
+            405
+          ]
+        },
+        {
+          "name": "SSX_SKIRT_FRONT_BASE",
+          "group": "SkirtAndLegs",
+          "sourceRect": [
+            940,
+            0,
+            314,
+            313
+          ],
+          "targetRect": [
+            270,
+            560,
+            380,
+            405
+          ]
+        },
+        {
+          "name": "SSX_SKIRT_PLEATS_L",
+          "group": "SkirtAndLegs",
+          "sourceRect": [
+            0,
+            313,
+            313,
+            314
+          ],
+          "targetRect": [
+            270,
+            560,
+            155,
+            405
+          ]
+        },
+        {
+          "name": "SSX_SKIRT_PLEATS_CENTER",
+          "group": "SkirtAndLegs",
+          "sourceRect": [
+            313,
+            313,
+            314,
+            314
+          ],
+          "targetRect": [
+            380,
+            560,
+            160,
+            405
+          ]
+        },
+        {
+          "name": "SSX_SKIRT_PLEATS_R",
+          "group": "SkirtAndLegs",
+          "sourceRect": [
+            627,
+            313,
+            313,
+            314
+          ],
+          "targetRect": [
+            495,
+            560,
+            155,
+            405
+          ]
+        },
+        {
+          "name": "SSX_SKIRT_HEM_UNDERSIDE",
+          "group": "SkirtAndLegs",
+          "sourceRect": [
+            940,
+            313,
+            314,
+            314
+          ],
+          "targetRect": [
+            275,
+            920,
+            370,
+            55
+          ]
+        },
+        {
+          "name": "SSX_THIGH_L",
+          "group": "SkirtAndLegs",
+          "sourceRect": [
+            0,
+            627,
+            313,
+            313
+          ],
+          "targetRect": [
+            325,
+            930,
+            120,
+            330
+          ]
+        },
+        {
+          "name": "SSX_CALF_L",
+          "group": "SkirtAndLegs",
+          "sourceRect": [
+            313,
+            627,
+            314,
+            313
+          ],
+          "targetRect": [
+            335,
+            1200,
+            105,
+            365
+          ]
+        },
+        {
+          "name": "SSX_SHOE_L",
+          "group": "SkirtAndLegs",
+          "sourceRect": [
+            627,
+            627,
+            313,
+            313
+          ],
+          "targetRect": [
+            325,
+            1510,
+            125,
+            160
+          ]
+        },
+        {
+          "name": "SSX_KNEE_OVERLAY_L",
+          "group": "SkirtAndLegs",
+          "sourceRect": [
+            940,
+            627,
+            314,
+            313
+          ],
+          "targetRect": [
+            330,
+            1100,
+            110,
+            120
+          ]
+        },
+        {
+          "name": "SSX_THIGH_R",
+          "group": "SkirtAndLegs",
+          "sourceRect": [
+            0,
+            940,
+            313,
+            314
+          ],
+          "targetRect": [
+            475,
+            930,
+            120,
+            330
+          ]
+        },
+        {
+          "name": "SSX_CALF_R",
+          "group": "SkirtAndLegs",
+          "sourceRect": [
+            313,
+            940,
+            314,
+            314
+          ],
+          "targetRect": [
+            480,
+            1200,
+            105,
+            365
+          ]
+        },
+        {
+          "name": "SSX_SHOE_R",
+          "group": "SkirtAndLegs",
+          "sourceRect": [
+            627,
+            940,
+            313,
+            314
+          ],
+          "targetRect": [
+            470,
+            1510,
+            125,
+            160
+          ]
+        },
+        {
+          "name": "SSX_KNEE_OVERLAY_R",
+          "group": "SkirtAndLegs",
+          "sourceRect": [
+            940,
+            940,
+            314,
+            314
+          ],
+          "targetRect": [
+            480,
+            1100,
+            110,
+            120
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,44 @@
+{
+  "id": "su-shixia-live2d-v2",
+  "displayName": "Su Shixia Live2D V2 Source Baseline",
+  "version": "0.1.0",
+  "status": "layered_source_baseline_review_required",
+  "sourceOnly": true,
+  "sourceArt": {
+    "frontMaster": "source/su-shixia-front-master-v2-alpha.png",
+    "layeredPsd": "source/su-shixia-front-layered-v1.psd",
+    "partsInventory": "source/parts/parts-inventory-v1.json",
+    "partsLayout": "source/parts/parts-layout-v1.json",
+    "partsContactSheet": "source/parts/parts-contact-sheet-v1.png",
+    "layerMap": "layer-map.json",
+    "rawDirectory": "source/raw",
+    "rawPartsDirectory": "source/parts/raw"
+  },
+  "production": {
+    "conceptBaselineApproved": true,
+    "transparentMasterReady": true,
+    "automatedLayeredBaselineReady": true,
+    "partsCount": 66,
+    "psdGroups": ["Head", "Eyes", "Mouth", "Body", "SkirtAndLegs"],
+    "humanLayerReviewRequired": true,
+    "hiddenFillReviewRequired": true,
+    "alignmentReviewRequired": true,
+    "cubismProjectReady": false,
+    "cubismExportReady": false,
+    "runtimeReady": false,
+    "multiViewReady": false,
+    "adultPackageIncluded": false
+  },
+  "distribution": {
+    "publicInstallerAllowed": false,
+    "storePackageAllowed": false,
+    "sourceFilesReleaseExcluded": true,
+    "rightsReviewRequired": true,
+    "live2dLicenseReviewRequired": true
+  },
+  "generation": {
+    "method": "OpenAI built-in image generation plus local chroma extraction and deterministic source slicing",
+    "generatedAt": "2026-08-23",
+    "humanPolish": "required"
+  }
+}
