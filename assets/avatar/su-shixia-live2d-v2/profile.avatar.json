@@ -1,0 +1,763 @@
+{
+  "id": "su-shixia-live2d-v2",
+  "displayName": "Su Shixia Live2D V2 Preview",
+  "provider": "live2d",
+  "enabled": true,
+  "model": {
+    "source": "localDirectory",
+    "rootPath": ".",
+    "model3JsonPath": "model/su-shixia-live2d-v2-lite.model3.json",
+    "packageId": "su-shixia-live2d-v2",
+    "packageVersion": "0.3.0-lite-runtime-preview"
+  },
+  "marketplace": {
+    "packageId": "su-shixia-live2d-v2",
+    "version": "0.3.0-lite-runtime-preview",
+    "displayName": "Su Shixia Live2D V2 Preview",
+    "author": "Athena Project",
+    "license": "internal-generated-source-pending-rights-review",
+    "tags": [
+      "default-character",
+      "su-shixia",
+      "live2d-lite",
+      "preview"
+    ]
+  },
+  "layout": {
+    "mode": "chat_right",
+    "transform": {
+      "x": 0,
+      "y": 0,
+      "scale": 1,
+      "opacity": 1,
+      "rotationDeg": 0,
+      "mirrored": false
+    },
+    "alwaysOnTop": true,
+    "clickThroughMode": "transparentOnly",
+    "transparentBackground": true,
+    "lockPosition": false
+  },
+  "expressions": [
+    {
+      "emotion": "peaceful",
+      "expressionId": "soft_smile",
+      "intensityScale": 0.82,
+      "fallbackExpressionId": "neutral"
+    },
+    {
+      "emotion": "happy",
+      "expressionId": "happy",
+      "intensityScale": 1
+    },
+    {
+      "emotion": "thoughtful",
+      "expressionId": "thoughtful",
+      "intensityScale": 0.9
+    },
+    {
+      "emotion": "shy",
+      "expressionId": "shy",
+      "intensityScale": 1
+    },
+    {
+      "emotion": "confused",
+      "expressionId": "confused",
+      "intensityScale": 0.95
+    },
+    {
+      "emotion": "excited",
+      "expressionId": "surprised",
+      "intensityScale": 0.9,
+      "fallbackExpressionId": "happy"
+    },
+    {
+      "emotion": "tired",
+      "expressionId": "sleepy",
+      "intensityScale": 1
+    },
+    {
+      "emotion": "playful",
+      "expressionId": "playful",
+      "intensityScale": 1
+    },
+    {
+      "emotion": "soft",
+      "expressionId": "soft_smile",
+      "intensityScale": 0.88
+    }
+  ],
+  "motions": [
+    {
+      "state": "idle",
+      "motionGroup": "Idle",
+      "priority": "idle",
+      "loop": true,
+      "fadeInMs": 450,
+      "fadeOutMs": 450
+    },
+    {
+      "state": "listening",
+      "motionGroup": "Listen",
+      "priority": "focused",
+      "loop": true,
+      "fadeInMs": 250,
+      "fadeOutMs": 300,
+      "fallbackMotionGroup": "Idle"
+    },
+    {
+      "state": "thinking",
+      "motionGroup": "Think",
+      "priority": "focused",
+      "loop": true,
+      "fadeInMs": 250,
+      "fadeOutMs": 300,
+      "fallbackMotionGroup": "Idle"
+    },
+    {
+      "state": "streaming",
+      "motionGroup": "Speak",
+      "priority": "normal",
+      "loop": true,
+      "fadeInMs": 200,
+      "fadeOutMs": 260,
+      "fallbackMotionGroup": "Idle"
+    },
+    {
+      "state": "speaking",
+      "motionGroup": "Speak",
+      "priority": "focused",
+      "loop": true,
+      "fadeInMs": 160,
+      "fadeOutMs": 220,
+      "fallbackMotionGroup": "Idle"
+    },
+    {
+      "state": "interrupted",
+      "motionGroup": "ShakeHead",
+      "priority": "urgent",
+      "loop": false,
+      "fadeInMs": 80,
+      "fadeOutMs": 180,
+      "fallbackMotionGroup": "Idle"
+    },
+    {
+      "state": "error",
+      "motionGroup": "ShakeHead",
+      "priority": "urgent",
+      "loop": false,
+      "fadeInMs": 120,
+      "fadeOutMs": 260,
+      "fallbackMotionGroup": "Idle"
+    },
+    {
+      "state": "sleepy",
+      "motionGroup": "Sleepy",
+      "priority": "idle",
+      "loop": true,
+      "fadeInMs": 500,
+      "fadeOutMs": 500,
+      "fallbackMotionGroup": "Idle"
+    },
+    {
+      "state": "away",
+      "motionGroup": "Return",
+      "priority": "idle",
+      "loop": true,
+      "fadeInMs": 600,
+      "fadeOutMs": 600,
+      "fallbackMotionGroup": "Idle"
+    }
+  ],
+  "parameters": [
+    {
+      "id": "ParamAngleX",
+      "label": "Angle X",
+      "min": -30,
+      "max": 30,
+      "defaultValue": 0,
+      "favorite": true
+    },
+    {
+      "id": "ParamAngleY",
+      "label": "Angle Y",
+      "min": -30,
+      "max": 30,
+      "defaultValue": 0,
+      "favorite": true
+    },
+    {
+      "id": "ParamAngleZ",
+      "label": "Angle Z",
+      "min": -30,
+      "max": 30,
+      "defaultValue": 0,
+      "favorite": false
+    },
+    {
+      "id": "ParamEyeLOpen",
+      "label": "Eye LOpen",
+      "min": 0,
+      "max": 1,
+      "defaultValue": 1,
+      "favorite": false
+    },
+    {
+      "id": "ParamEyeROpen",
+      "label": "Eye ROpen",
+      "min": 0,
+      "max": 1,
+      "defaultValue": 1,
+      "favorite": false
+    },
+    {
+      "id": "ParamEyeBallX",
+      "label": "Eye Ball X",
+      "min": -1,
+      "max": 1,
+      "defaultValue": 0,
+      "favorite": false
+    },
+    {
+      "id": "ParamEyeBallY",
+      "label": "Eye Ball Y",
+      "min": -1,
+      "max": 1,
+      "defaultValue": 0,
+      "favorite": false
+    },
+    {
+      "id": "ParamMouthOpenY",
+      "label": "Mouth Open Y",
+      "min": 0,
+      "max": 1,
+      "defaultValue": 0,
+      "favorite": true
+    },
+    {
+      "id": "ParamMouthForm",
+      "label": "Mouth Form",
+      "min": -1,
+      "max": 1,
+      "defaultValue": 0,
+      "favorite": true
+    },
+    {
+      "id": "ParamBodyAngleX",
+      "label": "Body Angle X",
+      "min": -10,
+      "max": 10,
+      "defaultValue": 0,
+      "favorite": false
+    },
+    {
+      "id": "ParamBreath",
+      "label": "Breath",
+      "min": 0,
+      "max": 1,
+      "defaultValue": 0,
+      "favorite": false
+    },
+    {
+      "id": "ParamHairSwing",
+      "label": "Hair Swing",
+      "min": -1,
+      "max": 1,
+      "defaultValue": 0,
+      "favorite": true
+    },
+    {
+      "id": "ParamTurnX",
+      "label": "Turn X",
+      "min": -1,
+      "max": 1,
+      "defaultValue": 0,
+      "favorite": true
+    },
+    {
+      "id": "ParamBodyCurve",
+      "label": "Body Curve",
+      "min": -1,
+      "max": 1,
+      "defaultValue": 0,
+      "favorite": false
+    }
+  ],
+  "lipSync": {
+    "enabled": true,
+    "source": "ttsAudio",
+    "parameterIds": [
+      "ParamMouthOpenY"
+    ],
+    "sensitivity": 1.04,
+    "smoothing": 0.58,
+    "gain": 1.08,
+    "attackMs": 30,
+    "releaseMs": 118,
+    "minValue": 0,
+    "maxValue": 1
+  },
+  "pointerTracking": {
+    "enabled": true,
+    "headParameterIds": [
+      "ParamAngleX",
+      "ParamAngleY",
+      "ParamAngleZ"
+    ],
+    "eyeParameterIds": [
+      "ParamEyeBallX",
+      "ParamEyeBallY"
+    ],
+    "strength": 0.72,
+    "smoothing": 0.44
+  },
+  "idle": {
+    "enabled": true,
+    "idleDelayMs": 11000,
+    "sleepyDelayMs": 300000,
+    "awayDelayMs": 900000,
+    "motionGroups": [
+      "Idle",
+      "Think"
+    ],
+    "randomize": true
+  },
+  "hotZones": [
+    {
+      "id": "hair",
+      "label": "Hair",
+      "hitAreaName": "Hair",
+      "rect": {
+        "x": 0.34,
+        "y": 0.03,
+        "width": 0.33,
+        "height": 0.15
+      },
+      "action": {
+        "type": "composite",
+        "actions": [
+          {
+            "type": "playMotion",
+            "motionGroup": "TouchHair"
+          },
+          {
+            "type": "setExpression",
+            "expressionId": "playful"
+          },
+          {
+            "type": "athenaReply",
+            "promptTemplate": "用户轻触了你的头发。用苏时夏的人格语气自然回应，带一点轻巧的反应，但不要夸张。"
+          }
+        ]
+      },
+      "cooldownMs": 1400,
+      "enabled": true
+    },
+    {
+      "id": "hair_clip",
+      "label": "Hair Clip",
+      "hitAreaName": "HairClip",
+      "rect": {
+        "x": 0.55,
+        "y": 0.07,
+        "width": 0.08,
+        "height": 0.06
+      },
+      "action": {
+        "type": "composite",
+        "actions": [
+          {
+            "type": "playMotion",
+            "motionGroup": "TouchHairClip"
+          },
+          {
+            "type": "setExpression",
+            "expressionId": "shy"
+          },
+          {
+            "type": "athenaReply",
+            "promptTemplate": "用户碰到了你的银色 A 字发夹。用苏时夏的人格语气回应，可以有一点害羞和整理发夹的动作感。"
+          }
+        ]
+      },
+      "cooldownMs": 1400,
+      "enabled": true
+    },
+    {
+      "id": "forehead",
+      "label": "Forehead",
+      "hitAreaName": "Forehead",
+      "rect": {
+        "x": 0.41,
+        "y": 0.1,
+        "width": 0.18,
+        "height": 0.07
+      },
+      "action": {
+        "type": "composite",
+        "actions": [
+          {
+            "type": "playMotion",
+            "motionGroup": "TouchHead"
+          },
+          {
+            "type": "setExpression",
+            "expressionId": "soft_smile"
+          },
+          {
+            "type": "athenaReply",
+            "promptTemplate": "用户轻触了你的额头。用苏时夏的人格语气给一句温柔、自然、简短的回应。"
+          }
+        ]
+      },
+      "cooldownMs": 1400,
+      "enabled": true
+    },
+    {
+      "id": "face_cheek",
+      "label": "Face And Cheek",
+      "hitAreaName": "Face",
+      "rect": {
+        "x": 0.39,
+        "y": 0.13,
+        "width": 0.22,
+        "height": 0.13
+      },
+      "action": {
+        "type": "composite",
+        "actions": [
+          {
+            "type": "playMotion",
+            "motionGroup": "TouchFace"
+          },
+          {
+            "type": "setExpression",
+            "expressionId": "shy"
+          },
+          {
+            "type": "athenaReply",
+            "promptTemplate": "用户轻触了你的脸颊。用苏时夏的人格语气回应，允许害羞，但保持自然和边界。"
+          }
+        ]
+      },
+      "cooldownMs": 1400,
+      "enabled": true
+    },
+    {
+      "id": "mouth_chin",
+      "label": "Mouth And Chin",
+      "hitAreaName": "MouthChin",
+      "rect": {
+        "x": 0.43,
+        "y": 0.22,
+        "width": 0.14,
+        "height": 0.06
+      },
+      "action": {
+        "type": "composite",
+        "actions": [
+          {
+            "type": "playMotion",
+            "motionGroup": "TouchFace"
+          },
+          {
+            "type": "setExpression",
+            "expressionId": "surprised"
+          },
+          {
+            "type": "athenaReply",
+            "promptTemplate": "用户点到了你的嘴唇或下巴附近。用苏时夏的人格语气给一句短反馈，表现一点惊讶和不好意思。"
+          }
+        ]
+      },
+      "cooldownMs": 1400,
+      "enabled": true
+    },
+    {
+      "id": "neck_collar",
+      "label": "Neck And Collar",
+      "hitAreaName": "NeckCollar",
+      "rect": {
+        "x": 0.39,
+        "y": 0.25,
+        "width": 0.22,
+        "height": 0.08
+      },
+      "action": {
+        "type": "composite",
+        "actions": [
+          {
+            "type": "playMotion",
+            "motionGroup": "TouchClothing"
+          },
+          {
+            "type": "setExpression",
+            "expressionId": "shy"
+          },
+          {
+            "type": "athenaReply",
+            "promptTemplate": "用户碰到了你的脖颈或衣领。用苏时夏的人格语气回应，动作上轻轻缩肩或整理衣领。"
+          }
+        ]
+      },
+      "cooldownMs": 1400,
+      "enabled": true
+    },
+    {
+      "id": "shoulders",
+      "label": "Shoulders",
+      "hitAreaName": "Shoulder",
+      "rect": {
+        "x": 0.28,
+        "y": 0.3,
+        "width": 0.44,
+        "height": 0.08
+      },
+      "action": {
+        "type": "composite",
+        "actions": [
+          {
+            "type": "playMotion",
+            "motionGroup": "Nod"
+          },
+          {
+            "type": "setExpression",
+            "expressionId": "soft_smile"
+          },
+          {
+            "type": "athenaReply",
+            "promptTemplate": "用户轻触了你的肩膀。用苏时夏的人格语气自然回应，可以像被叫住一样看向用户。"
+          }
+        ]
+      },
+      "cooldownMs": 1400,
+      "enabled": true
+    },
+    {
+      "id": "hands",
+      "label": "Hands",
+      "hitAreaName": "Hand",
+      "rect": {
+        "x": 0.2,
+        "y": 0.47,
+        "width": 0.58,
+        "height": 0.11
+      },
+      "action": {
+        "type": "composite",
+        "actions": [
+          {
+            "type": "playMotion",
+            "motionGroup": "TouchHand"
+          },
+          {
+            "type": "setExpression",
+            "expressionId": "happy"
+          },
+          {
+            "type": "athenaReply",
+            "promptTemplate": "用户碰到了你的手。用苏时夏的人格语气回应，像轻轻打招呼或短暂牵手的氛围。"
+          }
+        ]
+      },
+      "cooldownMs": 1400,
+      "enabled": true
+    },
+    {
+      "id": "chest",
+      "label": "Chest",
+      "hitAreaName": "Chest",
+      "rect": {
+        "x": 0.37,
+        "y": 0.33,
+        "width": 0.26,
+        "height": 0.12
+      },
+      "action": {
+        "type": "composite",
+        "actions": [
+          {
+            "type": "playMotion",
+            "motionGroup": "TouchChest"
+          },
+          {
+            "type": "setExpression",
+            "expressionId": "shy"
+          },
+          {
+            "type": "athenaReply",
+            "promptTemplate": "用户碰到了你的胸口区域。回应交给苏时夏人格，但必须经过运行时模式和边界校验。"
+          }
+        ]
+      },
+      "cooldownMs": 2200,
+      "enabled": true
+    },
+    {
+      "id": "waist",
+      "label": "Waist",
+      "hitAreaName": "Waist",
+      "rect": {
+        "x": 0.35,
+        "y": 0.45,
+        "width": 0.3,
+        "height": 0.08
+      },
+      "action": {
+        "type": "composite",
+        "actions": [
+          {
+            "type": "playMotion",
+            "motionGroup": "TouchWaist"
+          },
+          {
+            "type": "setExpression",
+            "expressionId": "shy"
+          },
+          {
+            "type": "athenaReply",
+            "promptTemplate": "用户碰到了你的腰部。回应交给苏时夏人格，并根据当前模式控制亲密程度。"
+          }
+        ]
+      },
+      "cooldownMs": 2200,
+      "enabled": true
+    },
+    {
+      "id": "skirt_clothing",
+      "label": "Skirt Or Clothing",
+      "hitAreaName": "Clothing",
+      "rect": {
+        "x": 0.3,
+        "y": 0.51,
+        "width": 0.4,
+        "height": 0.13
+      },
+      "action": {
+        "type": "composite",
+        "actions": [
+          {
+            "type": "playMotion",
+            "motionGroup": "TouchClothing"
+          },
+          {
+            "type": "setExpression",
+            "expressionId": "confused"
+          },
+          {
+            "type": "athenaReply",
+            "promptTemplate": "用户碰到了你的衣服或裙摆。用苏时夏人格回应，动作上整理衣服，正常模式保持明确边界。"
+          }
+        ]
+      },
+      "cooldownMs": 2200,
+      "enabled": true
+    },
+    {
+      "id": "thighs",
+      "label": "Thighs",
+      "hitAreaName": "Legs",
+      "rect": {
+        "x": 0.33,
+        "y": 0.62,
+        "width": 0.34,
+        "height": 0.14
+      },
+      "action": {
+        "type": "composite",
+        "actions": [
+          {
+            "type": "playMotion",
+            "motionGroup": "TouchLeg"
+          },
+          {
+            "type": "setExpression",
+            "expressionId": "shy"
+          },
+          {
+            "type": "athenaReply",
+            "promptTemplate": "用户碰到了你的大腿区域。回应交给苏时夏人格，但必须经过运行时模式和边界校验。"
+          }
+        ]
+      },
+      "cooldownMs": 2200,
+      "enabled": true
+    },
+    {
+      "id": "knees_lower_legs",
+      "label": "Knees And Lower Legs",
+      "hitAreaName": "LowerLegs",
+      "rect": {
+        "x": 0.34,
+        "y": 0.74,
+        "width": 0.32,
+        "height": 0.17
+      },
+      "action": {
+        "type": "composite",
+        "actions": [
+          {
+            "type": "playMotion",
+            "motionGroup": "TouchLeg"
+          },
+          {
+            "type": "setExpression",
+            "expressionId": "soft_smile"
+          },
+          {
+            "type": "athenaReply",
+            "promptTemplate": "用户碰到了你的膝盖或小腿。用苏时夏人格自然回应，动作上轻轻换重心。"
+          }
+        ]
+      },
+      "cooldownMs": 1400,
+      "enabled": true
+    },
+    {
+      "id": "feet",
+      "label": "Feet",
+      "hitAreaName": "Feet",
+      "rect": {
+        "x": 0.34,
+        "y": 0.91,
+        "width": 0.32,
+        "height": 0.07
+      },
+      "action": {
+        "type": "composite",
+        "actions": [
+          {
+            "type": "playMotion",
+            "motionGroup": "TouchFoot"
+          },
+          {
+            "type": "setExpression",
+            "expressionId": "confused"
+          },
+          {
+            "type": "athenaReply",
+            "promptTemplate": "用户碰到了你的脚部。用苏时夏人格简短回应，动作上轻轻后退或挪脚。"
+          }
+        ]
+      },
+      "cooldownMs": 1400,
+      "enabled": true
+    }
+  ],
+  "externalControl": {
+    "transport": "disabled",
+    "enabled": false,
+    "host": "127.0.0.1",
+    "port": 0,
+    "requireToken": true,
+    "allowedCommandTypes": [
+      "avatar.motion.play",
+      "avatar.expression.set",
+      "avatar.parameter.set",
+      "avatar.pointer.move",
+      "avatar.hotZone.trigger"
+    ],
+    "auditEnabled": true
+  },
+  "notes": "Su Shixia V2 layered-2D runtime preview. This is not a genuine Cubism .moc3 export. Motion groups are reference-driven from the Haru official sample grouping plus Su Shixia V2 touch/turn requirements, and should be replaced with authored Cubism motions after model rigging."
+}

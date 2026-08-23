@@ -50,10 +50,10 @@ function main() {
   const output = `${result.stdout || ''}\n${result.stderr || ''}`;
   if (result.status !== 0) process.stderr.write(output);
   assert.equal(result.status, 0, 'desktop pet Electron smoke failed');
-  assert.match(output, /ATHENA_LIVE2D_PET_READY engine=cubism-web/);
+  assert.match(output, /ATHENA_LIVE2D_PET_READY engine=live2d-lite/);
   assert.match(output, /ATHENA_LIVE2D_DESKTOP_PET_STATE .*"stateSync":"emotion.update".*"lipSyncValue":"0.720".*"movingPixels":([3-9][5-9][0-9]|[4-9][0-9]{2}|[1-9][0-9]{3,})/);
   assert.match(output, /ATHENA_SMOKE_DOM_OK/);
-  console.log('ATHENA_LIVE2D_DESKTOP_PET_OK transparent=true alwaysOnTop=true stateSync=true pixels=verified motion=visible layeredRig=disabled bounds=persisted');
+  console.log('ATHENA_LIVE2D_DESKTOP_PET_OK transparent=true alwaysOnTop=true stateSync=true pixels=verified motion=visible layeredRig=disabled default=su_shixia_v2 bounds=persisted');
 }
 
 main();

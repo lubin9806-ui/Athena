@@ -18,15 +18,16 @@ async function main() {
   const scalePreviewPath = path.join(PACKAGE_ROOT, manifest.sourceArt.scalePreview);
   const reviewReport = readJson(path.join(PACKAGE_ROOT, manifest.sourceArt.reviewReport));
 
-  assert.equal(manifest.status, 'front_source_refinement_review_required');
-  assert.equal(manifest.sourceOnly, true);
+  assert.equal(manifest.status, 'lite_runtime_preview_ready');
+  assert.equal(manifest.sourceOnly, false);
   assert.equal(manifest.production.automatedLayeredBaselineReady, true);
   assert.equal(manifest.production.frontRefinementPassReady, true);
   assert.equal(manifest.production.alignmentPreviewReady, true);
   assert.equal(manifest.production.humanLayerReviewRequired, true);
   assert.equal(manifest.production.cubismProjectReady, false);
   assert.equal(manifest.production.cubismExportReady, false);
-  assert.equal(manifest.production.runtimeReady, false);
+  assert.equal(manifest.production.liteRuntimePreviewReady, true);
+  assert.equal(manifest.production.runtimeReady, true);
   assert.equal(manifest.production.multiViewReady, false);
   assert.equal(manifest.production.adultPackageIncluded, false);
   assert.equal(manifest.distribution.publicInstallerAllowed, false);
@@ -104,7 +105,7 @@ async function main() {
   const scalePreview = await loadImage(scalePreviewPath);
   assert.equal(scalePreview.width, 1400);
   assert.equal(scalePreview.height, 820);
-  assert.equal(reviewReport.status, manifest.status);
+  assert.equal(reviewReport.status, 'front_source_refinement_review_required');
   assert.equal(reviewReport.summary.parts, 66);
   assert.equal(reviewReport.summary.allTargetsInsideCanvas, true);
   assert.equal(reviewReport.summary.scalePreview, 'front-source-scale-preview-v1.png');

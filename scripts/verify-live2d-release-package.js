@@ -28,6 +28,9 @@ const FORBIDDEN_ENTRY_PATTERNS = [
   /(?:^|\/)athena-live2d-default\/source(?:\/|$)/,
   /(?:^|\/)athena-live2d-default\/CUBISM_EXPORT_RUNBOOK\.md$/,
   /(?:^|\/)athena-live2d-default\/layer-map\.json$/,
+  /(?:^|\/)su-shixia-live2d-v2\/source(?:\/|$)/,
+  /(?:^|\/)su-shixia-live2d-v2\/layer-map\.json$/,
+  /(?:^|\/)su-shixia-live2d-v2-private(?:\/|$)/,
   /(?:^|\/)athena-3d-default(?:\/|$)/,
   /(?:^|\/)live2d-official-haru\/sounds(?:\/|$)/,
   /^assets\/avatar(?:\/|$)/,
@@ -44,6 +47,9 @@ function verifySourceContract() {
     'avatar/athena-live2d-default/source',
     'avatar/athena-live2d-default/CUBISM_EXPORT_RUNBOOK.md',
     'avatar/athena-live2d-default/layer-map.json',
+    'avatar/su-shixia-live2d-v2/source',
+    'avatar/su-shixia-live2d-v2/layer-map.json',
+    'avatar/su-shixia-live2d-v2-private',
     'avatar/athena-3d-default',
   ]) {
     assert.ok(vite.includes(`'${privatePath}'`), `Vite release pruning is missing ${privatePath}`);
@@ -65,6 +71,9 @@ function verifyBuiltRenderer() {
     'dist/renderer/avatar/athena-live2d-default/source',
     'dist/renderer/avatar/athena-live2d-default/CUBISM_EXPORT_RUNBOOK.md',
     'dist/renderer/avatar/athena-live2d-default/layer-map.json',
+    'dist/renderer/avatar/su-shixia-live2d-v2/source',
+    'dist/renderer/avatar/su-shixia-live2d-v2/layer-map.json',
+    'dist/renderer/avatar/su-shixia-live2d-v2-private',
     'dist/renderer/avatar/athena-3d-default',
     'dist/renderer/avatar/live2d-official-haru/sounds',
   ]) {

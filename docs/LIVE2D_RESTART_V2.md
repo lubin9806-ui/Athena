@@ -143,9 +143,26 @@ Stage 2B status: `FRONT SOURCE REFINEMENT REVIEW REQUIRED`. Automated validation
 
 Display-size review result: full-body rendering remains readable at 720 px, 520 px, and approximately 360 px high. At 220 px the facial performance is no longer readable, so compact placement must switch to a bust crop instead of shrinking the full body further.
 
+## Stage 3A Current Evidence
+
+Produced on 2026-08-24:
+
+- Live2D Lite runtime preview: `assets/avatar/su-shixia-live2d-v2/model/su-shixia-live2d-v2-lite.model3.json`;
+- runtime layer directory generated from the 66 named source parts;
+- 68 runtime layers including two hidden cheek-touch hand overlays;
+- Athena avatar profile: `assets/avatar/su-shixia-live2d-v2/profile.avatar.json`;
+- 14 semantic hot zones for hair, face, mouth/chin, neck/collar, shoulders, hands, chest, waist, clothing/skirt, legs, and feet;
+- 22 motion groups mapped to reference-driven behavior;
+- motion reference brief: `docs/LIVE2D_SU_SHIXIA_V2_MOTION_REFERENCES.md`;
+- reproducible runtime gate: `npm.cmd run test:live2d:su-shixia-runtime`;
+- Athena integration gate: `npm.cmd run test:live2d:integration`;
+- desktop pet smoke gate: `npm.cmd run test:live2d:desktop-pet`.
+
+Stage 3A status: `LITE RUNTIME PREVIEW READY`. Su Shixia V2 is now the default Athena Live2D model variant for local preview and desktop-pet smoke. This is not a genuine Cubism export: `cubismProjectReady` and `cubismExportReady` remain false. Haru remains the Cubism Web quality benchmark and motion reference source, not Athena's default identity.
+
 ## Acceptance Gates
 
-V2 cannot become the default until all are true:
+V2 cannot become the final public Cubism default until all are true:
 
 - A human-visible screenshot review approves the character at chat-right, overlay, and desktop-pet sizes.
 - The source package has named layers and passes alpha/contact-sheet validation.
@@ -157,4 +174,4 @@ V2 cannot become the default until all are true:
 
 ## Immediate Next Step
 
-Review the Stage 2B front alignment preview at normal and desktop-pet scale. After human approval, begin genuine Cubism front-model rigging with the reviewed PSD. If the preview is rejected, revise the affected front assets before rigging. Profile and back packages follow the approved front-source method; adult-only private assets remain a separate later package boundary.
+Review the Stage 3A Lite runtime preview in chat-right and desktop-pet placements. In parallel, prepare the genuine Cubism rig plan from the reviewed PSD: mesh groups, deformers, parameter ranges, physics chains, and authored `.motion3.json` reference clips. Profile and back packages follow the approved front-source method; adult-only private assets remain a separate later package boundary.

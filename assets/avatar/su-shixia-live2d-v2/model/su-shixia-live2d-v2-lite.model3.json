@@ -1,0 +1,1035 @@
+{
+  "Version": 3,
+  "AthenaLive2DLite": {
+    "schemaVersion": 1,
+    "displayName": "Su Shixia Live2D V2 Lite Runtime Preview",
+    "canvas": {
+      "width": 920,
+      "height": 1712
+    },
+    "parameters": {
+      "ParamAngleX": {
+        "default": 0,
+        "min": -30,
+        "max": 30
+      },
+      "ParamAngleY": {
+        "default": 0,
+        "min": -30,
+        "max": 30
+      },
+      "ParamAngleZ": {
+        "default": 0,
+        "min": -30,
+        "max": 30
+      },
+      "ParamEyeLOpen": {
+        "default": 1,
+        "min": 0,
+        "max": 1
+      },
+      "ParamEyeROpen": {
+        "default": 1,
+        "min": 0,
+        "max": 1
+      },
+      "ParamEyeBallX": {
+        "default": 0,
+        "min": -1,
+        "max": 1
+      },
+      "ParamEyeBallY": {
+        "default": 0,
+        "min": -1,
+        "max": 1
+      },
+      "ParamMouthOpenY": {
+        "default": 0,
+        "min": 0,
+        "max": 1
+      },
+      "ParamMouthForm": {
+        "default": 0,
+        "min": -1,
+        "max": 1
+      },
+      "ParamBodyAngleX": {
+        "default": 0,
+        "min": -10,
+        "max": 10
+      },
+      "ParamBreath": {
+        "default": 0,
+        "min": 0,
+        "max": 1
+      },
+      "ParamHairSwing": {
+        "default": 0,
+        "min": -1,
+        "max": 1
+      },
+      "ParamTurnX": {
+        "default": 0,
+        "min": -1,
+        "max": 1
+      },
+      "ParamBodyCurve": {
+        "default": 0,
+        "min": -1,
+        "max": 1
+      }
+    },
+    "expressions": {
+      "neutral": {
+        "mouthForm": 0,
+        "mouthOpen": 0,
+        "eyeOpen": 1,
+        "blush": 0.16,
+        "brow": 0
+      },
+      "happy": {
+        "mouthForm": 0.72,
+        "mouthOpen": 0.16,
+        "eyeOpen": 0.88,
+        "blush": 0.34,
+        "brow": 0.08
+      },
+      "soft_smile": {
+        "mouthForm": 0.5,
+        "mouthOpen": 0.04,
+        "eyeOpen": 0.95,
+        "blush": 0.24,
+        "brow": 0
+      },
+      "thoughtful": {
+        "mouthForm": -0.16,
+        "mouthOpen": 0.02,
+        "eyeOpen": 0.9,
+        "blush": 0.12,
+        "brow": -0.12
+      },
+      "shy": {
+        "mouthForm": 0.28,
+        "mouthOpen": 0.02,
+        "eyeOpen": 0.78,
+        "blush": 0.68,
+        "brow": 0.1
+      },
+      "confused": {
+        "mouthForm": -0.32,
+        "mouthOpen": 0.16,
+        "eyeOpen": 0.96,
+        "blush": 0.16,
+        "brow": -0.24
+      },
+      "surprised": {
+        "mouthForm": -0.08,
+        "mouthOpen": 0.62,
+        "eyeOpen": 1,
+        "blush": 0.22,
+        "brow": 0.2
+      },
+      "focused": {
+        "mouthForm": -0.04,
+        "mouthOpen": 0,
+        "eyeOpen": 0.86,
+        "blush": 0.1,
+        "brow": -0.18
+      },
+      "worried": {
+        "mouthForm": -0.46,
+        "mouthOpen": 0.08,
+        "eyeOpen": 0.9,
+        "blush": 0.22,
+        "brow": -0.3
+      },
+      "sleepy": {
+        "mouthForm": -0.1,
+        "mouthOpen": 0.04,
+        "eyeOpen": 0.42,
+        "blush": 0.1,
+        "brow": -0.04
+      },
+      "playful": {
+        "mouthForm": 0.82,
+        "mouthOpen": 0.2,
+        "eyeOpen": 0.8,
+        "blush": 0.32,
+        "brow": 0.16
+      }
+    },
+    "motionGroups": {
+      "Idle": [
+        "reference:Haru/Idle",
+        "breath",
+        "blink",
+        "hair_sway"
+      ],
+      "Listen": [
+        "reference:Haru/Listen",
+        "lean_in"
+      ],
+      "Think": [
+        "reference:Haru/Think",
+        "look_side"
+      ],
+      "Speak": [
+        "reference:Haru/Speak",
+        "mouth_sync"
+      ],
+      "Greet": [
+        "reference:Haru/Greet",
+        "soft_greet"
+      ],
+      "Nod": [
+        "reference:Haru/Nod",
+        "small_nod"
+      ],
+      "ShakeHead": [
+        "reference:Haru/ShakeHead",
+        "boundary_no"
+      ],
+      "Wave": [
+        "reference:Haru/Wave",
+        "hand_wave"
+      ],
+      "TouchHead": [
+        "reference:Haru/TouchHead",
+        "head_pat_react"
+      ],
+      "TouchHair": [
+        "reference:Haru/TouchHair",
+        "hair_touch_react"
+      ],
+      "TouchHairClip": [
+        "reference:Haru/TouchHair",
+        "clip_touch_react"
+      ],
+      "TouchFace": [
+        "reference:su-shixia-touch-storyboard",
+        "cheek_shy_react"
+      ],
+      "TouchHand": [
+        "reference:Haru/TouchHand",
+        "hand_touch_react"
+      ],
+      "TouchClothing": [
+        "reference:Haru/TouchOutfit",
+        "clothing_adjust_react"
+      ],
+      "TouchChest": [
+        "reference:private-zone-boundary",
+        "cover_stepback_react"
+      ],
+      "TouchWaist": [
+        "reference:Haru/TapBody",
+        "waist_shy_react"
+      ],
+      "TouchLeg": [
+        "reference:Haru/TapBody",
+        "leg_touch_react"
+      ],
+      "TouchFoot": [
+        "reference:Haru/TapBody",
+        "foot_shift_react"
+      ],
+      "TurnPreview": [
+        "reference:su-shixia-turnaround",
+        "front_turn_preview"
+      ],
+      "Drag": [
+        "reference:Haru/TapBody",
+        "drag_follow"
+      ],
+      "Return": [
+        "reference:Haru/Idle",
+        "return_idle"
+      ],
+      "Sleepy": [
+        "reference:Haru/Sleepy",
+        "sleepy_idle"
+      ]
+    },
+    "hitAreas": [
+      {
+        "id": "Hair",
+        "name": "Hair",
+        "x": 313,
+        "y": 51,
+        "width": 304,
+        "height": 257
+      },
+      {
+        "id": "HairClip",
+        "name": "HairClip",
+        "x": 506,
+        "y": 120,
+        "width": 74,
+        "height": 103
+      },
+      {
+        "id": "Forehead",
+        "name": "Forehead",
+        "x": 377,
+        "y": 171,
+        "width": 166,
+        "height": 120
+      },
+      {
+        "id": "Face",
+        "name": "Face",
+        "x": 359,
+        "y": 223,
+        "width": 202,
+        "height": 223
+      },
+      {
+        "id": "MouthChin",
+        "name": "MouthChin",
+        "x": 396,
+        "y": 377,
+        "width": 129,
+        "height": 103
+      },
+      {
+        "id": "NeckCollar",
+        "name": "NeckCollar",
+        "x": 359,
+        "y": 428,
+        "width": 202,
+        "height": 137
+      },
+      {
+        "id": "Shoulder",
+        "name": "Shoulder",
+        "x": 258,
+        "y": 514,
+        "width": 405,
+        "height": 137
+      },
+      {
+        "id": "Hand",
+        "name": "Hand",
+        "x": 184,
+        "y": 805,
+        "width": 534,
+        "height": 188
+      },
+      {
+        "id": "Chest",
+        "name": "Chest",
+        "x": 340,
+        "y": 565,
+        "width": 239,
+        "height": 205
+      },
+      {
+        "id": "Waist",
+        "name": "Waist",
+        "x": 322,
+        "y": 770,
+        "width": 276,
+        "height": 137
+      },
+      {
+        "id": "Clothing",
+        "name": "Clothing",
+        "x": 276,
+        "y": 873,
+        "width": 368,
+        "height": 223
+      },
+      {
+        "id": "Legs",
+        "name": "Legs",
+        "x": 304,
+        "y": 1061,
+        "width": 313,
+        "height": 240
+      },
+      {
+        "id": "LowerLegs",
+        "name": "LowerLegs",
+        "x": 313,
+        "y": 1267,
+        "width": 294,
+        "height": 291
+      },
+      {
+        "id": "Feet",
+        "name": "Feet",
+        "x": 313,
+        "y": 1558,
+        "width": 294,
+        "height": 120
+      }
+    ],
+    "layers": [
+      {
+        "id": "SSX_HAIR_REAR_CENTER",
+        "type": "image",
+        "src": "model/layers-v1/SSX_HAIR_REAR_CENTER.png",
+        "x": 330,
+        "y": 40,
+        "width": 260,
+        "height": 330,
+        "sway": 0.65
+      },
+      {
+        "id": "SSX_HAIR_REAR_LEFT",
+        "type": "image",
+        "src": "model/layers-v1/SSX_HAIR_REAR_LEFT.png",
+        "x": 325,
+        "y": 70,
+        "width": 150,
+        "height": 310,
+        "sway": 0.8
+      },
+      {
+        "id": "SSX_HAIR_REAR_RIGHT",
+        "type": "image",
+        "src": "model/layers-v1/SSX_HAIR_REAR_RIGHT.png",
+        "x": 445,
+        "y": 70,
+        "width": 150,
+        "height": 310,
+        "sway": 0.8
+      },
+      {
+        "id": "SSX_HEAD_NECK",
+        "type": "image",
+        "src": "model/layers-v1/SSX_HEAD_NECK.png",
+        "x": 405,
+        "y": 255,
+        "width": 110,
+        "height": 125
+      },
+      {
+        "id": "SSX_WAIST_PELVIS_BASE",
+        "type": "image",
+        "src": "model/layers-v1/SSX_WAIST_PELVIS_BASE.png",
+        "x": 330,
+        "y": 520,
+        "width": 260,
+        "height": 430
+      },
+      {
+        "id": "SSX_THIGH_L",
+        "type": "image",
+        "src": "model/layers-v1/SSX_THIGH_L.png",
+        "x": 325,
+        "y": 930,
+        "width": 120,
+        "height": 330
+      },
+      {
+        "id": "SSX_THIGH_R",
+        "type": "image",
+        "src": "model/layers-v1/SSX_THIGH_R.png",
+        "x": 475,
+        "y": 930,
+        "width": 120,
+        "height": 330
+      },
+      {
+        "id": "SSX_CALF_L",
+        "type": "image",
+        "src": "model/layers-v1/SSX_CALF_L.png",
+        "x": 335,
+        "y": 1200,
+        "width": 105,
+        "height": 365
+      },
+      {
+        "id": "SSX_CALF_R",
+        "type": "image",
+        "src": "model/layers-v1/SSX_CALF_R.png",
+        "x": 480,
+        "y": 1200,
+        "width": 105,
+        "height": 365
+      },
+      {
+        "id": "SSX_KNEE_OVERLAY_L",
+        "type": "image",
+        "src": "model/layers-v1/SSX_KNEE_OVERLAY_L.png",
+        "x": 330,
+        "y": 1100,
+        "width": 110,
+        "height": 120
+      },
+      {
+        "id": "SSX_KNEE_OVERLAY_R",
+        "type": "image",
+        "src": "model/layers-v1/SSX_KNEE_OVERLAY_R.png",
+        "x": 480,
+        "y": 1100,
+        "width": 110,
+        "height": 120
+      },
+      {
+        "id": "SSX_SHOE_L",
+        "type": "image",
+        "src": "model/layers-v1/SSX_SHOE_L.png",
+        "x": 348,
+        "y": 1535,
+        "width": 90,
+        "height": 135
+      },
+      {
+        "id": "SSX_SHOE_R",
+        "type": "image",
+        "src": "model/layers-v1/SSX_SHOE_R.png",
+        "x": 480,
+        "y": 1535,
+        "width": 90,
+        "height": 135
+      },
+      {
+        "id": "SSX_TORSO_BASE",
+        "type": "image",
+        "src": "model/layers-v1/SSX_TORSO_BASE.png",
+        "x": 335,
+        "y": 275,
+        "width": 250,
+        "height": 310
+      },
+      {
+        "id": "SSX_BLOUSE_BACK_FILL",
+        "type": "image",
+        "src": "model/layers-v1/SSX_BLOUSE_BACK_FILL.png",
+        "x": 300,
+        "y": 295,
+        "width": 320,
+        "height": 310
+      },
+      {
+        "id": "SSX_ARM_UPPER_L",
+        "type": "image",
+        "src": "model/layers-v1/SSX_ARM_UPPER_L.png",
+        "x": 260,
+        "y": 430,
+        "width": 85,
+        "height": 230
+      },
+      {
+        "id": "SSX_ARM_UPPER_R",
+        "type": "image",
+        "src": "model/layers-v1/SSX_ARM_UPPER_R.png",
+        "x": 575,
+        "y": 430,
+        "width": 85,
+        "height": 230
+      },
+      {
+        "id": "SSX_BLOUSE_FRONT",
+        "type": "image",
+        "src": "model/layers-v1/SSX_BLOUSE_FRONT.png",
+        "x": 285,
+        "y": 300,
+        "width": 350,
+        "height": 300
+      },
+      {
+        "id": "SSX_BLOUSE_COLLAR_L",
+        "type": "image",
+        "src": "model/layers-v1/SSX_BLOUSE_COLLAR_L.png",
+        "x": 350,
+        "y": 302,
+        "width": 110,
+        "height": 95
+      },
+      {
+        "id": "SSX_BLOUSE_COLLAR_R",
+        "type": "image",
+        "src": "model/layers-v1/SSX_BLOUSE_COLLAR_R.png",
+        "x": 460,
+        "y": 302,
+        "width": 110,
+        "height": 95
+      },
+      {
+        "id": "SSX_BLOUSE_BUTTON_PLACKET",
+        "type": "image",
+        "src": "model/layers-v1/SSX_BLOUSE_BUTTON_PLACKET.png",
+        "x": 440,
+        "y": 340,
+        "width": 40,
+        "height": 205
+      },
+      {
+        "id": "SSX_BLOUSE_SLEEVE_L",
+        "type": "image",
+        "src": "model/layers-v1/SSX_BLOUSE_SLEEVE_L.png",
+        "x": 270,
+        "y": 345,
+        "width": 130,
+        "height": 165
+      },
+      {
+        "id": "SSX_BLOUSE_SLEEVE_R",
+        "type": "image",
+        "src": "model/layers-v1/SSX_BLOUSE_SLEEVE_R.png",
+        "x": 520,
+        "y": 345,
+        "width": 130,
+        "height": 165
+      },
+      {
+        "id": "SSX_ARM_LOWER_L",
+        "type": "image",
+        "src": "model/layers-v1/SSX_ARM_LOWER_L.png",
+        "x": 220,
+        "y": 610,
+        "width": 125,
+        "height": 245
+      },
+      {
+        "id": "SSX_ARM_LOWER_R",
+        "type": "image",
+        "src": "model/layers-v1/SSX_ARM_LOWER_R.png",
+        "x": 575,
+        "y": 610,
+        "width": 125,
+        "height": 245
+      },
+      {
+        "id": "SSX_HAND_NEUTRAL_L",
+        "type": "image",
+        "src": "model/layers-v1/SSX_HAND_NEUTRAL_L.png",
+        "x": 202,
+        "y": 785,
+        "width": 105,
+        "height": 155
+      },
+      {
+        "id": "SSX_HAND_NEUTRAL_R",
+        "type": "image",
+        "src": "model/layers-v1/SSX_HAND_NEUTRAL_R.png",
+        "x": 612,
+        "y": 785,
+        "width": 105,
+        "height": 155
+      },
+      {
+        "id": "SSX_SKIRT_REAR_BASE",
+        "type": "image",
+        "src": "model/layers-v1/SSX_SKIRT_REAR_BASE.png",
+        "x": 270,
+        "y": 560,
+        "width": 380,
+        "height": 405
+      },
+      {
+        "id": "SSX_SKIRT_FRONT_BASE",
+        "type": "image",
+        "src": "model/layers-v1/SSX_SKIRT_FRONT_BASE.png",
+        "x": 270,
+        "y": 560,
+        "width": 380,
+        "height": 405
+      },
+      {
+        "id": "SSX_SKIRT_PLEATS_L",
+        "type": "image",
+        "src": "model/layers-v1/SSX_SKIRT_PLEATS_L.png",
+        "x": 270,
+        "y": 560,
+        "width": 260,
+        "height": 405,
+        "sway": 0.18
+      },
+      {
+        "id": "SSX_SKIRT_PLEATS_CENTER",
+        "type": "image",
+        "src": "model/layers-v1/SSX_SKIRT_PLEATS_CENTER.png",
+        "x": 330,
+        "y": 560,
+        "width": 260,
+        "height": 405,
+        "sway": 0.12
+      },
+      {
+        "id": "SSX_SKIRT_PLEATS_R",
+        "type": "image",
+        "src": "model/layers-v1/SSX_SKIRT_PLEATS_R.png",
+        "x": 390,
+        "y": 560,
+        "width": 260,
+        "height": 405,
+        "sway": 0.18
+      },
+      {
+        "id": "SSX_SKIRT_WAIST",
+        "type": "image",
+        "src": "model/layers-v1/SSX_SKIRT_WAIST.png",
+        "x": 280,
+        "y": 535,
+        "width": 360,
+        "height": 65
+      },
+      {
+        "id": "SSX_SKIRT_HEM_UNDERSIDE",
+        "type": "image",
+        "src": "model/layers-v1/SSX_SKIRT_HEM_UNDERSIDE.png",
+        "x": 320,
+        "y": 900,
+        "width": 280,
+        "height": 80
+      },
+      {
+        "id": "SSX_HEAD_FACE_BASE",
+        "type": "image",
+        "src": "model/layers-v1/SSX_HEAD_FACE_BASE.png",
+        "x": 365,
+        "y": 85,
+        "width": 190,
+        "height": 275
+      },
+      {
+        "id": "SSX_HAIR_SIDE_LOCK_LEFT",
+        "type": "image",
+        "src": "model/layers-v1/SSX_HAIR_SIDE_LOCK_LEFT.png",
+        "x": 325,
+        "y": 115,
+        "width": 130,
+        "height": 270,
+        "sway": 1
+      },
+      {
+        "id": "SSX_HAIR_SIDE_LOCK_RIGHT",
+        "type": "image",
+        "src": "model/layers-v1/SSX_HAIR_SIDE_LOCK_RIGHT.png",
+        "x": 465,
+        "y": 115,
+        "width": 130,
+        "height": 270,
+        "sway": 1
+      },
+      {
+        "id": "SSX_BLUSH_L",
+        "type": "ellipse",
+        "color": "#f19aa4",
+        "x": 380,
+        "y": 206,
+        "width": 54,
+        "height": 22,
+        "expressionAlpha": "blush",
+        "alpha": 0.24
+      },
+      {
+        "id": "SSX_BLUSH_R",
+        "type": "ellipse",
+        "color": "#f19aa4",
+        "x": 488,
+        "y": 206,
+        "width": 54,
+        "height": 22,
+        "expressionAlpha": "blush",
+        "alpha": 0.24
+      },
+      {
+        "id": "SSX_EYE_L_WHITE",
+        "type": "image",
+        "src": "model/layers-v1/SSX_EYE_L_WHITE.png",
+        "x": 399,
+        "y": 174,
+        "width": 38,
+        "height": 18,
+        "alphaMode": "eyeOpen"
+      },
+      {
+        "id": "SSX_EYE_R_WHITE",
+        "type": "image",
+        "src": "model/layers-v1/SSX_EYE_R_WHITE.png",
+        "x": 467,
+        "y": 174,
+        "width": 38,
+        "height": 18,
+        "alphaMode": "eyeOpen"
+      },
+      {
+        "id": "SSX_EYE_L_IRIS",
+        "type": "image",
+        "src": "model/layers-v1/SSX_EYE_L_IRIS.png",
+        "x": 409,
+        "y": 174,
+        "width": 18,
+        "height": 18,
+        "alphaMode": "eyeOpen",
+        "eyeTrack": true
+      },
+      {
+        "id": "SSX_EYE_R_IRIS",
+        "type": "image",
+        "src": "model/layers-v1/SSX_EYE_R_IRIS.png",
+        "x": 477,
+        "y": 174,
+        "width": 18,
+        "height": 18,
+        "alphaMode": "eyeOpen",
+        "eyeTrack": true
+      },
+      {
+        "id": "SSX_EYE_L_PUPIL",
+        "type": "image",
+        "src": "model/layers-v1/SSX_EYE_L_PUPIL.png",
+        "x": 414,
+        "y": 179,
+        "width": 9,
+        "height": 9,
+        "alphaMode": "eyeOpen",
+        "eyeTrack": true
+      },
+      {
+        "id": "SSX_EYE_R_PUPIL",
+        "type": "image",
+        "src": "model/layers-v1/SSX_EYE_R_PUPIL.png",
+        "x": 482,
+        "y": 179,
+        "width": 9,
+        "height": 9,
+        "alphaMode": "eyeOpen",
+        "eyeTrack": true
+      },
+      {
+        "id": "SSX_EYE_L_HIGHLIGHT",
+        "type": "image",
+        "src": "model/layers-v1/SSX_EYE_L_HIGHLIGHT.png",
+        "x": 413,
+        "y": 176,
+        "width": 6,
+        "height": 6,
+        "alphaMode": "eyeOpen",
+        "eyeTrack": true
+      },
+      {
+        "id": "SSX_EYE_R_HIGHLIGHT",
+        "type": "image",
+        "src": "model/layers-v1/SSX_EYE_R_HIGHLIGHT.png",
+        "x": 481,
+        "y": 176,
+        "width": 6,
+        "height": 6,
+        "alphaMode": "eyeOpen",
+        "eyeTrack": true
+      },
+      {
+        "id": "SSX_EYE_L_UPPER_LASH",
+        "type": "image",
+        "src": "model/layers-v1/SSX_EYE_L_UPPER_LASH.png",
+        "x": 396,
+        "y": 168,
+        "width": 44,
+        "height": 16,
+        "alphaMode": "eyeOpen"
+      },
+      {
+        "id": "SSX_EYE_R_UPPER_LASH",
+        "type": "image",
+        "src": "model/layers-v1/SSX_EYE_R_UPPER_LASH.png",
+        "x": 464,
+        "y": 168,
+        "width": 44,
+        "height": 16,
+        "alphaMode": "eyeOpen"
+      },
+      {
+        "id": "SSX_EYE_L_LOWER_LASH",
+        "type": "image",
+        "src": "model/layers-v1/SSX_EYE_L_LOWER_LASH.png",
+        "x": 399,
+        "y": 187,
+        "width": 40,
+        "height": 9,
+        "alphaMode": "eyeOpen"
+      },
+      {
+        "id": "SSX_EYE_R_LOWER_LASH",
+        "type": "image",
+        "src": "model/layers-v1/SSX_EYE_R_LOWER_LASH.png",
+        "x": 467,
+        "y": 187,
+        "width": 40,
+        "height": 9,
+        "alphaMode": "eyeOpen"
+      },
+      {
+        "id": "SSX_EYE_L_CLOSED",
+        "type": "image",
+        "src": "model/layers-v1/SSX_EYE_L_CLOSED.png",
+        "x": 396,
+        "y": 175,
+        "width": 44,
+        "height": 14,
+        "alphaMode": "eyeClosed"
+      },
+      {
+        "id": "SSX_EYE_R_CLOSED",
+        "type": "image",
+        "src": "model/layers-v1/SSX_EYE_R_CLOSED.png",
+        "x": 464,
+        "y": 175,
+        "width": 44,
+        "height": 14,
+        "alphaMode": "eyeClosed"
+      },
+      {
+        "id": "SSX_BROW_L",
+        "type": "image",
+        "src": "model/layers-v1/SSX_BROW_L.png",
+        "x": 396,
+        "y": 151,
+        "width": 45,
+        "height": 12
+      },
+      {
+        "id": "SSX_BROW_R",
+        "type": "image",
+        "src": "model/layers-v1/SSX_BROW_R.png",
+        "x": 464,
+        "y": 151,
+        "width": 45,
+        "height": 12
+      },
+      {
+        "id": "SSX_MOUTH_FORM_MBP",
+        "type": "image",
+        "src": "model/layers-v1/SSX_MOUTH_FORM_MBP.png",
+        "x": 433,
+        "y": 235,
+        "width": 54,
+        "height": 28,
+        "alphaMode": "mouthPressed"
+      },
+      {
+        "id": "SSX_MOUTH_CLOSED",
+        "type": "image",
+        "src": "model/layers-v1/SSX_MOUTH_CLOSED.png",
+        "x": 433,
+        "y": 235,
+        "width": 54,
+        "height": 28,
+        "alphaMode": "mouthClosed"
+      },
+      {
+        "id": "SSX_MOUTH_OPEN_SMALL",
+        "type": "image",
+        "src": "model/layers-v1/SSX_MOUTH_OPEN_SMALL.png",
+        "x": 433,
+        "y": 233,
+        "width": 54,
+        "height": 32,
+        "alphaMode": "mouthOpenSmall"
+      },
+      {
+        "id": "SSX_MOUTH_OPEN_WIDE",
+        "type": "image",
+        "src": "model/layers-v1/SSX_MOUTH_OPEN_WIDE.png",
+        "x": 431,
+        "y": 228,
+        "width": 58,
+        "height": 42,
+        "alphaMode": "mouthOpenWide"
+      },
+      {
+        "id": "SSX_MOUTH_FORM_EI",
+        "type": "image",
+        "src": "model/layers-v1/SSX_MOUTH_FORM_EI.png",
+        "x": 430,
+        "y": 234,
+        "width": 60,
+        "height": 30,
+        "alphaMode": "mouthSmile"
+      },
+      {
+        "id": "SSX_MOUTH_FORM_OU",
+        "type": "image",
+        "src": "model/layers-v1/SSX_MOUTH_FORM_OU.png",
+        "x": 440,
+        "y": 227,
+        "width": 40,
+        "height": 44,
+        "alphaMode": "mouthRound"
+      },
+      {
+        "id": "SSX_HAND_CHEEK_L",
+        "type": "image",
+        "src": "model/layers-v1/SSX_HAND_CHEEK_L.png",
+        "x": 300,
+        "y": 160,
+        "width": 135,
+        "height": 250,
+        "motionAlpha": "TouchFace",
+        "alpha": 0.92
+      },
+      {
+        "id": "SSX_HAND_CHEEK_R",
+        "type": "image",
+        "src": "model/layers-v1/SSX_HAND_CHEEK_R.png",
+        "x": 485,
+        "y": 160,
+        "width": 135,
+        "height": 250,
+        "motionAlpha": "TouchFace",
+        "alpha": 0.92
+      },
+      {
+        "id": "SSX_HAIR_BANGS_LEFT",
+        "type": "image",
+        "src": "model/layers-v1/SSX_HAIR_BANGS_LEFT.png",
+        "x": 335,
+        "y": 55,
+        "width": 170,
+        "height": 180,
+        "sway": 0.62
+      },
+      {
+        "id": "SSX_HAIR_BANGS_RIGHT",
+        "type": "image",
+        "src": "model/layers-v1/SSX_HAIR_BANGS_RIGHT.png",
+        "x": 415,
+        "y": 55,
+        "width": 170,
+        "height": 180,
+        "sway": 0.62
+      },
+      {
+        "id": "SSX_HAIR_BANGS_CENTER",
+        "type": "image",
+        "src": "model/layers-v1/SSX_HAIR_BANGS_CENTER.png",
+        "x": 350,
+        "y": 45,
+        "width": 220,
+        "height": 165,
+        "sway": 0.45
+      },
+      {
+        "id": "SSX_HAIR_LOOSE_STRANDS",
+        "type": "image",
+        "src": "model/layers-v1/SSX_HAIR_LOOSE_STRANDS.png",
+        "x": 315,
+        "y": 90,
+        "width": 290,
+        "height": 305,
+        "sway": 1.2
+      },
+      {
+        "id": "SSX_ACCESSORY_HAIR_CLIP",
+        "type": "image",
+        "src": "model/layers-v1/SSX_ACCESSORY_HAIR_CLIP.png",
+        "x": 510,
+        "y": 115,
+        "width": 48,
+        "height": 48,
+        "sway": 0.36
+      }
+    ],
+    "metadata": {
+      "sourcePackage": "assets/avatar/su-shixia-live2d-v2",
+      "generatedFrom": "source/parts/parts-inventory-v1.json",
+      "motionReferencePolicy": "Motion groups are named against Haru official sample groups and Su Shixia V2 storyboards; replace with authored Cubism motions after rigging.",
+      "cubismExportReady": false
+    }
+  }
+}

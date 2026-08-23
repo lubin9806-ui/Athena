@@ -15,6 +15,9 @@ function read(relativePath) {
 
 function main() {
   const manifest = JSON.parse(read('assets/avatar/athena-live2d-default/manifest.json'));
+  const suShixiaManifest = JSON.parse(read('assets/avatar/su-shixia-live2d-v2/manifest.json'));
+  const suShixiaProfile = JSON.parse(read('assets/avatar/su-shixia-live2d-v2/profile.avatar.json'));
+  const suShixiaLiteModel = JSON.parse(read('assets/avatar/su-shixia-live2d-v2/model/su-shixia-live2d-v2-lite.model3.json'));
   const haruManifest = JSON.parse(read('assets/avatar/live2d-official-haru/manifest.json'));
   const haruProfile = JSON.parse(read('assets/avatar/live2d-official-haru/profile.avatar.json'));
   const haruModel = JSON.parse(read('assets/avatar/live2d-official-haru/Haru.model3.json'));
@@ -24,6 +27,14 @@ function main() {
   assert.equal(manifest.supersededBy, '../../../docs/LIVE2D_RESTART_V2.md');
   assert.equal(manifest.runtime.athenaAppIntegrated, true);
   assert.equal(manifest.runtime.hotZoneAthenaReply, true);
+  assert.equal(suShixiaManifest.status, 'lite_runtime_preview_ready');
+  assert.equal(suShixiaManifest.production.athenaDefaultVariant, true);
+  assert.equal(suShixiaManifest.production.cubismExportReady, false);
+  assert.equal(suShixiaProfile.id, 'su-shixia-live2d-v2');
+  assert.equal(suShixiaProfile.model.model3JsonPath, 'model/su-shixia-live2d-v2-lite.model3.json');
+  assert.equal(suShixiaLiteModel.AthenaLive2DLite.layers.length, 68);
+  assert.ok(suShixiaProfile.hotZones.some(zone => zone.id === 'face_cheek'));
+  assert.ok(suShixiaProfile.hotZones.some(zone => zone.id === 'chest'));
   assert.equal(haruManifest.runtime.sounds, 0);
   assert.equal(haruProfile.hotZones.length >= 8, true);
   assert.ok(haruProfile.motions.some(motion => motion.state === 'thinking' && motion.motionGroup === 'Think' && motion.loop));
@@ -48,7 +59,7 @@ function main() {
     layout: 'chat_right',
     scale: 1,
     opacity: 0.98,
-    modelVariant: 'official_haru',
+    modelVariant: 'su_shixia_v2',
   });
   assert.deepEqual(readAthenaLive2DPreferences(JSON.stringify({
     version: 1,
@@ -68,11 +79,19 @@ function main() {
   assert.deepEqual(readAthenaLive2DPreferences(JSON.stringify({
     version: 1,
     enabled: true,
+    layout: 'chat_right',
+    scale: 1,
+    opacity: 1,
+    modelVariant: 'su_shixia_v2',
+  })).modelVariant, 'su_shixia_v2');
+  assert.deepEqual(readAthenaLive2DPreferences(JSON.stringify({
+    version: 1,
+    enabled: true,
     layout: 'chat_background',
     scale: 1,
     opacity: 1,
     modelVariant: 'unknown',
-  })).modelVariant, 'official_haru');
+  })).modelVariant, 'su_shixia_v2');
 
   assert.equal(findAthenaReplyPrompt({
     type: 'composite',
@@ -98,6 +117,8 @@ function main() {
   }
   for (const contract of [
     'modelVariant',
+    'su_shixia_v2',
+    'su-shixia-live2d-v2',
     'official_haru',
     'live2d-official-haru',
   ]) {

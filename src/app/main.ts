@@ -1203,10 +1203,12 @@ function createWindow(): void {
           }
           const hidden = await petWindow.webContents.executeJavaScript('window.athenaPetAPI.hide()');
           await new Promise(resolve => setTimeout(resolve, 60));
+          const allowedLive2dEngines = new Set(['cubism-web', 'live2d-lite']);
           const passed = petState?.state === 'ready'
-            && petState.engine === 'cubism-web'
+            && typeof petState.engine === 'string'
+            && allowedLive2dEngines.has(petState.engine)
             && embeddedState?.state === 'ready'
-            && embeddedState.engine === 'cubism-web'
+            && embeddedState.engine === petState.engine
             && petState.lastEvent === 'lipSync.update'
             && petState.stateSync === 'emotion.update'
             && Number(petState.lipSyncValue) === 0.72

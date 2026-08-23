@@ -1,6 +1,8 @@
 import athenaProfileDocument from '../../../../assets/avatar/athena-live2d-default/profile.avatar.json';
 import liteModelDocument from '../../../../assets/avatar/athena-live2d-default/model/athena-live2d-lite.model3.json';
 import haruProfileDocument from '../../../../assets/avatar/live2d-official-haru/profile.avatar.json';
+import suShixiaProfileDocument from '../../../../assets/avatar/su-shixia-live2d-v2/profile.avatar.json';
+import suShixiaLiteModelDocument from '../../../../assets/avatar/su-shixia-live2d-v2/model/su-shixia-live2d-v2-lite.model3.json';
 import type {
   AvatarCharacterProfile,
   AvatarHotZoneAction,
@@ -27,7 +29,7 @@ export interface AthenaLive2DPreferences {
   modelVariant: AthenaLive2DModelVariant;
 }
 
-export type AthenaLive2DModelVariant = 'official_haru' | 'athena_default';
+export type AthenaLive2DModelVariant = 'su_shixia_v2' | 'official_haru' | 'athena_default';
 
 export interface AthenaLive2DCompanionOptions {
   root: HTMLElement;
@@ -47,7 +49,7 @@ const DEFAULT_PREFERENCES: AthenaLive2DPreferences = {
   layout: 'chat_right',
   scale: 1,
   opacity: 0.98,
-  modelVariant: 'official_haru',
+  modelVariant: 'su_shixia_v2',
 };
 
 export class AthenaLive2DCompanion {
@@ -85,7 +87,9 @@ export class AthenaLive2DCompanion {
       opacity: this.preferences.opacity,
     };
 
-    const fallbackHost = new BrowserLive2DLiteHost({ fetchModel: async () => liteModelDocument });
+    const fallbackHost = new BrowserLive2DLiteHost({
+      fetchModel: async url => live2dLiteModelDocument(url),
+    });
     this.host = new BrowserCubismLive2DHost({ fallbackHost });
     this.controller = new Live2DCanvasController({
       profile,
@@ -332,6 +336,13 @@ function live2dModelConfig(variant: AthenaLive2DModelVariant): {
   rootPath: string;
   model3JsonPath: string;
 } {
+  if (variant === 'su_shixia_v2') {
+    return {
+      profile: suShixiaProfileDocument as AvatarCharacterProfile,
+      rootPath: 'avatar/su-shixia-live2d-v2',
+      model3JsonPath: 'model/su-shixia-live2d-v2-lite.model3.json',
+    };
+  }
   if (variant === 'athena_default') {
     return {
       profile: athenaProfileDocument as AvatarCharacterProfile,
@@ -347,7 +358,16 @@ function live2dModelConfig(variant: AthenaLive2DModelVariant): {
 }
 
 function isModelVariant(value: unknown): value is AthenaLive2DModelVariant {
-  return value === 'official_haru' || value === 'athena_default';
+  return value === 'su_shixia_v2' || value === 'official_haru' || value === 'athena_default';
+}
+
+function live2dLiteModelDocument(modelUrl: string): unknown {
+  if (modelUrl.includes('su-shixia-live2d-v2')) return suShixiaLiteModelDocument;
+  if (modelUrl.includes('athena-live2d-default')) return liteModelDocument;
+  return fetch(modelUrl).then(response => {
+    if (!response.ok) throw new Error(`Unable to load Live2D Lite model (${response.status}): ${modelUrl}`);
+    return response.json();
+  });
 }
 
 function asError(value: unknown): Error {

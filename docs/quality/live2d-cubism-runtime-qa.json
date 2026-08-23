@@ -2,10 +2,19 @@
   "id": "ATH-LIVE2D-RUNTIME-001",
   "testedAt": "2026-08-23T02:18:00+08:00",
   "page": "live2d-preview.html",
-  "engine": "cubism-web",
-  "model": "Haru.model3.json",
-  "defaultModelVariant": "official_haru",
+  "engine": "cubism-web plus live2d-lite preview",
+  "model": "su-shixia-live2d-v2-lite.model3.json",
+  "defaultModelVariant": "su_shixia_v2",
   "referenceModel": "Live2D official Haru sample",
+  "suShixiaV2Preview": {
+    "engine": "live2d-lite",
+    "model": "assets/avatar/su-shixia-live2d-v2/model/su-shixia-live2d-v2-lite.model3.json",
+    "layers": 68,
+    "hitZones": 14,
+    "motionGroups": 22,
+    "cubismExportReady": false,
+    "motionReferenceDriven": true
+  },
   "desktop": {
     "viewport": { "width": 1280, "height": 720 },
     "consoleErrors": 0,
@@ -74,7 +83,8 @@
     "composerOverlap": false,
     "settingsOverflow": false,
     "stateBindings": ["thinking", "streaming", "listening", "speaking", "emotion", "error"],
-    "defaultModelVariant": "official_haru",
+    "defaultModelVariant": "su_shixia_v2",
+    "referenceModelVariant": "official_haru",
     "fallbackModelVariant": "athena_default",
     "settings": ["enabled", "layout", "scale", "opacity", "modelVariant"],
     "hotZoneReplyBound": true,
@@ -96,8 +106,8 @@
     "lipSyncValueBridge": true,
     "boundsPersistence": true,
     "hideControl": true,
-    "defaultModelVariant": "official_haru",
-    "electronSmoke": "ATHENA_LIVE2D_DESKTOP_PET_OK motion=visible layeredRig=disabled default=official_haru",
+    "defaultModelVariant": "su_shixia_v2",
+    "electronSmoke": "ATHENA_LIVE2D_DESKTOP_PET_OK motion=visible layeredRig=disabled default=su_shixia_v2",
     "passed": true
   },
   "releasePackaging": {

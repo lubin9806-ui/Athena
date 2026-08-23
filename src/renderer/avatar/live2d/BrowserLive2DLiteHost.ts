@@ -27,10 +27,15 @@ interface LiteHitArea {
 interface LiteLayer {
   id: string;
   type: string;
+  src?: string;
+  sourceRect?: number[];
   color?: string;
   accent?: string;
   alpha?: number;
   expressionAlpha?: string;
+  alphaMode?: string;
+  motionAlpha?: string;
+  eyeTrack?: boolean;
   x?: number;
   y?: number;
   width?: number;
@@ -95,6 +100,7 @@ export class BrowserLive2DLiteHost implements Live2DHost {
   private animationFrame = 0;
   private startedAt = 0;
   private viewport = { scale: 1, offsetX: 0, offsetY: 0, cssWidth: 1, cssHeight: 1 };
+  private readonly images = new Map<string, HTMLImageElement>();
 
   constructor(private readonly options: BrowserLive2DLiteHostOptions = {}) {}
 
@@ -113,6 +119,7 @@ export class BrowserLive2DLiteHost implements Live2DHost {
     this.canvas = options.canvas;
     this.context = context;
     this.model = model;
+    await this.loadLayerImages(model, options.rootUrl);
     this.parameters.clear();
     for (const [id, definition] of Object.entries(model.parameters)) {
       this.parameters.set(id, definition.default);
@@ -133,6 +140,7 @@ export class BrowserLive2DLiteHost implements Live2DHost {
     this.canvas = null;
     this.context = null;
     this.model = null;
+    this.images.clear();
     this.parameters.clear();
   }
 
@@ -306,6 +314,46 @@ export class BrowserLive2DLiteHost implements Live2DHost {
         pose.headRotation -= 0.055 * Math.max(0, 1 - motionSeconds / 1.5);
         pose.hair += Math.sin(motionSeconds * 9) * Math.max(0, 1 - motionSeconds / 1.5);
         break;
+      case 'TouchHair':
+        pose.headRotation += 0.035 * Math.max(0, 1 - motionSeconds / 1.4);
+        pose.hair += Math.sin(motionSeconds * 8) * Math.max(0, 1 - motionSeconds / 1.6) * 0.8;
+        break;
+      case 'TouchFace':
+        pose.headX -= 6 * Math.max(0, 1 - motionSeconds / 1.6);
+        pose.headRotation += 0.045 * Math.max(0, 1 - motionSeconds / 1.6);
+        pose.bodyRotation -= 0.01 * Math.max(0, 1 - motionSeconds / 1.8);
+        break;
+      case 'TouchHand':
+        pose.wave = Math.sin(motionSeconds * 6.5) * 0.28 + 0.25;
+        pose.bodyRotation += Math.sin(motionSeconds * 2.2) * 0.008;
+        break;
+      case 'TouchClothing':
+        pose.headY += 3 * Math.max(0, 1 - motionSeconds / 1.5);
+        pose.bodyRotation += Math.sin(motionSeconds * 4.8) * 0.018 * Math.max(0, 1 - motionSeconds / 1.8);
+        break;
+      case 'TouchChest':
+        pose.headY += 7 * Math.max(0, 1 - motionSeconds / 1.6);
+        pose.headRotation -= 0.035 * Math.max(0, 1 - motionSeconds / 1.6);
+        pose.bodyRotation -= 0.024 * Math.max(0, 1 - motionSeconds / 1.7);
+        break;
+      case 'TouchWaist':
+        pose.bodyRotation += 0.026 * Math.sin(motionSeconds * 5.2) * Math.max(0, 1 - motionSeconds / 1.8);
+        pose.headX += 5 * Math.max(0, 1 - motionSeconds / 1.8);
+        break;
+      case 'TouchLeg':
+      case 'TouchFoot':
+        pose.headY += 5 * Math.max(0, 1 - motionSeconds / 1.7);
+        pose.bodyRotation += 0.018 * Math.max(0, 1 - motionSeconds / 1.7);
+        break;
+      case 'TurnPreview':
+        pose.headX += Math.sin(motionSeconds * 1.8) * 12;
+        pose.bodyRotation += Math.sin(motionSeconds * 1.8) * 0.045;
+        pose.hair += Math.sin(motionSeconds * 2.2) * 0.6;
+        break;
+      case 'Sleepy':
+        pose.headY += 10 + Math.sin(motionSeconds * 0.9) * 2;
+        pose.headRotation += 0.035;
+        break;
       case 'Drag':
         pose.hair += pointerX * 0.8;
         break;
@@ -338,11 +386,19 @@ export class BrowserLive2DLiteHost implements Live2DHost {
       context.translate(-650, -650);
     }
     if (layer.sway) context.translate(Math.sin(seconds * 1.6 + layer.sway) * pose.hair * layer.sway * 3, 0);
+    if (layer.eyeTrack) {
+      context.translate(
+        this.parameter('ParamEyeBallX') * 5,
+        -this.parameter('ParamEyeBallY') * 3,
+      );
+    }
 
     context.globalAlpha = this.layerAlpha(layer);
-    context.fillStyle = layer.color ?? '#ffffff';
-    context.strokeStyle = layer.color ?? '#ffffff';
-    this.drawShape(context, layer);
+    if (context.globalAlpha > 0.002) {
+      context.fillStyle = layer.color ?? '#ffffff';
+      context.strokeStyle = layer.color ?? '#ffffff';
+      this.drawShape(context, layer);
+    }
     context.restore();
   }
 
@@ -356,6 +412,9 @@ export class BrowserLive2DLiteHost implements Live2DHost {
         context.beginPath();
         context.ellipse(x + width / 2, y + height / 2, width / 2, height / 2, 0, 0, Math.PI * 2);
         context.fill();
+        break;
+      case 'image':
+        this.drawImageLayer(context, layer);
         break;
       case 'roundRect':
         roundedRect(context, x, y, width, height, layer.radius ?? 0);
@@ -529,7 +588,58 @@ export class BrowserLive2DLiteHost implements Live2DHost {
 
   private layerAlpha(layer: LiteLayer): number {
     if (layer.expressionAlpha === 'blush') return clamp(this.expression.blush, 0, 1);
+    const mouthOpen = clamp(Math.max(this.parameter('ParamMouthOpenY'), this.expression.mouthOpen), 0, 1);
+    const mouthForm = clamp(this.parameter('ParamMouthForm') + this.expression.mouthForm, -1, 1);
+    switch (layer.alphaMode) {
+      case 'eyeOpen':
+        return clamp(this.expression.eyeOpen, 0, 1);
+      case 'eyeClosed':
+        return clamp(1 - this.expression.eyeOpen, 0, 1);
+      case 'mouthClosed':
+        return clamp(1 - mouthOpen * 2.8, 0, 1);
+      case 'mouthOpenSmall':
+        return clamp(mouthOpen <= 0.55 ? mouthOpen * 2.2 : 1 - ((mouthOpen - 0.55) * 2.2), 0, 1);
+      case 'mouthOpenWide':
+        return clamp((mouthOpen - 0.35) * 2.4, 0, 1);
+      case 'mouthSmile':
+        return clamp(mouthForm * 0.85 * (1 - mouthOpen), 0, 1);
+      case 'mouthRound':
+        return clamp((-mouthForm - 0.2) * 1.4, 0, 1);
+      case 'mouthPressed':
+        return clamp((0.3 - Math.abs(mouthForm)) * 2 * (1 - mouthOpen), 0, 1);
+      case 'blush':
+        return clamp(this.expression.blush, 0, 1);
+    }
+    if (layer.motionAlpha && layer.motionAlpha !== this.activeMotion) return 0;
     return clamp(layer.alpha ?? 1, 0, 1);
+  }
+
+  private async loadLayerImages(model: Live2DLiteDefinition, rootUrl: string): Promise<void> {
+    const sources = new Set(model.layers
+      .filter(layer => layer.type === 'image' && layer.src)
+      .map(layer => layer.src as string));
+    await Promise.all([...sources].map(async source => {
+      this.images.set(source, await loadImageElement(resolveAssetUrl(rootUrl, source)));
+    }));
+  }
+
+  private drawImageLayer(context: CanvasRenderingContext2D, layer: LiteLayer): void {
+    if (!layer.src) throw new Error(`Image layer ${layer.id} is missing src.`);
+    const image = this.images.get(layer.src);
+    if (!image) return;
+    const sourceRect = layer.sourceRect ?? [0, 0, image.naturalWidth, image.naturalHeight];
+    const [sourceX, sourceY, sourceWidth, sourceHeight] = sourceRect;
+    context.drawImage(
+      image,
+      sourceX ?? 0,
+      sourceY ?? 0,
+      sourceWidth ?? image.naturalWidth,
+      sourceHeight ?? image.naturalHeight,
+      layer.x ?? 0,
+      layer.y ?? 0,
+      layer.width ?? sourceWidth ?? image.naturalWidth,
+      layer.height ?? sourceHeight ?? image.naturalHeight,
+    );
   }
 
   private parameter(id: string): number {
@@ -593,6 +703,19 @@ function drawStroke(context: CanvasRenderingContext2D, points: number[][]): void
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function resolveAssetUrl(rootUrl: string, source: string): string {
+  return new URL(source, rootUrl).href;
+}
+
+function loadImageElement(url: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.addEventListener('load', () => resolve(image), { once: true });
+    image.addEventListener('error', () => reject(new Error(`Unable to load Live2D Lite image layer: ${url}`)), { once: true });
+    image.src = url;
+  });
 }
 
 function mix(from: number, to: number, amount: number): number {
