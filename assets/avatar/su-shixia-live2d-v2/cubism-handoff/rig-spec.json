@@ -513,9 +513,10 @@
     },
     {
       "id": "appearance",
-      "action": "Bind ParamAccessoryHairClip. Do not claim true clothing swaps until new outfit drawables and parameters exist.",
+      "action": "Bind ParamAccessoryHairClip and follow the wardrobe binding plan. Do not claim true clothing swaps until new outfit drawables and parameters exist.",
       "evidence": [
-        "rig-spec.json"
+        "rig-spec.json",
+        "wardrobe-binding-plan-v1.json"
       ],
       "status": "manual_required"
     },

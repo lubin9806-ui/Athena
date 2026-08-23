@@ -420,7 +420,7 @@ function editorReadinessChecklist() {
     gate('deformers', 'Create Root, Body, Head, Eyes, Mouth, Hair, Arms, Accessory, Skirt, and Legs deformers, then bind standard angle/breath/lip-sync parameters first.', ['rig-spec.json']),
     gate('physics', 'Configure hair-front, hair-side, hair-back, and skirt physics from the template and tune after motion playback.', ['su-shixia-live2d-v2.physics3.template.json']),
     gate('motions', 'Import or recreate all motion3 templates, then hand-polish touch reactions and recovery timing.', ['motions/*.motion3.json']),
-    gate('appearance', 'Bind ParamAccessoryHairClip. Do not claim true clothing swaps until new outfit drawables and parameters exist.', ['rig-spec.json']),
+    gate('appearance', 'Bind ParamAccessoryHairClip and follow the wardrobe binding plan. Do not claim true clothing swaps until new outfit drawables and parameters exist.', ['rig-spec.json', 'wardrobe-binding-plan-v1.json']),
     gate('export', 'Export moc3, model3, textures, physics, and display-info files into ../model, then verify they load with cubism-web instead of Live2D Lite.', ['export-gate.json']),
     gate('release-boundary', 'Keep source, handoff, adult-only, and private assets out of public installers until rights, license, and visual QA are approved.', ['../manifest.json']),
   ];
@@ -475,6 +475,7 @@ Status: cubism editor handoff ready
 - Motion templates: \`motions/*.motion3.json\` (37 reference templates, including all profile touch motion groups)
 - Physics template: \`su-shixia-live2d-v2.physics3.template.json\`
 - Display info template: \`su-shixia-live2d-v2.cdi3.template.json\`
+- Wardrobe binding plan: \`wardrobe-binding-plan-v1.json\`
 - Editor checklist: \`CUBISM_EDITOR_READINESS_CHECKLIST.md\`
 - Export gate: \`export-gate.json\`
 
@@ -488,20 +489,23 @@ Status: cubism editor handoff ready
 6. Bind standard parameters first: head, eyes, mouth, body, breath.
 7. Add secondary physics outputs for hair and skirt.
 8. Bind \`ParamAccessoryHairClip\` to the A hair clip opacity. This is the only current Cubism-ready appearance control.
-9. Import or recreate the provided motion templates after confirming parameter IDs match.
+9. Open \`wardrobe-binding-plan-v1.json\` for the future outfit visibility parameter contract. Do not mark those parameters complete until matching outfit drawables exist.
+10. Import or recreate the provided motion templates after confirming parameter IDs match.
    - Touch templates are timing and parameter references, not final polished animation.
    - Keep normal/private interaction boundaries in \`profile.avatar.json\`; Cubism should only provide visual reactions.
-10. Export runtime files into \`../model\`:
+11. Export runtime files into \`../model\`:
    - \`su-shixia-live2d-v2.moc3\`
    - \`su-shixia-live2d-v2.model3.json\`
    - \`su-shixia-live2d-v2.physics3.json\`
    - \`su-shixia-live2d-v2.cdi3.json\`
    - texture directory
-11. Run Athena validation and desktop smoke.
+12. Run Athena validation and desktop smoke.
 
 ## Wardrobe Boundary
 
 The Lite runtime can recolor hair, eyes, blouse, skirt, and shoes for preview. Cubism production cannot treat those tints as true clothing or texture variants. Only \`ParamAccessoryHairClip\` is ready for a current-source Cubism opacity binding. New outfits require separate source layers, drawables, clipping, draw order, parameters, motions, and QA evidence.
+
+The formal true-wardrobe contract is generated separately as \`../wardrobe/wardrobe-contract-v1.json\`, with Cubism binding notes in \`wardrobe-binding-plan-v1.json\`.
 
 ## Non-Automated Boundary
 

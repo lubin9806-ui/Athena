@@ -80,6 +80,8 @@ function main() {
   const deliveryAudit = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-live2d-v2-delivery-audit.json'));
   const exportAudit = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-cubism-export-audit.json'));
   const runtimeProof = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-cubism-runtime-proof.json'));
+  const wardrobeContract = readJson(path.join(PACKAGE_ROOT, manifest.sourceArt.wardrobeContract));
+  const wardrobeAudit = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-wardrobe-readiness-audit.json'));
 
   const githubScan = {
     version: 1,
@@ -267,6 +269,13 @@ function main() {
     </section>
 
     <section>
+      <h2>Wardrobe Contract</h2>
+      <p class="note">Current runtime presets remain tint/accessory previews. True wardrobe requires separate source layers, Cubism drawables, and motion QA.</p>
+      ${wardrobeTable(wardrobeContract.publicOutfits)}
+      <p class="note">Wardrobe audit: <code>${escapeHtml(wardrobeAudit.status)}</code>; true outfit swap: <code>${wardrobeAudit.trueOutfitSwapReady}</code>; future source outfits missing: <code>${wardrobeAudit.futureSourceOutfitCount}</code>.</p>
+    </section>
+
+    <section>
       <h2>Open Manual Findings</h2>
       ${findingsTable([...(sourceReview.openFindings ?? []), ...(runtimeQa.manualReviewFindings ?? [])])}
     </section>
@@ -348,6 +357,17 @@ function findingsTable(findings) {
     escapeHtml(item.note),
   ]);
   return simpleTable(['Area', 'Severity', 'Status', 'Note'], rows, true);
+}
+
+function wardrobeTable(outfits) {
+  const rows = outfits.map(item => [
+    `<code>${escapeHtml(item.id)}</code>`,
+    escapeHtml(item.label),
+    `<code>${escapeHtml(item.sourceStatus)}</code>`,
+    `<code>${escapeHtml(item.cubismParameter)}</code>`,
+    item.missingForProduction.map(escapeHtml).join('<br>'),
+  ]);
+  return simpleTable(['Outfit', 'Label', 'Source Status', 'Cubism Parameter', 'Missing For Production'], rows, true);
 }
 
 function simpleTable(headers, rows, trustedRows = false) {

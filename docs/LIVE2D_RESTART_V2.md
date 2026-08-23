@@ -248,6 +248,19 @@ Produced on 2026-08-24:
 
 Stage 3H status: `REVIEW DASHBOARD READY, OVERALL STILL NO-GO`. The dashboard combines source alignment, source scale, source part sheet, Lite motion QA, appearance QA, GitHub reference sources, delivery blockers, manual findings, and Cubism proof boundaries into one local page. The GitHub scan informs package structure, runtime interaction, motion trigger workflow, and future face-tracking research, but it does not import third-party character assets or replace the required Cubism Editor export.
 
+## Stage 3I Current Evidence
+
+Produced on 2026-08-24:
+
+- wardrobe contract: `assets/avatar/su-shixia-live2d-v2/wardrobe/wardrobe-contract-v1.json`;
+- Cubism wardrobe binding plan: `assets/avatar/su-shixia-live2d-v2/cubism-handoff/wardrobe-binding-plan-v1.json`;
+- wardrobe readiness audit: `docs/quality/su-shixia-wardrobe-readiness-audit.json`;
+- wardrobe contract generator: `scripts/generate-su-shixia-wardrobe-contract.js`;
+- wardrobe contract verifier: `scripts/verify-su-shixia-wardrobe-contract.js`;
+- npm command: `npm.cmd run test:live2d:su-shixia-wardrobe-contract`.
+
+Stage 3I status: `WARDROBE CONTRACT READY, TRUE OUTFIT SWAP STILL NO-GO`. The contract defines four public outfit targets and a separate private opt-in package boundary. The binding plan reserves future Cubism wardrobe parameters and switch rules. It does not create alternate garment source layers, outfit drawables, clothing physics, or a genuine Cubism export. `trueOutfitSwapReady` remains false.
+
 ## Acceptance Gates
 
 V2 cannot become the final public Cubism default until all are true:

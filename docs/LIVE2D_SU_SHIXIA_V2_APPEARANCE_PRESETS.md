@@ -47,3 +47,18 @@ True wardrobe support needs separate reviewed source art for every outfit:
 6. Keep adult-only/private assets outside the public Athena package.
 
 Until then, `trueOutfitSwapReady` must remain `false`.
+
+## Stage 3I Wardrobe Contract
+
+The true-wardrobe contract now exists at `assets/avatar/su-shixia-live2d-v2/wardrobe/wardrobe-contract-v1.json`.
+
+It defines four public outfits:
+
+- `classic_daily`
+- `soft_assistant`
+- `home_companion`
+- `ivory_ceremony`
+
+It also defines a separate `private_opt_in` package boundary that is excluded from public and Store builds. The Cubism binding plan lives at `assets/avatar/su-shixia-live2d-v2/cubism-handoff/wardrobe-binding-plan-v1.json` and reserves `ParamOutfitClassic`, `ParamOutfitAssistant`, `ParamOutfitHome`, and `ParamOutfitCeremony`.
+
+Current status remains `NO-GO` for true outfit swap because only the default outfit source exists, and even that still needs human hidden-fill, draw-order, arm-pose, and Cubism polish. The assistant, home, and ceremony outfits still need real source layers, occlusion maps, physics, motion QA, and genuine Cubism export proof.

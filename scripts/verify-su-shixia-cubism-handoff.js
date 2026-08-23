@@ -11,6 +11,7 @@ function main() {
   const physics = readJson(path.join(HANDOFF_ROOT, 'su-shixia-live2d-v2.physics3.template.json'));
   const cdi = readJson(path.join(HANDOFF_ROOT, 'su-shixia-live2d-v2.cdi3.template.json'));
   const exportGate = readJson(path.join(HANDOFF_ROOT, 'export-gate.json'));
+  const wardrobeBindingPlan = readJson(path.join(HANDOFF_ROOT, 'wardrobe-binding-plan-v1.json'));
   const auditReport = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-cubism-export-audit.json'));
   const packageJson = readJson(path.join(ROOT, 'package.json'));
   const profile = readJson(path.join(ROOT, 'assets', 'avatar', 'su-shixia-live2d-v2', 'profile.avatar.json'));
@@ -43,6 +44,10 @@ function main() {
   assert.ok(spec.appearanceControls.cubismReadyControls.some(item => item.id === 'ParamAccessoryHairClip'));
   assert.ok(spec.appearanceControls.runtimeOnlyPreviewChannels.includes('hair tint'));
   assert.ok(spec.appearanceControls.wardrobeNoGo.some(item => item.includes('No alternate garment source layers')));
+  assert.equal(wardrobeBindingPlan.status, 'binding_plan_ready_sources_required');
+  assert.ok(wardrobeBindingPlan.parameterGroup.ids.includes('ParamOutfitClassic'));
+  assert.ok(wardrobeBindingPlan.parameterGroup.ids.includes('ParamOutfitCeremony'));
+  assert.ok(wardrobeBindingPlan.noGoBoundary.some(item => item.includes('All public outfit source packages')));
   assert.equal(spec.editorReadinessChecklist.length, 10);
   assert.ok(spec.editorReadinessChecklist.every(item => item.status === 'manual_required'));
   assert.ok(spec.notAutomated.includes('no supported headless moc3 export command'));
@@ -68,7 +73,9 @@ function main() {
   assert.equal(auditReport.runtimeProof.status, 'template_unverified');
   assert.ok(runbook.includes('Do not mark `.moc3` ready'));
   assert.ok(runbook.includes('Wardrobe Boundary'));
+  assert.ok(runbook.includes('wardrobe-binding-plan-v1.json'));
   assert.ok(checklist.includes('NO-GO for public Cubism default'));
+  assert.ok(checklist.includes('wardrobe-binding-plan-v1.json'));
   assert.ok(checklist.includes('ParamAccessoryHairClip'));
   assert.ok(motionFiles.length >= 30);
   const touchMotionGroups = new Set(profile.hotZones.map(zone => findMotionGroup(zone.action)).filter(Boolean));

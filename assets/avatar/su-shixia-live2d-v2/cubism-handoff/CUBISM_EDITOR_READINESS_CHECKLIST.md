@@ -13,7 +13,7 @@ This checklist is the handoff contract before Su Shixia V2 can become a genuine 
 | deformers | Create Root, Body, Head, Eyes, Mouth, Hair, Arms, Accessory, Skirt, and Legs deformers, then bind standard angle/breath/lip-sync parameters first. | rig-spec.json |
 | physics | Configure hair-front, hair-side, hair-back, and skirt physics from the template and tune after motion playback. | su-shixia-live2d-v2.physics3.template.json |
 | motions | Import or recreate all motion3 templates, then hand-polish touch reactions and recovery timing. | motions/*.motion3.json |
-| appearance | Bind ParamAccessoryHairClip. Do not claim true clothing swaps until new outfit drawables and parameters exist. | rig-spec.json |
+| appearance | Bind ParamAccessoryHairClip and follow the wardrobe binding plan. Do not claim true clothing swaps until new outfit drawables and parameters exist. | rig-spec.json<br>wardrobe-binding-plan-v1.json |
 | export | Export moc3, model3, textures, physics, and display-info files into ../model, then verify they load with cubism-web instead of Live2D Lite. | export-gate.json |
 | release-boundary | Keep source, handoff, adult-only, and private assets out of public installers until rights, license, and visual QA are approved. | ../manifest.json |
 

@@ -15,8 +15,10 @@ function main() {
 
   assert.equal(manifest.sourceArt.reviewDashboard, 'source/review/su-shixia-live2d-v2-review-dashboard.html');
   assert.equal(manifest.sourceArt.githubReferenceScan, '../../../docs/quality/su-shixia-github-reference-scan.json');
+  assert.equal(manifest.sourceArt.wardrobeContract, 'wardrobe/wardrobe-contract-v1.json');
   assert.equal(manifest.production.reviewDashboardReady, true);
   assert.equal(manifest.production.githubReferenceScanReady, true);
+  assert.equal(manifest.production.wardrobeContractReady, true);
 
   assert.equal(githubScan.version, 1);
   assert.equal(githubScan.packageId, 'su-shixia-live2d-v2');
@@ -36,6 +38,12 @@ function main() {
   assert.ok(html.includes('Live2D/CubismWebSamples'));
   assert.ok(html.includes('guansss/pixi-live2d-display'));
   assert.ok(html.includes('emilianavt/OpenSeeFace'));
+  assert.ok(html.includes('Wardrobe Contract'));
+  assert.ok(html.includes('classic_daily'));
+  assert.ok(html.includes('soft_assistant'));
+  assert.ok(html.includes('ivory_ceremony'));
+  assert.ok(html.includes('future_source_required'));
+  assert.ok(html.includes('true outfit swap'));
   assert.ok(html.includes('source-and-layering'));
   assert.ok(html.includes('genuine-cubism-export'));
   assert.ok(html.includes('distribution'));

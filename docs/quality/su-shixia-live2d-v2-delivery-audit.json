@@ -132,6 +132,31 @@
           "detail": ""
         },
         {
+          "id": "wardrobe-contract-ready",
+          "status": "pass",
+          "detail": ""
+        },
+        {
+          "id": "wardrobe-binding-plan-ready",
+          "status": "pass",
+          "detail": ""
+        },
+        {
+          "id": "wardrobe-readiness-audit-ready",
+          "status": "pass",
+          "detail": ""
+        },
+        {
+          "id": "wardrobe-contract-go",
+          "status": "pass",
+          "detail": ""
+        },
+        {
+          "id": "wardrobe-binding-plan-go",
+          "status": "pass",
+          "detail": ""
+        },
+        {
           "id": "preview-only",
           "status": "pass",
           "detail": "current appearance presets are preview-only"
@@ -317,6 +342,7 @@
   "nextRequiredEvidence": [
     "Human art review approval for source alignment, hands, lower body, hidden fill, and turn behavior.",
     "Separate source layers/drawables for true clothing variants beyond preview tint presets.",
+    "Wardrobe contract blockers resolved: default outfit human approval and three future public outfit source packages.",
     "Cubism Editor project and exported moc3/model3/physics/cdi/texture files.",
     "Cubism Web runtime proof replacing the template_unverified proof JSON.",
     "Rights review and Live2D license review before public distribution."

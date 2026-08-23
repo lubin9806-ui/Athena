@@ -149,7 +149,7 @@
           <tr><td><code>requirements</code></td><td><span class="status-go">GO</span></td><td>concept-baseline-approved: pass<br>athena-default-variant: pass</td></tr>
           <tr><td><code>source-and-layering</code></td><td><span class="status-no_go">NO_GO</span></td><td>transparent-master: pass<br>layered-baseline: pass<br>parts-count: pass<br>human-layer-review-approved: fail (manual review remains required)<br>hidden-fill-review-approved: fail (manual hidden-fill review remains required)<br>alignment-review-approved: fail (alignment review remains required)</td></tr>
           <tr><td><code>lite-runtime</code></td><td><span class="status-go">GO</span></td><td>lite-runtime-ready: pass<br>runtime-ready: pass<br>layers: pass<br>hot-zones: pass<br>motions: pass<br>visual-qa-ready: pass<br>motion-frames-visible: pass<br>motion-deltas-visible: pass</td></tr>
-          <tr><td><code>appearance-and-wardrobe</code></td><td><span class="status-partial">PARTIAL</span></td><td>appearance-preview-ready: pass<br>appearance-qa-ready: pass<br>appearance-preset-count: pass<br>preview-only: pass (current appearance presets are preview-only)<br>true-outfit-swap: fail (true outfit source layers and Cubism bindings are not ready)</td></tr>
+          <tr><td><code>appearance-and-wardrobe</code></td><td><span class="status-partial">PARTIAL</span></td><td>appearance-preview-ready: pass<br>appearance-qa-ready: pass<br>appearance-preset-count: pass<br>wardrobe-contract-ready: pass<br>wardrobe-binding-plan-ready: pass<br>wardrobe-readiness-audit-ready: pass<br>wardrobe-contract-go: pass<br>wardrobe-binding-plan-go: pass<br>preview-only: pass (current appearance presets are preview-only)<br>true-outfit-swap: fail (true outfit source layers and Cubism bindings are not ready)</td></tr>
           <tr><td><code>interaction</code></td><td><span class="status-go">GO</span></td><td>interaction-policy: pass<br>normal-boundary: pass<br>private-opt-in-boundary: pass<br>persona-reply-delegation: pass<br>private-mode-opt-in: pass<br>semantic-hot-zones: pass<br>private-zone-boundaries: pass</td></tr>
           <tr><td><code>cubism-handoff</code></td><td><span class="status-go">GO</span></td><td>editor-installed: pass<br>handoff-ready: pass<br>readiness-checklist: pass<br>export-gate: pass<br>motion-template-count: pass<br>physics-template: pass<br>headless-export-unavailable: pass (manual Editor export remains required)</td></tr>
           <tr><td><code>genuine-cubism-export</code></td><td><span class="status-no_go">NO_GO</span></td><td>export-audit-ready: pass<br>runtime-proof-template-ready: pass<br>runtime-proof-not-template: fail (runtime proof is still a template)<br>cubism-export-ready: fail (no genuine .moc3 export yet)<br>cubism-project-ready: fail (no Cubism project committed/exported yet)<br>export-audit-go: fail (export audit status=no_go)</td></tr>
@@ -207,6 +207,21 @@
     </section>
 
     <section>
+      <h2>Wardrobe Contract</h2>
+      <p class="note">Current runtime presets remain tint/accessory previews. True wardrobe requires separate source layers, Cubism drawables, and motion QA.</p>
+      <table>
+        <thead><tr><th>Outfit</th><th>Label</th><th>Source Status</th><th>Cubism Parameter</th><th>Missing For Production</th></tr></thead>
+        <tbody>
+          <tr><td><code>classic_daily</code></td><td>Signature Daily</td><td><code>current_source_exists_review_required</code></td><td><code>ParamOutfitClassic</code></td><td>human-polished hidden fill<br>arm-pose garment variants<br>true Cubism opacity binding<br>skirt pleat physics after mesh authoring</td></tr>
+          <tr><td><code>soft_assistant</code></td><td>Soft Assistant</td><td><code>future_source_required</code></td><td><code>ParamOutfitAssistant</code></td><td>cardigan source layers<br>draped blouse source layers<br>flowing skirt source layers<br>cloth physics and clipping</td></tr>
+          <tr><td><code>home_companion</code></td><td>Home Companion</td><td><code>future_source_required</code></td><td><code>ParamOutfitHome</code></td><td>knit top source layers<br>relaxed lower garment source layers<br>sitting/rest pose compatibility review<br>sleepy and idle cloth-follow QA</td></tr>
+          <tr><td><code>ivory_ceremony</code></td><td>Ivory Ceremony</td><td><code>future_source_required</code></td><td><code>ParamOutfitCeremony</code></td><td>gown bodice source layers<br>draped skirt and train source layers<br>high-ponytail hair variant source<br>long-cloth physics and draw-order QA</td></tr>
+        </tbody>
+      </table>
+      <p class="note">Wardrobe audit: <code>no_go</code>; true outfit swap: <code>false</code>; future source outfits missing: <code>3</code>.</p>
+    </section>
+
+    <section>
       <h2>Open Manual Findings</h2>
       <table>
         <thead><tr><th>Area</th><th>Severity</th><th>Status</th><th>Note</th></tr></thead>
@@ -250,6 +265,7 @@
         <tbody>
           <tr><td>Human art review approval for source alignment, hands, lower body, hidden fill, and turn behavior.</td></tr>
           <tr><td>Separate source layers/drawables for true clothing variants beyond preview tint presets.</td></tr>
+          <tr><td>Wardrobe contract blockers resolved: default outfit human approval and three future public outfit source packages.</td></tr>
           <tr><td>Cubism Editor project and exported moc3/model3/physics/cdi/texture files.</td></tr>
           <tr><td>Cubism Web runtime proof replacing the template_unverified proof JSON.</td></tr>
           <tr><td>Rights review and Live2D license review before public distribution.</td></tr>

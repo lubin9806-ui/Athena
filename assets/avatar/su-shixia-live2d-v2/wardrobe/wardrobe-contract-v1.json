@@ -1,0 +1,305 @@
+{
+  "version": 1,
+  "generatedAt": "2026-08-24",
+  "packageId": "su-shixia-live2d-v2",
+  "status": "contract_ready_true_outfit_sources_required",
+  "defaultOutfitId": "classic_daily",
+  "activeRuntimeSupport": {
+    "appearancePresetIds": [
+      "classic_blouse_navy",
+      "soft_office_gray",
+      "warm_evening",
+      "blue_focus",
+      "no_clip_minimal"
+    ],
+    "currentCapability": "preview tint and accessory visibility only",
+    "trueOutfitSwapReady": false,
+    "boundary": "Do not present these presets as separate garment silhouettes."
+  },
+  "publicOutfits": [
+    {
+      "id": "classic_daily",
+      "label": "Signature Daily",
+      "intent": "Default white blouse, deep navy high-waisted pleated skirt, silver A hair clip.",
+      "contentRating": "public",
+      "sourceStatus": "current_source_exists_review_required",
+      "cubismParameter": "ParamOutfitClassic",
+      "defaultValue": 1,
+      "requiredGarmentGroups": [
+        "torso-front",
+        "torso-back",
+        "left-sleeve",
+        "right-sleeve",
+        "collar-neckline",
+        "waist-connection",
+        "lower-front",
+        "lower-side",
+        "lower-rear",
+        "arm-pose-variants",
+        "orientation-variants",
+        "hot-zone-occlusion-map"
+      ],
+      "existingSourceLayers": [
+        "SSX_BLOUSE_FRONT",
+        "SSX_BLOUSE_COLLAR_L",
+        "SSX_BLOUSE_COLLAR_R",
+        "SSX_BLOUSE_SLEEVE_L",
+        "SSX_BLOUSE_SLEEVE_R",
+        "SSX_SKIRT_WAISTBAND",
+        "SSX_SKIRT_PANEL_L",
+        "SSX_SKIRT_PANEL_C",
+        "SSX_SKIRT_PANEL_R"
+      ],
+      "missingForProduction": [
+        "human-polished hidden fill",
+        "arm-pose garment variants",
+        "true Cubism opacity binding",
+        "skirt pleat physics after mesh authoring"
+      ],
+      "compatibleModes": [
+        "normal",
+        "private-opt-in"
+      ],
+      "motionCompatibility": [
+        "Idle",
+        "Listen",
+        "Speak",
+        "TouchFace",
+        "TouchChest",
+        "TouchWaist",
+        "TouchSkirt",
+        "TurnPreview",
+        "Sleepy"
+      ],
+      "requiresOcclusionReviewForZones": [
+        "collar",
+        "blouse",
+        "chest",
+        "ribs",
+        "abdomen",
+        "waist",
+        "hip",
+        "skirt-or-lower-garment",
+        "thigh",
+        "knee"
+      ]
+    },
+    {
+      "id": "soft_assistant",
+      "label": "Soft Assistant",
+      "intent": "Draped blouse, fine-knit cardigan, flowing dark skirt; no rigid suits or mechanical trim.",
+      "contentRating": "public",
+      "sourceStatus": "future_source_required",
+      "cubismParameter": "ParamOutfitAssistant",
+      "defaultValue": 0,
+      "requiredGarmentGroups": [
+        "torso-front",
+        "torso-back",
+        "left-sleeve",
+        "right-sleeve",
+        "collar-neckline",
+        "waist-connection",
+        "lower-front",
+        "lower-side",
+        "lower-rear",
+        "arm-pose-variants",
+        "orientation-variants",
+        "hot-zone-occlusion-map"
+      ],
+      "existingSourceLayers": [],
+      "missingForProduction": [
+        "cardigan source layers",
+        "draped blouse source layers",
+        "flowing skirt source layers",
+        "cloth physics and clipping"
+      ],
+      "compatibleModes": [
+        "normal",
+        "private-opt-in"
+      ],
+      "motionCompatibility": [
+        "Idle",
+        "Listen",
+        "Speak",
+        "TouchFace",
+        "TouchChest",
+        "TouchWaist",
+        "TouchSkirt",
+        "TurnPreview",
+        "Sleepy"
+      ],
+      "requiresOcclusionReviewForZones": [
+        "collar",
+        "blouse",
+        "chest",
+        "ribs",
+        "abdomen",
+        "waist",
+        "hip",
+        "skirt-or-lower-garment",
+        "thigh",
+        "knee"
+      ]
+    },
+    {
+      "id": "home_companion",
+      "label": "Home Companion",
+      "intent": "Soft knit top with relaxed lower garment for rest, sleep, and long companionship scenes.",
+      "contentRating": "public",
+      "sourceStatus": "future_source_required",
+      "cubismParameter": "ParamOutfitHome",
+      "defaultValue": 0,
+      "requiredGarmentGroups": [
+        "torso-front",
+        "torso-back",
+        "left-sleeve",
+        "right-sleeve",
+        "collar-neckline",
+        "waist-connection",
+        "lower-front",
+        "lower-side",
+        "lower-rear",
+        "arm-pose-variants",
+        "orientation-variants",
+        "hot-zone-occlusion-map"
+      ],
+      "existingSourceLayers": [],
+      "missingForProduction": [
+        "knit top source layers",
+        "relaxed lower garment source layers",
+        "sitting/rest pose compatibility review",
+        "sleepy and idle cloth-follow QA"
+      ],
+      "compatibleModes": [
+        "normal",
+        "private-opt-in"
+      ],
+      "motionCompatibility": [
+        "Idle",
+        "Listen",
+        "Speak",
+        "TouchFace",
+        "TouchChest",
+        "TouchWaist",
+        "TouchSkirt",
+        "TurnPreview",
+        "Sleepy"
+      ],
+      "requiresOcclusionReviewForZones": [
+        "collar",
+        "blouse",
+        "chest",
+        "ribs",
+        "abdomen",
+        "waist",
+        "hip",
+        "skirt-or-lower-garment",
+        "thigh",
+        "knee"
+      ]
+    },
+    {
+      "id": "ivory_ceremony",
+      "label": "Ivory Ceremony",
+      "intent": "Elegant ivory draped evening gown with restrained silver details and optional high ponytail.",
+      "contentRating": "public",
+      "sourceStatus": "future_source_required",
+      "cubismParameter": "ParamOutfitCeremony",
+      "defaultValue": 0,
+      "requiredGarmentGroups": [
+        "torso-front",
+        "torso-back",
+        "left-sleeve",
+        "right-sleeve",
+        "collar-neckline",
+        "waist-connection",
+        "lower-front",
+        "lower-side",
+        "lower-rear",
+        "arm-pose-variants",
+        "orientation-variants",
+        "hot-zone-occlusion-map"
+      ],
+      "existingSourceLayers": [],
+      "missingForProduction": [
+        "gown bodice source layers",
+        "draped skirt and train source layers",
+        "high-ponytail hair variant source",
+        "long-cloth physics and draw-order QA"
+      ],
+      "compatibleModes": [
+        "normal",
+        "private-opt-in"
+      ],
+      "motionCompatibility": [
+        "Idle",
+        "Listen",
+        "Speak",
+        "TouchFace",
+        "TouchChest",
+        "TouchWaist",
+        "TouchSkirt",
+        "TurnPreview",
+        "Sleepy"
+      ],
+      "requiresOcclusionReviewForZones": [
+        "collar",
+        "blouse",
+        "chest",
+        "ribs",
+        "abdomen",
+        "waist",
+        "hip",
+        "skirt-or-lower-garment",
+        "thigh",
+        "knee"
+      ]
+    }
+  ],
+  "privatePackageBoundary": {
+    "id": "private_opt_in",
+    "contentRating": "private-adult-opt-in",
+    "includedInPublicPackage": false,
+    "includedInStorePackage": false,
+    "sourceStatus": "separate_package_required",
+    "runtimeRequirement": "normal mode must never load, advertise, or select private outfit or pose assets",
+    "notes": [
+      "Private/adult assets must live outside the public Su Shixia package.",
+      "The persona model may respond within the active mode, but runtime policy decides which motions and assets are valid.",
+      "No private body or explicit pose image assets are present in this package."
+    ]
+  },
+  "sharedRequirements": {
+    "garmentGroups": [
+      "torso-front",
+      "torso-back",
+      "left-sleeve",
+      "right-sleeve",
+      "collar-neckline",
+      "waist-connection",
+      "lower-front",
+      "lower-side",
+      "lower-rear",
+      "arm-pose-variants",
+      "orientation-variants",
+      "hot-zone-occlusion-map"
+    ],
+    "requiredQa": [
+      "front alignment and hidden-fill review",
+      "bust, waist, hip, skirt/trouser occlusion review",
+      "arm-lift, cheek-touch, chest-protection, and hand-near-face compatibility",
+      "idle, speak, touch-face, touch-chest, touch-waist, touch-skirt, and turn-preview motion QA",
+      "normal and private-opt-in mode hit-zone policy proof",
+      "Cubism Web screenshot/contact-sheet proof after genuine export"
+    ],
+    "bodyPresetPolicy": "Every body preset needs outfit-compatible art and motion QA; no arbitrary 3D-style body morph promise.",
+    "orientationPolicy": "Front, three-quarter, profile, and back views require separate reviewed source or authored Cubism deformation proof.",
+    "hotZonePolicy": "Outfit changes must update occlusion and sensitivity metadata before touch zones are active."
+  },
+  "noGoUntil": [
+    "All public outfit source packages exist and pass source review.",
+    "Cubism drawables, clipping, draw order, and visibility parameters are authored for each outfit.",
+    "Runtime QA proves outfit switching without layer popping, broken touch zones, or invalid motions.",
+    "A genuine Cubism export and Cubism Web runtime proof exist."
+  ]
+}

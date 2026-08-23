@@ -26,6 +26,7 @@ Included:
 - 37 semantic touch zones for hair, face, ears, neck, shoulders, arms, hands, clothing, torso, waist, skirt, legs, ankles, and shoes;
 - normal/private-opt-in interaction policy metadata so persona replies are model-generated but runtime-bounded;
 - preview-only appearance presets for hair color, eye color, blouse/skirt/shoe tint, and hair-clip visibility;
+- wardrobe contract and Cubism binding plan for four public outfits plus a separate private-package boundary;
 - Cubism Editor handoff package with rig spec, 37 motion templates, physics template, display info template, export runbook, Editor readiness checklist, and machine-readable export gate.
 - Cubism-ready A hair clip visibility parameter plan via `ParamAccessoryHairClip`.
 
@@ -39,6 +40,7 @@ Not included:
 - final multi-view profile or back source packages;
 - full-turn runtime handoffs beyond the provisional turn-preview motion group;
 - true multi-outfit silhouette swaps or separate garment rigs;
+- completed source packages for the assistant, home companion, or ceremony outfit silhouettes;
 - adult-only private assets.
 
 The reference composite remains visible in the PSD. Generated part groups are hidden so an illustrator or rigger can compare alignment before replacing or correcting individual layers. The v2 mouth atlas, hands, automated hidden fill, and target rectangles remain provisional until a human-visible review approves them.
@@ -55,8 +57,9 @@ npm.cmd run test:live2d:su-shixia-cubism-audit
 npm.cmd run test:live2d:su-shixia-cubism-required
 npm.cmd run test:live2d:su-shixia-delivery-audit
 npm.cmd run test:live2d:su-shixia-review-dashboard
+npm.cmd run test:live2d:su-shixia-wardrobe-contract
 ```
 
-The Lite runtime preview is allowed for local Athena integration and review. Runtime visual QA now proves nonblank transparent frames, visible motion deltas for the key preview motions, and visible appearance-preset differences. `source/review/su-shixia-live2d-v2-review-dashboard.html` collects the current visual boards, GitHub reference scan, blockers, and Go/No-Go state in one local page. These presets recolor or hide existing layers only; they are not true clothing swaps. The A hair clip can be mapped to a real Cubism opacity parameter, but the color presets and clothing variations still need new source layers or runtime texture/drawable work before they can become genuine Cubism wardrobe controls. The contact sheets still show provisional automated art quality in hands, arms, lower body, wardrobe variety, and turn behavior.
+The Lite runtime preview is allowed for local Athena integration and review. Runtime visual QA now proves nonblank transparent frames, visible motion deltas for the key preview motions, and visible appearance-preset differences. `source/review/su-shixia-live2d-v2-review-dashboard.html` collects the current visual boards, GitHub reference scan, wardrobe contract, blockers, and Go/No-Go state in one local page. These presets recolor or hide existing layers only; they are not true clothing swaps. `wardrobe/wardrobe-contract-v1.json` and `cubism-handoff/wardrobe-binding-plan-v1.json` define the future true outfit swap requirements and parameters, but the assistant, home, and ceremony outfit source packages do not exist yet. The A hair clip can be mapped to a real Cubism opacity parameter, but the color presets and clothing variations still need new source layers or runtime texture/drawable work before they can become genuine Cubism wardrobe controls. The contact sheets still show provisional automated art quality in hands, arms, lower body, wardrobe variety, and turn behavior.
 
 `test:live2d:su-shixia-cubism-proof-template` creates the runtime proof JSON skeleton and verifies that it is still marked unverified. `test:live2d:su-shixia-cubism-audit` is expected to pass while reporting `NO-GO` until a real Editor export exists. `test:live2d:su-shixia-cubism-required` is the hard gate for the future genuine Cubism package and should fail now. The Cubism handoff package is ready for Editor work, but a genuine `.moc3` has not been exported. Source and handoff directories must remain excluded from public installers. Public distribution stays blocked pending source refinement, rights review, Live2D license review, genuine Cubism rigging, and runtime QA.

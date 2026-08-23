@@ -13,6 +13,7 @@ function main() {
   const runtimeQa = readJson(path.join(PACKAGE_ROOT, manifest.sourceArt.runtimeVisualQaReport));
   const exportAudit = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-cubism-export-audit.json'));
   const runtimeProof = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-cubism-runtime-proof.json'));
+  const wardrobeAudit = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-wardrobe-readiness-audit.json'));
 
   const stages = [
     stage('requirements', 'go', [
@@ -41,6 +42,11 @@ function main() {
       check('appearance-preview-ready', manifest.production.appearancePresetPreviewReady === true),
       check('appearance-qa-ready', manifest.production.appearancePresetVisualQaReady === true),
       check('appearance-preset-count', manifest.production.appearancePresetCount >= 5),
+      check('wardrobe-contract-ready', manifest.production.wardrobeContractReady === true),
+      check('wardrobe-binding-plan-ready', manifest.production.wardrobeBindingPlanReady === true),
+      check('wardrobe-readiness-audit-ready', manifest.production.wardrobeReadinessAuditReady === true),
+      check('wardrobe-contract-go', wardrobeAudit.goNoGo.wardrobeContract === 'go'),
+      check('wardrobe-binding-plan-go', wardrobeAudit.goNoGo.cubismBindingPlan === 'go'),
       check('preview-only', runtimeQa.checks.appearancePresetPreviewOnly === true, 'current appearance presets are preview-only'),
       check('true-outfit-swap', manifest.production.trueOutfitSwapReady === true, 'true outfit source layers and Cubism bindings are not ready'),
     ]),
@@ -109,6 +115,7 @@ function main() {
     nextRequiredEvidence: [
       'Human art review approval for source alignment, hands, lower body, hidden fill, and turn behavior.',
       'Separate source layers/drawables for true clothing variants beyond preview tint presets.',
+      'Wardrobe contract blockers resolved: default outfit human approval and three future public outfit source packages.',
       'Cubism Editor project and exported moc3/model3/physics/cdi/texture files.',
       'Cubism Web runtime proof replacing the template_unverified proof JSON.',
       'Rights review and Live2D license review before public distribution.',

@@ -1,0 +1,82 @@
+{
+  "version": 1,
+  "generatedAt": "2026-08-24",
+  "packageId": "su-shixia-live2d-v2",
+  "status": "binding_plan_ready_sources_required",
+  "parameterGroup": {
+    "id": "ParamGroupWardrobe",
+    "name": "Wardrobe",
+    "ids": [
+      "ParamOutfitClassic",
+      "ParamOutfitAssistant",
+      "ParamOutfitHome",
+      "ParamOutfitCeremony"
+    ]
+  },
+  "outfitParameters": [
+    {
+      "id": "ParamOutfitClassic",
+      "label": "Signature Daily Visibility",
+      "min": 0,
+      "max": 1,
+      "defaultValue": 1,
+      "target": "partOpacity",
+      "sourceStatus": "current_source_exists_review_required",
+      "requiredSource": "current default outfit layers plus human polish"
+    },
+    {
+      "id": "ParamOutfitAssistant",
+      "label": "Soft Assistant Visibility",
+      "min": 0,
+      "max": 1,
+      "defaultValue": 0,
+      "target": "partOpacity",
+      "sourceStatus": "future_source_required",
+      "requiredSource": "future soft_assistant layered source package"
+    },
+    {
+      "id": "ParamOutfitHome",
+      "label": "Home Companion Visibility",
+      "min": 0,
+      "max": 1,
+      "defaultValue": 0,
+      "target": "partOpacity",
+      "sourceStatus": "future_source_required",
+      "requiredSource": "future home_companion layered source package"
+    },
+    {
+      "id": "ParamOutfitCeremony",
+      "label": "Ivory Ceremony Visibility",
+      "min": 0,
+      "max": 1,
+      "defaultValue": 0,
+      "target": "partOpacity",
+      "sourceStatus": "future_source_required",
+      "requiredSource": "future ivory_ceremony layered source package"
+    }
+  ],
+  "drawOrderRules": [
+    "Only one public outfit visibility parameter may be 1 at a time.",
+    "Body base stays below clothing layers and above private package exclusion guards.",
+    "Hands and forearms remain above compatible sleeves only when the outfit declares that arm pose valid.",
+    "Hair and accessory layers stay outfit-independent unless the outfit declares a hairstyle variant."
+  ],
+  "clippingRules": [
+    "Sleeves clip to upper arms and expose hidden fill during hand-to-face motions.",
+    "Collar and neckline clip to torso and neck without covering mouth or chin zones.",
+    "Lower garment clips to waist, hip, and leg groups without hiding touch-zone boundaries.",
+    "Long gown or relaxed trouser variants require separate lower-body clipping and motion QA."
+  ],
+  "runtimeSwitchRules": [
+    "Switch outfit during idle or an explicit transition motion only.",
+    "Suspend ambiguous torso and lower-body hit zones during the switch.",
+    "Recompute active hit areas from the outfit occlusion map before accepting touch input.",
+    "Persist chosen outfit separately from color/accessory appearance presets."
+  ],
+  "noGoBoundary": [
+    "All public outfit source packages exist and pass source review.",
+    "Cubism drawables, clipping, draw order, and visibility parameters are authored for each outfit.",
+    "Runtime QA proves outfit switching without layer popping, broken touch zones, or invalid motions.",
+    "A genuine Cubism export and Cubism Web runtime proof exist."
+  ]
+}
