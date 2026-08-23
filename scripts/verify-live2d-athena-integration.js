@@ -19,7 +19,9 @@ function main() {
   const haruProfile = JSON.parse(read('assets/avatar/live2d-official-haru/profile.avatar.json'));
   const haruModel = JSON.parse(read('assets/avatar/live2d-official-haru/Haru.model3.json'));
   const qa = JSON.parse(read('docs/quality/live2d-cubism-runtime-qa.json'));
-  assert.equal(manifest.status, 'desktop_pet_window_validated');
+  assert.equal(manifest.status, 'retired_visual_direction');
+  assert.equal(manifest.qualityDisposition, 'retired_not_default');
+  assert.equal(manifest.supersededBy, '../../../docs/LIVE2D_RESTART_V2.md');
   assert.equal(manifest.runtime.athenaAppIntegrated, true);
   assert.equal(manifest.runtime.hotZoneAthenaReply, true);
   assert.equal(haruManifest.runtime.sounds, 0);

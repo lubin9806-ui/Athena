@@ -1,6 +1,8 @@
 # Athena Live2D Default Character Brief
 
-Status: personal experimental concept, not a packaged or public release asset.
+Status: retired v1 concept, not a packaged or public release asset.
+
+Restart note, 2026-08-23: this brief no longer defines Athena's default Live2D character direction. It is kept as a historical v1 archive and as negative guidance for what not to continue polishing. New work must follow `docs/LIVE2D_RESTART_V2.md`.
 
 Concept image:
 
@@ -172,4 +174,3 @@ To move from concept to real Live2D runtime proof, provide one of:
 - A completed Live2D `.model3.json` model package.
 - A layered PSD/CLIP source prepared for Live2D rigging.
 - Approval to commission or generate a layered Live2D-ready source sheet from this brief.
-

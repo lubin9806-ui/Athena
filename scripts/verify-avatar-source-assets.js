@@ -18,7 +18,8 @@ function main() {
   const expectedCubismModelPath = path.join(PACKAGE_ROOT, manifest.runtime.expectedCubismModel3Json);
 
   assert.equal(manifest.id, 'athena-live2d-default');
-  assert.equal(manifest.status, 'desktop_pet_window_validated');
+  assert.equal(manifest.status, 'retired_visual_direction');
+  assert.equal(manifest.qualityDisposition, 'retired_not_default');
   assert.equal(manifest.providerTarget, 'live2d');
   assert.equal(manifest.runtime.runnable, true);
   assert.equal(manifest.runtime.engine, 'cubism-web');
@@ -32,7 +33,7 @@ function main() {
   assert.ok(Array.isArray(manifest.riggingTargets.requiredParameters));
   assert.ok(manifest.riggingTargets.requiredParameters.includes('ParamMouthOpenY'));
   assert.ok(manifest.riggingTargets.requiredMotionGroups.includes('Speak'));
-  console.log('ATHENA_AVATAR_SOURCE_ASSETS_OK package=athena-live2d-default status=desktop_pet_window_validated liteFallback=true cubismExport=true cubismRuntime=true');
+  console.log('ATHENA_AVATAR_SOURCE_ASSETS_OK package=athena-live2d-default status=retired_visual_direction disposition=retired_not_default liteFallback=true cubismExport=true cubismRuntime=true');
 }
 
 main();

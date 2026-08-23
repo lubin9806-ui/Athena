@@ -1,8 +1,8 @@
 {
   "id": "athena-live2d-default",
   "version": "0.10.0-desktop-pet",
-  "status": "desktop_pet_window_validated",
-  "displayName": "Athena Live2D Default",
+  "status": "retired_visual_direction",
+  "displayName": "Athena Live2D Default (Retired V1)",
   "providerTarget": "live2d",
   "createdAt": "2026-08-22",
   "sourceArt": {
@@ -18,6 +18,8 @@
     "conceptBoard": "../../../docs/concepts/athena-live2d-character-concept-v1.png",
     "brief": "../../../docs/LIVE2D_DEFAULT_CHARACTER_BRIEF.md"
   },
+  "qualityDisposition": "retired_not_default",
+  "supersededBy": "../../../docs/LIVE2D_RESTART_V2.md",
   "production": {
     "layeredSourceReady": true,
     "partsCount": 67,
@@ -102,7 +104,7 @@
     "fallbackModel3Json": "model/athena-live2d-lite.model3.json",
     "validatedPlacements": ["chat_right", "chat_background", "draggable_overlay", "desktop_pet"],
     "visualQa": "../../../docs/quality/live2d-cubism-runtime-qa.json",
-    "remainingLimitations": "This remains an automated baseline Cubism rig, not a hand-polished commercial Live2D rig. Visible runtime motion fallback keeps idle and interaction movement readable, but the experimental Pixi overlay layered rig is disabled by default after visual QA exposed unacceptable ghosting. The next production step is to use high-quality reference model structure and move real layered controls into the Cubism Editor ArtMesh/deformer hierarchy. Model-native hit areas remain production work. Profile rectangle hit areas remain active. Public distribution still requires Live2D expandable-app license review."
+    "remainingLimitations": "This remains an automated baseline Cubism rig, not a hand-polished commercial Live2D rig. The v1 visual direction is retired and must not be treated as Athena's default identity. Visible runtime motion fallback keeps idle and interaction movement readable, but the experimental Pixi overlay layered rig is disabled by default after visual QA exposed unacceptable ghosting. The next production step is to restart the default character from a stronger v2 visual target, then move real layered controls into the Cubism Editor ArtMesh/deformer hierarchy. Model-native hit areas remain production work. Profile rectangle hit areas remain active. Public distribution still requires Live2D expandable-app license review."
   },
   "style": {
     "agePresentation": "adult",

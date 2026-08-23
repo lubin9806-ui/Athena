@@ -13,7 +13,8 @@ function read(relativePath) {
 function main() {
   const manifest = JSON.parse(read('assets/avatar/athena-live2d-default/manifest.json'));
   const qa = JSON.parse(read('docs/quality/live2d-cubism-runtime-qa.json'));
-  assert.equal(manifest.status, 'desktop_pet_window_validated');
+  assert.equal(manifest.status, 'retired_visual_direction');
+  assert.equal(manifest.qualityDisposition, 'retired_not_default');
   assert.equal(manifest.runtime.desktopPetWindow.independentWindow, true);
   assert.equal(qa.desktopPetWindow.passed, true);
   const manager = read('src/app/avatar/DesktopPetWindow.ts');

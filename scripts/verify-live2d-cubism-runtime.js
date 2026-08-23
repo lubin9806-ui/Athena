@@ -37,6 +37,7 @@ async function main() {
     'cubism_native_expressions_validated',
     'athena_app_integration_validated',
     'desktop_pet_window_validated',
+    'retired_visual_direction',
   ].includes(manifest.status));
   assert.equal(manifest.runtime.cubismRunnable, true);
   assert.equal(manifest.runtime.engine, 'cubism-web');
@@ -83,7 +84,7 @@ async function main() {
     assert.ok(controllerSource.includes(contract), `Live2D controller is missing placement contract: ${contract}`);
   }
 
-  console.log(`ATHENA_LIVE2D_CUBISM_RUNTIME_OK moc=${runtimeMoc.length} sourceMoc=${sourceMoc.length} placements=${manifest.runtime.validatedPlacements.length} core=${manifest.runtime.coreSha256.slice(0, 12)}`);
+  console.log(`ATHENA_LIVE2D_CUBISM_RUNTIME_OK moc=${runtimeMoc.length} sourceMoc=${sourceMoc.length} placements=${manifest.runtime.validatedPlacements.length} status=${manifest.status} core=${manifest.runtime.coreSha256.slice(0, 12)}`);
 }
 
 async function inspectTexture(filePath) {

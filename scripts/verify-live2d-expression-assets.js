@@ -23,6 +23,7 @@ function main() {
     'cubism_native_expressions_validated',
     'athena_app_integration_validated',
     'desktop_pet_window_validated',
+    'retired_visual_direction',
   ].includes(manifest.status));
   assert.equal(manifest.production.expressionsReady, true);
   assert.equal(manifest.production.expressionCount, 11);

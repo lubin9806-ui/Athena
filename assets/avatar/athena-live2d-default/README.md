@@ -1,8 +1,10 @@
 # Athena Live2D Default Avatar Asset Handoff
 
-This folder contains Athena's default layered 2D desktop companion package and its Cubism production handoff.
+Status, 2026-08-23: retired v1 visual direction. This package remains a technical archive and regression fixture for the Live2D runtime, source slicing, Cubism export, and packaging checks. It is not Athena's approved default companion identity. New default-character work must follow `docs/LIVE2D_RESTART_V2.md`.
 
-Current status: Athena loads the genuine Cubism Web package by default, with a Lite fallback kept for emergency rendering. The package has parameter-bound blink, mouth-open, smile face variants, native expressions, motion files, physics metadata, alpha-fringe repaired runtime textures, and a visible runtime motion fallback for idle and interaction states. The Cubism rig is still an automated baseline, not a production-polished manual rig.
+This folder contains Athena's retired v1 layered 2D desktop companion package and its Cubism production handoff.
+
+Current status: Athena no longer treats this package as the approved default character. The package has parameter-bound blink, mouth-open, smile face variants, native expressions, motion files, physics metadata, alpha-fringe repaired runtime textures, and a visible runtime motion fallback for idle and interaction states. The Cubism rig is still an automated baseline, not a production-polished manual rig.
 
 ## Files
 

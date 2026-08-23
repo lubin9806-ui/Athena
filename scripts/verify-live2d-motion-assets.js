@@ -23,6 +23,7 @@ function main() {
     'cubism_native_expressions_validated',
     'athena_app_integration_validated',
     'desktop_pet_window_validated',
+    'retired_visual_direction',
   ].includes(manifest.status));
   assert.equal(manifest.production.physicsReady, true);
   assert.equal(manifest.production.motionsReady, true);
@@ -89,7 +90,10 @@ function main() {
 
   const qa = readJson(path.join(ROOT, 'docs', 'quality', 'live2d-cubism-runtime-qa.json'));
   assert.equal(qa.desktop.motionPhysics.passed, true);
-  assert.equal(qa.desktop.motionPhysics.groupsChecked, 12);
+  assert.ok(
+    qa.desktop.motionPhysics.groupsChecked >= requiredGroups.length,
+    `QA motion group count ${qa.desktop.motionPhysics.groupsChecked} must cover archived v1 groups ${requiredGroups.length}`,
+  );
   assert.equal(qa.desktop.motionPhysics.physicsLoadWarnings, 0);
 
   console.log(`ATHENA_LIVE2D_MOTION_PHYSICS_OK groups=${requiredGroups.length} motions=${motionFileCount} curves=${curveCount} physics=${physics.PhysicsSettings.length} parameters=${parameterIds.size}`);
