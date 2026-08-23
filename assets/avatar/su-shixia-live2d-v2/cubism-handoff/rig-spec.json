@@ -166,6 +166,14 @@
       "max": 1,
       "defaultValue": 0,
       "group": "arm"
+    },
+    {
+      "id": "ParamAccessoryHairClip",
+      "label": "A Hair Clip Visibility",
+      "min": 0,
+      "max": 1,
+      "defaultValue": 1,
+      "group": "appearance"
     }
   ],
   "deformers": [
@@ -245,6 +253,13 @@
         "ParamArmL",
         "ParamArmR",
         "ParamHandCheek"
+      ]
+    },
+    {
+      "id": "Accessory",
+      "parent": "Head",
+      "parameters": [
+        "ParamAccessoryHairClip"
       ]
     },
     {
@@ -379,6 +394,146 @@
         "SSX_SHOE_L",
         "SSX_SHOE_R"
       ]
+    }
+  ],
+  "appearanceControls": {
+    "status": "preview_mapping_ready_true_wardrobe_not_ready",
+    "cubismReadyControls": [
+      {
+        "id": "ParamAccessoryHairClip",
+        "type": "partOpacity",
+        "defaultValue": 1,
+        "drawables": [
+          "SSX_ACCESSORY_HAIR_CLIP"
+        ],
+        "mapsLitePreset": "no_clip_minimal",
+        "editorInstruction": "Bind SSX_ACCESSORY_HAIR_CLIP opacity to ParamAccessoryHairClip: 1 visible, 0 hidden."
+      }
+    ],
+    "runtimeOnlyPreviewChannels": [
+      "hair tint",
+      "eye tint",
+      "blouse tint",
+      "skirt tint",
+      "shoe tint"
+    ],
+    "wardrobeNoGo": [
+      "No alternate garment source layers exist yet.",
+      "No Cubism drawables exist for new blouse, skirt, casual, evening, or private outfits.",
+      "No outfit visibility parameters should be marked production-ready until separate reviewed clothing source art is imported."
+    ],
+    "futureOutfitParameterPlan": [
+      {
+        "id": "ParamOutfitClassic",
+        "defaultValue": 1,
+        "requiredSource": "current white blouse and navy pleated skirt"
+      },
+      {
+        "id": "ParamOutfitOffice",
+        "defaultValue": 0,
+        "requiredSource": "future office outfit layered source"
+      },
+      {
+        "id": "ParamOutfitEvening",
+        "defaultValue": 0,
+        "requiredSource": "future warm/evening outfit layered source"
+      },
+      {
+        "id": "ParamOutfitCasual",
+        "defaultValue": 0,
+        "requiredSource": "future casual outfit layered source"
+      },
+      {
+        "id": "ParamOutfitPrivate",
+        "defaultValue": 0,
+        "requiredSource": "future separate private opt-in package only"
+      }
+    ]
+  },
+  "editorReadinessChecklist": [
+    {
+      "id": "source-art",
+      "action": "Open the PSD and confirm every visible/hidden imported layer keeps its SSX_* name.",
+      "evidence": [
+        "source/su-shixia-front-layered-v1.psd",
+        "source/parts/parts-contact-sheet-v1.png"
+      ],
+      "status": "manual_required"
+    },
+    {
+      "id": "human-art-review",
+      "action": "Review front alignment, hand/arm layering, lower-body occlusion, mouth shapes, hidden fill, and desktop-pet scale before rigging.",
+      "evidence": [
+        "source/review/front-alignment-preview-v1.png",
+        "source/review/front-source-scale-preview-v1.png",
+        "source/review/source-review-v1.json"
+      ],
+      "status": "manual_required"
+    },
+    {
+      "id": "parameters",
+      "action": "Create all rig-spec parameters with exact IDs, ranges, defaults, and display groups.",
+      "evidence": [
+        "rig-spec.json",
+        "su-shixia-live2d-v2.cdi3.template.json"
+      ],
+      "status": "manual_required"
+    },
+    {
+      "id": "meshes",
+      "action": "Mesh every meshGroups part and preserve draw order for face, hair, arms, skirt, legs, and accessory.",
+      "evidence": [
+        "rig-spec.json"
+      ],
+      "status": "manual_required"
+    },
+    {
+      "id": "deformers",
+      "action": "Create Root, Body, Head, Eyes, Mouth, Hair, Arms, Accessory, Skirt, and Legs deformers, then bind standard angle/breath/lip-sync parameters first.",
+      "evidence": [
+        "rig-spec.json"
+      ],
+      "status": "manual_required"
+    },
+    {
+      "id": "physics",
+      "action": "Configure hair-front, hair-side, hair-back, and skirt physics from the template and tune after motion playback.",
+      "evidence": [
+        "su-shixia-live2d-v2.physics3.template.json"
+      ],
+      "status": "manual_required"
+    },
+    {
+      "id": "motions",
+      "action": "Import or recreate all motion3 templates, then hand-polish touch reactions and recovery timing.",
+      "evidence": [
+        "motions/*.motion3.json"
+      ],
+      "status": "manual_required"
+    },
+    {
+      "id": "appearance",
+      "action": "Bind ParamAccessoryHairClip. Do not claim true clothing swaps until new outfit drawables and parameters exist.",
+      "evidence": [
+        "rig-spec.json"
+      ],
+      "status": "manual_required"
+    },
+    {
+      "id": "export",
+      "action": "Export moc3, model3, textures, physics, and display-info files into ../model, then verify they load with cubism-web instead of Live2D Lite.",
+      "evidence": [
+        "export-gate.json"
+      ],
+      "status": "manual_required"
+    },
+    {
+      "id": "release-boundary",
+      "action": "Keep source, handoff, adult-only, and private assets out of public installers until rights, license, and visual QA are approved.",
+      "evidence": [
+        "../manifest.json"
+      ],
+      "status": "manual_required"
     }
   ],
   "requiredExports": [

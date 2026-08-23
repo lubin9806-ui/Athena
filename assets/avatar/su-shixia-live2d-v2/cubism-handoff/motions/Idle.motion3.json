@@ -6,9 +6,9 @@
     "Fps": 30,
     "Loop": true,
     "AreBeziersRestricted": true,
-    "CurveCount": 4,
-    "TotalSegmentCount": 10,
-    "TotalPointCount": 14,
+    "CurveCount": 5,
+    "TotalSegmentCount": 11,
+    "TotalPointCount": 16,
     "UserDataCount": 0,
     "TotalUserDataSize": 0
   },
@@ -73,6 +73,17 @@
         0,
         3.6,
         0.15
+      ]
+    },
+    {
+      "Target": "Parameter",
+      "Id": "ParamAccessoryHairClip",
+      "Segments": [
+        0,
+        1,
+        0,
+        3.6,
+        1
       ]
     }
   ]

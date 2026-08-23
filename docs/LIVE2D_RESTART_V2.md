@@ -191,6 +191,18 @@ Produced on 2026-08-24:
 
 Stage 3C status: `APPEARANCE PRESET PREVIEW READY, TRUE WARDROBE STILL NO-GO`. The current system can recolor hair, eyes, blouse, skirt, shoes, and hide or tint the A hair clip. It does not include new clothing silhouettes, garment physics, or genuine Cubism wardrobe parameters. `trueOutfitSwapReady` remains false until separate outfit source layers and Cubism binding exist.
 
+## Stage 3D Current Evidence
+
+Produced on 2026-08-24:
+
+- Cubism Editor readiness checklist: `assets/avatar/su-shixia-live2d-v2/cubism-handoff/CUBISM_EDITOR_READINESS_CHECKLIST.md`;
+- machine-readable export gate: `assets/avatar/su-shixia-live2d-v2/cubism-handoff/export-gate.json`;
+- `ParamAccessoryHairClip` added to the Cubism rig spec, display-info template, and idle motion template;
+- `appearanceControls` in `rig-spec.json` maps the current A hair clip visibility to a real Cubism opacity control;
+- explicit wardrobe No-Go entries in the handoff package for hair/eye/outfit color tints and future outfits.
+
+Stage 3D status: `CUBISM EDITOR HANDOFF GATE READY, EXPORT STILL MANUAL NO-GO`. The handoff now specifies how to prove a real `.moc3` export: required files, `MOC3` header, Cubism Web runtime load without Lite fallback, visible motion/expression proof, lip-sync proof, hot-zone policy proof, and remaining visual/rights/license review gates. It still does not create the Cubism project or export the `.moc3`.
+
 ## Acceptance Gates
 
 V2 cannot become the final public Cubism default until all are true:

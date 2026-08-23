@@ -56,6 +56,13 @@
         "ParamArmR",
         "ParamHandCheek"
       ]
+    },
+    {
+      "Id": "ParamGroupAppearance",
+      "GroupName": "Appearance",
+      "Ids": [
+        "ParamAccessoryHairClip"
+      ]
     }
   ],
   "Parameters": [
@@ -158,6 +165,11 @@
       "Id": "ParamHandCheek",
       "GroupId": "ParamGroupArm",
       "Name": "Cheek Touch Hand Overlay"
+    },
+    {
+      "Id": "ParamAccessoryHairClip",
+      "GroupId": "ParamGroupAppearance",
+      "Name": "A Hair Clip Visibility"
     }
   ],
   "PartGroups": [

@@ -23,6 +23,8 @@
     "liteRuntimeModel": "model/su-shixia-live2d-v2-lite.model3.json",
     "liteRuntimeLayersDirectory": "model/layers-v1",
     "cubismHandoffDirectory": "cubism-handoff",
+    "cubismEditorReadinessChecklist": "cubism-handoff/CUBISM_EDITOR_READINESS_CHECKLIST.md",
+    "cubismExportGate": "cubism-handoff/export-gate.json",
     "rawDirectory": "source/raw",
     "rawPartsDirectory": "source/parts/raw"
   },
@@ -52,6 +54,9 @@
     "privateModeOptInBoundaryReady": true,
     "cubismEditorInstalledLocally": true,
     "cubismHandoffReady": true,
+    "cubismEditorReadinessChecklistReady": true,
+    "cubismExportGateReady": true,
+    "cubismAppearanceVisibilityParamReady": true,
     "cubismMotionTemplateCount": 37,
     "cubismPhysicsTemplateReady": true,
     "cubismHeadlessExportAvailable": false,

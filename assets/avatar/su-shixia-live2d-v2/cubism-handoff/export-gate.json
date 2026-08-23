@@ -1,0 +1,47 @@
+{
+  "id": "su-shixia-live2d-v2-cubism-export-gate",
+  "status": "manual_export_required",
+  "editor": {
+    "product": "Live2D Cubism Editor",
+    "testedLocalInstall": "C:\\Program Files\\Live2D Cubism 5.3",
+    "headlessExportAvailable": false
+  },
+  "requiredRuntimeFiles": [
+    {
+      "kind": "model3",
+      "path": "../model/su-shixia-live2d-v2.model3.json"
+    },
+    {
+      "kind": "moc3",
+      "path": "../model/su-shixia-live2d-v2.moc3",
+      "minBytes": 90000,
+      "magic": "MOC3"
+    },
+    {
+      "kind": "physics3",
+      "path": "../model/su-shixia-live2d-v2.physics3.json"
+    },
+    {
+      "kind": "cdi3",
+      "path": "../model/su-shixia-live2d-v2.cdi3.json"
+    },
+    {
+      "kind": "texture",
+      "path": "../model/textures/texture_00.png",
+      "minBytes": 300000
+    }
+  ],
+  "requiredRuntimeProof": [
+    "BrowserCubismLive2DHost reports cubism-web, not live2d-lite.",
+    "Rendered frame is nonblank with transparent background.",
+    "ParamMouthOpenY changes during TTS and resets after speech.",
+    "At least five expressions and six motions are visually distinct in screenshot/contact-sheet evidence.",
+    "Hot zones still generate bounded persona prompts through the runtime policy."
+  ],
+  "noGoUntil": [
+    "All required runtime files exist and the moc3 header is valid.",
+    "Athena loads the model through cubism-web without fallback.",
+    "Manual art review accepts hands, lower body, turn behavior, and wardrobe limits.",
+    "Rights and Live2D license review are complete."
+  ]
+}

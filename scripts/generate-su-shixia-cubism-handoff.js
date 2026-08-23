@@ -27,6 +27,7 @@ const PARAMETERS = [
   parameter('ParamArmL', 'Left Arm Pose', -1, 1, 0, 'arm'),
   parameter('ParamArmR', 'Right Arm Pose', -1, 1, 0, 'arm'),
   parameter('ParamHandCheek', 'Cheek Touch Hand Overlay', 0, 1, 0, 'arm'),
+  parameter('ParamAccessoryHairClip', 'A Hair Clip Visibility', 0, 1, 1, 'appearance'),
 ];
 
 const DEFORMERS = [
@@ -39,6 +40,7 @@ const DEFORMERS = [
   deformer('HairSide', 'Head', ['ParamAngleX', 'ParamHairSide']),
   deformer('HairBack', 'Head', ['ParamBodyAngleX', 'ParamHairBack']),
   deformer('Arms', 'Body', ['ParamArmL', 'ParamArmR', 'ParamHandCheek']),
+  deformer('Accessory', 'Head', ['ParamAccessoryHairClip']),
   deformer('Skirt', 'Body', ['ParamBodyAngleX', 'ParamSkirtSwing']),
   deformer('Legs', 'Root', ['ParamBodyAngleX']),
 ];
@@ -62,6 +64,7 @@ const MOTIONS = {
     curve('ParamAngleZ', [[0, -1.5], [1.8, 1.5], [3.6, -1.5]]),
     curve('ParamHairFront', [[0, -0.2], [1.8, 0.25], [3.6, -0.2]]),
     curve('ParamHairSide', [[0, 0.15], [1.8, -0.18], [3.6, 0.15]]),
+    curve('ParamAccessoryHairClip', [[0, 1], [3.6, 1]]),
   ]),
   Listen: motion('Listen', 2.4, true, [
     curve('ParamAngleX', [[0, -3], [1.2, -6], [2.4, -3]]),
@@ -242,6 +245,8 @@ function main() {
     parameters: PARAMETERS,
     deformers: DEFORMERS,
     meshGroups: MESH_GROUPS,
+    appearanceControls: appearanceControls(),
+    editorReadinessChecklist: editorReadinessChecklist(),
     requiredExports: [
       'model/su-shixia-live2d-v2.moc3',
       'model/su-shixia-live2d-v2.model3.json',
@@ -253,7 +258,9 @@ function main() {
   });
   writeJson(path.join(HANDOFF_ROOT, 'su-shixia-live2d-v2.physics3.template.json'), physicsTemplate());
   writeJson(path.join(HANDOFF_ROOT, 'su-shixia-live2d-v2.cdi3.template.json'), displayInfoTemplate());
+  writeJson(path.join(HANDOFF_ROOT, 'export-gate.json'), exportGate());
   fs.writeFileSync(path.join(HANDOFF_ROOT, 'CUBISM_EXPORT_RUNBOOK.md'), runbook());
+  fs.writeFileSync(path.join(HANDOFF_ROOT, 'CUBISM_EDITOR_READINESS_CHECKLIST.md'), editorReadinessMarkdown());
   console.log(`SU_SHIXIA_CUBISM_HANDOFF_GENERATED parameters=${PARAMETERS.length} motions=${Object.keys(MOTIONS).length} meshGroups=${MESH_GROUPS.length}`);
 }
 
@@ -362,9 +369,96 @@ function displayInfoTemplate() {
       { Id: 'ParamGroupBody', GroupName: 'Body', Ids: ['ParamBodyAngleX', 'ParamBodyAngleY', 'ParamBodyAngleZ', 'ParamBreath'] },
       { Id: 'ParamGroupPhysics', GroupName: 'Physics', Ids: ['ParamHairFront', 'ParamHairSide', 'ParamHairBack', 'ParamSkirtSwing'] },
       { Id: 'ParamGroupArms', GroupName: 'Arms', Ids: ['ParamArmL', 'ParamArmR', 'ParamHandCheek'] },
+      { Id: 'ParamGroupAppearance', GroupName: 'Appearance', Ids: ['ParamAccessoryHairClip'] },
     ],
     Parameters: PARAMETERS.map(item => ({ Id: item.id, GroupId: `ParamGroup${capitalize(item.group)}`, Name: item.label })),
     PartGroups: MESH_GROUPS.map(item => ({ Id: `PartGroup${item.id}`, GroupName: item.id, Ids: item.parts })),
+  };
+}
+
+function appearanceControls() {
+  return {
+    status: 'preview_mapping_ready_true_wardrobe_not_ready',
+    cubismReadyControls: [
+      {
+        id: 'ParamAccessoryHairClip',
+        type: 'partOpacity',
+        defaultValue: 1,
+        drawables: ['SSX_ACCESSORY_HAIR_CLIP'],
+        mapsLitePreset: 'no_clip_minimal',
+        editorInstruction: 'Bind SSX_ACCESSORY_HAIR_CLIP opacity to ParamAccessoryHairClip: 1 visible, 0 hidden.',
+      },
+    ],
+    runtimeOnlyPreviewChannels: [
+      'hair tint',
+      'eye tint',
+      'blouse tint',
+      'skirt tint',
+      'shoe tint',
+    ],
+    wardrobeNoGo: [
+      'No alternate garment source layers exist yet.',
+      'No Cubism drawables exist for new blouse, skirt, casual, evening, or private outfits.',
+      'No outfit visibility parameters should be marked production-ready until separate reviewed clothing source art is imported.',
+    ],
+    futureOutfitParameterPlan: [
+      { id: 'ParamOutfitClassic', defaultValue: 1, requiredSource: 'current white blouse and navy pleated skirt' },
+      { id: 'ParamOutfitOffice', defaultValue: 0, requiredSource: 'future office outfit layered source' },
+      { id: 'ParamOutfitEvening', defaultValue: 0, requiredSource: 'future warm/evening outfit layered source' },
+      { id: 'ParamOutfitCasual', defaultValue: 0, requiredSource: 'future casual outfit layered source' },
+      { id: 'ParamOutfitPrivate', defaultValue: 0, requiredSource: 'future separate private opt-in package only' },
+    ],
+  };
+}
+
+function editorReadinessChecklist() {
+  return [
+    gate('source-art', 'Open the PSD and confirm every visible/hidden imported layer keeps its SSX_* name.', ['source/su-shixia-front-layered-v1.psd', 'source/parts/parts-contact-sheet-v1.png']),
+    gate('human-art-review', 'Review front alignment, hand/arm layering, lower-body occlusion, mouth shapes, hidden fill, and desktop-pet scale before rigging.', ['source/review/front-alignment-preview-v1.png', 'source/review/front-source-scale-preview-v1.png', 'source/review/source-review-v1.json']),
+    gate('parameters', 'Create all rig-spec parameters with exact IDs, ranges, defaults, and display groups.', ['rig-spec.json', 'su-shixia-live2d-v2.cdi3.template.json']),
+    gate('meshes', 'Mesh every meshGroups part and preserve draw order for face, hair, arms, skirt, legs, and accessory.', ['rig-spec.json']),
+    gate('deformers', 'Create Root, Body, Head, Eyes, Mouth, Hair, Arms, Accessory, Skirt, and Legs deformers, then bind standard angle/breath/lip-sync parameters first.', ['rig-spec.json']),
+    gate('physics', 'Configure hair-front, hair-side, hair-back, and skirt physics from the template and tune after motion playback.', ['su-shixia-live2d-v2.physics3.template.json']),
+    gate('motions', 'Import or recreate all motion3 templates, then hand-polish touch reactions and recovery timing.', ['motions/*.motion3.json']),
+    gate('appearance', 'Bind ParamAccessoryHairClip. Do not claim true clothing swaps until new outfit drawables and parameters exist.', ['rig-spec.json']),
+    gate('export', 'Export moc3, model3, textures, physics, and display-info files into ../model, then verify they load with cubism-web instead of Live2D Lite.', ['export-gate.json']),
+    gate('release-boundary', 'Keep source, handoff, adult-only, and private assets out of public installers until rights, license, and visual QA are approved.', ['../manifest.json']),
+  ];
+}
+
+function gate(id, action, evidence) {
+  return { id, action, evidence, status: 'manual_required' };
+}
+
+function exportGate() {
+  return {
+    id: 'su-shixia-live2d-v2-cubism-export-gate',
+    status: 'manual_export_required',
+    editor: {
+      product: 'Live2D Cubism Editor',
+      testedLocalInstall: 'C:\\Program Files\\Live2D Cubism 5.3',
+      headlessExportAvailable: false,
+    },
+    requiredRuntimeFiles: [
+      { kind: 'model3', path: '../model/su-shixia-live2d-v2.model3.json' },
+      { kind: 'moc3', path: '../model/su-shixia-live2d-v2.moc3', minBytes: 90000, magic: 'MOC3' },
+      { kind: 'physics3', path: '../model/su-shixia-live2d-v2.physics3.json' },
+      { kind: 'cdi3', path: '../model/su-shixia-live2d-v2.cdi3.json' },
+      { kind: 'texture', path: '../model/textures/texture_00.png', minBytes: 300000 },
+    ],
+    requiredRuntimeProof: [
+      'BrowserCubismLive2DHost reports cubism-web, not live2d-lite.',
+      'Rendered frame is nonblank with transparent background.',
+      'ParamMouthOpenY changes during TTS and resets after speech.',
+      'At least five expressions and six motions are visually distinct in screenshot/contact-sheet evidence.',
+      'Hot zones still generate bounded persona prompts through the runtime policy.',
+    ],
+    noGoUntil: [
+      'All required runtime files exist and the moc3 header is valid.',
+      'Athena loads the model through cubism-web without fallback.',
+      'Manual art review accepts hands, lower body, turn behavior, and wardrobe limits.',
+      'Rights and Live2D license review are complete.',
+    ],
   };
 }
 
@@ -380,30 +474,59 @@ Status: cubism editor handoff ready
 - Motion templates: \`motions/*.motion3.json\` (37 reference templates, including all profile touch motion groups)
 - Physics template: \`su-shixia-live2d-v2.physics3.template.json\`
 - Display info template: \`su-shixia-live2d-v2.cdi3.template.json\`
+- Editor checklist: \`CUBISM_EDITOR_READINESS_CHECKLIST.md\`
+- Export gate: \`export-gate.json\`
 
 ## Editor Steps
 
 1. Open Live2D Cubism Editor 5.3.
 2. Import the PSD and preserve all \`SSX_*\` layer names.
-3. Create the parameters listed in \`rig-spec.json\`.
+3. Create the parameters listed in \`rig-spec.json\`, including \`ParamAccessoryHairClip\`.
 4. Build meshes for each \`meshGroups\` entry. Keep the face, eyes, mouth, hair, arms, skirt, and legs as separately deformable groups.
 5. Create deformers according to \`deformers\`.
 6. Bind standard parameters first: head, eyes, mouth, body, breath.
 7. Add secondary physics outputs for hair and skirt.
-8. Import or recreate the provided motion templates after confirming parameter IDs match.
+8. Bind \`ParamAccessoryHairClip\` to the A hair clip opacity. This is the only current Cubism-ready appearance control.
+9. Import or recreate the provided motion templates after confirming parameter IDs match.
    - Touch templates are timing and parameter references, not final polished animation.
    - Keep normal/private interaction boundaries in \`profile.avatar.json\`; Cubism should only provide visual reactions.
-9. Export runtime files into \`../model\`:
+10. Export runtime files into \`../model\`:
    - \`su-shixia-live2d-v2.moc3\`
    - \`su-shixia-live2d-v2.model3.json\`
    - \`su-shixia-live2d-v2.physics3.json\`
    - \`su-shixia-live2d-v2.cdi3.json\`
    - texture directory
-10. Run Athena validation and desktop smoke.
+11. Run Athena validation and desktop smoke.
+
+## Wardrobe Boundary
+
+The Lite runtime can recolor hair, eyes, blouse, skirt, and shoes for preview. Cubism production cannot treat those tints as true clothing or texture variants. Only \`ParamAccessoryHairClip\` is ready for a current-source Cubism opacity binding. New outfits require separate source layers, drawables, clipping, draw order, parameters, motions, and QA evidence.
 
 ## Non-Automated Boundary
 
 Cubism Editor 5.3 is installed locally, but this workspace did not find a supported headless export command. Do not mark \`.moc3\` ready until the Editor export exists and the runtime loads it through \`cubism-web\`.
+`;
+}
+
+function editorReadinessMarkdown() {
+  const rows = editorReadinessChecklist()
+    .map(item => `| ${item.id} | ${item.action} | ${item.evidence.join('<br>')} |`)
+    .join('\n');
+  return `# Su Shixia V2 Cubism Editor Readiness Checklist
+
+Status: manual editor work required
+
+This checklist is the handoff contract before Su Shixia V2 can become a genuine Cubism \`.moc3\` package. Passing the current Lite runtime tests does not satisfy these items.
+
+| Gate | Required action | Evidence |
+| --- | --- | --- |
+${rows}
+
+## Go/No-Go
+
+- GO for local Lite preview: current generated source, Lite runtime, touch zones, appearance preview, and visual QA pass.
+- NO-GO for public Cubism default: no genuine \`.moc3\`, no Cubism Web proof, unresolved art review findings, no true wardrobe drawables, and no rights/license approval.
+- NO-GO for true wardrobe: only the A hair clip has a current-source Cubism visibility parameter. Clothing and color variants need new source layers or texture/drawable variants.
 `;
 }
 

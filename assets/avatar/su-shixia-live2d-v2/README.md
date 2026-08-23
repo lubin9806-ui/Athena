@@ -25,7 +25,8 @@ Included:
 - 37 semantic touch zones for hair, face, ears, neck, shoulders, arms, hands, clothing, torso, waist, skirt, legs, ankles, and shoes;
 - normal/private-opt-in interaction policy metadata so persona replies are model-generated but runtime-bounded;
 - preview-only appearance presets for hair color, eye color, blouse/skirt/shoe tint, and hair-clip visibility;
-- Cubism Editor handoff package with rig spec, 37 motion templates, physics template, display info template, and export runbook.
+- Cubism Editor handoff package with rig spec, 37 motion templates, physics template, display info template, export runbook, Editor readiness checklist, and machine-readable export gate.
+- Cubism-ready A hair clip visibility parameter plan via `ParamAccessoryHairClip`.
 
 Not included:
 
@@ -50,4 +51,4 @@ npm.cmd run test:live2d:su-shixia-source
 npm.cmd run test:live2d:su-shixia-runtime
 ```
 
-The Lite runtime preview is allowed for local Athena integration and review. Runtime visual QA now proves nonblank transparent frames, visible motion deltas for the key preview motions, and visible appearance-preset differences. These presets recolor or hide existing layers only; they are not true clothing swaps. The contact sheets still show provisional automated art quality in hands, arms, lower body, wardrobe variety, and turn behavior. The Cubism handoff package is ready for Editor work, but a genuine `.moc3` has not been exported. Source and handoff directories must remain excluded from public installers. Public distribution stays blocked pending source refinement, rights review, Live2D license review, genuine Cubism rigging, and runtime QA.
+The Lite runtime preview is allowed for local Athena integration and review. Runtime visual QA now proves nonblank transparent frames, visible motion deltas for the key preview motions, and visible appearance-preset differences. These presets recolor or hide existing layers only; they are not true clothing swaps. The A hair clip can be mapped to a real Cubism opacity parameter, but the color presets and clothing variations still need new source layers or runtime texture/drawable work before they can become genuine Cubism wardrobe controls. The contact sheets still show provisional automated art quality in hands, arms, lower body, wardrobe variety, and turn behavior. The Cubism handoff package is ready for Editor work, but a genuine `.moc3` has not been exported. Source and handoff directories must remain excluded from public installers. Public distribution stays blocked pending source refinement, rights review, Live2D license review, genuine Cubism rigging, and runtime QA.
