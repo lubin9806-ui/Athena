@@ -24,9 +24,27 @@ async function main() {
   assert.ok(lite.layers.some(layer => layer.id === 'SSX_EYE_L_CLOSED' && layer.alphaMode === 'eyeClosed'));
   assert.ok(Object.keys(lite.motionGroups).length >= 20);
   assert.ok(lite.motionGroups.TouchFace.some(value => value.includes('reference:')));
-  assert.ok(profile.hotZones.length >= 14);
-  for (const id of ['face_cheek', 'chest', 'waist', 'skirt_clothing', 'thighs', 'feet']) {
+  assert.ok(Object.keys(lite.motionGroups).length >= 35);
+  assert.equal(profile.interactionPolicy.defaultMode, 'normal');
+  assert.equal(profile.interactionPolicy.privateModeRequiresExplicitOptIn, true);
+  assert.equal(profile.interactionPolicy.replyDelegatedToPersona, true);
+  assert.ok(profile.hotZones.length >= 35);
+  for (const id of ['face_cheek', 'left_hand', 'right_hand', 'blouse', 'chest', 'abdomen', 'waist', 'hip', 'skirt_front', 'left_thigh', 'right_thigh', 'left_knee', 'right_calf', 'left_shoe']) {
     assert.ok(profile.hotZones.some(zone => zone.id === id), `missing hot zone ${id}`);
+  }
+  const privateZones = profile.hotZones.filter(zone => zone.interaction?.sensitivity === 'private');
+  assert.ok(privateZones.length >= 4);
+  for (const zone of profile.hotZones) {
+    assert.ok(zone.interaction?.bodyPart, `missing body part contract for ${zone.id}`);
+    assert.ok(zone.interaction?.motionIntent, `missing motion intent for ${zone.id}`);
+    assert.equal(zone.interaction.modelReplyDelegated, true, `reply delegation missing for ${zone.id}`);
+    const motion = findMotionGroup(zone.action);
+    assert.ok(motion, `missing motion action for ${zone.id}`);
+    assert.ok(lite.motionGroups[motion], `missing lite motion group ${motion} for ${zone.id}`);
+    if (zone.interaction.sensitivity === 'private') {
+      assert.equal(zone.interaction.privateModeAllowed, true, `private zone must be explicit opt-in capable: ${zone.id}`);
+      assert.ok(zone.interaction.normalModeBoundary.includes('非露骨'), `private zone normal boundary missing for ${zone.id}`);
+    }
   }
   for (const layer of lite.layers.filter(layer => layer.type === 'image')) {
     assert.ok(fs.existsSync(path.join(PACKAGE_ROOT, layer.src)), `missing runtime image layer ${layer.src}`);
@@ -40,6 +58,15 @@ async function main() {
   assert.equal(manifest.production.motionReferenceDriven, true);
 
   console.log(`SU_SHIXIA_LIVE2D_RUNTIME_PREVIEW_OK layers=${lite.layers.length} hitZones=${profile.hotZones.length} motions=${Object.keys(lite.motionGroups).length} cubism=false`);
+}
+
+function findMotionGroup(action) {
+  if (action.type === 'playMotion') return action.motionGroup;
+  for (const child of action.actions ?? []) {
+    const motion = findMotionGroup(child);
+    if (motion) return motion;
+  }
+  return null;
 }
 
 function readJson(filePath) {

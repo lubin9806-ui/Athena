@@ -151,14 +151,15 @@ Produced on 2026-08-24:
 - runtime layer directory generated from the 66 named source parts;
 - 68 runtime layers including two hidden cheek-touch hand overlays;
 - Athena avatar profile: `assets/avatar/su-shixia-live2d-v2/profile.avatar.json`;
-- 14 semantic hot zones for hair, face, mouth/chin, neck/collar, shoulders, hands, chest, waist, clothing/skirt, legs, and feet;
-- 22 motion groups mapped to reference-driven behavior;
+- 37 semantic hot zones for hair, face, ears, mouth/chin, neck, collar, shoulders, arms, wrists, hands, blouse, chest, ribs, abdomen, waist, hip, skirt, thighs, knees, calves, ankles, and shoes;
+- normal/private-opt-in interaction policy metadata that keeps model-generated persona replies bounded by runtime mode;
+- 40 motion groups mapped to reference-driven behavior;
 - motion reference brief: `docs/LIVE2D_SU_SHIXIA_V2_MOTION_REFERENCES.md`;
 - reproducible runtime gate: `npm.cmd run test:live2d:su-shixia-runtime`;
 - Athena integration gate: `npm.cmd run test:live2d:integration`;
 - desktop pet smoke gate: `npm.cmd run test:live2d:desktop-pet`.
 - Cubism Editor handoff package: `assets/avatar/su-shixia-live2d-v2/cubism-handoff`;
-- 13 `.motion3.json` reference templates plus physics and display-info templates.
+- 37 `.motion3.json` reference templates plus physics and display-info templates.
 
 Stage 3A status: `LITE RUNTIME PREVIEW READY`. Su Shixia V2 is now the default Athena Live2D model variant for local preview and desktop-pet smoke. This is not a genuine Cubism export: `cubismProjectReady` and `cubismExportReady` remain false. Haru remains the Cubism Web quality benchmark and motion reference source, not Athena's default identity.
 

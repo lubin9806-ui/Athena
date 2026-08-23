@@ -86,6 +86,16 @@ const MOTIONS = {
     curve('ParamAngleX', [[0, 0], [0.18, -12], [0.42, 12], [0.66, -9], [0.95, 7], [1.45, 0]]),
     curve('ParamHairSide', [[0, 0], [0.42, 0.8], [0.86, -0.7], [1.45, 0]]),
   ]),
+  TouchHair: motion('TouchHair', 1.6, false, [
+    curve('ParamAngleZ', [[0, 0], [0.32, 4], [1.6, 0]]),
+    curve('ParamHairFront', [[0, 0], [0.28, 0.75], [0.78, -0.35], [1.6, 0]]),
+    curve('ParamHairSide', [[0, 0], [0.32, -0.55], [1.6, 0]]),
+  ]),
+  TouchHairClip: motion('TouchHairClip', 1.6, false, [
+    curve('ParamAngleX', [[0, 0], [0.35, 5], [1.6, 0]]),
+    curve('ParamAngleZ', [[0, 0], [0.4, -4], [1.6, 0]]),
+    curve('ParamMouthForm', [[0, 0], [0.45, 0.28], [1.6, 0]]),
+  ]),
   TouchHead: motion('TouchHead', 1.8, false, [
     curve('ParamAngleY', [[0, 0], [0.35, -8], [1.2, -5], [1.8, 0]]),
     curve('ParamAngleZ', [[0, 0], [0.45, 4], [1.8, 0]]),
@@ -96,13 +106,111 @@ const MOTIONS = {
     curve('ParamAngleX', [[0, 0], [0.4, -7], [1.5, -4], [2, 0]]),
     curve('ParamMouthForm', [[0, 0], [0.4, 0.28], [2, 0]]),
   ]),
+  TouchEar: motion('TouchEar', 1.5, false, [
+    curve('ParamAngleX', [[0, 0], [0.18, 7], [0.42, -4], [1.5, 0]]),
+    curve('ParamAngleZ', [[0, 0], [0.35, 6], [1.5, 0]]),
+    curve('ParamMouthOpenY', [[0, 0], [0.3, 0.18], [1.5, 0]]),
+  ]),
+  TouchNeck: motion('TouchNeck', 1.7, false, [
+    curve('ParamAngleY', [[0, 0], [0.38, -7], [1.7, 0]]),
+    curve('ParamBodyAngleZ', [[0, 0], [0.45, -3], [1.7, 0]]),
+    curve('ParamMouthForm', [[0, 0], [0.42, 0.24], [1.7, 0]]),
+  ]),
+  TouchShoulder: motion('TouchShoulder', 1.45, false, [
+    curve('ParamAngleX', [[0, 0], [0.35, 6], [1.45, 0]]),
+    curve('ParamBodyAngleX', [[0, 0], [0.45, 3], [1.45, 0]]),
+  ]),
   TouchHand: motion('TouchHand', 1.7, false, [
     curve('ParamArmR', [[0, 0], [0.35, 0.8], [1.15, 0.35], [1.7, 0]]),
     curve('ParamMouthForm', [[0, 0], [0.35, 0.45], [1.7, 0]]),
   ]),
+  TouchUpperArm: motion('TouchUpperArm', 1.5, false, [
+    curve('ParamArmL', [[0, 0], [0.38, -0.4], [1.5, 0]]),
+    curve('ParamArmR', [[0, 0], [0.38, 0.4], [1.5, 0]]),
+    curve('ParamBodyAngleZ', [[0, 0], [0.42, 1.6], [1.5, 0]]),
+  ]),
+  TouchForearm: motion('TouchForearm', 1.5, false, [
+    curve('ParamArmR', [[0, 0], [0.36, 0.55], [1.5, 0]]),
+    curve('ParamMouthForm', [[0, 0], [0.32, 0.28], [1.5, 0]]),
+  ]),
+  TouchWrist: motion('TouchWrist', 1.55, false, [
+    curve('ParamArmR', [[0, 0], [0.3, 0.7], [0.9, 0.25], [1.55, 0]]),
+    curve('ParamAngleY', [[0, 0], [0.5, -2], [1.55, 0]]),
+  ]),
+  TouchPalm: motion('TouchPalm', 1.65, false, [
+    curve('ParamArmR', [[0, 0], [0.34, 0.85], [1.05, 0.45], [1.65, 0]]),
+    curve('ParamMouthForm', [[0, 0], [0.38, 0.48], [1.65, 0]]),
+  ]),
+  TouchCollar: motion('TouchCollar', 1.65, false, [
+    curve('ParamAngleY', [[0, 0], [0.36, -5], [1.65, 0]]),
+    curve('ParamBodyAngleZ', [[0, 0], [0.4, -2.6], [1.65, 0]]),
+    curve('ParamMouthForm', [[0, 0], [0.36, 0.18], [1.65, 0]]),
+  ]),
   TouchClothing: motion('TouchClothing', 1.6, false, [
     curve('ParamBodyAngleZ', [[0, 0], [0.32, -3], [0.78, 2], [1.6, 0]]),
     curve('ParamMouthForm', [[0, 0], [0.3, -0.22], [1.6, 0]]),
+  ]),
+  TouchBlouse: motion('TouchBlouse', 1.65, false, [
+    curve('ParamBodyAngleZ', [[0, 0], [0.3, -2.5], [0.86, 1.8], [1.65, 0]]),
+    curve('ParamArmL', [[0, 0], [0.4, -0.35], [1.65, 0]]),
+    curve('ParamMouthForm', [[0, 0], [0.35, -0.18], [1.65, 0]]),
+  ]),
+  TouchChest: motion('TouchChest', 1.75, false, [
+    curve('ParamAngleY', [[0, 0], [0.35, -6], [1.75, 0]]),
+    curve('ParamBodyAngleZ', [[0, 0], [0.34, -4], [1.75, 0]]),
+    curve('ParamArmL', [[0, 0], [0.34, -0.75], [1.75, 0]]),
+  ]),
+  TouchRibs: motion('TouchRibs', 1.65, false, [
+    curve('ParamAngleX', [[0, 0], [0.35, -5], [1.65, 0]]),
+    curve('ParamBodyAngleZ', [[0, 0], [0.35, -4], [1.65, 0]]),
+  ]),
+  TouchAbdomen: motion('TouchAbdomen', 1.7, false, [
+    curve('ParamAngleY', [[0, 0], [0.38, -4], [1.7, 0]]),
+    curve('ParamBodyAngleZ', [[0, 0], [0.42, 2.8], [1.7, 0]]),
+  ]),
+  TouchWaist: motion('TouchWaist', 1.8, false, [
+    curve('ParamAngleX', [[0, 0], [0.38, 5], [1.8, 0]]),
+    curve('ParamBodyAngleX', [[0, 0], [0.42, 4], [1.8, 0]]),
+    curve('ParamBodyAngleZ', [[0, 0], [0.42, 3.5], [1.8, 0]]),
+  ]),
+  TouchHip: motion('TouchHip', 1.8, false, [
+    curve('ParamAngleX', [[0, 0], [0.42, 6], [1.8, 0]]),
+    curve('ParamBodyAngleZ', [[0, 0], [0.38, 4.5], [1.8, 0]]),
+    curve('ParamSkirtSwing', [[0, 0], [0.4, 0.65], [1.8, 0]]),
+  ]),
+  TouchSkirt: motion('TouchSkirt', 1.7, false, [
+    curve('ParamBodyAngleZ', [[0, 0], [0.32, -3], [0.78, 2], [1.7, 0]]),
+    curve('ParamSkirtSwing', [[0, 0], [0.35, -0.75], [0.85, 0.35], [1.7, 0]]),
+    curve('ParamMouthForm', [[0, 0], [0.3, -0.24], [1.7, 0]]),
+  ]),
+  TouchLeg: motion('TouchLeg', 1.7, false, [
+    curve('ParamAngleY', [[0, 0], [0.35, -4], [1.7, 0]]),
+    curve('ParamBodyAngleZ', [[0, 0], [0.45, 2], [1.7, 0]]),
+  ]),
+  TouchThigh: motion('TouchThigh', 1.75, false, [
+    curve('ParamAngleY', [[0, 0], [0.36, -5], [1.75, 0]]),
+    curve('ParamBodyAngleZ', [[0, 0], [0.42, 3.5], [1.75, 0]]),
+    curve('ParamSkirtSwing', [[0, 0], [0.42, 0.55], [1.75, 0]]),
+  ]),
+  TouchKnee: motion('TouchKnee', 1.45, false, [
+    curve('ParamBodyAngleX', [[0, 0], [0.36, 2.5], [1.45, 0]]),
+    curve('ParamBodyAngleZ', [[0, 0], [0.36, 1.5], [1.45, 0]]),
+  ]),
+  TouchCalf: motion('TouchCalf', 1.45, false, [
+    curve('ParamBodyAngleX', [[0, 0], [0.34, 2], [1.45, 0]]),
+    curve('ParamAngleY', [[0, 0], [0.4, -2], [1.45, 0]]),
+  ]),
+  TouchAnkle: motion('TouchAnkle', 1.35, false, [
+    curve('ParamBodyAngleZ', [[0, 0], [0.3, 1.8], [1.35, 0]]),
+    curve('ParamAngleY', [[0, 0], [0.34, -2], [1.35, 0]]),
+  ]),
+  TouchFoot: motion('TouchFoot', 1.35, false, [
+    curve('ParamBodyAngleZ', [[0, 0], [0.32, 2.2], [1.35, 0]]),
+    curve('ParamAngleY', [[0, 0], [0.34, -2], [1.35, 0]]),
+  ]),
+  TouchShoe: motion('TouchShoe', 1.35, false, [
+    curve('ParamBodyAngleZ', [[0, 0], [0.32, 2], [1.35, 0]]),
+    curve('ParamMouthForm', [[0, 0], [0.34, -0.14], [1.35, 0]]),
   ]),
   TurnPreview: motion('TurnPreview', 2.2, false, [
     curve('ParamAngleX', [[0, 0], [0.65, 18], [1.45, -12], [2.2, 0]]),
@@ -269,7 +377,7 @@ Status: cubism editor handoff ready
 
 - PSD: \`../source/su-shixia-front-layered-v1.psd\`
 - Rig spec: \`rig-spec.json\`
-- Motion templates: \`motions/*.motion3.json\`
+- Motion templates: \`motions/*.motion3.json\` (37 reference templates, including all profile touch motion groups)
 - Physics template: \`su-shixia-live2d-v2.physics3.template.json\`
 - Display info template: \`su-shixia-live2d-v2.cdi3.template.json\`
 
@@ -283,6 +391,8 @@ Status: cubism editor handoff ready
 6. Bind standard parameters first: head, eyes, mouth, body, breath.
 7. Add secondary physics outputs for hair and skirt.
 8. Import or recreate the provided motion templates after confirming parameter IDs match.
+   - Touch templates are timing and parameter references, not final polished animation.
+   - Keep normal/private interaction boundaries in \`profile.avatar.json\`; Cubism should only provide visual reactions.
 9. Export runtime files into \`../model\`:
    - \`su-shixia-live2d-v2.moc3\`
    - \`su-shixia-live2d-v2.model3.json\`

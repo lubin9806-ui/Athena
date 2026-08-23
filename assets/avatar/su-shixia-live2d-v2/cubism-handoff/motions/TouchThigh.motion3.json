@@ -1,0 +1,59 @@
+{
+  "Version": 3,
+  "Meta": {
+    "Name": "TouchThigh",
+    "Duration": 1.75,
+    "Fps": 30,
+    "Loop": false,
+    "AreBeziersRestricted": true,
+    "CurveCount": 3,
+    "TotalSegmentCount": 6,
+    "TotalPointCount": 9,
+    "UserDataCount": 0,
+    "TotalUserDataSize": 0
+  },
+  "Curves": [
+    {
+      "Target": "Parameter",
+      "Id": "ParamAngleY",
+      "Segments": [
+        0,
+        0,
+        0,
+        0.36,
+        -5,
+        0,
+        1.75,
+        0
+      ]
+    },
+    {
+      "Target": "Parameter",
+      "Id": "ParamBodyAngleZ",
+      "Segments": [
+        0,
+        0,
+        0,
+        0.42,
+        3.5,
+        0,
+        1.75,
+        0
+      ]
+    },
+    {
+      "Target": "Parameter",
+      "Id": "ParamSkirtSwing",
+      "Segments": [
+        0,
+        0,
+        0,
+        0.42,
+        0.55,
+        0,
+        1.75,
+        0
+      ]
+    }
+  ]
+}

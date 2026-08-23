@@ -322,6 +322,19 @@
     ],
     "randomize": true
   },
+  "interactionPolicy": {
+    "defaultMode": "normal",
+    "privateModeRequiresExplicitOptIn": true,
+    "replyDelegatedToPersona": true,
+    "normalModePrompt": "正常模式下，所有身体触碰回应必须克制、非露骨、尊重边界；可以害羞、躲开、整理衣服、提醒用户或把话题带回陪伴/助理。",
+    "privateModePrompt": "私密模式只在用户显式开启后可用；回应仍需保持明确同意、可停止、尊重边界，并禁止涉及未成年人、非自愿、强迫或违法内容。",
+    "forbiddenPublicAssetTypes": [
+      "nude_body",
+      "explicit_pose",
+      "adult_costume",
+      "adult_motion"
+    ]
+  },
   "hotZones": [
     {
       "id": "hair",
@@ -331,7 +344,15 @@
         "x": 0.34,
         "y": 0.03,
         "width": 0.33,
-        "height": 0.15
+        "height": 0.12
+      },
+      "interaction": {
+        "bodyPart": "头发",
+        "sensitivity": "affectionate",
+        "privateModeAllowed": false,
+        "modelReplyDelegated": true,
+        "normalModeBoundary": "保持克制、非露骨、尊重边界；必要时用害羞、整理衣服、后退或提醒来回应。",
+        "motionIntent": "发丝轻晃、微微偏头"
       },
       "action": {
         "type": "composite",
@@ -363,6 +384,14 @@
         "width": 0.08,
         "height": 0.06
       },
+      "interaction": {
+        "bodyPart": "银色 A 字发夹",
+        "sensitivity": "affectionate",
+        "privateModeAllowed": false,
+        "modelReplyDelegated": true,
+        "normalModeBoundary": "保持克制、非露骨、尊重边界；必要时用害羞、整理衣服、后退或提醒来回应。",
+        "motionIntent": "整理发夹、眼神短暂移开"
+      },
       "action": {
         "type": "composite",
         "actions": [
@@ -391,7 +420,15 @@
         "x": 0.41,
         "y": 0.1,
         "width": 0.18,
-        "height": 0.07
+        "height": 0.06
+      },
+      "interaction": {
+        "bodyPart": "额头",
+        "sensitivity": "affectionate",
+        "privateModeAllowed": false,
+        "modelReplyDelegated": true,
+        "normalModeBoundary": "保持克制、非露骨、尊重边界；必要时用害羞、整理衣服、后退或提醒来回应。",
+        "motionIntent": "轻轻低头、放松微笑"
       },
       "action": {
         "type": "composite",
@@ -414,6 +451,82 @@
       "enabled": true
     },
     {
+      "id": "left_ear",
+      "label": "Left Ear",
+      "hitAreaName": "LeftEar",
+      "rect": {
+        "x": 0.34,
+        "y": 0.15,
+        "width": 0.06,
+        "height": 0.07
+      },
+      "interaction": {
+        "bodyPart": "耳侧",
+        "sensitivity": "sensitive",
+        "privateModeAllowed": false,
+        "modelReplyDelegated": true,
+        "normalModeBoundary": "保持克制、非露骨、尊重边界；必要时用害羞、整理衣服、后退或提醒来回应。",
+        "motionIntent": "轻微缩肩、脸红"
+      },
+      "action": {
+        "type": "composite",
+        "actions": [
+          {
+            "type": "playMotion",
+            "motionGroup": "TouchEar"
+          },
+          {
+            "type": "setExpression",
+            "expressionId": "surprised"
+          },
+          {
+            "type": "athenaReply",
+            "promptTemplate": "用户碰到了你的耳侧。回应交给苏时夏人格，表现一点突然和害羞，正常模式保持克制。"
+          }
+        ]
+      },
+      "cooldownMs": 2200,
+      "enabled": true
+    },
+    {
+      "id": "right_ear",
+      "label": "Right Ear",
+      "hitAreaName": "RightEar",
+      "rect": {
+        "x": 0.6,
+        "y": 0.15,
+        "width": 0.06,
+        "height": 0.07
+      },
+      "interaction": {
+        "bodyPart": "耳侧",
+        "sensitivity": "sensitive",
+        "privateModeAllowed": false,
+        "modelReplyDelegated": true,
+        "normalModeBoundary": "保持克制、非露骨、尊重边界；必要时用害羞、整理衣服、后退或提醒来回应。",
+        "motionIntent": "轻微缩肩、脸红"
+      },
+      "action": {
+        "type": "composite",
+        "actions": [
+          {
+            "type": "playMotion",
+            "motionGroup": "TouchEar"
+          },
+          {
+            "type": "setExpression",
+            "expressionId": "surprised"
+          },
+          {
+            "type": "athenaReply",
+            "promptTemplate": "用户碰到了你的耳侧。回应交给苏时夏人格，表现一点突然和害羞，正常模式保持克制。"
+          }
+        ]
+      },
+      "cooldownMs": 2200,
+      "enabled": true
+    },
+    {
       "id": "face_cheek",
       "label": "Face And Cheek",
       "hitAreaName": "Face",
@@ -421,7 +534,15 @@
         "x": 0.39,
         "y": 0.13,
         "width": 0.22,
-        "height": 0.13
+        "height": 0.11
+      },
+      "interaction": {
+        "bodyPart": "脸颊",
+        "sensitivity": "affectionate",
+        "privateModeAllowed": false,
+        "modelReplyDelegated": true,
+        "normalModeBoundary": "保持克制、非露骨、尊重边界；必要时用害羞、整理衣服、后退或提醒来回应。",
+        "motionIntent": "抬手挡脸、脸红"
       },
       "action": {
         "type": "composite",
@@ -453,6 +574,14 @@
         "width": 0.14,
         "height": 0.06
       },
+      "interaction": {
+        "bodyPart": "嘴唇或下巴附近",
+        "sensitivity": "sensitive",
+        "privateModeAllowed": false,
+        "modelReplyDelegated": true,
+        "normalModeBoundary": "保持克制、非露骨、尊重边界；必要时用害羞、整理衣服、后退或提醒来回应。",
+        "motionIntent": "微微后仰、眼神闪躲"
+      },
       "action": {
         "type": "composite",
         "actions": [
@@ -470,25 +599,33 @@
           }
         ]
       },
-      "cooldownMs": 1400,
+      "cooldownMs": 2200,
       "enabled": true
     },
     {
-      "id": "neck_collar",
-      "label": "Neck And Collar",
-      "hitAreaName": "NeckCollar",
+      "id": "neck",
+      "label": "Neck",
+      "hitAreaName": "Neck",
       "rect": {
-        "x": 0.39,
-        "y": 0.25,
-        "width": 0.22,
-        "height": 0.08
+        "x": 0.42,
+        "y": 0.26,
+        "width": 0.16,
+        "height": 0.05
+      },
+      "interaction": {
+        "bodyPart": "脖颈",
+        "sensitivity": "sensitive",
+        "privateModeAllowed": false,
+        "modelReplyDelegated": true,
+        "normalModeBoundary": "保持克制、非露骨、尊重边界；必要时用害羞、整理衣服、后退或提醒来回应。",
+        "motionIntent": "缩肩、整理衣领"
       },
       "action": {
         "type": "composite",
         "actions": [
           {
             "type": "playMotion",
-            "motionGroup": "TouchClothing"
+            "motionGroup": "TouchNeck"
           },
           {
             "type": "setExpression",
@@ -496,29 +633,75 @@
           },
           {
             "type": "athenaReply",
-            "promptTemplate": "用户碰到了你的脖颈或衣领。用苏时夏的人格语气回应，动作上轻轻缩肩或整理衣领。"
+            "promptTemplate": "用户碰到了你的脖颈。用苏时夏的人格语气回应，动作上轻轻缩肩，正常模式保持边界。"
           }
         ]
       },
-      "cooldownMs": 1400,
+      "cooldownMs": 2200,
       "enabled": true
     },
     {
-      "id": "shoulders",
-      "label": "Shoulders",
-      "hitAreaName": "Shoulder",
+      "id": "collar",
+      "label": "Collar",
+      "hitAreaName": "Collar",
       "rect": {
-        "x": 0.28,
-        "y": 0.3,
-        "width": 0.44,
-        "height": 0.08
+        "x": 0.37,
+        "y": 0.29,
+        "width": 0.26,
+        "height": 0.06
+      },
+      "interaction": {
+        "bodyPart": "衣领",
+        "sensitivity": "sensitive",
+        "privateModeAllowed": false,
+        "modelReplyDelegated": true,
+        "normalModeBoundary": "保持克制、非露骨、尊重边界；必要时用害羞、整理衣服、后退或提醒来回应。",
+        "motionIntent": "整理衣领、向后半步"
       },
       "action": {
         "type": "composite",
         "actions": [
           {
             "type": "playMotion",
-            "motionGroup": "Nod"
+            "motionGroup": "TouchCollar"
+          },
+          {
+            "type": "setExpression",
+            "expressionId": "shy"
+          },
+          {
+            "type": "athenaReply",
+            "promptTemplate": "用户碰到了你的衣领。回应交给苏时夏人格，动作上整理衣领，并根据当前模式控制亲密程度。"
+          }
+        ]
+      },
+      "cooldownMs": 2200,
+      "enabled": true
+    },
+    {
+      "id": "left_shoulder",
+      "label": "Left Shoulder",
+      "hitAreaName": "LeftShoulder",
+      "rect": {
+        "x": 0.28,
+        "y": 0.31,
+        "width": 0.13,
+        "height": 0.08
+      },
+      "interaction": {
+        "bodyPart": "肩膀",
+        "sensitivity": "neutral",
+        "privateModeAllowed": false,
+        "modelReplyDelegated": true,
+        "normalModeBoundary": "保持克制、非露骨、尊重边界；必要时用害羞、整理衣服、后退或提醒来回应。",
+        "motionIntent": "像被叫住一样转头"
+      },
+      "action": {
+        "type": "composite",
+        "actions": [
+          {
+            "type": "playMotion",
+            "motionGroup": "TouchShoulder"
           },
           {
             "type": "setExpression",
@@ -534,21 +717,295 @@
       "enabled": true
     },
     {
-      "id": "hands",
-      "label": "Hands",
-      "hitAreaName": "Hand",
+      "id": "right_shoulder",
+      "label": "Right Shoulder",
+      "hitAreaName": "RightShoulder",
       "rect": {
-        "x": 0.2,
-        "y": 0.47,
-        "width": 0.58,
-        "height": 0.11
+        "x": 0.59,
+        "y": 0.31,
+        "width": 0.13,
+        "height": 0.08
+      },
+      "interaction": {
+        "bodyPart": "肩膀",
+        "sensitivity": "neutral",
+        "privateModeAllowed": false,
+        "modelReplyDelegated": true,
+        "normalModeBoundary": "保持克制、非露骨、尊重边界；必要时用害羞、整理衣服、后退或提醒来回应。",
+        "motionIntent": "像被叫住一样转头"
       },
       "action": {
         "type": "composite",
         "actions": [
           {
             "type": "playMotion",
-            "motionGroup": "TouchHand"
+            "motionGroup": "TouchShoulder"
+          },
+          {
+            "type": "setExpression",
+            "expressionId": "soft_smile"
+          },
+          {
+            "type": "athenaReply",
+            "promptTemplate": "用户轻触了你的肩膀。用苏时夏的人格语气自然回应，可以像被叫住一样看向用户。"
+          }
+        ]
+      },
+      "cooldownMs": 1400,
+      "enabled": true
+    },
+    {
+      "id": "left_upper_arm",
+      "label": "Left Upper Arm",
+      "hitAreaName": "LeftUpperArm",
+      "rect": {
+        "x": 0.23,
+        "y": 0.39,
+        "width": 0.11,
+        "height": 0.13
+      },
+      "interaction": {
+        "bodyPart": "上臂",
+        "sensitivity": "neutral",
+        "privateModeAllowed": false,
+        "modelReplyDelegated": true,
+        "normalModeBoundary": "保持克制、非露骨、尊重边界；必要时用害羞、整理衣服、后退或提醒来回应。",
+        "motionIntent": "手臂轻轻收回"
+      },
+      "action": {
+        "type": "composite",
+        "actions": [
+          {
+            "type": "playMotion",
+            "motionGroup": "TouchUpperArm"
+          },
+          {
+            "type": "setExpression",
+            "expressionId": "soft_smile"
+          },
+          {
+            "type": "athenaReply",
+            "promptTemplate": "用户碰到了你的上臂。用苏时夏人格给一句自然反馈，像是在被轻轻提醒。"
+          }
+        ]
+      },
+      "cooldownMs": 1400,
+      "enabled": true
+    },
+    {
+      "id": "right_upper_arm",
+      "label": "Right Upper Arm",
+      "hitAreaName": "RightUpperArm",
+      "rect": {
+        "x": 0.66,
+        "y": 0.39,
+        "width": 0.11,
+        "height": 0.13
+      },
+      "interaction": {
+        "bodyPart": "上臂",
+        "sensitivity": "neutral",
+        "privateModeAllowed": false,
+        "modelReplyDelegated": true,
+        "normalModeBoundary": "保持克制、非露骨、尊重边界；必要时用害羞、整理衣服、后退或提醒来回应。",
+        "motionIntent": "手臂轻轻收回"
+      },
+      "action": {
+        "type": "composite",
+        "actions": [
+          {
+            "type": "playMotion",
+            "motionGroup": "TouchUpperArm"
+          },
+          {
+            "type": "setExpression",
+            "expressionId": "soft_smile"
+          },
+          {
+            "type": "athenaReply",
+            "promptTemplate": "用户碰到了你的上臂。用苏时夏人格给一句自然反馈，像是在被轻轻提醒。"
+          }
+        ]
+      },
+      "cooldownMs": 1400,
+      "enabled": true
+    },
+    {
+      "id": "left_forearm",
+      "label": "Left Forearm",
+      "hitAreaName": "LeftForearm",
+      "rect": {
+        "x": 0.19,
+        "y": 0.52,
+        "width": 0.11,
+        "height": 0.12
+      },
+      "interaction": {
+        "bodyPart": "前臂",
+        "sensitivity": "neutral",
+        "privateModeAllowed": false,
+        "modelReplyDelegated": true,
+        "normalModeBoundary": "保持克制、非露骨、尊重边界；必要时用害羞、整理衣服、后退或提醒来回应。",
+        "motionIntent": "轻轻抬手回应"
+      },
+      "action": {
+        "type": "composite",
+        "actions": [
+          {
+            "type": "playMotion",
+            "motionGroup": "TouchForearm"
+          },
+          {
+            "type": "setExpression",
+            "expressionId": "happy"
+          },
+          {
+            "type": "athenaReply",
+            "promptTemplate": "用户碰到了你的前臂。用苏时夏人格回应，像轻轻打招呼。"
+          }
+        ]
+      },
+      "cooldownMs": 1400,
+      "enabled": true
+    },
+    {
+      "id": "right_forearm",
+      "label": "Right Forearm",
+      "hitAreaName": "RightForearm",
+      "rect": {
+        "x": 0.7,
+        "y": 0.52,
+        "width": 0.11,
+        "height": 0.12
+      },
+      "interaction": {
+        "bodyPart": "前臂",
+        "sensitivity": "neutral",
+        "privateModeAllowed": false,
+        "modelReplyDelegated": true,
+        "normalModeBoundary": "保持克制、非露骨、尊重边界；必要时用害羞、整理衣服、后退或提醒来回应。",
+        "motionIntent": "轻轻抬手回应"
+      },
+      "action": {
+        "type": "composite",
+        "actions": [
+          {
+            "type": "playMotion",
+            "motionGroup": "TouchForearm"
+          },
+          {
+            "type": "setExpression",
+            "expressionId": "happy"
+          },
+          {
+            "type": "athenaReply",
+            "promptTemplate": "用户碰到了你的前臂。用苏时夏人格回应，像轻轻打招呼。"
+          }
+        ]
+      },
+      "cooldownMs": 1400,
+      "enabled": true
+    },
+    {
+      "id": "left_wrist",
+      "label": "Left Wrist",
+      "hitAreaName": "LeftWrist",
+      "rect": {
+        "x": 0.19,
+        "y": 0.63,
+        "width": 0.09,
+        "height": 0.06
+      },
+      "interaction": {
+        "bodyPart": "手腕",
+        "sensitivity": "affectionate",
+        "privateModeAllowed": false,
+        "modelReplyDelegated": true,
+        "normalModeBoundary": "保持克制、非露骨、尊重边界；必要时用害羞、整理衣服、后退或提醒来回应。",
+        "motionIntent": "手腕轻转、短暂看向用户"
+      },
+      "action": {
+        "type": "composite",
+        "actions": [
+          {
+            "type": "playMotion",
+            "motionGroup": "TouchWrist"
+          },
+          {
+            "type": "setExpression",
+            "expressionId": "happy"
+          },
+          {
+            "type": "athenaReply",
+            "promptTemplate": "用户碰到了你的手腕。用苏时夏人格回应，氛围可以亲近但保持自然。"
+          }
+        ]
+      },
+      "cooldownMs": 1400,
+      "enabled": true
+    },
+    {
+      "id": "right_wrist",
+      "label": "Right Wrist",
+      "hitAreaName": "RightWrist",
+      "rect": {
+        "x": 0.72,
+        "y": 0.63,
+        "width": 0.09,
+        "height": 0.06
+      },
+      "interaction": {
+        "bodyPart": "手腕",
+        "sensitivity": "affectionate",
+        "privateModeAllowed": false,
+        "modelReplyDelegated": true,
+        "normalModeBoundary": "保持克制、非露骨、尊重边界；必要时用害羞、整理衣服、后退或提醒来回应。",
+        "motionIntent": "手腕轻转、短暂看向用户"
+      },
+      "action": {
+        "type": "composite",
+        "actions": [
+          {
+            "type": "playMotion",
+            "motionGroup": "TouchWrist"
+          },
+          {
+            "type": "setExpression",
+            "expressionId": "happy"
+          },
+          {
+            "type": "athenaReply",
+            "promptTemplate": "用户碰到了你的手腕。用苏时夏人格回应，氛围可以亲近但保持自然。"
+          }
+        ]
+      },
+      "cooldownMs": 1400,
+      "enabled": true
+    },
+    {
+      "id": "left_hand",
+      "label": "Left Hand",
+      "hitAreaName": "LeftHand",
+      "rect": {
+        "x": 0.17,
+        "y": 0.68,
+        "width": 0.11,
+        "height": 0.1
+      },
+      "interaction": {
+        "bodyPart": "手",
+        "sensitivity": "affectionate",
+        "privateModeAllowed": false,
+        "modelReplyDelegated": true,
+        "normalModeBoundary": "保持克制、非露骨、尊重边界；必要时用害羞、整理衣服、后退或提醒来回应。",
+        "motionIntent": "轻轻抬手、短暂牵手感"
+      },
+      "action": {
+        "type": "composite",
+        "actions": [
+          {
+            "type": "playMotion",
+            "motionGroup": "TouchPalm"
           },
           {
             "type": "setExpression",
@@ -564,14 +1021,99 @@
       "enabled": true
     },
     {
+      "id": "right_hand",
+      "label": "Right Hand",
+      "hitAreaName": "RightHand",
+      "rect": {
+        "x": 0.72,
+        "y": 0.68,
+        "width": 0.11,
+        "height": 0.1
+      },
+      "interaction": {
+        "bodyPart": "手",
+        "sensitivity": "affectionate",
+        "privateModeAllowed": false,
+        "modelReplyDelegated": true,
+        "normalModeBoundary": "保持克制、非露骨、尊重边界；必要时用害羞、整理衣服、后退或提醒来回应。",
+        "motionIntent": "轻轻抬手、短暂牵手感"
+      },
+      "action": {
+        "type": "composite",
+        "actions": [
+          {
+            "type": "playMotion",
+            "motionGroup": "TouchPalm"
+          },
+          {
+            "type": "setExpression",
+            "expressionId": "happy"
+          },
+          {
+            "type": "athenaReply",
+            "promptTemplate": "用户碰到了你的手。用苏时夏的人格语气回应，像轻轻打招呼或短暂牵手的氛围。"
+          }
+        ]
+      },
+      "cooldownMs": 1400,
+      "enabled": true
+    },
+    {
+      "id": "blouse",
+      "label": "Blouse",
+      "hitAreaName": "Blouse",
+      "rect": {
+        "x": 0.34,
+        "y": 0.34,
+        "width": 0.32,
+        "height": 0.11
+      },
+      "interaction": {
+        "bodyPart": "白衬衫",
+        "sensitivity": "sensitive",
+        "privateModeAllowed": false,
+        "modelReplyDelegated": true,
+        "normalModeBoundary": "保持克制、非露骨、尊重边界；必要时用害羞、整理衣服、后退或提醒来回应。",
+        "motionIntent": "整理衬衫、视线下移再回看"
+      },
+      "action": {
+        "type": "composite",
+        "actions": [
+          {
+            "type": "playMotion",
+            "motionGroup": "TouchBlouse"
+          },
+          {
+            "type": "setExpression",
+            "expressionId": "confused"
+          },
+          {
+            "type": "athenaReply",
+            "promptTemplate": "用户碰到了你的白衬衫。用苏时夏人格回应，动作上整理衣服，正常模式保持明确边界。"
+          }
+        ]
+      },
+      "cooldownMs": 2200,
+      "enabled": true
+    },
+    {
       "id": "chest",
       "label": "Chest",
       "hitAreaName": "Chest",
       "rect": {
-        "x": 0.37,
-        "y": 0.33,
-        "width": 0.26,
-        "height": 0.12
+        "x": 0.38,
+        "y": 0.36,
+        "width": 0.24,
+        "height": 0.08
+      },
+      "interaction": {
+        "bodyPart": "胸口",
+        "sensitivity": "private",
+        "privateModeAllowed": true,
+        "modelReplyDelegated": true,
+        "normalModeBoundary": "保持克制、非露骨、尊重边界；必要时用害羞、整理衣服、后退或提醒来回应。",
+        "privateModeBoundary": "仅在显式私密模式下允许更亲密的暧昧回应；仍需保持明确同意、可停止和安全边界。",
+        "motionIntent": "护住胸口、后退半步、脸红"
       },
       "action": {
         "type": "composite",
@@ -594,14 +1136,138 @@
       "enabled": true
     },
     {
+      "id": "left_ribs",
+      "label": "Left Side",
+      "hitAreaName": "LeftRibs",
+      "rect": {
+        "x": 0.32,
+        "y": 0.42,
+        "width": 0.12,
+        "height": 0.08
+      },
+      "interaction": {
+        "bodyPart": "侧腰上方",
+        "sensitivity": "sensitive",
+        "privateModeAllowed": false,
+        "modelReplyDelegated": true,
+        "normalModeBoundary": "保持克制、非露骨、尊重边界；必要时用害羞、整理衣服、后退或提醒来回应。",
+        "motionIntent": "身体轻轻侧开"
+      },
+      "action": {
+        "type": "composite",
+        "actions": [
+          {
+            "type": "playMotion",
+            "motionGroup": "TouchRibs"
+          },
+          {
+            "type": "setExpression",
+            "expressionId": "shy"
+          },
+          {
+            "type": "athenaReply",
+            "promptTemplate": "用户碰到了你的侧腰上方。回应交给苏时夏人格，正常模式保持克制边界。"
+          }
+        ]
+      },
+      "cooldownMs": 2200,
+      "enabled": true
+    },
+    {
+      "id": "right_ribs",
+      "label": "Right Side",
+      "hitAreaName": "RightRibs",
+      "rect": {
+        "x": 0.56,
+        "y": 0.42,
+        "width": 0.12,
+        "height": 0.08
+      },
+      "interaction": {
+        "bodyPart": "侧腰上方",
+        "sensitivity": "sensitive",
+        "privateModeAllowed": false,
+        "modelReplyDelegated": true,
+        "normalModeBoundary": "保持克制、非露骨、尊重边界；必要时用害羞、整理衣服、后退或提醒来回应。",
+        "motionIntent": "身体轻轻侧开"
+      },
+      "action": {
+        "type": "composite",
+        "actions": [
+          {
+            "type": "playMotion",
+            "motionGroup": "TouchRibs"
+          },
+          {
+            "type": "setExpression",
+            "expressionId": "shy"
+          },
+          {
+            "type": "athenaReply",
+            "promptTemplate": "用户碰到了你的侧腰上方。回应交给苏时夏人格，正常模式保持克制边界。"
+          }
+        ]
+      },
+      "cooldownMs": 2200,
+      "enabled": true
+    },
+    {
+      "id": "abdomen",
+      "label": "Abdomen",
+      "hitAreaName": "Abdomen",
+      "rect": {
+        "x": 0.39,
+        "y": 0.45,
+        "width": 0.22,
+        "height": 0.07
+      },
+      "interaction": {
+        "bodyPart": "腹部",
+        "sensitivity": "sensitive",
+        "privateModeAllowed": true,
+        "modelReplyDelegated": true,
+        "normalModeBoundary": "保持克制、非露骨、尊重边界；必要时用害羞、整理衣服、后退或提醒来回应。",
+        "privateModeBoundary": "仅在显式私密模式下允许更亲密的暧昧回应；仍需保持明确同意、可停止和安全边界。",
+        "motionIntent": "轻轻收腹、整理衣摆"
+      },
+      "action": {
+        "type": "composite",
+        "actions": [
+          {
+            "type": "playMotion",
+            "motionGroup": "TouchAbdomen"
+          },
+          {
+            "type": "setExpression",
+            "expressionId": "shy"
+          },
+          {
+            "type": "athenaReply",
+            "promptTemplate": "用户碰到了你的腹部。回应交给苏时夏人格，并根据当前模式控制亲密程度。"
+          }
+        ]
+      },
+      "cooldownMs": 2200,
+      "enabled": true
+    },
+    {
       "id": "waist",
       "label": "Waist",
       "hitAreaName": "Waist",
       "rect": {
         "x": 0.35,
-        "y": 0.45,
+        "y": 0.5,
         "width": 0.3,
-        "height": 0.08
+        "height": 0.06
+      },
+      "interaction": {
+        "bodyPart": "腰部",
+        "sensitivity": "sensitive",
+        "privateModeAllowed": true,
+        "modelReplyDelegated": true,
+        "normalModeBoundary": "保持克制、非露骨、尊重边界；必要时用害羞、整理衣服、后退或提醒来回应。",
+        "privateModeBoundary": "仅在显式私密模式下允许更亲密的暧昧回应；仍需保持明确同意、可停止和安全边界。",
+        "motionIntent": "腰部轻躲、回头看用户"
       },
       "action": {
         "type": "composite",
@@ -624,29 +1290,38 @@
       "enabled": true
     },
     {
-      "id": "skirt_clothing",
-      "label": "Skirt Or Clothing",
-      "hitAreaName": "Clothing",
+      "id": "hip",
+      "label": "Hip",
+      "hitAreaName": "Hip",
       "rect": {
-        "x": 0.3,
-        "y": 0.51,
-        "width": 0.4,
-        "height": 0.13
+        "x": 0.35,
+        "y": 0.56,
+        "width": 0.3,
+        "height": 0.07
+      },
+      "interaction": {
+        "bodyPart": "臀侧或裙腰后侧",
+        "sensitivity": "private",
+        "privateModeAllowed": true,
+        "modelReplyDelegated": true,
+        "normalModeBoundary": "保持克制、非露骨、尊重边界；必要时用害羞、整理衣服、后退或提醒来回应。",
+        "privateModeBoundary": "仅在显式私密模式下允许更亲密的暧昧回应；仍需保持明确同意、可停止和安全边界。",
+        "motionIntent": "身体侧开、整理裙腰"
       },
       "action": {
         "type": "composite",
         "actions": [
           {
             "type": "playMotion",
-            "motionGroup": "TouchClothing"
+            "motionGroup": "TouchHip"
           },
           {
             "type": "setExpression",
-            "expressionId": "confused"
+            "expressionId": "shy"
           },
           {
             "type": "athenaReply",
-            "promptTemplate": "用户碰到了你的衣服或裙摆。用苏时夏人格回应，动作上整理衣服，正常模式保持明确边界。"
+            "promptTemplate": "用户碰到了你的臀侧或裙腰后侧。回应交给苏时夏人格，但必须经过运行时模式和边界校验。"
           }
         ]
       },
@@ -654,21 +1329,68 @@
       "enabled": true
     },
     {
-      "id": "thighs",
-      "label": "Thighs",
-      "hitAreaName": "Legs",
+      "id": "skirt_front",
+      "label": "Skirt Front",
+      "hitAreaName": "SkirtFront",
       "rect": {
-        "x": 0.33,
-        "y": 0.62,
-        "width": 0.34,
-        "height": 0.14
+        "x": 0.3,
+        "y": 0.56,
+        "width": 0.4,
+        "height": 0.11
+      },
+      "interaction": {
+        "bodyPart": "深色百褶裙",
+        "sensitivity": "sensitive",
+        "privateModeAllowed": false,
+        "modelReplyDelegated": true,
+        "normalModeBoundary": "保持克制、非露骨、尊重边界；必要时用害羞、整理衣服、后退或提醒来回应。",
+        "motionIntent": "整理裙摆、向后半步"
       },
       "action": {
         "type": "composite",
         "actions": [
           {
             "type": "playMotion",
-            "motionGroup": "TouchLeg"
+            "motionGroup": "TouchSkirt"
+          },
+          {
+            "type": "setExpression",
+            "expressionId": "confused"
+          },
+          {
+            "type": "athenaReply",
+            "promptTemplate": "用户碰到了你的裙摆。用苏时夏人格回应，动作上整理裙摆，正常模式保持明确边界。"
+          }
+        ]
+      },
+      "cooldownMs": 2200,
+      "enabled": true
+    },
+    {
+      "id": "left_thigh",
+      "label": "Left Thigh",
+      "hitAreaName": "LeftThigh",
+      "rect": {
+        "x": 0.32,
+        "y": 0.67,
+        "width": 0.15,
+        "height": 0.11
+      },
+      "interaction": {
+        "bodyPart": "大腿",
+        "sensitivity": "private",
+        "privateModeAllowed": true,
+        "modelReplyDelegated": true,
+        "normalModeBoundary": "保持克制、非露骨、尊重边界；必要时用害羞、整理衣服、后退或提醒来回应。",
+        "privateModeBoundary": "仅在显式私密模式下允许更亲密的暧昧回应；仍需保持明确同意、可停止和安全边界。",
+        "motionIntent": "腿部换重心、裙摆轻晃"
+      },
+      "action": {
+        "type": "composite",
+        "actions": [
+          {
+            "type": "playMotion",
+            "motionGroup": "TouchThigh"
           },
           {
             "type": "setExpression",
@@ -684,21 +1406,68 @@
       "enabled": true
     },
     {
-      "id": "knees_lower_legs",
-      "label": "Knees And Lower Legs",
-      "hitAreaName": "LowerLegs",
+      "id": "right_thigh",
+      "label": "Right Thigh",
+      "hitAreaName": "RightThigh",
       "rect": {
-        "x": 0.34,
-        "y": 0.74,
-        "width": 0.32,
-        "height": 0.17
+        "x": 0.53,
+        "y": 0.67,
+        "width": 0.15,
+        "height": 0.11
+      },
+      "interaction": {
+        "bodyPart": "大腿",
+        "sensitivity": "private",
+        "privateModeAllowed": true,
+        "modelReplyDelegated": true,
+        "normalModeBoundary": "保持克制、非露骨、尊重边界；必要时用害羞、整理衣服、后退或提醒来回应。",
+        "privateModeBoundary": "仅在显式私密模式下允许更亲密的暧昧回应；仍需保持明确同意、可停止和安全边界。",
+        "motionIntent": "腿部换重心、裙摆轻晃"
       },
       "action": {
         "type": "composite",
         "actions": [
           {
             "type": "playMotion",
-            "motionGroup": "TouchLeg"
+            "motionGroup": "TouchThigh"
+          },
+          {
+            "type": "setExpression",
+            "expressionId": "shy"
+          },
+          {
+            "type": "athenaReply",
+            "promptTemplate": "用户碰到了你的大腿区域。回应交给苏时夏人格，但必须经过运行时模式和边界校验。"
+          }
+        ]
+      },
+      "cooldownMs": 2200,
+      "enabled": true
+    },
+    {
+      "id": "left_knee",
+      "label": "Left Knee",
+      "hitAreaName": "LeftKnee",
+      "rect": {
+        "x": 0.32,
+        "y": 0.78,
+        "width": 0.15,
+        "height": 0.08
+      },
+      "interaction": {
+        "bodyPart": "膝盖",
+        "sensitivity": "neutral",
+        "privateModeAllowed": false,
+        "modelReplyDelegated": true,
+        "normalModeBoundary": "保持克制、非露骨、尊重边界；必要时用害羞、整理衣服、后退或提醒来回应。",
+        "motionIntent": "膝盖微弯、站姿调整"
+      },
+      "action": {
+        "type": "composite",
+        "actions": [
+          {
+            "type": "playMotion",
+            "motionGroup": "TouchKnee"
           },
           {
             "type": "setExpression",
@@ -706,7 +1475,7 @@
           },
           {
             "type": "athenaReply",
-            "promptTemplate": "用户碰到了你的膝盖或小腿。用苏时夏人格自然回应，动作上轻轻换重心。"
+            "promptTemplate": "用户碰到了你的膝盖。用苏时夏人格自然回应，动作上轻轻换重心。"
           }
         ]
       },
@@ -714,21 +1483,143 @@
       "enabled": true
     },
     {
-      "id": "feet",
-      "label": "Feet",
-      "hitAreaName": "Feet",
+      "id": "right_knee",
+      "label": "Right Knee",
+      "hitAreaName": "RightKnee",
       "rect": {
-        "x": 0.34,
-        "y": 0.91,
-        "width": 0.32,
-        "height": 0.07
+        "x": 0.53,
+        "y": 0.78,
+        "width": 0.15,
+        "height": 0.08
+      },
+      "interaction": {
+        "bodyPart": "膝盖",
+        "sensitivity": "neutral",
+        "privateModeAllowed": false,
+        "modelReplyDelegated": true,
+        "normalModeBoundary": "保持克制、非露骨、尊重边界；必要时用害羞、整理衣服、后退或提醒来回应。",
+        "motionIntent": "膝盖微弯、站姿调整"
       },
       "action": {
         "type": "composite",
         "actions": [
           {
             "type": "playMotion",
-            "motionGroup": "TouchFoot"
+            "motionGroup": "TouchKnee"
+          },
+          {
+            "type": "setExpression",
+            "expressionId": "soft_smile"
+          },
+          {
+            "type": "athenaReply",
+            "promptTemplate": "用户碰到了你的膝盖。用苏时夏人格自然回应，动作上轻轻换重心。"
+          }
+        ]
+      },
+      "cooldownMs": 1400,
+      "enabled": true
+    },
+    {
+      "id": "left_calf",
+      "label": "Left Calf",
+      "hitAreaName": "LeftCalf",
+      "rect": {
+        "x": 0.32,
+        "y": 0.86,
+        "width": 0.14,
+        "height": 0.1
+      },
+      "interaction": {
+        "bodyPart": "小腿",
+        "sensitivity": "neutral",
+        "privateModeAllowed": false,
+        "modelReplyDelegated": true,
+        "normalModeBoundary": "保持克制、非露骨、尊重边界；必要时用害羞、整理衣服、后退或提醒来回应。",
+        "motionIntent": "脚尖轻移、站姿放松"
+      },
+      "action": {
+        "type": "composite",
+        "actions": [
+          {
+            "type": "playMotion",
+            "motionGroup": "TouchCalf"
+          },
+          {
+            "type": "setExpression",
+            "expressionId": "soft_smile"
+          },
+          {
+            "type": "athenaReply",
+            "promptTemplate": "用户碰到了你的小腿。用苏时夏人格简短自然回应。"
+          }
+        ]
+      },
+      "cooldownMs": 1400,
+      "enabled": true
+    },
+    {
+      "id": "right_calf",
+      "label": "Right Calf",
+      "hitAreaName": "RightCalf",
+      "rect": {
+        "x": 0.54,
+        "y": 0.86,
+        "width": 0.14,
+        "height": 0.1
+      },
+      "interaction": {
+        "bodyPart": "小腿",
+        "sensitivity": "neutral",
+        "privateModeAllowed": false,
+        "modelReplyDelegated": true,
+        "normalModeBoundary": "保持克制、非露骨、尊重边界；必要时用害羞、整理衣服、后退或提醒来回应。",
+        "motionIntent": "脚尖轻移、站姿放松"
+      },
+      "action": {
+        "type": "composite",
+        "actions": [
+          {
+            "type": "playMotion",
+            "motionGroup": "TouchCalf"
+          },
+          {
+            "type": "setExpression",
+            "expressionId": "soft_smile"
+          },
+          {
+            "type": "athenaReply",
+            "promptTemplate": "用户碰到了你的小腿。用苏时夏人格简短自然回应。"
+          }
+        ]
+      },
+      "cooldownMs": 1400,
+      "enabled": true
+    },
+    {
+      "id": "left_ankle",
+      "label": "Left Ankle",
+      "hitAreaName": "LeftAnkle",
+      "rect": {
+        "x": 0.32,
+        "y": 0.95,
+        "width": 0.13,
+        "height": 0.04
+      },
+      "interaction": {
+        "bodyPart": "脚踝",
+        "sensitivity": "neutral",
+        "privateModeAllowed": false,
+        "modelReplyDelegated": true,
+        "normalModeBoundary": "保持克制、非露骨、尊重边界；必要时用害羞、整理衣服、后退或提醒来回应。",
+        "motionIntent": "脚踝轻转、站稳"
+      },
+      "action": {
+        "type": "composite",
+        "actions": [
+          {
+            "type": "playMotion",
+            "motionGroup": "TouchAnkle"
           },
           {
             "type": "setExpression",
@@ -736,7 +1627,121 @@
           },
           {
             "type": "athenaReply",
-            "promptTemplate": "用户碰到了你的脚部。用苏时夏人格简短回应，动作上轻轻后退或挪脚。"
+            "promptTemplate": "用户碰到了你的脚踝。用苏时夏人格简短回应，动作上轻轻挪脚。"
+          }
+        ]
+      },
+      "cooldownMs": 1400,
+      "enabled": true
+    },
+    {
+      "id": "right_ankle",
+      "label": "Right Ankle",
+      "hitAreaName": "RightAnkle",
+      "rect": {
+        "x": 0.55,
+        "y": 0.95,
+        "width": 0.13,
+        "height": 0.04
+      },
+      "interaction": {
+        "bodyPart": "脚踝",
+        "sensitivity": "neutral",
+        "privateModeAllowed": false,
+        "modelReplyDelegated": true,
+        "normalModeBoundary": "保持克制、非露骨、尊重边界；必要时用害羞、整理衣服、后退或提醒来回应。",
+        "motionIntent": "脚踝轻转、站稳"
+      },
+      "action": {
+        "type": "composite",
+        "actions": [
+          {
+            "type": "playMotion",
+            "motionGroup": "TouchAnkle"
+          },
+          {
+            "type": "setExpression",
+            "expressionId": "confused"
+          },
+          {
+            "type": "athenaReply",
+            "promptTemplate": "用户碰到了你的脚踝。用苏时夏人格简短回应，动作上轻轻挪脚。"
+          }
+        ]
+      },
+      "cooldownMs": 1400,
+      "enabled": true
+    },
+    {
+      "id": "left_shoe",
+      "label": "Left Shoe",
+      "hitAreaName": "LeftShoe",
+      "rect": {
+        "x": 0.31,
+        "y": 0.975,
+        "width": 0.14,
+        "height": 0.025
+      },
+      "interaction": {
+        "bodyPart": "鞋",
+        "sensitivity": "neutral",
+        "privateModeAllowed": false,
+        "modelReplyDelegated": true,
+        "normalModeBoundary": "保持克制、非露骨、尊重边界；必要时用害羞、整理衣服、后退或提醒来回应。",
+        "motionIntent": "鞋尖轻移"
+      },
+      "action": {
+        "type": "composite",
+        "actions": [
+          {
+            "type": "playMotion",
+            "motionGroup": "TouchShoe"
+          },
+          {
+            "type": "setExpression",
+            "expressionId": "confused"
+          },
+          {
+            "type": "athenaReply",
+            "promptTemplate": "用户碰到了你的鞋。用苏时夏人格简短回应，动作上轻轻挪脚。"
+          }
+        ]
+      },
+      "cooldownMs": 1400,
+      "enabled": true
+    },
+    {
+      "id": "right_shoe",
+      "label": "Right Shoe",
+      "hitAreaName": "RightShoe",
+      "rect": {
+        "x": 0.55,
+        "y": 0.975,
+        "width": 0.14,
+        "height": 0.025
+      },
+      "interaction": {
+        "bodyPart": "鞋",
+        "sensitivity": "neutral",
+        "privateModeAllowed": false,
+        "modelReplyDelegated": true,
+        "normalModeBoundary": "保持克制、非露骨、尊重边界；必要时用害羞、整理衣服、后退或提醒来回应。",
+        "motionIntent": "鞋尖轻移"
+      },
+      "action": {
+        "type": "composite",
+        "actions": [
+          {
+            "type": "playMotion",
+            "motionGroup": "TouchShoe"
+          },
+          {
+            "type": "setExpression",
+            "expressionId": "confused"
+          },
+          {
+            "type": "athenaReply",
+            "promptTemplate": "用户碰到了你的鞋。用苏时夏人格简短回应，动作上轻轻挪脚。"
           }
         ]
       },

@@ -323,11 +323,32 @@ export class BrowserLive2DLiteHost implements Live2DHost {
         pose.headRotation += 0.045 * Math.max(0, 1 - motionSeconds / 1.6);
         pose.bodyRotation -= 0.01 * Math.max(0, 1 - motionSeconds / 1.8);
         break;
+      case 'TouchEar':
+        pose.headX += 4 * Math.sin(motionSeconds * 7) * Math.max(0, 1 - motionSeconds / 1.4);
+        pose.headRotation += 0.065 * Math.max(0, 1 - motionSeconds / 1.4);
+        pose.bodyRotation -= 0.014 * Math.max(0, 1 - motionSeconds / 1.4);
+        break;
+      case 'TouchNeck':
+      case 'TouchCollar':
+        pose.headY += 5 * Math.max(0, 1 - motionSeconds / 1.5);
+        pose.headRotation -= 0.05 * Math.max(0, 1 - motionSeconds / 1.6);
+        pose.bodyRotation -= 0.016 * Math.max(0, 1 - motionSeconds / 1.7);
+        break;
+      case 'TouchShoulder':
+        pose.headX += 7 * Math.max(0, 1 - motionSeconds / 1.5);
+        pose.headRotation += 0.025 * Math.max(0, 1 - motionSeconds / 1.5);
+        pose.bodyRotation += 0.012 * Math.sin(motionSeconds * 4.5) * Math.max(0, 1 - motionSeconds / 1.7);
+        break;
       case 'TouchHand':
+      case 'TouchUpperArm':
+      case 'TouchForearm':
+      case 'TouchWrist':
+      case 'TouchPalm':
         pose.wave = Math.sin(motionSeconds * 6.5) * 0.28 + 0.25;
         pose.bodyRotation += Math.sin(motionSeconds * 2.2) * 0.008;
         break;
       case 'TouchClothing':
+      case 'TouchBlouse':
         pose.headY += 3 * Math.max(0, 1 - motionSeconds / 1.5);
         pose.bodyRotation += Math.sin(motionSeconds * 4.8) * 0.018 * Math.max(0, 1 - motionSeconds / 1.8);
         break;
@@ -336,14 +357,38 @@ export class BrowserLive2DLiteHost implements Live2DHost {
         pose.headRotation -= 0.035 * Math.max(0, 1 - motionSeconds / 1.6);
         pose.bodyRotation -= 0.024 * Math.max(0, 1 - motionSeconds / 1.7);
         break;
+      case 'TouchRibs':
+        pose.headX -= 5 * Math.max(0, 1 - motionSeconds / 1.6);
+        pose.bodyRotation -= 0.032 * Math.max(0, 1 - motionSeconds / 1.8);
+        break;
+      case 'TouchAbdomen':
+        pose.headY += 4 * Math.max(0, 1 - motionSeconds / 1.7);
+        pose.bodyRotation += Math.sin(motionSeconds * 4.2) * 0.018 * Math.max(0, 1 - motionSeconds / 1.8);
+        break;
       case 'TouchWaist':
         pose.bodyRotation += 0.026 * Math.sin(motionSeconds * 5.2) * Math.max(0, 1 - motionSeconds / 1.8);
         pose.headX += 5 * Math.max(0, 1 - motionSeconds / 1.8);
         break;
+      case 'TouchHip':
+        pose.bodyRotation += 0.036 * Math.max(0, 1 - motionSeconds / 1.8);
+        pose.headX += 6 * Math.max(0, 1 - motionSeconds / 1.8);
+        break;
+      case 'TouchSkirt':
+        pose.bodyRotation += Math.sin(motionSeconds * 5.8) * 0.018 * Math.max(0, 1 - motionSeconds / 1.9);
+        pose.hair += Math.sin(motionSeconds * 3.4) * 0.2;
+        break;
       case 'TouchLeg':
-      case 'TouchFoot':
+      case 'TouchThigh':
         pose.headY += 5 * Math.max(0, 1 - motionSeconds / 1.7);
         pose.bodyRotation += 0.018 * Math.max(0, 1 - motionSeconds / 1.7);
+        break;
+      case 'TouchKnee':
+      case 'TouchCalf':
+      case 'TouchAnkle':
+      case 'TouchFoot':
+      case 'TouchShoe':
+        pose.headY += 5 * Math.max(0, 1 - motionSeconds / 1.7);
+        pose.bodyRotation += Math.sin(motionSeconds * 4.6) * 0.014 * Math.max(0, 1 - motionSeconds / 1.7);
         break;
       case 'TurnPreview':
         pose.headX += Math.sin(motionSeconds * 1.8) * 12;

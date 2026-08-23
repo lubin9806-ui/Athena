@@ -9,8 +9,10 @@ function main() {
   const spec = readJson(path.join(HANDOFF_ROOT, 'rig-spec.json'));
   const physics = readJson(path.join(HANDOFF_ROOT, 'su-shixia-live2d-v2.physics3.template.json'));
   const cdi = readJson(path.join(HANDOFF_ROOT, 'su-shixia-live2d-v2.cdi3.template.json'));
+  const profile = readJson(path.join(ROOT, 'assets', 'avatar', 'su-shixia-live2d-v2', 'profile.avatar.json'));
   const runbook = fs.readFileSync(path.join(HANDOFF_ROOT, 'CUBISM_EXPORT_RUNBOOK.md'), 'utf8');
   const motionFiles = fs.readdirSync(path.join(HANDOFF_ROOT, 'motions')).filter(file => file.endsWith('.motion3.json'));
+  const motionNames = new Set(motionFiles.map(file => path.basename(file, '.motion3.json')));
 
   assert.equal(spec.status, 'cubism_editor_handoff_ready');
   assert.equal(spec.parameters.length, 20);
@@ -24,7 +26,11 @@ function main() {
   assert.equal(cdi.Version, 3);
   assert.ok(cdi.ParameterGroups.length >= 6);
   assert.ok(runbook.includes('Do not mark `.moc3` ready'));
-  assert.ok(motionFiles.length >= 12);
+  assert.ok(motionFiles.length >= 30);
+  const touchMotionGroups = new Set(profile.hotZones.map(zone => findMotionGroup(zone.action)).filter(Boolean));
+  for (const motionGroup of touchMotionGroups) {
+    assert.ok(motionNames.has(motionGroup), `missing Cubism motion template for ${motionGroup}`);
+  }
   for (const file of motionFiles) {
     const motion = readJson(path.join(HANDOFF_ROOT, 'motions', file));
     assert.equal(motion.Version, 3);
@@ -34,6 +40,15 @@ function main() {
   }
 
   console.log(`SU_SHIXIA_CUBISM_HANDOFF_OK parameters=${spec.parameters.length} motions=${motionFiles.length} physics=${physics.PhysicsSettings.length} automatedExport=false`);
+}
+
+function findMotionGroup(action) {
+  if (action.type === 'playMotion') return action.motionGroup;
+  for (const child of action.actions ?? []) {
+    const motion = findMotionGroup(child);
+    if (motion) return motion;
+  }
+  return null;
 }
 
 function readJson(filePath) {

@@ -1,0 +1,45 @@
+{
+  "Version": 3,
+  "Meta": {
+    "Name": "TouchFoot",
+    "Duration": 1.35,
+    "Fps": 30,
+    "Loop": false,
+    "AreBeziersRestricted": true,
+    "CurveCount": 2,
+    "TotalSegmentCount": 4,
+    "TotalPointCount": 6,
+    "UserDataCount": 0,
+    "TotalUserDataSize": 0
+  },
+  "Curves": [
+    {
+      "Target": "Parameter",
+      "Id": "ParamBodyAngleZ",
+      "Segments": [
+        0,
+        0,
+        0,
+        0.32,
+        2.2,
+        0,
+        1.35,
+        0
+      ]
+    },
+    {
+      "Target": "Parameter",
+      "Id": "ParamAngleY",
+      "Segments": [
+        0,
+        0,
+        0,
+        0.34,
+        -2,
+        0,
+        1.35,
+        0
+      ]
+    }
+  ]
+}

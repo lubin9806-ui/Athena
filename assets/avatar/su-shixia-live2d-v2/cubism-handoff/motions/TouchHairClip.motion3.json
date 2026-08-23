@@ -1,0 +1,59 @@
+{
+  "Version": 3,
+  "Meta": {
+    "Name": "TouchHairClip",
+    "Duration": 1.6,
+    "Fps": 30,
+    "Loop": false,
+    "AreBeziersRestricted": true,
+    "CurveCount": 3,
+    "TotalSegmentCount": 6,
+    "TotalPointCount": 9,
+    "UserDataCount": 0,
+    "TotalUserDataSize": 0
+  },
+  "Curves": [
+    {
+      "Target": "Parameter",
+      "Id": "ParamAngleX",
+      "Segments": [
+        0,
+        0,
+        0,
+        0.35,
+        5,
+        0,
+        1.6,
+        0
+      ]
+    },
+    {
+      "Target": "Parameter",
+      "Id": "ParamAngleZ",
+      "Segments": [
+        0,
+        0,
+        0,
+        0.4,
+        -4,
+        0,
+        1.6,
+        0
+      ]
+    },
+    {
+      "Target": "Parameter",
+      "Id": "ParamMouthForm",
+      "Segments": [
+        0,
+        0,
+        0,
+        0.45,
+        0.28,
+        0,
+        1.6,
+        0
+      ]
+    }
+  ]
+}

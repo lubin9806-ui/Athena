@@ -36,12 +36,30 @@ The official samples are used as timing and grouping references. Do not copy thi
 | `TouchHair` | hair sway and head tilt | Haru `TouchHair`; light tactile response |
 | `TouchHairClip` | small head tilt and accessory reaction | Haru `TouchHair`; Su Shixia A-clip identity |
 | `TouchFace` | shy face turn plus hidden cheek-hand overlay | Su Shixia storyboard; later needs authored hand motion |
+| `TouchEar` | startled ear-side recoil | Su Shixia storyboard; sensitive-zone boundary |
+| `TouchNeck` | shoulder tuck and collar protection | Su Shixia storyboard; sensitive-zone boundary |
+| `TouchShoulder` | small turn as if being called | Haru `TapBody`; neutral touch |
 | `TouchHand` | small wave/hand response | Haru `TouchHand`; greeting/hand-hold boundary |
+| `TouchUpperArm` | arm draws in slightly | Haru `TapBody`; neutral touch |
+| `TouchForearm` | soft arm lift | Haru `TouchHand`; neutral touch |
+| `TouchWrist` | wrist turns and eye contact | Haru `TouchHand`; affectionate boundary |
+| `TouchPalm` | brief hand-present gesture | Haru `TouchHand`; affectionate boundary |
+| `TouchCollar` | collar adjustment and shy retreat | Haru `TouchOutfit`; sensitive-zone boundary |
+| `TouchBlouse` | blouse adjustment/body recoil cue | Haru `TouchOutfit`; boundary-aware |
 | `TouchClothing` | clothing-adjust/body recoil cue | Haru `TouchOutfit`; boundary-aware |
 | `TouchChest` | shy/protective recoil | private-zone boundary; runtime gated |
+| `TouchRibs` | side-step recoil | private-zone boundary; runtime gated |
+| `TouchAbdomen` | small tuck and garment adjustment | private-zone boundary; runtime gated |
 | `TouchWaist` | side bend and shy glance | Haru `TapBody`; runtime gated by mode |
+| `TouchHip` | side step and skirt-waist adjustment | private-zone boundary; runtime gated |
+| `TouchSkirt` | skirt adjustment and step back | Haru `TouchOutfit`; boundary-aware |
 | `TouchLeg` | weight shift and look down | Haru `TapBody`; runtime gated by mode |
+| `TouchThigh` | weight shift and skirt sway | private-zone boundary; runtime gated |
+| `TouchKnee` | knee bend/standing balance | Haru `TapBody`; neutral touch |
+| `TouchCalf` | foot shift and glance down | Haru `TapBody`; neutral touch |
+| `TouchAnkle` | ankle shift | Haru `TapBody`; neutral touch |
 | `TouchFoot` | small step back | Haru `TapBody`; runtime gated by mode |
+| `TouchShoe` | shoe-tip shift | Haru `TapBody`; neutral touch |
 | `TurnPreview` | head/body turn approximation | Su Shixia turnaround; not full 3D rotation |
 | `Drag` | hair follows pointer | desktop pet dragging |
 | `Return` | recover to idle | Haru `Idle` recovery timing |
@@ -65,4 +83,5 @@ Use standard Live2D parameter IDs where possible:
 - `TouchFace` can show hidden cheek-hand layers, but the arm path is not yet a mesh-authored motion.
 - `TurnPreview` is only a front-view 2.5D turn hint. It is not a real back/side/full-turn handoff.
 - Full-body intimate/private reactions are semantic and mode-gated. The runtime must validate mode and consent before asking the persona model to answer.
+- The Lite profile now exposes 37 semantic touch zones and 40 motion groups. Cubism handoff includes 37 `.motion3.json` templates covering the touch groups used by the profile.
 - Final Cubism production still needs authored `.motion3.json` clips, physics, mesh deformers, and export from Cubism Editor.

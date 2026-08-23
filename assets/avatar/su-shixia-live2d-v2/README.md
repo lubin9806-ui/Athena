@@ -19,9 +19,10 @@ Included:
 - front-view parameter, orientation, interaction, and package-boundary plans.
 - Live2D Lite runtime preview using the Su Shixia transparent source parts;
 - Athena avatar profile configured as the default Su Shixia V2 model variant;
-- reference-driven motion groups mapped from Haru official sample groups and Su Shixia interaction storyboards;
-- 14 semantic touch zones for hair, face, hands, clothing, torso, legs, and feet.
-- Cubism Editor handoff package with rig spec, motion templates, physics template, display info template, and export runbook.
+- 40 reference-driven motion groups mapped from Haru official sample groups and Su Shixia interaction storyboards;
+- 37 semantic touch zones for hair, face, ears, neck, shoulders, arms, hands, clothing, torso, waist, skirt, legs, ankles, and shoes;
+- normal/private-opt-in interaction policy metadata so persona replies are model-generated but runtime-bounded;
+- Cubism Editor handoff package with rig spec, 37 motion templates, physics template, display info template, and export runbook.
 
 Not included:
 

@@ -6,7 +6,7 @@ Status: cubism editor handoff ready
 
 - PSD: `../source/su-shixia-front-layered-v1.psd`
 - Rig spec: `rig-spec.json`
-- Motion templates: `motions/*.motion3.json`
+- Motion templates: `motions/*.motion3.json` (37 reference templates, including all profile touch motion groups)
 - Physics template: `su-shixia-live2d-v2.physics3.template.json`
 - Display info template: `su-shixia-live2d-v2.cdi3.template.json`
 
@@ -20,6 +20,8 @@ Status: cubism editor handoff ready
 6. Bind standard parameters first: head, eyes, mouth, body, breath.
 7. Add secondary physics outputs for hair and skirt.
 8. Import or recreate the provided motion templates after confirming parameter IDs match.
+   - Touch templates are timing and parameter references, not final polished animation.
+   - Keep normal/private interaction boundaries in `profile.avatar.json`; Cubism should only provide visual reactions.
 9. Export runtime files into `../model`:
    - `su-shixia-live2d-v2.moc3`
    - `su-shixia-live2d-v2.model3.json`

@@ -4,6 +4,7 @@ const path = require('node:path');
 
 const ROOT = path.resolve(__dirname, '..');
 const {
+  buildHotZoneReplyPrompt,
   emotionFromLabel,
   findAthenaReplyPrompt,
   readAthenaLive2DPreferences,
@@ -33,6 +34,10 @@ function main() {
   assert.equal(suShixiaProfile.id, 'su-shixia-live2d-v2');
   assert.equal(suShixiaProfile.model.model3JsonPath, 'model/su-shixia-live2d-v2-lite.model3.json');
   assert.equal(suShixiaLiteModel.AthenaLive2DLite.layers.length, 68);
+  assert.equal(suShixiaManifest.production.interactionPolicyReady, true);
+  assert.equal(suShixiaManifest.production.liteRuntimeHitZoneCount, 37);
+  assert.equal(suShixiaManifest.production.cubismMotionTemplateCount, 37);
+  assert.equal(suShixiaProfile.interactionPolicy.defaultMode, 'normal');
   assert.ok(suShixiaProfile.hotZones.some(zone => zone.id === 'face_cheek'));
   assert.ok(suShixiaProfile.hotZones.some(zone => zone.id === 'chest'));
   assert.equal(haruManifest.runtime.sounds, 0);
@@ -60,6 +65,7 @@ function main() {
     scale: 1,
     opacity: 0.98,
     modelVariant: 'su_shixia_v2',
+    interactionMode: 'normal',
   });
   assert.deepEqual(readAthenaLive2DPreferences(JSON.stringify({
     version: 1,
@@ -68,6 +74,7 @@ function main() {
     scale: 9,
     opacity: -2,
     modelVariant: 'athena_default',
+    interactionMode: 'private_opt_in',
   })), {
     version: 1,
     enabled: false,
@@ -75,6 +82,7 @@ function main() {
     scale: 1.45,
     opacity: 0.3,
     modelVariant: 'athena_default',
+    interactionMode: 'private_opt_in',
   });
   assert.deepEqual(readAthenaLive2DPreferences(JSON.stringify({
     version: 1,
@@ -100,6 +108,13 @@ function main() {
       { type: 'athenaReply', promptTemplate: ' respond naturally ' },
     ],
   }), 'respond naturally');
+  const chestZone = suShixiaProfile.hotZones.find(zone => zone.id === 'chest');
+  const normalPrompt = buildHotZoneReplyPrompt('base prompt', chestZone, suShixiaProfile.interactionPolicy, 'normal');
+  assert.ok(normalPrompt.includes('当前模式：normal'));
+  assert.ok(normalPrompt.includes('不要升级为成人或露骨内容'));
+  const privatePrompt = buildHotZoneReplyPrompt('base prompt', chestZone, suShixiaProfile.interactionPolicy, 'private_opt_in');
+  assert.ok(privatePrompt.includes('当前模式：private_opt_in'));
+  assert.ok(privatePrompt.includes('显式私密模式'));
 
   const html = read('src/renderer/index.html');
   const app = read('src/renderer/app.ts');

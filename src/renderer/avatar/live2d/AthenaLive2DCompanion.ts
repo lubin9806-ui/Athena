@@ -5,7 +5,9 @@ import suShixiaProfileDocument from '../../../../assets/avatar/su-shixia-live2d-
 import suShixiaLiteModelDocument from '../../../../assets/avatar/su-shixia-live2d-v2/model/su-shixia-live2d-v2-lite.model3.json';
 import type {
   AvatarCharacterProfile,
+  AvatarHotZone,
   AvatarHotZoneAction,
+  AvatarInteractionMode,
   AvatarLayoutMode,
 } from '../../../shared/types/avatar';
 import type { EmotionType } from '../../../shared/types/emotion';
@@ -27,6 +29,7 @@ export interface AthenaLive2DPreferences {
   scale: number;
   opacity: number;
   modelVariant: AthenaLive2DModelVariant;
+  interactionMode: AvatarInteractionMode;
 }
 
 export type AthenaLive2DModelVariant = 'su_shixia_v2' | 'official_haru' | 'athena_default';
@@ -50,6 +53,7 @@ const DEFAULT_PREFERENCES: AthenaLive2DPreferences = {
   scale: 1,
   opacity: 0.98,
   modelVariant: 'su_shixia_v2',
+  interactionMode: 'normal',
 };
 
 export class AthenaLive2DCompanion {
@@ -65,6 +69,7 @@ export class AthenaLive2DCompanion {
   private idleTimer: number | null = null;
   private lastNonIdleEventAt = Date.now();
   private activeState: AthenaAvatarEvent['type'] = 'app.ready';
+  private readonly profile: AvatarCharacterProfile;
   private loaded = false;
   private destroyed = false;
 
@@ -75,6 +80,7 @@ export class AthenaLive2DCompanion {
     const customization = readAvatarProfileCustomization(storage.getItem(CUSTOMIZATION_KEY));
     const selectedModel = live2dModelConfig(this.preferences.modelVariant);
     const profile = applyAvatarProfileCustomization(selectedModel.profile, customization);
+    this.profile = profile;
     profile.model.rootPath = selectedModel.rootPath;
     profile.model.model3JsonPath = selectedModel.model3JsonPath;
     profile.layout.mode = this.preferences.layout;
@@ -246,7 +252,13 @@ export class AthenaLive2DCompanion {
   }
 
   private handleHotZoneAction(action: AvatarHotZoneAction, hotZoneId: string): void {
-    const prompt = findAthenaReplyPrompt(action);
+    const hotZone = this.profile.hotZones.find(zone => zone.id === hotZoneId);
+    const prompt = buildHotZoneReplyPrompt(
+      findAthenaReplyPrompt(action),
+      hotZone,
+      this.profile.interactionPolicy,
+      this.preferences.interactionMode,
+    );
     this.lastNonIdleEventAt = Date.now();
     if (prompt) void this.options.onAthenaReply?.(prompt, hotZoneId);
   }
@@ -315,7 +327,41 @@ function sanitizePreferences(value: Partial<AthenaLive2DPreferences>): AthenaLiv
     scale: clamp(value.scale, 0.55, 1.45, DEFAULT_PREFERENCES.scale),
     opacity: clamp(value.opacity, 0.3, 1, DEFAULT_PREFERENCES.opacity),
     modelVariant: isModelVariant(value.modelVariant) ? value.modelVariant : DEFAULT_PREFERENCES.modelVariant,
+    interactionMode: value.interactionMode === 'private_opt_in' ? 'private_opt_in' : DEFAULT_PREFERENCES.interactionMode,
   };
+}
+
+export function buildHotZoneReplyPrompt(
+  prompt: string | null,
+  hotZone: AvatarHotZone | undefined,
+  policy: AvatarCharacterProfile['interactionPolicy'],
+  mode: AvatarInteractionMode,
+): string | null {
+  if (!prompt) return null;
+  const interaction = hotZone?.interaction;
+  const effectiveMode = mode === 'private_opt_in' && interaction?.privateModeAllowed ? 'private_opt_in' : 'normal';
+  const lines = [
+    prompt,
+    '',
+    '运行时互动边界：',
+    `- 当前模式：${effectiveMode}`,
+    `- 触碰区域：${interaction?.bodyPart ?? hotZone?.label ?? 'unknown'}`,
+    `- 区域敏感度：${interaction?.sensitivity ?? 'neutral'}`,
+    `- 动作意图：${interaction?.motionIntent ?? '自然、简短、符合当前人格'}`,
+    '- 回应文本交给当前苏时夏人格生成，但必须遵守以下边界。',
+  ];
+  if (effectiveMode === 'private_opt_in') {
+    lines.push(`- ${interaction?.privateModeBoundary ?? policy?.privateModePrompt ?? '私密模式仍需保持明确同意、可停止和安全边界。'}`);
+  } else {
+    lines.push(`- ${interaction?.normalModeBoundary ?? policy?.normalModePrompt ?? '正常模式保持克制、非露骨、尊重边界。'}`);
+    if (interaction?.sensitivity === 'sensitive' || interaction?.sensitivity === 'private') {
+      lines.push('- 正常模式下不要升级为成人或露骨内容；可以害羞、躲开、整理衣服、提醒边界或把话题带回陪伴/助理。');
+    }
+  }
+  if (policy?.forbiddenPublicAssetTypes?.length) {
+    lines.push(`- 公开包禁止素材类型：${policy.forbiddenPublicAssetTypes.join(', ')}。`);
+  }
+  return lines.join('\n');
 }
 
 function isLayoutMode(value: unknown): value is AvatarLayoutMode {

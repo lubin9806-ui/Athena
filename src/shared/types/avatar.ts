@@ -26,6 +26,14 @@ export type AvatarClickThroughMode = 'off' | 'transparentOnly' | 'full';
 
 export type AvatarExternalControlTransport = 'disabled' | 'localWebSocket';
 
+export type AvatarInteractionMode = 'normal' | 'private_opt_in';
+
+export type AvatarHotZoneSensitivity =
+  | 'neutral'
+  | 'affectionate'
+  | 'sensitive'
+  | 'private';
+
 export type AvatarHotZoneActionType =
   | 'none'
   | 'athenaReply'
@@ -155,11 +163,22 @@ export interface AvatarHotZoneAction {
   actions?: AvatarHotZoneAction[];
 }
 
+export interface AvatarHotZoneInteractionContract {
+  bodyPart: string;
+  sensitivity: AvatarHotZoneSensitivity;
+  privateModeAllowed: boolean;
+  modelReplyDelegated: boolean;
+  normalModeBoundary: string;
+  privateModeBoundary?: string;
+  motionIntent: string;
+}
+
 export interface AvatarHotZone {
   id: string;
   label: string;
   hitAreaName?: string;
   rect?: AvatarRect;
+  interaction?: AvatarHotZoneInteractionContract;
   action: AvatarHotZoneAction;
   cooldownMs: number;
   enabled: boolean;
@@ -187,6 +206,15 @@ export interface AvatarMarketplaceInfo {
   sourceUrl?: string;
 }
 
+export interface AvatarInteractionPolicy {
+  defaultMode: AvatarInteractionMode;
+  privateModeRequiresExplicitOptIn: boolean;
+  replyDelegatedToPersona: boolean;
+  normalModePrompt: string;
+  privateModePrompt: string;
+  forbiddenPublicAssetTypes: string[];
+}
+
 export interface AvatarCharacterProfile {
   id: string;
   displayName: string;
@@ -202,6 +230,7 @@ export interface AvatarCharacterProfile {
   lipSync: AvatarLipSyncSettings;
   pointerTracking: AvatarPointerTrackingSettings;
   idle: AvatarIdleSettings;
+  interactionPolicy?: AvatarInteractionPolicy;
   hotZones: AvatarHotZone[];
   externalControl: AvatarExternalControlSettings;
   notes?: string;

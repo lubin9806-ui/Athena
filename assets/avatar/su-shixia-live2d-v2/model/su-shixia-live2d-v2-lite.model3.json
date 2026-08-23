@@ -209,9 +209,45 @@
         "reference:su-shixia-touch-storyboard",
         "cheek_shy_react"
       ],
+      "TouchEar": [
+        "reference:su-shixia-touch-storyboard",
+        "ear_startle_react"
+      ],
+      "TouchNeck": [
+        "reference:su-shixia-touch-storyboard",
+        "neck_shy_react"
+      ],
+      "TouchShoulder": [
+        "reference:Haru/TapBody",
+        "shoulder_turn_react"
+      ],
       "TouchHand": [
         "reference:Haru/TouchHand",
         "hand_touch_react"
+      ],
+      "TouchUpperArm": [
+        "reference:Haru/TapBody",
+        "upper_arm_react"
+      ],
+      "TouchForearm": [
+        "reference:Haru/TouchHand",
+        "forearm_react"
+      ],
+      "TouchWrist": [
+        "reference:Haru/TouchHand",
+        "wrist_react"
+      ],
+      "TouchPalm": [
+        "reference:Haru/TouchHand",
+        "palm_react"
+      ],
+      "TouchCollar": [
+        "reference:Haru/TouchOutfit",
+        "collar_adjust_react"
+      ],
+      "TouchBlouse": [
+        "reference:Haru/TouchOutfit",
+        "blouse_adjust_react"
       ],
       "TouchClothing": [
         "reference:Haru/TouchOutfit",
@@ -221,17 +257,53 @@
         "reference:private-zone-boundary",
         "cover_stepback_react"
       ],
+      "TouchRibs": [
+        "reference:private-zone-boundary",
+        "side_step_react"
+      ],
+      "TouchAbdomen": [
+        "reference:private-zone-boundary",
+        "abdomen_shy_react"
+      ],
       "TouchWaist": [
         "reference:Haru/TapBody",
         "waist_shy_react"
+      ],
+      "TouchHip": [
+        "reference:private-zone-boundary",
+        "hip_boundary_react"
+      ],
+      "TouchSkirt": [
+        "reference:Haru/TouchOutfit",
+        "skirt_adjust_react"
       ],
       "TouchLeg": [
         "reference:Haru/TapBody",
         "leg_touch_react"
       ],
+      "TouchThigh": [
+        "reference:private-zone-boundary",
+        "thigh_boundary_react"
+      ],
+      "TouchKnee": [
+        "reference:Haru/TapBody",
+        "knee_balance_react"
+      ],
+      "TouchCalf": [
+        "reference:Haru/TapBody",
+        "calf_shift_react"
+      ],
+      "TouchAnkle": [
+        "reference:Haru/TapBody",
+        "ankle_shift_react"
+      ],
       "TouchFoot": [
         "reference:Haru/TapBody",
         "foot_shift_react"
+      ],
+      "TouchShoe": [
+        "reference:Haru/TapBody",
+        "shoe_shift_react"
       ],
       "TurnPreview": [
         "reference:su-shixia-turnaround",
@@ -257,7 +329,7 @@
         "x": 313,
         "y": 51,
         "width": 304,
-        "height": 257
+        "height": 205
       },
       {
         "id": "HairClip",
@@ -273,6 +345,22 @@
         "x": 377,
         "y": 171,
         "width": 166,
+        "height": 103
+      },
+      {
+        "id": "LeftEar",
+        "name": "LeftEar",
+        "x": 313,
+        "y": 257,
+        "width": 55,
+        "height": 120
+      },
+      {
+        "id": "RightEar",
+        "name": "RightEar",
+        "x": 552,
+        "y": 257,
+        "width": 55,
         "height": 120
       },
       {
@@ -281,7 +369,7 @@
         "x": 359,
         "y": 223,
         "width": 202,
-        "height": 223
+        "height": 188
       },
       {
         "id": "MouthChin",
@@ -292,76 +380,244 @@
         "height": 103
       },
       {
-        "id": "NeckCollar",
-        "name": "NeckCollar",
-        "x": 359,
-        "y": 428,
-        "width": 202,
-        "height": 137
+        "id": "Neck",
+        "name": "Neck",
+        "x": 386,
+        "y": 445,
+        "width": 147,
+        "height": 86
       },
       {
-        "id": "Shoulder",
-        "name": "Shoulder",
+        "id": "Collar",
+        "name": "Collar",
+        "x": 340,
+        "y": 496,
+        "width": 239,
+        "height": 103
+      },
+      {
+        "id": "LeftShoulder",
+        "name": "LeftShoulder",
         "x": 258,
-        "y": 514,
-        "width": 405,
+        "y": 531,
+        "width": 120,
         "height": 137
       },
       {
-        "id": "Hand",
-        "name": "Hand",
-        "x": 184,
-        "y": 805,
-        "width": 534,
+        "id": "RightShoulder",
+        "name": "RightShoulder",
+        "x": 543,
+        "y": 531,
+        "width": 120,
+        "height": 137
+      },
+      {
+        "id": "LeftUpperArm",
+        "name": "LeftUpperArm",
+        "x": 212,
+        "y": 668,
+        "width": 101,
+        "height": 223
+      },
+      {
+        "id": "RightUpperArm",
+        "name": "RightUpperArm",
+        "x": 607,
+        "y": 668,
+        "width": 101,
+        "height": 223
+      },
+      {
+        "id": "LeftForearm",
+        "name": "LeftForearm",
+        "x": 175,
+        "y": 890,
+        "width": 101,
+        "height": 205
+      },
+      {
+        "id": "RightForearm",
+        "name": "RightForearm",
+        "x": 644,
+        "y": 890,
+        "width": 101,
+        "height": 205
+      },
+      {
+        "id": "LeftWrist",
+        "name": "LeftWrist",
+        "x": 175,
+        "y": 1079,
+        "width": 83,
+        "height": 103
+      },
+      {
+        "id": "RightWrist",
+        "name": "RightWrist",
+        "x": 662,
+        "y": 1079,
+        "width": 83,
+        "height": 103
+      },
+      {
+        "id": "LeftHand",
+        "name": "LeftHand",
+        "x": 156,
+        "y": 1164,
+        "width": 101,
+        "height": 171
+      },
+      {
+        "id": "RightHand",
+        "name": "RightHand",
+        "x": 662,
+        "y": 1164,
+        "width": 101,
+        "height": 171
+      },
+      {
+        "id": "Blouse",
+        "name": "Blouse",
+        "x": 313,
+        "y": 582,
+        "width": 294,
         "height": 188
       },
       {
         "id": "Chest",
         "name": "Chest",
-        "x": 340,
-        "y": 565,
-        "width": 239,
-        "height": 205
+        "x": 350,
+        "y": 616,
+        "width": 221,
+        "height": 137
+      },
+      {
+        "id": "LeftRibs",
+        "name": "LeftRibs",
+        "x": 294,
+        "y": 719,
+        "width": 110,
+        "height": 137
+      },
+      {
+        "id": "RightRibs",
+        "name": "RightRibs",
+        "x": 515,
+        "y": 719,
+        "width": 110,
+        "height": 137
+      },
+      {
+        "id": "Abdomen",
+        "name": "Abdomen",
+        "x": 359,
+        "y": 770,
+        "width": 202,
+        "height": 120
       },
       {
         "id": "Waist",
         "name": "Waist",
         "x": 322,
-        "y": 770,
+        "y": 856,
         "width": 276,
+        "height": 103
+      },
+      {
+        "id": "Hip",
+        "name": "Hip",
+        "x": 322,
+        "y": 959,
+        "width": 276,
+        "height": 120
+      },
+      {
+        "id": "SkirtFront",
+        "name": "SkirtFront",
+        "x": 276,
+        "y": 959,
+        "width": 368,
+        "height": 188
+      },
+      {
+        "id": "LeftThigh",
+        "name": "LeftThigh",
+        "x": 294,
+        "y": 1147,
+        "width": 138,
+        "height": 188
+      },
+      {
+        "id": "RightThigh",
+        "name": "RightThigh",
+        "x": 488,
+        "y": 1147,
+        "width": 138,
+        "height": 188
+      },
+      {
+        "id": "LeftKnee",
+        "name": "LeftKnee",
+        "x": 294,
+        "y": 1335,
+        "width": 138,
         "height": 137
       },
       {
-        "id": "Clothing",
-        "name": "Clothing",
-        "x": 276,
-        "y": 873,
-        "width": 368,
-        "height": 223
+        "id": "RightKnee",
+        "name": "RightKnee",
+        "x": 488,
+        "y": 1335,
+        "width": 138,
+        "height": 137
       },
       {
-        "id": "Legs",
-        "name": "Legs",
-        "x": 304,
-        "y": 1061,
-        "width": 313,
-        "height": 240
+        "id": "LeftCalf",
+        "name": "LeftCalf",
+        "x": 294,
+        "y": 1472,
+        "width": 129,
+        "height": 171
       },
       {
-        "id": "LowerLegs",
-        "name": "LowerLegs",
-        "x": 313,
-        "y": 1267,
-        "width": 294,
-        "height": 291
+        "id": "RightCalf",
+        "name": "RightCalf",
+        "x": 497,
+        "y": 1472,
+        "width": 129,
+        "height": 171
       },
       {
-        "id": "Feet",
-        "name": "Feet",
-        "x": 313,
-        "y": 1558,
-        "width": 294,
-        "height": 120
+        "id": "LeftAnkle",
+        "name": "LeftAnkle",
+        "x": 294,
+        "y": 1626,
+        "width": 120,
+        "height": 68
+      },
+      {
+        "id": "RightAnkle",
+        "name": "RightAnkle",
+        "x": 506,
+        "y": 1626,
+        "width": 120,
+        "height": 68
+      },
+      {
+        "id": "LeftShoe",
+        "name": "LeftShoe",
+        "x": 285,
+        "y": 1669,
+        "width": 129,
+        "height": 43
+      },
+      {
+        "id": "RightShoe",
+        "name": "RightShoe",
+        "x": 506,
+        "y": 1669,
+        "width": 129,
+        "height": 43
       }
     ],
     "layers": [

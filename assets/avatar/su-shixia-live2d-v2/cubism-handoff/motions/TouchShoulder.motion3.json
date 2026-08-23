@@ -1,0 +1,45 @@
+{
+  "Version": 3,
+  "Meta": {
+    "Name": "TouchShoulder",
+    "Duration": 1.45,
+    "Fps": 30,
+    "Loop": false,
+    "AreBeziersRestricted": true,
+    "CurveCount": 2,
+    "TotalSegmentCount": 4,
+    "TotalPointCount": 6,
+    "UserDataCount": 0,
+    "TotalUserDataSize": 0
+  },
+  "Curves": [
+    {
+      "Target": "Parameter",
+      "Id": "ParamAngleX",
+      "Segments": [
+        0,
+        0,
+        0,
+        0.35,
+        6,
+        0,
+        1.45,
+        0
+      ]
+    },
+    {
+      "Target": "Parameter",
+      "Id": "ParamBodyAngleX",
+      "Segments": [
+        0,
+        0,
+        0,
+        0.45,
+        3,
+        0,
+        1.45,
+        0
+      ]
+    }
+  ]
+}

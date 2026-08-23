@@ -1,0 +1,59 @@
+{
+  "Version": 3,
+  "Meta": {
+    "Name": "TouchWaist",
+    "Duration": 1.8,
+    "Fps": 30,
+    "Loop": false,
+    "AreBeziersRestricted": true,
+    "CurveCount": 3,
+    "TotalSegmentCount": 6,
+    "TotalPointCount": 9,
+    "UserDataCount": 0,
+    "TotalUserDataSize": 0
+  },
+  "Curves": [
+    {
+      "Target": "Parameter",
+      "Id": "ParamAngleX",
+      "Segments": [
+        0,
+        0,
+        0,
+        0.38,
+        5,
+        0,
+        1.8,
+        0
+      ]
+    },
+    {
+      "Target": "Parameter",
+      "Id": "ParamBodyAngleX",
+      "Segments": [
+        0,
+        0,
+        0,
+        0.42,
+        4,
+        0,
+        1.8,
+        0
+      ]
+    },
+    {
+      "Target": "Parameter",
+      "Id": "ParamBodyAngleZ",
+      "Segments": [
+        0,
+        0,
+        0,
+        0.42,
+        3.5,
+        0,
+        1.8,
+        0
+      ]
+    }
+  ]
+}

@@ -1,0 +1,59 @@
+{
+  "Version": 3,
+  "Meta": {
+    "Name": "TouchNeck",
+    "Duration": 1.7,
+    "Fps": 30,
+    "Loop": false,
+    "AreBeziersRestricted": true,
+    "CurveCount": 3,
+    "TotalSegmentCount": 6,
+    "TotalPointCount": 9,
+    "UserDataCount": 0,
+    "TotalUserDataSize": 0
+  },
+  "Curves": [
+    {
+      "Target": "Parameter",
+      "Id": "ParamAngleY",
+      "Segments": [
+        0,
+        0,
+        0,
+        0.38,
+        -7,
+        0,
+        1.7,
+        0
+      ]
+    },
+    {
+      "Target": "Parameter",
+      "Id": "ParamBodyAngleZ",
+      "Segments": [
+        0,
+        0,
+        0,
+        0.45,
+        -3,
+        0,
+        1.7,
+        0
+      ]
+    },
+    {
+      "Target": "Parameter",
+      "Id": "ParamMouthForm",
+      "Segments": [
+        0,
+        0,
+        0,
+        0.42,
+        0.24,
+        0,
+        1.7,
+        0
+      ]
+    }
+  ]
+}

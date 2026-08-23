@@ -32,6 +32,18 @@ const HOT_ZONE_ACTIONS = new Set([
   'composite',
 ]);
 
+const HOT_ZONE_SENSITIVITIES = new Set([
+  'neutral',
+  'affectionate',
+  'sensitive',
+  'private',
+]);
+
+const INTERACTION_MODES = new Set([
+  'normal',
+  'private_opt_in',
+]);
+
 const COMMAND_TYPE_PATTERN = /^avatar\.(?:state|motion|expression|parameter|pointer|hotZone)\.[a-z][a-zA-Z0-9_:-]{0,80}$/;
 
 export function validateAvatarProfile(profile: AvatarCharacterProfile): AvatarValidationResult {
@@ -77,8 +89,10 @@ export function validateAvatarProfile(profile: AvatarCharacterProfile): AvatarVa
     requireText(issues, `${prefix}.id`, hotZone.id);
     requireText(issues, `${prefix}.label`, hotZone.label);
     validateRange(issues, `${prefix}.cooldownMs`, hotZone.cooldownMs, 0, 60 * 60 * 1000);
+    validateHotZoneInteraction(issues, `${prefix}.interaction`, hotZone.interaction);
     validateHotZoneAction(issues, `${prefix}.action`, hotZone.action);
   });
+  validateInteractionPolicy(issues, profile);
   validateExternalControl(issues, profile);
   return { ok: !issues.some(item => item.severity === 'error'), issues };
 }
@@ -110,6 +124,39 @@ function validateHotZoneAction(issues: AvatarValidationIssue[], path: string, ac
     issue(issues, `${path}.actions`, 'Composite hot zone actions must contain at least one action.', 'error');
   }
   action.actions?.forEach((child, index) => validateHotZoneAction(issues, `${path}.actions[${index}]`, child));
+}
+
+function validateHotZoneInteraction(
+  issues: AvatarValidationIssue[],
+  path: string,
+  interaction: AvatarCharacterProfile['hotZones'][number]['interaction'],
+): void {
+  if (!interaction) return;
+  requireText(issues, `${path}.bodyPart`, interaction.bodyPart);
+  requireText(issues, `${path}.normalModeBoundary`, interaction.normalModeBoundary);
+  requireText(issues, `${path}.motionIntent`, interaction.motionIntent);
+  if (!HOT_ZONE_SENSITIVITIES.has(interaction.sensitivity)) {
+    issue(issues, `${path}.sensitivity`, 'Unknown hot zone sensitivity.', 'error');
+  }
+  if (interaction.sensitivity === 'private' && !interaction.privateModeAllowed) {
+    issue(issues, `${path}.privateModeAllowed`, 'Private hot zones must require explicit private opt-in.', 'error');
+  }
+  if (interaction.privateModeAllowed && !interaction.privateModeBoundary) {
+    issue(issues, `${path}.privateModeBoundary`, 'Private-mode-capable hot zones need a private mode boundary.', 'error');
+  }
+}
+
+function validateInteractionPolicy(issues: AvatarValidationIssue[], profile: AvatarCharacterProfile): void {
+  if (!profile.interactionPolicy) return;
+  const policy = profile.interactionPolicy;
+  if (!INTERACTION_MODES.has(policy.defaultMode)) {
+    issue(issues, 'interactionPolicy.defaultMode', 'Unknown avatar interaction mode.', 'error');
+  }
+  if (!policy.privateModeRequiresExplicitOptIn) {
+    issue(issues, 'interactionPolicy.privateModeRequiresExplicitOptIn', 'Private interaction mode must require explicit opt-in.', 'error');
+  }
+  requireText(issues, 'interactionPolicy.normalModePrompt', policy.normalModePrompt);
+  requireText(issues, 'interactionPolicy.privateModePrompt', policy.privateModePrompt);
 }
 
 function validateExternalControl(issues: AvatarValidationIssue[], profile: AvatarCharacterProfile): void {
