@@ -21,6 +21,7 @@ function main() {
   assert.equal(manifest.production.wardrobeContractReady, true);
   assert.equal(manifest.production.wardrobeBindingPlanReady, true);
   assert.equal(manifest.production.wardrobeReadinessAuditReady, true);
+  assert.equal(manifest.production.runtimeOutfitPreferenceReady, true);
   assert.equal(report.version, 1);
   assert.equal(report.packageId, 'su-shixia-live2d-v2');
   assert.equal(report.status, 'no_go');
@@ -43,6 +44,7 @@ function main() {
   assert.ok(report.blockers.includes('genuine-cubism-export:cubism-export-ready'));
   assert.ok(report.blockers.includes('appearance-and-wardrobe:true-outfit-swap'));
   assert.ok(report.stages.find(item => item.id === 'appearance-and-wardrobe').checks.some(item => item.id === 'wardrobe-contract-go' && item.status === 'pass'));
+  assert.ok(report.stages.find(item => item.id === 'appearance-and-wardrobe').checks.some(item => item.id === 'runtime-outfit-preference-ready' && item.status === 'pass'));
   assert.ok(report.nextRequiredEvidence.some(item => item.includes('Wardrobe contract blockers')));
   assert.ok(report.blockers.includes('distribution:public-installer-allowed'));
   assert.ok(report.nextRequiredEvidence.some(item => item.includes('Cubism Editor project')));

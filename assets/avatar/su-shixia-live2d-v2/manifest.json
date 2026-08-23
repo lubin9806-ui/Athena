@@ -72,6 +72,7 @@
     "wardrobeContractReady": true,
     "wardrobeBindingPlanReady": true,
     "wardrobeReadinessAuditReady": true,
+    "runtimeOutfitPreferenceReady": true,
     "cubismAppearanceVisibilityParamReady": true,
     "cubismMotionTemplateCount": 37,
     "cubismPhysicsTemplateReady": true,

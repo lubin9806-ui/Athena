@@ -31,6 +31,8 @@ function main() {
   }
   assert.ok(renderer.includes('lipSync.update'));
   assert.ok(renderer.includes('preferences.update'));
+  assert.ok(renderer.includes('outfitId: event.outfitId'));
+  assert.ok(manager.includes('cleaned.outfitId'));
   assert.ok(html.includes('live2d-pet-canvas'));
   assert.ok(html.includes("connect-src 'self' file: data: blob:"));
   assert.ok(!html.includes("'unsafe-eval'"), 'desktop pet CSP must not enable unsafe-eval');

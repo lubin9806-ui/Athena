@@ -3,6 +3,7 @@ import liteModelDocument from '../../../../assets/avatar/athena-live2d-default/m
 import haruProfileDocument from '../../../../assets/avatar/live2d-official-haru/profile.avatar.json';
 import suShixiaProfileDocument from '../../../../assets/avatar/su-shixia-live2d-v2/profile.avatar.json';
 import suShixiaLiteModelDocument from '../../../../assets/avatar/su-shixia-live2d-v2/model/su-shixia-live2d-v2-lite.model3.json';
+import suShixiaWardrobeContractDocument from '../../../../assets/avatar/su-shixia-live2d-v2/wardrobe/wardrobe-contract-v1.json';
 import type {
   AvatarCharacterProfile,
   AvatarHotZone,
@@ -21,6 +22,7 @@ import { Live2DCanvasController } from './Live2DCanvasController';
 
 const CUSTOMIZATION_KEY = 'athena.live2d.default.customization.v1';
 export const ATHENA_LIVE2D_PREFERENCES_KEY = 'athena.live2d.companion.v1';
+const DEFAULT_OUTFIT_ID = 'classic_daily';
 
 export interface AthenaLive2DPreferences {
   version: 1;
@@ -31,6 +33,7 @@ export interface AthenaLive2DPreferences {
   modelVariant: AthenaLive2DModelVariant;
   interactionMode: AvatarInteractionMode;
   appearancePresetId: string;
+  outfitId: string;
 }
 
 export type AthenaLive2DModelVariant = 'su_shixia_v2' | 'official_haru' | 'athena_default';
@@ -56,6 +59,7 @@ const DEFAULT_PREFERENCES: AthenaLive2DPreferences = {
   modelVariant: 'su_shixia_v2',
   interactionMode: 'normal',
   appearancePresetId: 'classic_blouse_navy',
+  outfitId: DEFAULT_OUTFIT_ID,
 };
 
 export class AthenaLive2DCompanion {
@@ -135,6 +139,7 @@ export class AthenaLive2DCompanion {
         await this.controller.reload();
       }
       await this.host.setAppearancePreset?.(this.preferences.appearancePresetId);
+      this.applyWardrobeDataset();
       this.loaded = true;
       this.options.root.dataset.engine = this.host.getRendererKind();
       const fallbackReason = this.host.getFallbackReason();
@@ -253,7 +258,14 @@ export class AthenaLive2DCompanion {
     this.options.canvas.style.setProperty('--avatar-scale-x', String(this.preferences.scale));
     this.options.canvas.style.setProperty('--avatar-scale-y', String(this.preferences.scale));
     this.options.root.dataset.appearancePreset = this.preferences.appearancePresetId;
+    this.applyWardrobeDataset();
     if (this.loaded) void this.host.setAppearancePreset?.(this.preferences.appearancePresetId);
+  }
+
+  private applyWardrobeDataset(): void {
+    this.options.root.dataset.outfit = this.preferences.outfitId;
+    this.options.root.dataset.outfitRuntimeReady = String(isRuntimeSelectableOutfitId(this.preferences.outfitId));
+    this.options.root.dataset.trueOutfitSwapReady = 'false';
   }
 
   private handleHotZoneAction(action: AvatarHotZoneAction, hotZoneId: string): void {
@@ -334,7 +346,22 @@ function sanitizePreferences(value: Partial<AthenaLive2DPreferences>): AthenaLiv
     modelVariant: isModelVariant(value.modelVariant) ? value.modelVariant : DEFAULT_PREFERENCES.modelVariant,
     interactionMode: value.interactionMode === 'private_opt_in' ? 'private_opt_in' : DEFAULT_PREFERENCES.interactionMode,
     appearancePresetId: isSafePresetId(value.appearancePresetId) ? value.appearancePresetId : DEFAULT_PREFERENCES.appearancePresetId,
+    outfitId: isRuntimeSelectableOutfitId(value.outfitId) ? value.outfitId : DEFAULT_PREFERENCES.outfitId,
   };
+}
+
+export function getRuntimeSelectableSuShixiaOutfitIds(): string[] {
+  const contract = suShixiaWardrobeContractDocument as {
+    publicOutfits?: Array<{ id?: unknown; sourceStatus?: unknown; contentRating?: unknown }>;
+  };
+  return (contract.publicOutfits ?? [])
+    .filter(item => item.contentRating === 'public' && item.sourceStatus === 'current_source_exists_review_required')
+    .map(item => item.id)
+    .filter((id): id is string => typeof id === 'string' && isSafePresetId(id));
+}
+
+export function isRuntimeSelectableOutfitId(value: unknown): value is string {
+  return typeof value === 'string' && getRuntimeSelectableSuShixiaOutfitIds().includes(value);
 }
 
 export function buildHotZoneReplyPrompt(

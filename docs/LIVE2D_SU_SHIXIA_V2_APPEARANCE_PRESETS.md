@@ -62,3 +62,5 @@ It defines four public outfits:
 It also defines a separate `private_opt_in` package boundary that is excluded from public and Store builds. The Cubism binding plan lives at `assets/avatar/su-shixia-live2d-v2/cubism-handoff/wardrobe-binding-plan-v1.json` and reserves `ParamOutfitClassic`, `ParamOutfitAssistant`, `ParamOutfitHome`, and `ParamOutfitCeremony`.
 
 Current status remains `NO-GO` for true outfit swap because only the default outfit source exists, and even that still needs human hidden-fill, draw-order, arm-pose, and Cubism polish. The assistant, home, and ceremony outfits still need real source layers, occlusion maps, physics, motion QA, and genuine Cubism export proof.
+
+The runtime now persists `outfitId` independently from `appearancePresetId`. This is a state-contract improvement, not visual wardrobe support: invalid outfit IDs and future-source outfits such as `soft_assistant` sanitize back to `classic_daily` until their source packages and Cubism bindings exist.

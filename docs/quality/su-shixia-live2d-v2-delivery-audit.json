@@ -147,6 +147,11 @@
           "detail": ""
         },
         {
+          "id": "runtime-outfit-preference-ready",
+          "status": "pass",
+          "detail": ""
+        },
+        {
           "id": "wardrobe-contract-go",
           "status": "pass",
           "detail": ""

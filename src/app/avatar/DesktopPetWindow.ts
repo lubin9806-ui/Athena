@@ -236,6 +236,9 @@ function cleanAvatarEvent(value: unknown): Record<string, unknown> | null {
   if (typeof value.opacity === 'number' && Number.isFinite(value.opacity)) {
     cleaned.opacity = Math.max(0.3, Math.min(1, value.opacity));
   }
+  if (typeof value.outfitId === 'string' && /^[a-z0-9_-]{3,64}$/.test(value.outfitId)) {
+    cleaned.outfitId = value.outfitId;
+  }
   return cleaned;
 }
 

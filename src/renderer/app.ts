@@ -15,7 +15,7 @@ import type { AthenaAvatarEvent } from './avatar/AvatarRuntime';
 
 type DesktopPetEvent = AthenaAvatarEvent
   | { type: 'lipSync.update'; value: number }
-  | { type: 'preferences.update'; scale: number; opacity: number };
+  | { type: 'preferences.update'; scale: number; opacity: number; outfitId: string };
 
 declare global {
   interface Window {
@@ -1377,13 +1377,14 @@ async function syncDesktopPetWindow(): Promise<void> {
     type: 'preferences.update',
     scale: preferences.scale,
     opacity: preferences.opacity,
+    outfitId: preferences.outfitId,
   });
   const visible = preferences.enabled && preferences.layout === 'desktop_pet';
   await window.athenaAPI.setDesktopPetWindowVisible(visible);
 }
 
 async function updateLive2dPreferences(
-  patch: Partial<{ enabled: boolean; layout: AvatarLayoutMode; scale: number; opacity: number }>,
+  patch: Partial<{ enabled: boolean; layout: AvatarLayoutMode; scale: number; opacity: number; outfitId: string }>,
 ): Promise<void> {
   await live2dCompanion.updatePreferences(patch);
   await syncDesktopPetWindow();

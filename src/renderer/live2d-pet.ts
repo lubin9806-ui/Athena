@@ -4,7 +4,7 @@ import { AthenaLive2DCompanion } from './avatar/live2d/AthenaLive2DCompanion';
 
 type DesktopPetEvent = AthenaAvatarEvent
   | { type: 'lipSync.update'; value: number }
-  | { type: 'preferences.update'; scale: number; opacity: number };
+  | { type: 'preferences.update'; scale: number; opacity: number; outfitId: string };
 
 declare global {
   interface Window {
@@ -44,6 +44,7 @@ const detachEvent = window.athenaPetAPI.onAvatarEvent(event => {
       layout: 'desktop_pet',
       scale: event.scale,
       opacity: event.opacity,
+      outfitId: event.outfitId,
     });
     return;
   }

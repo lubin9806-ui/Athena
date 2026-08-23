@@ -7,6 +7,7 @@ const {
   buildHotZoneReplyPrompt,
   emotionFromLabel,
   findAthenaReplyPrompt,
+  getRuntimeSelectableSuShixiaOutfitIds,
   readAthenaLive2DPreferences,
 } = require('../dist/renderer/avatar/live2d/AthenaLive2DCompanion');
 
@@ -67,7 +68,9 @@ function main() {
     modelVariant: 'su_shixia_v2',
     interactionMode: 'normal',
     appearancePresetId: 'classic_blouse_navy',
+    outfitId: 'classic_daily',
   });
+  assert.deepEqual(getRuntimeSelectableSuShixiaOutfitIds(), ['classic_daily']);
   assert.deepEqual(readAthenaLive2DPreferences(JSON.stringify({
     version: 1,
     enabled: false,
@@ -77,6 +80,7 @@ function main() {
     modelVariant: 'athena_default',
     interactionMode: 'private_opt_in',
     appearancePresetId: 'warm_evening',
+    outfitId: 'classic_daily',
   })), {
     version: 1,
     enabled: false,
@@ -86,6 +90,7 @@ function main() {
     modelVariant: 'athena_default',
     interactionMode: 'private_opt_in',
     appearancePresetId: 'warm_evening',
+    outfitId: 'classic_daily',
   });
   assert.deepEqual(readAthenaLive2DPreferences(JSON.stringify({
     version: 1,
@@ -103,6 +108,7 @@ function main() {
     opacity: 1,
     modelVariant: 'unknown',
     appearancePresetId: '../bad',
+    outfitId: 'soft_assistant',
   })).modelVariant, 'su_shixia_v2');
   assert.equal(readAthenaLive2DPreferences(JSON.stringify({
     version: 1,
@@ -112,7 +118,17 @@ function main() {
     opacity: 1,
     modelVariant: 'su_shixia_v2',
     appearancePresetId: '../bad',
+    outfitId: '../bad',
   })).appearancePresetId, 'classic_blouse_navy');
+  assert.equal(readAthenaLive2DPreferences(JSON.stringify({
+    version: 1,
+    enabled: true,
+    layout: 'chat_background',
+    scale: 1,
+    opacity: 1,
+    modelVariant: 'su_shixia_v2',
+    outfitId: 'soft_assistant',
+  })).outfitId, 'classic_daily');
 
   assert.equal(findAthenaReplyPrompt({
     type: 'composite',
@@ -150,6 +166,8 @@ function main() {
     'official_haru',
     'live2d-official-haru',
     'appearancePresetId',
+    'outfitId',
+    'getRuntimeSelectableSuShixiaOutfitIds',
     'setAppearancePreset',
   ]) {
     assert.ok(live2dCompanion.includes(contract), `Live2D companion integration missing ${contract}`);
@@ -161,6 +179,7 @@ function main() {
     'attachAudio(audio)',
     'sendAvatarInteraction',
     'setEmotionLabel',
+    'outfitId: preferences.outfitId',
   ]) {
     assert.ok(app.includes(contract), `renderer integration missing ${contract}`);
   }

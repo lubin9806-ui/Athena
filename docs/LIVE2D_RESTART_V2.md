@@ -261,6 +261,18 @@ Produced on 2026-08-24:
 
 Stage 3I status: `WARDROBE CONTRACT READY, TRUE OUTFIT SWAP STILL NO-GO`. The contract defines four public outfit targets and a separate private opt-in package boundary. The binding plan reserves future Cubism wardrobe parameters and switch rules. It does not create alternate garment source layers, outfit drawables, clothing physics, or a genuine Cubism export. `trueOutfitSwapReady` remains false.
 
+## Stage 3J Current Evidence
+
+Produced on 2026-08-24:
+
+- runtime preference contract updated in `src/renderer/avatar/live2d/AthenaLive2DCompanion.ts`;
+- main-window to desktop-pet wardrobe state sync updated in `src/renderer/app.ts` and `src/renderer/live2d-pet.ts`;
+- desktop-pet IPC sanitization updated in `src/app/avatar/DesktopPetWindow.ts`;
+- integration verifier updated in `scripts/verify-live2d-athena-integration.js`;
+- desktop-pet verifier updated in `scripts/verify-live2d-desktop-pet.js`.
+
+Stage 3J status: `RUNTIME OUTFIT PREFERENCE READY, TRUE OUTFIT SWAP STILL NO-GO`. Athena now persists `outfitId` separately from `appearancePresetId` and syncs it to the desktop pet. The sanitizer allows only runtime-selectable outfits from the wardrobe contract. At this stage only `classic_daily` is runtime-selectable because the other public outfits have no source packages yet.
+
 ## Acceptance Gates
 
 V2 cannot become the final public Cubism default until all are true:

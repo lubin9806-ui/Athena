@@ -45,6 +45,7 @@ function main() {
       check('wardrobe-contract-ready', manifest.production.wardrobeContractReady === true),
       check('wardrobe-binding-plan-ready', manifest.production.wardrobeBindingPlanReady === true),
       check('wardrobe-readiness-audit-ready', manifest.production.wardrobeReadinessAuditReady === true),
+      check('runtime-outfit-preference-ready', manifest.production.runtimeOutfitPreferenceReady === true),
       check('wardrobe-contract-go', wardrobeAudit.goNoGo.wardrobeContract === 'go'),
       check('wardrobe-binding-plan-go', wardrobeAudit.goNoGo.cubismBindingPlan === 'go'),
       check('preview-only', runtimeQa.checks.appearancePresetPreviewOnly === true, 'current appearance presets are preview-only'),
