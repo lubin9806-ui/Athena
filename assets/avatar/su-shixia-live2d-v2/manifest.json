@@ -26,6 +26,7 @@
     "cubismEditorReadinessChecklist": "cubism-handoff/CUBISM_EDITOR_READINESS_CHECKLIST.md",
     "cubismExportGate": "cubism-handoff/export-gate.json",
     "cubismExportAuditReport": "../../../docs/quality/su-shixia-cubism-export-audit.json",
+    "cubismRuntimeProofTemplate": "../../../docs/quality/su-shixia-cubism-runtime-proof.json",
     "rawDirectory": "source/raw",
     "rawPartsDirectory": "source/parts/raw"
   },
@@ -58,6 +59,7 @@
     "cubismEditorReadinessChecklistReady": true,
     "cubismExportGateReady": true,
     "cubismExportAuditReady": true,
+    "cubismRuntimeProofTemplateReady": true,
     "cubismAppearanceVisibilityParamReady": true,
     "cubismMotionTemplateCount": 37,
     "cubismPhysicsTemplateReady": true,

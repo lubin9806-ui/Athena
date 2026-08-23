@@ -38,6 +38,7 @@
     "At least five expressions and six motions are visually distinct in screenshot/contact-sheet evidence.",
     "Hot zones still generate bounded persona prompts through the runtime policy."
   ],
+  "runtimeProofTemplate": "../../../docs/quality/su-shixia-cubism-runtime-proof.json",
   "noGoUntil": [
     "All required runtime files exist and the moc3 header is valid.",
     "Athena loads the model through cubism-web without fallback.",

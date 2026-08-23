@@ -169,12 +169,21 @@ function auditRuntimeProof() {
   }
   const proof = readJson(proofPath);
   return {
-    summary: { path: path.relative(ROOT, proofPath).replace(/\\/g, '/'), exists: true },
+    summary: {
+      path: path.relative(ROOT, proofPath).replace(/\\/g, '/'),
+      exists: true,
+      status: proof.status ?? 'unknown',
+      renderer: proof.renderer ?? 'unknown',
+      manualReview: proof.manualReview?.passed === true ? 'pass' : 'no_go',
+    },
     checks: [
+      checkTruthy('runtime-proof:schema', proof.version === 1 && proof.packageId === 'su-shixia-live2d-v2', JSON.stringify({ version: proof.version, packageId: proof.packageId })),
+      checkTruthy('runtime-proof:not-template', proof.status !== 'template_unverified', proof.status ?? 'missing'),
       checkValue('runtime-proof:cubism-web', proof.renderer, 'cubism-web'),
       checkTruthy('runtime-proof:lip-sync', proof.lipSync?.passed === true, JSON.stringify(proof.lipSync ?? null)),
       checkTruthy('runtime-proof:visual-delta', proof.visualDelta?.passed === true, JSON.stringify(proof.visualDelta ?? null)),
       checkTruthy('runtime-proof:hot-zone-policy', proof.hotZonePolicy?.passed === true, JSON.stringify(proof.hotZonePolicy ?? null)),
+      checkTruthy('runtime-proof:manual-review', proof.manualReview?.passed === true, JSON.stringify(proof.manualReview ?? null)),
     ],
   };
 }

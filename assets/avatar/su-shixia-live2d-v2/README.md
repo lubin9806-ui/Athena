@@ -49,10 +49,11 @@ Build and verify:
 ```powershell
 npm.cmd run test:live2d:su-shixia-source
 npm.cmd run test:live2d:su-shixia-runtime
+npm.cmd run test:live2d:su-shixia-cubism-proof-template
 npm.cmd run test:live2d:su-shixia-cubism-audit
 npm.cmd run test:live2d:su-shixia-cubism-required
 ```
 
 The Lite runtime preview is allowed for local Athena integration and review. Runtime visual QA now proves nonblank transparent frames, visible motion deltas for the key preview motions, and visible appearance-preset differences. These presets recolor or hide existing layers only; they are not true clothing swaps. The A hair clip can be mapped to a real Cubism opacity parameter, but the color presets and clothing variations still need new source layers or runtime texture/drawable work before they can become genuine Cubism wardrobe controls. The contact sheets still show provisional automated art quality in hands, arms, lower body, wardrobe variety, and turn behavior.
 
-`test:live2d:su-shixia-cubism-audit` is expected to pass while reporting `NO-GO` until a real Editor export exists. `test:live2d:su-shixia-cubism-required` is the hard gate for the future genuine Cubism package and should fail now. The Cubism handoff package is ready for Editor work, but a genuine `.moc3` has not been exported. Source and handoff directories must remain excluded from public installers. Public distribution stays blocked pending source refinement, rights review, Live2D license review, genuine Cubism rigging, and runtime QA.
+`test:live2d:su-shixia-cubism-proof-template` creates the runtime proof JSON skeleton and verifies that it is still marked unverified. `test:live2d:su-shixia-cubism-audit` is expected to pass while reporting `NO-GO` until a real Editor export exists. `test:live2d:su-shixia-cubism-required` is the hard gate for the future genuine Cubism package and should fail now. The Cubism handoff package is ready for Editor work, but a genuine `.moc3` has not been exported. Source and handoff directories must remain excluded from public installers. Public distribution stays blocked pending source refinement, rights review, Live2D license review, genuine Cubism rigging, and runtime QA.

@@ -214,6 +214,17 @@ Produced on 2026-08-24:
 
 Stage 3E status: `EXPORT AUDIT READY, CURRENT RESULT NO-GO`. The audit command intentionally exits successfully while reporting `SU_SHIXIA_CUBISM_EXPORT_AUDIT_NO_GO` so normal source/runtime checks can preserve the current truth. The required command uses `--require-go` and must fail until the exported `.moc3`, exported `model3.json`, texture, physics/display files, Cubism Web proof, lip-sync proof, visual-delta proof, and hot-zone policy proof all exist.
 
+## Stage 3F Current Evidence
+
+Produced on 2026-08-24:
+
+- runtime proof template generator: `scripts/generate-su-shixia-cubism-runtime-proof-template.js`;
+- runtime proof template verifier: `scripts/verify-su-shixia-cubism-runtime-proof-template.js`;
+- current proof template: `docs/quality/su-shixia-cubism-runtime-proof.json`;
+- npm proof-template command: `npm.cmd run test:live2d:su-shixia-cubism-proof-template`.
+
+Stage 3F status: `RUNTIME PROOF TEMPLATE READY, PROOF STILL NO-GO`. The template fixes the evidence schema for a future genuine Cubism run: renderer must be `cubism-web`, Lite fallback is disallowed, lip-sync must move and reset `ParamMouthOpenY`, visual deltas must cover expressions and motions, hot-zone policy must cover normal and private-opt-in modes, and manual review must resolve hands, lower body, turn behavior, and wardrobe limits. The template is deliberately `template_unverified` and fails the export audit until real captured evidence replaces it.
+
 ## Acceptance Gates
 
 V2 cannot become the final public Cubism default until all are true:

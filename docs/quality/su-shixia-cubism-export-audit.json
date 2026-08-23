@@ -48,7 +48,10 @@
   },
   "runtimeProof": {
     "path": "docs/quality/su-shixia-cubism-runtime-proof.json",
-    "exists": false
+    "exists": true,
+    "status": "template_unverified",
+    "renderer": "unverified",
+    "manualReview": "no_go"
   },
   "checks": [
     {
@@ -117,24 +120,39 @@
       "detail": "missing exported Cubism model3.json"
     },
     {
+      "id": "runtime-proof:schema",
+      "status": "pass",
+      "detail": "{\"version\":1,\"packageId\":\"su-shixia-live2d-v2\"}"
+    },
+    {
+      "id": "runtime-proof:not-template",
+      "status": "fail",
+      "detail": "template_unverified"
+    },
+    {
       "id": "runtime-proof:cubism-web",
       "status": "fail",
-      "detail": "missing runtime proof JSON"
+      "detail": "expected=cubism-web actual=unverified"
     },
     {
       "id": "runtime-proof:lip-sync",
       "status": "fail",
-      "detail": "missing runtime proof JSON"
+      "detail": "{\"passed\":false,\"parameterId\":\"ParamMouthOpenY\",\"minObserved\":null,\"maxObserved\":null,\"resetObserved\":false,\"evidence\":\"Record TTS playback and confirm ParamMouthOpenY changes during speech and returns to neutral.\"}"
     },
     {
       "id": "runtime-proof:visual-delta",
       "status": "fail",
-      "detail": "missing runtime proof JSON"
+      "detail": "{\"passed\":false,\"expressionCount\":0,\"motionCount\":0,\"minChangedVisiblePixels\":null,\"evidence\":\"Capture a Cubism Web contact sheet and compare idle, expressions, and required motions.\"}"
     },
     {
       "id": "runtime-proof:hot-zone-policy",
       "status": "fail",
-      "detail": "missing runtime proof JSON"
+      "detail": "{\"passed\":false,\"normalModeChecked\":false,\"privateOptInChecked\":false,\"checkedHotZones\":[],\"evidence\":\"Trigger representative hot zones and confirm runtime-bounded persona prompts are generated.\"}"
+    },
+    {
+      "id": "runtime-proof:manual-review",
+      "status": "fail",
+      "detail": "{\"passed\":false,\"reviewer\":null,\"reviewedAt\":null,\"acceptedAreas\":[],\"unresolvedAreas\":[\"hands\",\"lower-body-occlusion\",\"turn-behavior\",\"true-wardrobe\"]}"
     }
   ],
   "blockingItems": [
@@ -148,10 +166,12 @@
     "model3:textures",
     "model3:motions",
     "model3:expressions",
+    "runtime-proof:not-template",
     "runtime-proof:cubism-web",
     "runtime-proof:lip-sync",
     "runtime-proof:visual-delta",
-    "runtime-proof:hot-zone-policy"
+    "runtime-proof:hot-zone-policy",
+    "runtime-proof:manual-review"
   ],
   "goNoGoBoundary": {
     "liteRuntimePreview": "go",

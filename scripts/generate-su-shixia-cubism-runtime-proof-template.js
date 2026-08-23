@@ -1,0 +1,85 @@
+const fs = require('node:fs');
+const path = require('node:path');
+
+const ROOT = path.resolve(__dirname, '..');
+const PROOF_PATH = path.join(ROOT, 'docs', 'quality', 'su-shixia-cubism-runtime-proof.json');
+
+function main() {
+  const proof = {
+    version: 1,
+    generatedAt: '2026-08-24',
+    packageId: 'su-shixia-live2d-v2',
+    status: 'template_unverified',
+    renderer: 'unverified',
+    model3JsonPath: 'assets/avatar/su-shixia-live2d-v2/model/su-shixia-live2d-v2.model3.json',
+    captureEnvironment: {
+      app: 'Athena',
+      rendererHost: 'BrowserCubismLive2DHost',
+      expectedRenderer: 'cubism-web',
+      fallbackRendererDisallowed: 'live2d-lite',
+    },
+    requiredEvidence: [
+      'cubism-web engine without Lite fallback',
+      'transparent nonblank render frame',
+      'lip-sync ParamMouthOpenY movement and reset',
+      'at least five visually distinct expressions',
+      'at least six visually distinct motions',
+      'hot-zone policy prompt generation for normal and private-opt-in modes',
+      'manual review acceptance for hands, lower body, turn behavior, and wardrobe boundary',
+    ],
+    screenshots: {
+      contactSheet: null,
+      idleFrame: null,
+      lipSyncFrame: null,
+      hotZoneFrame: null,
+    },
+    cubismWeb: {
+      passed: false,
+      renderer: 'unverified',
+      fallbackReason: null,
+      evidence: 'Run Athena with exported Cubism files and confirm BrowserCubismLive2DHost reports cubism-web.',
+    },
+    lipSync: {
+      passed: false,
+      parameterId: 'ParamMouthOpenY',
+      minObserved: null,
+      maxObserved: null,
+      resetObserved: false,
+      evidence: 'Record TTS playback and confirm ParamMouthOpenY changes during speech and returns to neutral.',
+    },
+    visualDelta: {
+      passed: false,
+      expressionCount: 0,
+      motionCount: 0,
+      minChangedVisiblePixels: null,
+      evidence: 'Capture a Cubism Web contact sheet and compare idle, expressions, and required motions.',
+    },
+    hotZonePolicy: {
+      passed: false,
+      normalModeChecked: false,
+      privateOptInChecked: false,
+      checkedHotZones: [],
+      evidence: 'Trigger representative hot zones and confirm runtime-bounded persona prompts are generated.',
+    },
+    manualReview: {
+      passed: false,
+      reviewer: null,
+      reviewedAt: null,
+      acceptedAreas: [],
+      unresolvedAreas: ['hands', 'lower-body-occlusion', 'turn-behavior', 'true-wardrobe'],
+    },
+    goNoGo: {
+      genuineCubismRuntimeProof: 'no_go',
+      reason: 'Template only. Replace with captured Cubism Web evidence after the real .moc3 export exists.',
+    },
+  };
+  writeJson(PROOF_PATH, proof);
+  console.log(`SU_SHIXIA_CUBISM_RUNTIME_PROOF_TEMPLATE_READY path=${path.relative(ROOT, PROOF_PATH).replace(/\\/g, '/')}`);
+}
+
+function writeJson(filePath, value) {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`);
+}
+
+main();

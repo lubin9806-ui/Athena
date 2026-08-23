@@ -22,9 +22,11 @@ function main() {
   assert.equal(manifest.sourceArt.cubismEditorReadinessChecklist, 'cubism-handoff/CUBISM_EDITOR_READINESS_CHECKLIST.md');
   assert.equal(manifest.sourceArt.cubismExportGate, 'cubism-handoff/export-gate.json');
   assert.equal(manifest.sourceArt.cubismExportAuditReport, '../../../docs/quality/su-shixia-cubism-export-audit.json');
+  assert.equal(manifest.sourceArt.cubismRuntimeProofTemplate, '../../../docs/quality/su-shixia-cubism-runtime-proof.json');
   assert.equal(manifest.production.cubismEditorReadinessChecklistReady, true);
   assert.equal(manifest.production.cubismExportGateReady, true);
   assert.equal(manifest.production.cubismExportAuditReady, true);
+  assert.equal(manifest.production.cubismRuntimeProofTemplateReady, true);
   assert.equal(manifest.production.cubismAppearanceVisibilityParamReady, true);
   assert.equal(manifest.production.cubismExportReady, false);
   assert.ok(packageJson.scripts['test:live2d:su-shixia-cubism-audit'].includes('audit-su-shixia-cubism-export.js'));
@@ -51,6 +53,7 @@ function main() {
   assert.ok(cdi.ParameterGroups.some(group => group.Id === 'ParamGroupAppearance' && group.Ids.includes('ParamAccessoryHairClip')));
   assert.equal(exportGate.status, 'manual_export_required');
   assert.equal(exportGate.editor.headlessExportAvailable, false);
+  assert.equal(exportGate.runtimeProofTemplate, '../../../docs/quality/su-shixia-cubism-runtime-proof.json');
   assert.ok(exportGate.requiredRuntimeFiles.some(item => item.kind === 'moc3' && item.magic === 'MOC3'));
   assert.ok(exportGate.requiredRuntimeProof.some(item => item.includes('cubism-web')));
   assert.ok(exportGate.noGoUntil.some(item => item.includes('moc3 header')));
@@ -59,6 +62,10 @@ function main() {
   assert.equal(auditReport.goNoGoBoundary.cubismEditorHandoff, 'go');
   assert.equal(auditReport.goNoGoBoundary.genuineCubismExport, 'no_go');
   assert.ok(auditReport.blockingItems.includes('runtime-file:moc3'));
+  assert.ok(auditReport.blockingItems.includes('runtime-proof:not-template'));
+  assert.ok(auditReport.blockingItems.includes('runtime-proof:manual-review'));
+  assert.equal(auditReport.runtimeProof.exists, true);
+  assert.equal(auditReport.runtimeProof.status, 'template_unverified');
   assert.ok(runbook.includes('Do not mark `.moc3` ready'));
   assert.ok(runbook.includes('Wardrobe Boundary'));
   assert.ok(checklist.includes('NO-GO for public Cubism default'));
