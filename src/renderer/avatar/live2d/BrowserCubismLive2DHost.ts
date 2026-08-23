@@ -58,7 +58,8 @@ export class BrowserCubismLive2DHost implements Live2DHost {
   private layeredRig: LayeredPerformanceRig | null = null;
   private activeMotion: AvatarMotionMapping | null = null;
   private activeMotionStartedAt = 0;
-  private idleMotionCursor = 0;
+  private activeMotionToken = 0;
+  private readonly motionGroupCursors = new Map<string, number>();
   private readonly parameterIndexes = new Map<string, number>();
   private readonly manualParameters = new Map<string, number>();
   private readonly expressionParameters = new Map<string, number>();
@@ -160,16 +161,37 @@ export class BrowserCubismLive2DHost implements Live2DHost {
   async playMotion(mapping: AvatarMotionMapping): Promise<void> {
     if (this.fallbackActive) return this.options.fallbackHost?.playMotion(mapping);
     const model = this.requireModel();
-    if (!hasMotionGroup(model, mapping.motionGroup)) return;
-    const requestedIndex = this.resolveMotionIndex(model, mapping);
-    this.activeMotion = mapping;
+    const motionGroup = hasMotionGroup(model, mapping.motionGroup)
+      ? mapping.motionGroup
+      : mapping.fallbackMotionGroup && hasMotionGroup(model, mapping.fallbackMotionGroup)
+        ? mapping.fallbackMotionGroup
+        : null;
+    if (!motionGroup) return;
+    const resolvedMapping = motionGroup === mapping.motionGroup ? mapping : { ...mapping, motionGroup };
+    const requestedIndex = this.resolveMotionIndex(model, resolvedMapping);
+    const token = ++this.activeMotionToken;
+    this.activeMotion = resolvedMapping;
     this.activeMotionStartedAt = nowMs();
-    await model.motion(
-      mapping.motionGroup,
+    const started = await model.motion(
+      motionGroup,
       requestedIndex,
-      motionPriority(mapping.priority),
-      { loop: mapping.loop },
+      motionPriority(resolvedMapping.priority),
+      {
+        loop: resolvedMapping.loop,
+        onFinish: () => {
+          if (resolvedMapping.loop || this.activeMotionToken !== token) return;
+          void this.playMotion({
+            state: 'idle',
+            motionGroup: 'Idle',
+            priority: 'idle',
+            loop: true,
+          });
+        },
+      },
     );
+    if (!started && resolvedMapping.fallbackMotionGroup && resolvedMapping.fallbackMotionGroup !== motionGroup) {
+      await this.playMotion({ ...resolvedMapping, motionGroup: resolvedMapping.fallbackMotionGroup });
+    }
   }
 
   async setParameter(parameterId: string, value: number): Promise<void> {
@@ -263,7 +285,8 @@ export class BrowserCubismLive2DHost implements Live2DHost {
     this.layeredRig = null;
     this.activeMotion = null;
     this.activeMotionStartedAt = 0;
-    this.idleMotionCursor = 0;
+    this.activeMotionToken = 0;
+    this.motionGroupCursors.clear();
     if (this.model) {
       this.model.internalModel.off('beforeModelUpdate', this.applyPersistentParameters);
       this.app?.stage.removeChild(this.model);
@@ -358,9 +381,10 @@ export class BrowserCubismLive2DHost implements Live2DHost {
     const count = motionGroupCount(model, mapping.motionGroup);
     const requestedIndex = Number.parseInt(mapping.motionId ?? '', 10);
     if (Number.isFinite(requestedIndex)) return clamp(Math.trunc(requestedIndex), 0, Math.max(0, count - 1));
-    if (mapping.motionGroup === 'Idle' && count > 1) {
-      const index = this.idleMotionCursor % count;
-      this.idleMotionCursor = (this.idleMotionCursor + 1) % count;
+    if (count > 1) {
+      const cursor = this.motionGroupCursors.get(mapping.motionGroup) ?? 0;
+      const index = cursor % count;
+      this.motionGroupCursors.set(mapping.motionGroup, (cursor + 1) % count);
       return index;
     }
     return 0;
@@ -511,6 +535,12 @@ function visibleMotionPose(group: string, elapsed: number, weight: number): Visi
       pose.x = Math.sin(elapsed * 8.5) * 9 * weight;
       pose.rotation = Math.sin(elapsed * 8.5) * 0.045 * weight;
       pose.y = -Math.max(0, Math.sin(elapsed * 4.2)) * 7 * weight;
+      break;
+    case 'TapBody':
+      pose.x = Math.sin(elapsed * 4.8) * 7 * weight;
+      pose.y = -Math.max(0, Math.sin(elapsed * 3.4)) * 8 * weight;
+      pose.rotation = Math.sin(elapsed * 4.8) * 0.03 * weight;
+      pose.scaleY = Math.sin(elapsed * 5.5) * 0.008 * weight;
       break;
     case 'TouchHead':
       pose.y = 13 * weight + Math.sin(elapsed * 4.5) * 2 * weight;

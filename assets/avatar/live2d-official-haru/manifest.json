@@ -17,7 +17,7 @@
     "motions": 27,
     "physics": true,
     "pose": true,
-    "sounds": 4,
+    "sounds": 0,
     "athenaDefaultVariant": true
   },
   "releaseGate": {

@@ -29,6 +29,7 @@ const FORBIDDEN_ENTRY_PATTERNS = [
   /(?:^|\/)athena-live2d-default\/CUBISM_EXPORT_RUNBOOK\.md$/,
   /(?:^|\/)athena-live2d-default\/layer-map\.json$/,
   /(?:^|\/)athena-3d-default(?:\/|$)/,
+  /(?:^|\/)live2d-official-haru\/sounds(?:\/|$)/,
   /^assets\/avatar(?:\/|$)/,
   /^assets\/vendor\/live2d(?:\/|$)/,
 ];
@@ -65,6 +66,7 @@ function verifyBuiltRenderer() {
     'dist/renderer/avatar/athena-live2d-default/CUBISM_EXPORT_RUNBOOK.md',
     'dist/renderer/avatar/athena-live2d-default/layer-map.json',
     'dist/renderer/avatar/athena-3d-default',
+    'dist/renderer/avatar/live2d-official-haru/sounds',
   ]) {
     assert.equal(fs.existsSync(path.join(ROOT, forbiddenPath)), false, `Private build asset leaked: ${forbiddenPath}`);
   }

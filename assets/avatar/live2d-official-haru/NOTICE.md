@@ -10,7 +10,8 @@ Cubism Web Samples / Sample Data Collection.
 
 Athena uses this package as an internal reference/default runtime model variant
 so the Live2D companion has a genuine Cubism baseline while the original Athena
-character rig is rebuilt. Haru is not an original Athena character asset.
+character rig is rebuilt. Haru is not an original Athena character asset. Sample
+voice files are intentionally not bundled; Athena uses its own TTS/audio path.
 
 Public distribution remains blocked until Live2D license classification,
 sample-model terms, and Athena release rights are reviewed and approved.

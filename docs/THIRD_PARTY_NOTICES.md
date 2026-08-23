@@ -38,7 +38,7 @@ Athena's Live2D runtime includes `live2dcubismcore.min.js` and an exported Cubis
 
 Athena also includes the official Haru sample model as an internal reference/default
 runtime model variant. The copied package contains `Haru.moc3`, `Haru.model3.json`,
-textures, expressions, physics, motions, and sounds from Live2D's official sample
+textures, expressions, physics, and motions from Live2D's official sample
 materials. The upstream Cubism Web Samples repository states that Haru and the
 other sample models are governed by the Live2D Free Material License and the
 sample-model terms. This is acceptable only as an internal engineering reference

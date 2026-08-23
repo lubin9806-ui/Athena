@@ -54,32 +54,182 @@
 					"File": "motions/haru_g_m15.motion3.json",
 					"FadeInTime": 0.5,
 					"FadeOutTime": 0.5
+				},
+				{
+					"File": "motions/haru_g_m19.motion3.json",
+					"FadeInTime": 0.5,
+					"FadeOutTime": 0.5
+				}
+			],
+			"Listen": [
+				{
+					"File": "motions/haru_g_m04.motion3.json",
+					"FadeInTime": 0.35,
+					"FadeOutTime": 0.45
+				},
+				{
+					"File": "motions/haru_g_m05.motion3.json",
+					"FadeInTime": 0.35,
+					"FadeOutTime": 0.45
+				}
+			],
+			"Think": [
+				{
+					"File": "motions/haru_g_m06.motion3.json",
+					"FadeInTime": 0.35,
+					"FadeOutTime": 0.45
+				},
+				{
+					"File": "motions/haru_g_m07.motion3.json",
+					"FadeInTime": 0.35,
+					"FadeOutTime": 0.45
+				},
+				{
+					"File": "motions/haru_g_m08.motion3.json",
+					"FadeInTime": 0.35,
+					"FadeOutTime": 0.45
+				}
+			],
+			"Speak": [
+				{
+					"File": "motions/haru_g_m20.motion3.json",
+					"FadeInTime": 0.25,
+					"FadeOutTime": 0.35
+				},
+				{
+					"File": "motions/haru_g_m21.motion3.json",
+					"FadeInTime": 0.25,
+					"FadeOutTime": 0.35
+				},
+				{
+					"File": "motions/haru_g_m22.motion3.json",
+					"FadeInTime": 0.25,
+					"FadeOutTime": 0.35
+				},
+				{
+					"File": "motions/haru_g_m23.motion3.json",
+					"FadeInTime": 0.25,
+					"FadeOutTime": 0.35
+				},
+				{
+					"File": "motions/haru_g_m26.motion3.json",
+					"FadeInTime": 0.25,
+					"FadeOutTime": 0.35
+				}
+			],
+			"Greet": [
+				{
+					"File": "motions/haru_g_m01.motion3.json",
+					"FadeInTime": 0.25,
+					"FadeOutTime": 0.35
+				},
+				{
+					"File": "motions/haru_g_m02.motion3.json",
+					"FadeInTime": 0.25,
+					"FadeOutTime": 0.35
+				}
+			],
+			"Nod": [
+				{
+					"File": "motions/haru_g_m11.motion3.json",
+					"FadeInTime": 0.2,
+					"FadeOutTime": 0.3
+				},
+				{
+					"File": "motions/haru_g_m13.motion3.json",
+					"FadeInTime": 0.2,
+					"FadeOutTime": 0.3
+				}
+			],
+			"ShakeHead": [
+				{
+					"File": "motions/haru_g_m03.motion3.json",
+					"FadeInTime": 0.2,
+					"FadeOutTime": 0.35
+				},
+				{
+					"File": "motions/haru_g_m09.motion3.json",
+					"FadeInTime": 0.2,
+					"FadeOutTime": 0.35
+				}
+			],
+			"Wave": [
+				{
+					"File": "motions/haru_g_m10.motion3.json",
+					"FadeInTime": 0.2,
+					"FadeOutTime": 0.35
+				},
+				{
+					"File": "motions/haru_g_m12.motion3.json",
+					"FadeInTime": 0.2,
+					"FadeOutTime": 0.35
+				},
+				{
+					"File": "motions/haru_g_m14.motion3.json",
+					"FadeInTime": 0.2,
+					"FadeOutTime": 0.35
+				}
+			],
+			"TouchHead": [
+				{
+					"File": "motions/haru_g_m16.motion3.json",
+					"FadeInTime": 0.2,
+					"FadeOutTime": 0.35
+				},
+				{
+					"File": "motions/haru_g_m17.motion3.json",
+					"FadeInTime": 0.2,
+					"FadeOutTime": 0.35
+				}
+			],
+			"TouchHair": [
+				{
+					"File": "motions/haru_g_m18.motion3.json",
+					"FadeInTime": 0.2,
+					"FadeOutTime": 0.35
+				}
+			],
+			"TouchHand": [
+				{
+					"File": "motions/haru_g_m24.motion3.json",
+					"FadeInTime": 0.2,
+					"FadeOutTime": 0.35
+				}
+			],
+			"TouchOutfit": [
+				{
+					"File": "motions/haru_g_m25.motion3.json",
+					"FadeInTime": 0.2,
+					"FadeOutTime": 0.35
+				}
+			],
+			"Sleepy": [
+				{
+					"File": "motions/haru_g_m19.motion3.json",
+					"FadeInTime": 0.5,
+					"FadeOutTime": 0.5
 				}
 			],
 			"TapBody": [
 				{
 					"File": "motions/haru_g_m26.motion3.json",
 					"FadeInTime": 0.5,
-					"FadeOutTime": 0.5,
-					"Sound": "sounds/haru_talk_13.wav"
+					"FadeOutTime": 0.5
 				},
 				{
 					"File": "motions/haru_g_m06.motion3.json",
 					"FadeInTime": 0.5,
-					"FadeOutTime": 0.5,
-					"Sound": "sounds/haru_Info_14.wav"
+					"FadeOutTime": 0.5
 				},
 				{
 					"File": "motions/haru_g_m20.motion3.json",
 					"FadeInTime": 0.5,
-					"FadeOutTime": 0.5,
-					"Sound": "sounds/haru_normal_6.wav"
+					"FadeOutTime": 0.5
 				},
 				{
 					"File": "motions/haru_g_m09.motion3.json",
 					"FadeInTime": 0.5,
-					"FadeOutTime": 0.5,
-					"Sound": "sounds/haru_Info_04.wav"
+					"FadeOutTime": 0.5
 				}
 			]
 		},

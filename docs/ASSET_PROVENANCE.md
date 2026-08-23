@@ -106,10 +106,10 @@ Partner Center use remains subject to the same human ownership and Athena/Su Shi
 
 `assets/avatar/live2d-official-haru/` is a copied official Live2D Haru sample
 package used as Athena's current internal reference/default model variant. It
-contains the upstream Cubism model, textures, expressions, motions, sounds,
-physics, pose, display-info, and Athena profile mapping. Haru is not an original
-Athena character asset; it is a quality benchmark used while the original Athena
-model is rebuilt.
+contains the upstream Cubism model, textures, expressions, motions, physics,
+pose, display-info, and Athena profile mapping. Sample voice files are not
+bundled. Haru is not an original Athena character asset; it is a quality
+benchmark used while the original Athena model is rebuilt.
 
 `assets/avatar/athena-live2d-default/source/athena-live2d-default-front-v2-alpha.png` is the current AI-generated full-body source master. The repository retains five generated parts atlases, 67 deterministic transparent layer slices, a visual contact sheet, a machine-readable parts inventory, and `athena-live2d-default-layered-v1.psd` generated with the MIT-licensed `ag-psd` development tool.
 

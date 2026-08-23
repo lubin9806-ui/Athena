@@ -40,14 +40,14 @@
   ],
   "motions": [
     { "state": "idle", "motionGroup": "Idle", "priority": "idle", "loop": true, "fadeInMs": 500, "fadeOutMs": 500 },
-    { "state": "listening", "motionGroup": "Idle", "motionId": "1", "priority": "focused", "loop": true, "fadeInMs": 500, "fadeOutMs": 500 },
-    { "state": "thinking", "motionGroup": "TapBody", "motionId": "1", "priority": "focused", "loop": false, "fadeInMs": 500, "fadeOutMs": 500, "fallbackMotionGroup": "Idle" },
-    { "state": "streaming", "motionGroup": "TapBody", "motionId": "2", "priority": "normal", "loop": false, "fadeInMs": 500, "fadeOutMs": 500, "fallbackMotionGroup": "Idle" },
-    { "state": "speaking", "motionGroup": "TapBody", "motionId": "0", "priority": "focused", "loop": false, "fadeInMs": 500, "fadeOutMs": 500, "fallbackMotionGroup": "Idle" },
-    { "state": "interrupted", "motionGroup": "TapBody", "motionId": "3", "priority": "urgent", "loop": false, "fadeInMs": 200, "fadeOutMs": 400, "fallbackMotionGroup": "Idle" },
-    { "state": "error", "motionGroup": "TapBody", "motionId": "1", "priority": "urgent", "loop": false, "fadeInMs": 250, "fadeOutMs": 400, "fallbackMotionGroup": "Idle" },
-    { "state": "sleepy", "motionGroup": "Idle", "priority": "idle", "loop": true, "fadeInMs": 600, "fadeOutMs": 600 },
-    { "state": "away", "motionGroup": "Idle", "priority": "idle", "loop": true, "fadeInMs": 600, "fadeOutMs": 600 }
+    { "state": "listening", "motionGroup": "Listen", "priority": "focused", "loop": true, "fadeInMs": 350, "fadeOutMs": 450, "fallbackMotionGroup": "Idle" },
+    { "state": "thinking", "motionGroup": "Think", "priority": "focused", "loop": true, "fadeInMs": 350, "fadeOutMs": 450, "fallbackMotionGroup": "Idle" },
+    { "state": "streaming", "motionGroup": "Speak", "priority": "normal", "loop": true, "fadeInMs": 250, "fadeOutMs": 350, "fallbackMotionGroup": "Idle" },
+    { "state": "speaking", "motionGroup": "Speak", "priority": "focused", "loop": true, "fadeInMs": 250, "fadeOutMs": 350, "fallbackMotionGroup": "Idle" },
+    { "state": "interrupted", "motionGroup": "ShakeHead", "priority": "urgent", "loop": false, "fadeInMs": 200, "fadeOutMs": 350, "fallbackMotionGroup": "Idle" },
+    { "state": "error", "motionGroup": "ShakeHead", "priority": "urgent", "loop": false, "fadeInMs": 200, "fadeOutMs": 350, "fallbackMotionGroup": "Idle" },
+    { "state": "sleepy", "motionGroup": "Sleepy", "priority": "idle", "loop": true, "fadeInMs": 600, "fadeOutMs": 600, "fallbackMotionGroup": "Idle" },
+    { "state": "away", "motionGroup": "Sleepy", "priority": "idle", "loop": true, "fadeInMs": 600, "fadeOutMs": 600, "fallbackMotionGroup": "Idle" }
   ],
   "parameters": [
     { "id": "ParamAngleX", "label": "Head X", "min": -30, "max": 30, "defaultValue": 0, "favorite": true },
@@ -86,8 +86,14 @@
     "randomize": true
   },
   "hotZones": [
-    { "id": "head", "label": "Head", "hitAreaName": "Head", "rect": { "x": 0.32, "y": 0.04, "width": 0.36, "height": 0.28 }, "action": { "type": "composite", "actions": [{ "type": "playMotion", "motionGroup": "TapBody", "motionId": "0" }, { "type": "setExpression", "expressionId": "F04" }, { "type": "athenaReply", "promptTemplate": "用户轻触了你的头部。以 Athena 桌宠伴侣身份，用自然、简短、温柔但不过度亲昵的中文回应。" }] }, "cooldownMs": 1400, "enabled": true },
-    { "id": "body", "label": "Body", "hitAreaName": "Body", "rect": { "x": 0.28, "y": 0.31, "width": 0.44, "height": 0.42 }, "action": { "type": "composite", "actions": [{ "type": "playMotion", "motionGroup": "TapBody", "motionId": "2" }, { "type": "athenaReply", "promptTemplate": "用户点了你的身体区域。用桌宠陪伴语气给出一句简短反馈，可以主动询问是否需要帮忙。" }] }, "cooldownMs": 1400, "enabled": true }
+    { "id": "face", "label": "Face", "rect": { "x": 0.39, "y": 0.11, "width": 0.22, "height": 0.13 }, "action": { "type": "composite", "actions": [{ "type": "playMotion", "motionGroup": "Nod" }, { "type": "setExpression", "expressionId": "F04" }, { "type": "athenaReply", "promptTemplate": "用户轻触了你的脸颊。以 Athena 桌宠伴侣身份，用自然、简短、温柔但不过度亲昵的中文回应。" }] }, "cooldownMs": 1400, "enabled": true },
+    { "id": "hair", "label": "Hair", "rect": { "x": 0.31, "y": 0.03, "width": 0.38, "height": 0.16 }, "action": { "type": "composite", "actions": [{ "type": "playMotion", "motionGroup": "TouchHair" }, { "type": "setExpression", "expressionId": "F07" }, { "type": "athenaReply", "promptTemplate": "用户轻触了你的头发。以 Athena 桌宠伴侣身份，给一句轻巧、自然、不过度亲昵的中文反馈。" }] }, "cooldownMs": 1400, "enabled": true },
+    { "id": "head", "label": "Head", "hitAreaName": "Head", "rect": { "x": 0.32, "y": 0.04, "width": 0.36, "height": 0.28 }, "action": { "type": "composite", "actions": [{ "type": "playMotion", "motionGroup": "TouchHead" }, { "type": "setExpression", "expressionId": "F04" }, { "type": "athenaReply", "promptTemplate": "用户轻触了你的头部。以 Athena 桌宠伴侣身份，用自然、简短、温柔但不过度亲昵的中文回应。" }] }, "cooldownMs": 1400, "enabled": true },
+    { "id": "left_hand", "label": "Left hand", "rect": { "x": 0.19, "y": 0.50, "width": 0.12, "height": 0.20 }, "action": { "type": "composite", "actions": [{ "type": "playMotion", "motionGroup": "TouchHand" }, { "type": "setExpression", "expressionId": "F02" }, { "type": "athenaReply", "promptTemplate": "用户轻触了你的手。以 Athena 桌宠伴侣身份，用自然、简短的中文回应，可以像在打招呼。" }] }, "cooldownMs": 1400, "enabled": true },
+    { "id": "right_hand", "label": "Right hand", "rect": { "x": 0.69, "y": 0.50, "width": 0.12, "height": 0.20 }, "action": { "type": "composite", "actions": [{ "type": "playMotion", "motionGroup": "Wave" }, { "type": "setExpression", "expressionId": "F02" }, { "type": "athenaReply", "promptTemplate": "用户轻触了你的手。以 Athena 桌宠伴侣身份，用自然、简短的中文回应，可以像在打招呼。" }] }, "cooldownMs": 1400, "enabled": true },
+    { "id": "outfit", "label": "Outfit", "rect": { "x": 0.34, "y": 0.31, "width": 0.32, "height": 0.20 }, "action": { "type": "composite", "actions": [{ "type": "playMotion", "motionGroup": "TouchOutfit" }, { "type": "setExpression", "expressionId": "F06" }, { "type": "athenaReply", "promptTemplate": "用户点了你的衣服区域。以 Athena 桌宠伴侣身份，用自然、简短、保持边界感的中文反馈。" }] }, "cooldownMs": 1400, "enabled": true },
+    { "id": "skirt", "label": "Skirt", "rect": { "x": 0.31, "y": 0.49, "width": 0.38, "height": 0.18 }, "action": { "type": "composite", "actions": [{ "type": "playMotion", "motionGroup": "ShakeHead" }, { "type": "setExpression", "expressionId": "F06" }, { "type": "athenaReply", "promptTemplate": "用户点了你的裙摆区域。以 Athena 桌宠伴侣身份，用自然、简短、明确保持边界感的中文回应。" }] }, "cooldownMs": 1800, "enabled": true },
+    { "id": "body", "label": "Body", "hitAreaName": "Body", "rect": { "x": 0.28, "y": 0.31, "width": 0.44, "height": 0.42 }, "action": { "type": "composite", "actions": [{ "type": "playMotion", "motionGroup": "Greet" }, { "type": "athenaReply", "promptTemplate": "用户点了你的身体区域。用桌宠陪伴语气给出一句简短反馈，可以主动询问是否需要帮忙。" }] }, "cooldownMs": 1400, "enabled": true }
   ],
   "externalControl": {
     "transport": "disabled",

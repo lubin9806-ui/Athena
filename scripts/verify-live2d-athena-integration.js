@@ -15,10 +15,23 @@ function read(relativePath) {
 
 function main() {
   const manifest = JSON.parse(read('assets/avatar/athena-live2d-default/manifest.json'));
+  const haruManifest = JSON.parse(read('assets/avatar/live2d-official-haru/manifest.json'));
+  const haruProfile = JSON.parse(read('assets/avatar/live2d-official-haru/profile.avatar.json'));
+  const haruModel = JSON.parse(read('assets/avatar/live2d-official-haru/Haru.model3.json'));
   const qa = JSON.parse(read('docs/quality/live2d-cubism-runtime-qa.json'));
   assert.equal(manifest.status, 'desktop_pet_window_validated');
   assert.equal(manifest.runtime.athenaAppIntegrated, true);
   assert.equal(manifest.runtime.hotZoneAthenaReply, true);
+  assert.equal(haruManifest.runtime.sounds, 0);
+  assert.equal(haruProfile.hotZones.length >= 8, true);
+  assert.ok(haruProfile.motions.some(motion => motion.state === 'thinking' && motion.motionGroup === 'Think' && motion.loop));
+  assert.ok(haruProfile.motions.some(motion => motion.state === 'speaking' && motion.motionGroup === 'Speak' && motion.loop));
+  for (const group of ['Listen', 'Think', 'Speak', 'Greet', 'Nod', 'ShakeHead', 'Wave', 'TouchHead', 'TouchHair', 'TouchHand', 'TouchOutfit', 'Sleepy']) {
+    assert.ok(Array.isArray(haruModel.FileReferences.Motions[group]), `Haru model missing motion group ${group}`);
+  }
+  const referencedHaruMotions = new Set(Object.values(haruModel.FileReferences.Motions).flat().map(motion => motion.File));
+  assert.equal(referencedHaruMotions.size, 27);
+  assert.equal(JSON.stringify(haruModel.FileReferences.Motions).includes('"Sound"'), false);
   assert.equal(qa.athenaAppIntegration.passed, true);
   assert.equal(qa.athenaAppIntegration.electronSmoke, 'ATHENA_SMOKE_DOM_OK');
 

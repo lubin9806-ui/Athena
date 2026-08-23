@@ -28,15 +28,15 @@
       "passed": true
     },
     "motionPhysics": {
-      "groupsChecked": 13,
+      "groupsChecked": 14,
       "motionFilesChecked": 44,
-      "idleVariantsChecked": 6,
-      "groups": ["Idle", "TapBody", "Greet", "Listen", "Think", "Speak", "Nod", "ShakeHead", "Wave", "TouchHead", "TouchHairClip", "Drag", "Return"],
+      "idleVariantsChecked": 9,
+      "groups": ["Idle", "Listen", "Think", "Speak", "Greet", "Nod", "ShakeHead", "Wave", "TouchHead", "TouchHair", "TouchHand", "TouchOutfit", "Sleepy", "TapBody"],
       "physicsSettings": 7,
       "physicsOutputs": ["ParamHairFront", "ParamHairSide", "ParamHairBack", "ParamScarf"],
       "physicsLoadWarnings": 0,
       "runtimeWarnings": 0,
-      "visualAmplitude": "runtime visible motion fallback added for idle and interaction states; independent arm deformation is unavailable",
+      "visualAmplitude": "all Haru motion files are now grouped by Athena state/interaction, sample sounds are excluded, non-loop motions return to Idle",
       "visibleRuntimeMotionFallback": true,
       "visibleLayeredRuntimeRig": {
         "parts": ["hair", "eyes", "mouth", "brows", "arms", "skirt", "sleeves"],
