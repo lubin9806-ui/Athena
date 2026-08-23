@@ -10,7 +10,11 @@ function main() {
   const report = readJson(REPORT_PATH);
 
   assert.equal(manifest.sourceArt.deliveryAuditReport, '../../../docs/quality/su-shixia-live2d-v2-delivery-audit.json');
+  assert.equal(manifest.sourceArt.reviewDashboard, 'source/review/su-shixia-live2d-v2-review-dashboard.html');
+  assert.equal(manifest.sourceArt.githubReferenceScan, '../../../docs/quality/su-shixia-github-reference-scan.json');
   assert.equal(manifest.production.deliveryAuditReady, true);
+  assert.equal(manifest.production.reviewDashboardReady, true);
+  assert.equal(manifest.production.githubReferenceScanReady, true);
   assert.equal(report.version, 1);
   assert.equal(report.packageId, 'su-shixia-live2d-v2');
   assert.equal(report.status, 'no_go');

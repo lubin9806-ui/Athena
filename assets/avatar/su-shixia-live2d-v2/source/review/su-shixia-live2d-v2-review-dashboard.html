@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="en" data-su-shixia-review-dashboard="v1">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Su Shixia Live2D V2 Review Dashboard</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #1f2430;
+      --muted: #606779;
+      --line: #d8dce5;
+      --paper: #f7f8fb;
+      --panel: #ffffff;
+      --go: #147a43;
+      --partial: #9a6500;
+      --no: #ad2831;
+      --blue: #2f5d9e;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, "Segoe UI", Arial, sans-serif;
+      color: var(--ink);
+      background: var(--paper);
+      line-height: 1.5;
+    }
+    header {
+      padding: 28px 32px 18px;
+      border-bottom: 1px solid var(--line);
+      background: #fff;
+    }
+    main {
+      max-width: 1380px;
+      margin: 0 auto;
+      padding: 24px 32px 40px;
+    }
+    h1, h2, h3 { margin: 0; font-weight: 700; letter-spacing: 0; }
+    h1 { font-size: 26px; }
+    h2 { font-size: 18px; margin-bottom: 12px; }
+    h3 { font-size: 14px; }
+    p { margin: 6px 0 0; color: var(--muted); }
+    section {
+      margin-top: 24px;
+      padding-top: 22px;
+      border-top: 1px solid var(--line);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--panel);
+      border: 1px solid var(--line);
+    }
+    th, td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+      font-size: 13px;
+    }
+    th { color: var(--muted); font-weight: 650; background: #f1f3f8; }
+    code {
+      font-family: "Cascadia Mono", Consolas, monospace;
+      font-size: 12px;
+      color: #26324a;
+    }
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 14px;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 4px 10px;
+      border: 1px solid var(--line);
+      background: #fff;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .status-go { color: var(--go); font-weight: 700; }
+    .status-partial { color: var(--partial); font-weight: 700; }
+    .status-no_go, .status-no-go { color: var(--no); font-weight: 700; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 16px;
+    }
+    .board {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      padding: 14px;
+      min-width: 0;
+    }
+    .board img {
+      display: block;
+      width: 100%;
+      max-height: 620px;
+      object-fit: contain;
+      margin-top: 10px;
+      background:
+        linear-gradient(45deg, #eceff5 25%, transparent 25%),
+        linear-gradient(-45deg, #eceff5 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #eceff5 75%),
+        linear-gradient(-45deg, transparent 75%, #eceff5 75%);
+      background-size: 18px 18px;
+      background-position: 0 0, 0 9px, 9px -9px, -9px 0;
+      border: 1px solid var(--line);
+    }
+    .blockers {
+      columns: 2 320px;
+      padding-left: 18px;
+      margin: 8px 0 0;
+      color: var(--ink);
+    }
+    .blockers li { break-inside: avoid; margin-bottom: 6px; }
+    .note {
+      border-left: 3px solid var(--blue);
+      background: #fff;
+      padding: 10px 12px;
+      color: var(--muted);
+    }
+    @media (max-width: 720px) {
+      header, main { padding-left: 16px; padding-right: 16px; }
+      h1 { font-size: 22px; }
+      th, td { font-size: 12px; padding: 8px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Su Shixia Live2D V2 Review Dashboard</h1>
+    <p>Static local review board for source art, Lite runtime motion, wardrobe preview, GitHub reference scan, and delivery Go/No-Go state.</p>
+    <div class="meta">
+      <span class="pill">Package <code>su-shixia-live2d-v2</code></span>
+      <span class="pill">Generated <code>2026-08-24</code></span>
+      <span class="pill">Overall <span class="status-no_go">NO_GO</span></span>
+      <span class="pill">Blockers <code>12</code></span>
+    </div>
+  </header>
+  <main>
+    <section>
+      <h2>Delivery Stage Summary</h2>
+      <table>
+        <thead><tr><th>Stage</th><th>Status</th><th>Checks</th></tr></thead>
+        <tbody>
+          <tr><td><code>requirements</code></td><td><span class="status-go">GO</span></td><td>concept-baseline-approved: pass<br>athena-default-variant: pass</td></tr>
+          <tr><td><code>source-and-layering</code></td><td><span class="status-no_go">NO_GO</span></td><td>transparent-master: pass<br>layered-baseline: pass<br>parts-count: pass<br>human-layer-review-approved: fail (manual review remains required)<br>hidden-fill-review-approved: fail (manual hidden-fill review remains required)<br>alignment-review-approved: fail (alignment review remains required)</td></tr>
+          <tr><td><code>lite-runtime</code></td><td><span class="status-go">GO</span></td><td>lite-runtime-ready: pass<br>runtime-ready: pass<br>layers: pass<br>hot-zones: pass<br>motions: pass<br>visual-qa-ready: pass<br>motion-frames-visible: pass<br>motion-deltas-visible: pass</td></tr>
+          <tr><td><code>appearance-and-wardrobe</code></td><td><span class="status-partial">PARTIAL</span></td><td>appearance-preview-ready: pass<br>appearance-qa-ready: pass<br>appearance-preset-count: pass<br>preview-only: pass (current appearance presets are preview-only)<br>true-outfit-swap: fail (true outfit source layers and Cubism bindings are not ready)</td></tr>
+          <tr><td><code>interaction</code></td><td><span class="status-go">GO</span></td><td>interaction-policy: pass<br>normal-boundary: pass<br>private-opt-in-boundary: pass<br>persona-reply-delegation: pass<br>private-mode-opt-in: pass<br>semantic-hot-zones: pass<br>private-zone-boundaries: pass</td></tr>
+          <tr><td><code>cubism-handoff</code></td><td><span class="status-go">GO</span></td><td>editor-installed: pass<br>handoff-ready: pass<br>readiness-checklist: pass<br>export-gate: pass<br>motion-template-count: pass<br>physics-template: pass<br>headless-export-unavailable: pass (manual Editor export remains required)</td></tr>
+          <tr><td><code>genuine-cubism-export</code></td><td><span class="status-no_go">NO_GO</span></td><td>export-audit-ready: pass<br>runtime-proof-template-ready: pass<br>runtime-proof-not-template: fail (runtime proof is still a template)<br>cubism-export-ready: fail (no genuine .moc3 export yet)<br>cubism-project-ready: fail (no Cubism project committed/exported yet)<br>export-audit-go: fail (export audit status=no_go)</td></tr>
+          <tr><td><code>distribution</code></td><td><span class="status-no_go">NO_GO</span></td><td>public-installer-allowed: fail (public installer is intentionally blocked)<br>store-package-allowed: fail (Store package is intentionally blocked)<br>source-release-excluded: pass<br>rights-review: fail (rights review remains required)<br>live2d-license-review: fail (Live2D license review remains required)</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Review Boards</h2>
+      <div class="grid">
+        <article class="board">
+          <h3>Source alignment</h3>
+          <p>Default-state source placement and target review.</p>
+          <img src="front-alignment-preview-v1.png" alt="Source alignment">
+        </article>
+        <article class="board">
+          <h3>Display scale</h3>
+          <p>Full-body readability at chat, overlay, pet, and compact sizes.</p>
+          <img src="front-source-scale-preview-v1.png" alt="Display scale">
+        </article>
+        <article class="board">
+          <h3>Parts sheet</h3>
+          <p>Named transparent source parts and layer-slice coverage.</p>
+          <img src="../parts/parts-contact-sheet-v1.png" alt="Parts sheet">
+        </article>
+        <article class="board">
+          <h3>Motion QA</h3>
+          <p>Lite preview motion frames and touch reactions.</p>
+          <img src="runtime-visual-qa-v1/runtime-motion-contact-sheet-v1.png" alt="Motion QA">
+        </article>
+        <article class="board">
+          <h3>Appearance QA</h3>
+          <p>Preview-only hair, eye, outfit tint, and hair-clip variants.</p>
+          <img src="runtime-visual-qa-v1/runtime-appearance-contact-sheet-v1.png" alt="Appearance QA">
+        </article>
+      </div>
+    </section>
+
+    <section>
+      <h2>GitHub Reference Scan</h2>
+      <p class="note">These repositories inform structure, runtime behavior, and future input routes. They are not imported character assets.</p>
+      <table>
+        <thead><tr><th>Repository</th><th>License</th><th>Stars</th><th>Use</th><th>Boundary</th></tr></thead>
+        <tbody>
+          <tr><td><a href="https://github.com/Live2D/CubismWebSamples">Live2D/CubismWebSamples</a></td><td><code>NOASSERTION</code></td><td>387</td><td>Official package shape, motion group layout, Cubism Web runtime expectations.</td><td>Use as structural reference only; do not copy sample character assets into Su Shixia.</td></tr>
+          <tr><td><a href="https://github.com/Live2D/CubismNativeSamples">Live2D/CubismNativeSamples</a></td><td><code>NOASSERTION</code></td><td>237</td><td>Cross-runtime confirmation for model, motion, physics, texture, and export package layout.</td><td>Native runtime is not Athena desktop renderer; keep implementation in the existing Web/Electron path.</td></tr>
+          <tr><td><a href="https://github.com/guansss/pixi-live2d-display">guansss/pixi-live2d-display</a></td><td><code>MIT</code></td><td>1495</td><td>Pixi display, hit-test, expression, and motion playback patterns for desktop interaction.</td><td>Useful runtime reference; still requires Live2D Cubism Core licensing review before distribution.</td></tr>
+          <tr><td><a href="https://github.com/DenchiSoft/VTubeStudio">DenchiSoft/VTubeStudio</a></td><td><code>MIT</code></td><td>1274</td><td>Triggering, tracking, and parameter-control workflow ideas for model-driven reactions.</td><td>Workflow reference only; no VTube Studio app assets or API assumptions in the core package.</td></tr>
+          <tr><td><a href="https://github.com/shinshin86/live2d-add-motion-sample-web-ui">shinshin86/live2d-add-motion-sample-web-ui</a></td><td><code>MIT</code></td><td>121</td><td>Engineering reference for adding motion JSON definitions to an existing model package.</td><td>Borrow the workflow concept; authored Su Shixia motion data remains local to Athena.</td></tr>
+          <tr><td><a href="https://github.com/emilianavt/OpenSeeFace">emilianavt/OpenSeeFace</a></td><td><code>BSD-2-Clause</code></td><td>2034</td><td>Optional future face and landmark tracking input source for gaze, blink, and expression parameters.</td><td>Not needed for the current Lite preview; do not add as a dependency until a camera feature is explicitly scoped.</td></tr>
+          <tr><td><a href="https://github.com/Inochi2D/inochi2d">Inochi2D/inochi2d</a></td><td><code>BSD-2-Clause</code></td><td>1771</td><td>Useful contrast for open 2D rigging concepts and parameterized puppet design.</td><td>Not a Cubism replacement for Athena V2; genuine Cubism export remains the target.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Open Manual Findings</h2>
+      <table>
+        <thead><tr><th>Area</th><th>Severity</th><th>Status</th><th>Note</th></tr></thead>
+        <tbody>
+          <tr><td><code>mouth</code></td><td><code>medium</code></td><td><code>provisional</code></td><td>Style is softer than v1 but still requires final illustrator and Cubism deformation review.</td></tr>
+          <tr><td><code>hands</code></td><td><code>medium</code></td><td><code>provisional</code></td><td>Neutral and cheek-touch variants exist; anatomy, wrist joins, and hidden fill require rigger review.</td></tr>
+          <tr><td><code>hidden-fill</code></td><td><code>high</code></td><td><code>required</code></td><td>Automated torso, blouse, skirt, and limb fills are not a substitute for hand-painted occluded regions.</td></tr>
+          <tr><td><code>alignment</code></td><td><code>high</code></td><td><code>required</code></td><td>Target rectangles are production estimates and need user-visible approval before Cubism import.</td></tr>
+          <tr><td><code>display-scale</code></td><td><code>medium</code></td><td><code>runtime-rule</code></td><td>A 220 px full-body render cannot carry readable facial emotion; compact placement must use a bust crop or a larger minimum height.</td></tr>
+          <tr><td><code>multi-view</code></td><td><code>high</code></td><td><code>not-started</code></td><td>Profile and back source packages remain separate future work.</td></tr>
+          <tr><td><code>hand-arm-layering</code></td><td><code>high</code></td><td><code>needs-human-polish</code></td><td>Current front source shows visible arm and hand cut-layer limitations in several poses. Runtime can animate the state, but final public art still needs manual hidden-fill and anatomy cleanup.</td></tr>
+          <tr><td><code>lower-body-layering</code></td><td><code>medium</code></td><td><code>needs-human-polish</code></td><td>Shoes, calves, and skirt occlusion are structurally present but still read as provisional automated slices at full-body review scale.</td></tr>
+          <tr><td><code>full-turn</code></td><td><code>high</code></td><td><code>not-production-ready</code></td><td>TurnPreview is a front-view 2.5D hint. True side/back turn behavior requires separate reviewed source views or a genuine Cubism rig with authored deformers.</td></tr>
+          <tr><td><code>true-wardrobe-swap</code></td><td><code>high</code></td><td><code>not-production-ready</code></td><td>Appearance presets are tint and accessory-visibility previews over the same white-blouse and pleated-skirt silhouette. New clothing silhouettes require new reviewed source layers and Cubism binding.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Blockers</h2>
+      <ul class="blockers">
+        <li><code>source-and-layering:human-layer-review-approved</code></li>
+        <li><code>source-and-layering:hidden-fill-review-approved</code></li>
+        <li><code>source-and-layering:alignment-review-approved</code></li>
+        <li><code>appearance-and-wardrobe:true-outfit-swap</code></li>
+        <li><code>genuine-cubism-export:runtime-proof-not-template</code></li>
+        <li><code>genuine-cubism-export:cubism-export-ready</code></li>
+        <li><code>genuine-cubism-export:cubism-project-ready</code></li>
+        <li><code>genuine-cubism-export:export-audit-go</code></li>
+        <li><code>distribution:public-installer-allowed</code></li>
+        <li><code>distribution:store-package-allowed</code></li>
+        <li><code>distribution:rights-review</code></li>
+        <li><code>distribution:live2d-license-review</code></li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Next Required Evidence</h2>
+      <table>
+        <thead><tr><th>Evidence</th></tr></thead>
+        <tbody>
+          <tr><td>Human art review approval for source alignment, hands, lower body, hidden fill, and turn behavior.</td></tr>
+          <tr><td>Separate source layers/drawables for true clothing variants beyond preview tint presets.</td></tr>
+          <tr><td>Cubism Editor project and exported moc3/model3/physics/cdi/texture files.</td></tr>
+          <tr><td>Cubism Web runtime proof replacing the template_unverified proof JSON.</td></tr>
+          <tr><td>Rights review and Live2D license review before public distribution.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Runtime Proof Boundary</h2>
+      <table>
+        <tbody>
+          <tr><th>Current renderer proof</th><td><code>unverified</code> / <code>template_unverified</code></td></tr>
+          <tr><th>Export audit</th><td><code>no_go</code></td></tr>
+          <tr><th>Public package</th><td><code>blocked</code></td></tr>
+          <tr><th>Store package</th><td><code>blocked</code></td></tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+</body>
+</html>

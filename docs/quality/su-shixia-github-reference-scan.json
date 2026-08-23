@@ -1,0 +1,78 @@
+{
+  "version": 1,
+  "generatedAt": "2026-08-24",
+  "source": "GitHub API snapshot plus repository review notes",
+  "packageId": "su-shixia-live2d-v2",
+  "status": "reference_scan_ready",
+  "repositories": [
+    {
+      "repo": "Live2D/CubismWebSamples",
+      "url": "https://github.com/Live2D/CubismWebSamples",
+      "license": "NOASSERTION",
+      "stars": 387,
+      "pushedAt": "2026-04-02T02:28:14Z",
+      "use": "Official package shape, motion group layout, Cubism Web runtime expectations.",
+      "boundary": "Use as structural reference only; do not copy sample character assets into Su Shixia."
+    },
+    {
+      "repo": "Live2D/CubismNativeSamples",
+      "url": "https://github.com/Live2D/CubismNativeSamples",
+      "license": "NOASSERTION",
+      "stars": 237,
+      "pushedAt": "2026-04-02T02:25:54Z",
+      "use": "Cross-runtime confirmation for model, motion, physics, texture, and export package layout.",
+      "boundary": "Native runtime is not Athena desktop renderer; keep implementation in the existing Web/Electron path."
+    },
+    {
+      "repo": "guansss/pixi-live2d-display",
+      "url": "https://github.com/guansss/pixi-live2d-display",
+      "license": "MIT",
+      "stars": 1495,
+      "pushedAt": "2024-08-20T04:41:10Z",
+      "use": "Pixi display, hit-test, expression, and motion playback patterns for desktop interaction.",
+      "boundary": "Useful runtime reference; still requires Live2D Cubism Core licensing review before distribution."
+    },
+    {
+      "repo": "DenchiSoft/VTubeStudio",
+      "url": "https://github.com/DenchiSoft/VTubeStudio",
+      "license": "MIT",
+      "stars": 1274,
+      "pushedAt": "2026-08-12T17:22:32Z",
+      "use": "Triggering, tracking, and parameter-control workflow ideas for model-driven reactions.",
+      "boundary": "Workflow reference only; no VTube Studio app assets or API assumptions in the core package."
+    },
+    {
+      "repo": "shinshin86/live2d-add-motion-sample-web-ui",
+      "url": "https://github.com/shinshin86/live2d-add-motion-sample-web-ui",
+      "license": "MIT",
+      "stars": 121,
+      "pushedAt": "2026-07-13T13:39:41Z",
+      "use": "Engineering reference for adding motion JSON definitions to an existing model package.",
+      "boundary": "Borrow the workflow concept; authored Su Shixia motion data remains local to Athena."
+    },
+    {
+      "repo": "emilianavt/OpenSeeFace",
+      "url": "https://github.com/emilianavt/OpenSeeFace",
+      "license": "BSD-2-Clause",
+      "stars": 2034,
+      "pushedAt": "2025-12-28T11:52:30Z",
+      "use": "Optional future face and landmark tracking input source for gaze, blink, and expression parameters.",
+      "boundary": "Not needed for the current Lite preview; do not add as a dependency until a camera feature is explicitly scoped."
+    },
+    {
+      "repo": "Inochi2D/inochi2d",
+      "url": "https://github.com/Inochi2D/inochi2d",
+      "license": "BSD-2-Clause",
+      "stars": 1771,
+      "pushedAt": "2026-08-01T20:34:43Z",
+      "use": "Useful contrast for open 2D rigging concepts and parameterized puppet design.",
+      "boundary": "Not a Cubism replacement for Athena V2; genuine Cubism export remains the target."
+    }
+  ],
+  "adoptedDecisions": [
+    "Keep official Live2D samples as package and timing references, not copied assets.",
+    "Use Pixi and VTube Studio ecosystem ideas for hit-test, motion trigger, and parameter-control design.",
+    "Keep face-tracking and alternate rigging ecosystems as future research, not current dependencies.",
+    "Do not claim a genuine Cubism default until Editor export and Cubism Web proof replace the current Lite preview."
+  ]
+}

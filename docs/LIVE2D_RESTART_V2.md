@@ -236,6 +236,18 @@ Produced on 2026-08-24:
 
 Stage 3G status: `DELIVERY AUDIT READY, OVERALL NO-GO`. The report now aggregates the full chain instead of only export state. It marks requirements, Lite runtime, interaction, and Cubism Editor handoff as GO; appearance/wardrobe as PARTIAL; source/layering, genuine Cubism export, and distribution as NO-GO until human art review, true outfit source/drawables, real Cubism export/runtime proof, rights review, and Live2D license review exist.
 
+## Stage 3H Current Evidence
+
+Produced on 2026-08-24:
+
+- static review dashboard: `assets/avatar/su-shixia-live2d-v2/source/review/su-shixia-live2d-v2-review-dashboard.html`;
+- GitHub reference scan: `docs/quality/su-shixia-github-reference-scan.json`;
+- dashboard generator: `scripts/generate-su-shixia-review-dashboard.js`;
+- dashboard verifier: `scripts/verify-su-shixia-review-dashboard.js`;
+- npm command: `npm.cmd run test:live2d:su-shixia-review-dashboard`.
+
+Stage 3H status: `REVIEW DASHBOARD READY, OVERALL STILL NO-GO`. The dashboard combines source alignment, source scale, source part sheet, Lite motion QA, appearance QA, GitHub reference sources, delivery blockers, manual findings, and Cubism proof boundaries into one local page. The GitHub scan informs package structure, runtime interaction, motion trigger workflow, and future face-tracking research, but it does not import third-party character assets or replace the required Cubism Editor export.
+
 ## Acceptance Gates
 
 V2 cannot become the final public Cubism default until all are true:
