@@ -1,0 +1,61 @@
+{
+  "assetId": "su-shixia-body-topology-base-v1",
+  "generatedAt": "2026-08-24",
+  "mode": "OpenAI built-in image generation",
+  "sourceImages": [
+    "assets/avatar/su-shixia-live2d-v2/source/su-shixia-front-master-v2-alpha.png",
+    "docs/concepts/su-shixia-live2d-v2-default-turnaround-v1.png"
+  ],
+  "generatedRaw": "body-base/raw/su-shixia-body-topology-base-v1-green.png",
+  "alphaOutput": "body-base/source/su-shixia-body-topology-base-v1-alpha.png",
+  "extraction": {
+    "script": "scripts/extract-live2d-chroma-background.js",
+    "width": 1610,
+    "height": 977,
+    "transparentPixels": 1187936,
+    "partialPixels": 12725,
+    "opaquePixels": 372309,
+    "visibleGreenFringePixels": 0,
+    "foregroundBounds": {
+      "minX": 103,
+      "minY": 33,
+      "maxX": 1480,
+      "maxY": 914
+    }
+  },
+  "promptSummary": {
+    "useCase": "stylized-concept",
+    "assetType": "private Live2D/layered-2D body topology base for outfit fitting and multi-view rig planning",
+    "character": "Su Shixia, adult age 21, semi-real 50 percent realistic and 50 percent anime",
+    "views": [
+      "front",
+      "frontThreeQuarter",
+      "side",
+      "back"
+    ],
+    "baseLayer": "seamless opaque matte warm-gray technical compression base layer / unitard",
+    "background": "pure #00FF00 chroma green"
+  },
+  "blockedAttempts": [
+    {
+      "requestId": "1b1c851d-126f-4301-a6c1-1aa7aff0e11f",
+      "date": "2026-08-24",
+      "reason": "moderation_blocked",
+      "category": "sexual",
+      "note": "Explicit unclothed body-form request was blocked."
+    },
+    {
+      "requestId": "7b4d2643-fc01-43c4-9c02-25dbe72161e4",
+      "date": "2026-08-24",
+      "reason": "moderation_blocked",
+      "category": "sexual",
+      "note": "Smooth featureless unclothed mannequin request was blocked."
+    }
+  ],
+  "reviewNotes": [
+    "Usable as a first private outfit-fitting base.",
+    "Four-view consistency is acceptable for concept alignment but not final rig alignment.",
+    "Front three-quarter feet and hand alignment need cleanup before layered PSD production.",
+    "Back and side silhouettes should be reviewed before final hit-area and motion planning."
+  ]
+}

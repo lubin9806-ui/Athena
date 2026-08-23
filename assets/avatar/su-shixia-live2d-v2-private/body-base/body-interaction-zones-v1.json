@@ -1,0 +1,128 @@
+{
+  "id": "su-shixia-body-interaction-zones-v1",
+  "status": "semantic_plan_only",
+  "coordinateSpace": "pending_per_view_hit_mesh",
+  "responsePolicy": {
+    "personaDriven": true,
+    "normalMode": "allow nonsexual affection, assistant, and companionship reactions only",
+    "privateMode": "allow warmer or more intimate reactions only after explicit user opt-in",
+    "adultMode": "separate gated package; never part of public default distribution",
+    "runtimeValidationRequired": true
+  },
+  "zones": [
+    {
+      "id": "hair",
+      "displayName": "Hair",
+      "sensitivity": "low",
+      "suggestedReactions": ["soft glance", "small smile", "hair sway", "tidy hair gesture"]
+    },
+    {
+      "id": "forehead",
+      "displayName": "Forehead",
+      "sensitivity": "medium",
+      "suggestedReactions": ["blink", "look up", "gentle shy smile"]
+    },
+    {
+      "id": "face_cheek",
+      "displayName": "Face And Cheek",
+      "sensitivity": "medium",
+      "suggestedReactions": ["blush", "avert eyes", "lean toward touch", "small embarrassed smile"]
+    },
+    {
+      "id": "mouth_chin",
+      "displayName": "Mouth And Chin",
+      "sensitivity": "medium",
+      "suggestedReactions": ["surprised blink", "lipsync pause", "shy look away"]
+    },
+    {
+      "id": "neck_collar",
+      "displayName": "Neck And Collar",
+      "sensitivity": "high",
+      "suggestedReactions": ["shoulder tuck", "blush", "small recoil", "ask intent in persona voice"]
+    },
+    {
+      "id": "shoulders",
+      "displayName": "Shoulders",
+      "sensitivity": "low",
+      "suggestedReactions": ["shoulder bounce", "turn head", "relaxed smile"]
+    },
+    {
+      "id": "arms",
+      "displayName": "Arms",
+      "sensitivity": "low",
+      "suggestedReactions": ["hand lift", "sleeve adjustment", "look at touch point"]
+    },
+    {
+      "id": "hands",
+      "displayName": "Hands",
+      "sensitivity": "medium",
+      "suggestedReactions": ["hand hold prompt", "finger curl", "soft eye contact"]
+    },
+    {
+      "id": "chest",
+      "displayName": "Chest",
+      "sensitivity": "high",
+      "suggestedReactions": ["strong blush", "protective hand cover", "step back", "persona-gated response"]
+    },
+    {
+      "id": "waist",
+      "displayName": "Waist",
+      "sensitivity": "medium",
+      "suggestedReactions": ["side bend", "look down", "small laugh", "posture shift"]
+    },
+    {
+      "id": "abdomen",
+      "displayName": "Abdomen",
+      "sensitivity": "medium",
+      "suggestedReactions": ["breath hitch", "light recoil", "shy glance"]
+    },
+    {
+      "id": "hips",
+      "displayName": "Hips",
+      "sensitivity": "high",
+      "suggestedReactions": ["turn away", "protective hand cover", "persona-gated response"]
+    },
+    {
+      "id": "skirt_clothing",
+      "displayName": "Skirt Or Clothing",
+      "sensitivity": "high",
+      "suggestedReactions": ["adjust clothing", "step back", "warning look", "persona-gated response"]
+    },
+    {
+      "id": "thighs",
+      "displayName": "Thighs",
+      "sensitivity": "high",
+      "suggestedReactions": ["knees together", "turn side", "strong blush", "persona-gated response"]
+    },
+    {
+      "id": "knees",
+      "displayName": "Knees",
+      "sensitivity": "low",
+      "suggestedReactions": ["weight shift", "knee bend", "look down"]
+    },
+    {
+      "id": "lower_legs",
+      "displayName": "Lower Legs",
+      "sensitivity": "low",
+      "suggestedReactions": ["foot shift", "small step", "look down"]
+    },
+    {
+      "id": "feet",
+      "displayName": "Feet",
+      "sensitivity": "medium",
+      "suggestedReactions": ["toe curl", "step back", "shy glance"]
+    },
+    {
+      "id": "back",
+      "displayName": "Back",
+      "sensitivity": "medium",
+      "suggestedReactions": ["turn head over shoulder", "hair sway", "small startled motion"]
+    }
+  ],
+  "nextSteps": [
+    "split each orientation into its own source image",
+    "define per-view hit polygons after mesh topology is stable",
+    "map each zone to motion ids, expression ids, and persona prompt tags",
+    "add cooldowns and consent gates in runtime"
+  ]
+}

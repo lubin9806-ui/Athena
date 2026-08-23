@@ -1,0 +1,49 @@
+{
+  "id": "su-shixia-live2d-v2-private",
+  "displayName": "Su Shixia Live2D V2 Private Source Pack",
+  "version": "0.1.0",
+  "status": "private_body_topology_review_required",
+  "sourceOnly": true,
+  "privateOnly": true,
+  "adultOptInOnly": true,
+  "sourceArt": {
+    "bodyTopologyRaw": "body-base/raw/su-shixia-body-topology-base-v1-green.png",
+    "bodyTopologyAlpha": "body-base/source/su-shixia-body-topology-base-v1-alpha.png",
+    "bodyTopologyProvenance": "body-base/provenance.json",
+    "interactionZones": "body-base/body-interaction-zones-v1.json"
+  },
+  "production": {
+    "bodyTopologyBaseReady": true,
+    "bodyTopologyAlphaReady": true,
+    "multiViewSheetReady": true,
+    "splitViewsReady": false,
+    "layeredPsdReady": false,
+    "cubismProjectReady": false,
+    "cubismExportReady": false,
+    "runtimeReady": false,
+    "hitAreaPolygonsReady": false,
+    "outfitOverlayReady": false
+  },
+  "distribution": {
+    "publicInstallerAllowed": false,
+    "storePackageAllowed": false,
+    "sourceFilesReleaseExcluded": true,
+    "requiresExplicitUserOptIn": true,
+    "rightsReviewRequired": true,
+    "live2dLicenseReviewRequired": true
+  },
+  "safetyBoundary": {
+    "containsExplicitNudeAnatomy": false,
+    "containsSexualPose": false,
+    "normalModeAllowed": false,
+    "privateModeAllowed": true,
+    "publicDefaultCharacterAllowed": false,
+    "responseTextDelegatedToPersonaModel": true,
+    "runtimeMustGateAdultReactions": true
+  },
+  "generation": {
+    "method": "OpenAI built-in image generation plus local chroma extraction",
+    "generatedAt": "2026-08-24",
+    "humanPolish": "required"
+  }
+}
