@@ -51,10 +51,18 @@ Required direction:
 - Full-body and bust compositions designed for Live2D deformation from the start.
 - No claim of photographic likeness or real-person identity.
 
+Current approved baseline:
+
+- Su Shixia is the public default character and combines companion, virtual partner, and assistant roles.
+- The active Persona Engine profile drives personality, motion energy, voice behavior, and interaction style.
+- The temporary V3 visual target uses a soft white blouse and deep navy pleated skirt for the default outfit.
+- Athena identity comes from the complete face, hair, silver A-shaped hair clip, motion, voice, and interaction system. Do not force identity through rigid technology trim.
+- Full requirements: `docs/LIVE2D_SU_SHIXIA_V2_REQUIREMENTS.md`.
+
 Avoid:
 
-- Generic white blouse plus pleated skirt as the main identity.
-- School uniform framing.
+- School-uniform framing, badges, sailor collars, or school-role language around the approved blouse and skirt.
+- Rigid blazers, geometric collars, cyan piping, and mechanical costume trim as the main identity.
 - Flat front-only art that lacks separated deformation intent.
 - Feature work that compensates for weak art direction.
 
@@ -91,6 +99,21 @@ Avoid:
 - Keep Haru available as a reference package.
 - Keep user package import and customization separate from Persona Engine.
 
+## Stage 1 Current Evidence
+
+Produced on 2026-08-23:
+
+- requirements baseline: `docs/LIVE2D_SU_SHIXIA_V2_REQUIREMENTS.md`;
+- full-body interaction contract: `docs/LIVE2D_SU_SHIXIA_V2_INTERACTION_CONTRACT.md`;
+- layer and multi-view rig plan: `docs/LIVE2D_SU_SHIXIA_V2_LAYER_PLAN.md`;
+- selected temporary outfit baseline: `docs/concepts/su-shixia-live2d-v2-four-outfits-v3-soft.png`;
+- default-outfit turnaround: `docs/concepts/su-shixia-live2d-v2-default-turnaround-v1.png`;
+- expression direction: `docs/concepts/su-shixia-live2d-v2-expressions-v1.png`;
+- mouth-shape direction: `docs/concepts/su-shixia-live2d-v2-mouth-shapes-v1.png`;
+- turn and face-touch motion storyboard: `docs/concepts/su-shixia-live2d-v2-turn-touch-storyboard-v1.png`.
+
+Stage 1 status: `REVIEW REQUIRED`. These artifacts define direction and production requirements. They are not a layered PSD, Cubism project, `.moc3`, runtime turn implementation, or adult content package.
+
 ## Acceptance Gates
 
 V2 cannot become the default until all are true:
@@ -105,4 +128,4 @@ V2 cannot become the default until all are true:
 
 ## Immediate Next Step
 
-Create the v2 visual target before touching more runtime code. The next deliverable should be a new concept board or model sheet, not another patch to the v1 character.
+Use the selected V3 concept as a temporary visual target and complete the Stage 1 model sheet: turnarounds, facial landmarks, expression range, mouth-shape direction, and hair/outfit separation notes. Do not start layered-source or Cubism work until that sheet receives human approval.
