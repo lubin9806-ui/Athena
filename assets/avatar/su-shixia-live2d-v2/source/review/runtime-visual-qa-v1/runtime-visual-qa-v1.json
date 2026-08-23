@@ -1,0 +1,259 @@
+{
+  "version": 1,
+  "generatedAt": "2026-08-24",
+  "status": "runtime_visual_qa_ready",
+  "sourceModel": "model/su-shixia-live2d-v2-lite.model3.json",
+  "contactSheet": "runtime-motion-contact-sheet-v1.png",
+  "checks": {
+    "transparentBackground": true,
+    "individualFrames": 11,
+    "requiredMotionCases": [
+      "Idle",
+      "Listen",
+      "Speak",
+      "TouchFace",
+      "TouchEar",
+      "TouchChest",
+      "TouchWaist",
+      "TouchSkirt",
+      "TouchThigh",
+      "TurnPreview",
+      "Sleepy"
+    ],
+    "allFramesVisible": true,
+    "motionFramesDifferFromIdle": true,
+    "noOfficialCubismClaim": true
+  },
+  "frames": [
+    {
+      "id": "idle",
+      "motionGroup": "Idle",
+      "seconds": 2.2,
+      "file": "idle.png",
+      "visiblePixels": 418051,
+      "partialAlphaPixels": 12549,
+      "bounds": {
+        "minX": 205,
+        "minY": 46,
+        "maxX": 713,
+        "maxY": 1668
+      },
+      "diffFromIdle": {
+        "changedPixels": 0,
+        "changedVisiblePixels": 0,
+        "meanAlphaDelta": 0
+      }
+    },
+    {
+      "id": "listen",
+      "motionGroup": "Listen",
+      "seconds": 0.85,
+      "file": "listen.png",
+      "visiblePixels": 417159,
+      "partialAlphaPixels": 12325,
+      "bounds": {
+        "minX": 205,
+        "minY": 53,
+        "maxX": 713,
+        "maxY": 1668
+      },
+      "diffFromIdle": {
+        "changedPixels": 116074,
+        "changedVisiblePixels": 116074,
+        "meanAlphaDelta": 1.0039
+      }
+    },
+    {
+      "id": "speak",
+      "motionGroup": "Speak",
+      "seconds": 0.52,
+      "file": "speak.png",
+      "visiblePixels": 418161,
+      "partialAlphaPixels": 12434,
+      "bounds": {
+        "minX": 205,
+        "minY": 48,
+        "maxX": 713,
+        "maxY": 1668
+      },
+      "diffFromIdle": {
+        "changedPixels": 72894,
+        "changedVisiblePixels": 72894,
+        "meanAlphaDelta": 0.3622
+      }
+    },
+    {
+      "id": "touch-face",
+      "motionGroup": "TouchFace",
+      "seconds": 0.55,
+      "file": "touch-face.png",
+      "visiblePixels": 424898,
+      "partialAlphaPixels": 18741,
+      "bounds": {
+        "minX": 205,
+        "minY": 46,
+        "maxX": 713,
+        "maxY": 1668
+      },
+      "diffFromIdle": {
+        "changedPixels": 99140,
+        "changedVisiblePixels": 99140,
+        "meanAlphaDelta": 1.5135
+      }
+    },
+    {
+      "id": "touch-ear",
+      "motionGroup": "TouchEar",
+      "seconds": 0.42,
+      "file": "touch-ear.png",
+      "visiblePixels": 418494,
+      "partialAlphaPixels": 12564,
+      "bounds": {
+        "minX": 205,
+        "minY": 46,
+        "maxX": 713,
+        "maxY": 1668
+      },
+      "diffFromIdle": {
+        "changedPixels": 102836,
+        "changedVisiblePixels": 102836,
+        "meanAlphaDelta": 1.2045
+      }
+    },
+    {
+      "id": "touch-chest",
+      "motionGroup": "TouchChest",
+      "seconds": 0.5,
+      "file": "touch-chest.png",
+      "visiblePixels": 417581,
+      "partialAlphaPixels": 12386,
+      "bounds": {
+        "minX": 205,
+        "minY": 51,
+        "maxX": 713,
+        "maxY": 1668
+      },
+      "diffFromIdle": {
+        "changedPixels": 115021,
+        "changedVisiblePixels": 115021,
+        "meanAlphaDelta": 1.082
+      }
+    },
+    {
+      "id": "touch-waist",
+      "motionGroup": "TouchWaist",
+      "seconds": 0.58,
+      "file": "touch-waist.png",
+      "visiblePixels": 418583,
+      "partialAlphaPixels": 12540,
+      "bounds": {
+        "minX": 205,
+        "minY": 46,
+        "maxX": 713,
+        "maxY": 1668
+      },
+      "diffFromIdle": {
+        "changedPixels": 76310,
+        "changedVisiblePixels": 76310,
+        "meanAlphaDelta": 0.6635
+      }
+    },
+    {
+      "id": "touch-skirt",
+      "motionGroup": "TouchSkirt",
+      "seconds": 0.52,
+      "file": "touch-skirt.png",
+      "visiblePixels": 418556,
+      "partialAlphaPixels": 12545,
+      "bounds": {
+        "minX": 205,
+        "minY": 46,
+        "maxX": 713,
+        "maxY": 1668
+      },
+      "diffFromIdle": {
+        "changedPixels": 45734,
+        "changedVisiblePixels": 45734,
+        "meanAlphaDelta": 0.2356
+      }
+    },
+    {
+      "id": "touch-thigh",
+      "motionGroup": "TouchThigh",
+      "seconds": 0.52,
+      "file": "touch-thigh.png",
+      "visiblePixels": 417799,
+      "partialAlphaPixels": 12445,
+      "bounds": {
+        "minX": 205,
+        "minY": 49,
+        "maxX": 713,
+        "maxY": 1668
+      },
+      "diffFromIdle": {
+        "changedPixels": 97152,
+        "changedVisiblePixels": 97152,
+        "meanAlphaDelta": 0.6091
+      }
+    },
+    {
+      "id": "turn-preview",
+      "motionGroup": "TurnPreview",
+      "seconds": 0.82,
+      "file": "turn-preview.png",
+      "visiblePixels": 418568,
+      "partialAlphaPixels": 12672,
+      "bounds": {
+        "minX": 205,
+        "minY": 46,
+        "maxX": 713,
+        "maxY": 1668
+      },
+      "diffFromIdle": {
+        "changedPixels": 155351,
+        "changedVisiblePixels": 155351,
+        "meanAlphaDelta": 2.382
+      }
+    },
+    {
+      "id": "sleepy",
+      "motionGroup": "Sleepy",
+      "seconds": 1.1,
+      "file": "sleepy.png",
+      "visiblePixels": 415746,
+      "partialAlphaPixels": 12224,
+      "bounds": {
+        "minX": 205,
+        "minY": 58,
+        "maxX": 713,
+        "maxY": 1668
+      },
+      "diffFromIdle": {
+        "changedPixels": 82198,
+        "changedVisiblePixels": 82198,
+        "meanAlphaDelta": 1.1795
+      }
+    }
+  ],
+  "manualReviewFindings": [
+    {
+      "area": "hand-arm-layering",
+      "status": "needs-human-polish",
+      "severity": "high",
+      "note": "Current front source shows visible arm and hand cut-layer limitations in several poses. Runtime can animate the state, but final public art still needs manual hidden-fill and anatomy cleanup."
+    },
+    {
+      "area": "lower-body-layering",
+      "status": "needs-human-polish",
+      "severity": "medium",
+      "note": "Shoes, calves, and skirt occlusion are structurally present but still read as provisional automated slices at full-body review scale."
+    },
+    {
+      "area": "full-turn",
+      "status": "not-production-ready",
+      "severity": "high",
+      "note": "TurnPreview is a front-view 2.5D hint. True side/back turn behavior requires separate reviewed source views or a genuine Cubism rig with authored deformers."
+    }
+  ],
+  "gate": "This is a Live2D Lite visual QA render, not proof of a genuine Cubism .moc3 export."
+}

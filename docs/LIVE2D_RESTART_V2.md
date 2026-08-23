@@ -165,6 +165,18 @@ Stage 3A status: `LITE RUNTIME PREVIEW READY`. Su Shixia V2 is now the default A
 
 Cubism Editor 5.3 is installed locally at `C:\Program Files\Live2D Cubism 5.3`, but no supported headless `.moc3` export command was found. The current handoff is therefore ready for Editor-based rigging/export, not an automated Cubism build.
 
+## Stage 3B Current Evidence
+
+Produced on 2026-08-24:
+
+- Runtime visual QA directory: `assets/avatar/su-shixia-live2d-v2/source/review/runtime-visual-qa-v1`;
+- 11 transparent motion frames for `Idle`, `Listen`, `Speak`, `TouchFace`, `TouchEar`, `TouchChest`, `TouchWaist`, `TouchSkirt`, `TouchThigh`, `TurnPreview`, and `Sleepy`;
+- runtime motion contact sheet: `runtime-motion-contact-sheet-v1.png`;
+- machine-readable visual QA report: `runtime-visual-qa-v1.json`;
+- reproducible visual QA gate included in `npm.cmd run test:live2d:su-shixia-runtime`.
+
+Stage 3B status: `RUNTIME VISUAL QA READY, PUBLIC ART REVIEW STILL NO-GO`. The QA report proves the Lite renderer produces nonblank transparent frames and visible motion deltas for key states. It also records high-priority manual review findings for hand/arm layering and full-turn behavior, plus medium-priority lower-body occlusion quality. This is useful runtime evidence, not final character-art approval and not a genuine Cubism export.
+
 ## Acceptance Gates
 
 V2 cannot become the final public Cubism default until all are true:

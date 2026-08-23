@@ -13,6 +13,7 @@ Included:
 - visual contact sheet;
 - six-panel front alignment preview and machine-readable review report;
 - four-size source readability preview for chat, overlay, desktop-pet, and compact placements;
+- runtime visual QA contact sheet for 11 key Lite motions;
 - softer v2 six-state mouth atlas derived from the approved face direction;
 - corrective front-view neutral hands and shoes atlas;
 - grouped layered PSD generated with `ag-psd`;
@@ -27,6 +28,7 @@ Included:
 Not included:
 
 - human-polished hidden fill and seam cleanup;
+- final visual approval for hand/arm layering, lower-body occlusion, or turn motion quality;
 - final hand-authored mesh topology or deformers;
 - a Cubism project or genuine V2 `.moc3` export;
 - authored Cubism mesh/deformers, physics, or `.motion3.json` clips for Su Shixia;
@@ -45,4 +47,4 @@ npm.cmd run test:live2d:su-shixia-source
 npm.cmd run test:live2d:su-shixia-runtime
 ```
 
-The Lite runtime preview is allowed for local Athena integration and review. The Cubism handoff package is ready for Editor work, but a genuine `.moc3` has not been exported. Source and handoff directories must remain excluded from public installers. Public distribution stays blocked pending source refinement, rights review, Live2D license review, genuine Cubism rigging, and runtime QA.
+The Lite runtime preview is allowed for local Athena integration and review. Runtime visual QA now proves nonblank transparent frames and visible motion deltas for the key preview motions, but the contact sheet still shows provisional automated art quality in hands, arms, lower body, and turn behavior. The Cubism handoff package is ready for Editor work, but a genuine `.moc3` has not been exported. Source and handoff directories must remain excluded from public installers. Public distribution stays blocked pending source refinement, rights review, Live2D license review, genuine Cubism rigging, and runtime QA.
