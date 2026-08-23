@@ -73,6 +73,65 @@ const GITHUB_REFERENCES = [
   },
 ];
 
+const MOTION_REFERENCE_FAMILIES = [
+  {
+    id: 'idle-presence',
+    label: 'Idle, listen, think, return',
+    motionGroups: ['Idle', 'Listen', 'Think', 'Greet', 'Return', 'Sleepy'],
+    githubRefs: ['Live2D/CubismWebSamples:Samples/Resources/Haru/motions', 'Live2D/CubismNativeSamples:Samples/Resources'],
+    use: 'Use official Haru motion timing as a low-amplitude presence reference for breathing, eye motion, hair settling, and recovery.',
+    boundary: 'Timing and grouping reference only; Su Shixia needs authored curves and her own layered art.',
+  },
+  {
+    id: 'voice-speech',
+    label: 'TTS speech and voice response',
+    motionGroups: ['Speak', 'Nod', 'ShakeHead'],
+    githubRefs: ['Live2D/CubismWebSamples:Samples/Resources/Haru/Haru.model3.json', 'Live2D/CubismWebSamples:Samples/Resources/Haru/sounds'],
+    use: 'Use official sample model and sound package layout to keep voice-triggered motion, expression, and audio timing separate.',
+    boundary: 'Athena TTS drives mouth parameters locally; do not import sample voice clips.',
+  },
+  {
+    id: 'face-head-touch',
+    label: 'Head, hair, face, ear, neck reactions',
+    motionGroups: ['TouchHead', 'TouchHair', 'TouchHairClip', 'TouchFace', 'TouchEar', 'TouchNeck'],
+    githubRefs: ['Live2D/CubismWebSamples:Samples/Resources/Haru/motions', 'DenchiSoft/VTubeStudio:Wiki/API trigger workflow'],
+    use: 'Combine official small head motions with trigger-style reaction design for shy, startled, and affectionate micro-reactions.',
+    boundary: 'No third-party character motion is copied; sensitive-zone responses stay mode-gated.',
+  },
+  {
+    id: 'hands-arms-gesture',
+    label: 'Hands, arms, wave, drag',
+    motionGroups: ['Wave', 'TouchHand', 'TouchUpperArm', 'TouchForearm', 'TouchWrist', 'TouchPalm', 'Drag'],
+    githubRefs: ['Live2D/CubismWebSamples:Samples/Resources/Hiyori/motions', 'Live2D/CubismWebSamples:Samples/Resources/Mao/motions', 'guansss/pixi-live2d-display:interaction runtime'],
+    use: 'Use official sample gesture clips and Pixi hit-test patterns as references for hand wave, arm recoil, and pointer-driven drag follow.',
+    boundary: 'Independent arm motion still requires real mesh deformers; Lite overlay hands are preview-only.',
+  },
+  {
+    id: 'garment-body-boundary',
+    label: 'Clothing, torso, skirt, legs',
+    motionGroups: ['TouchShoulder', 'TouchCollar', 'TouchBlouse', 'TouchClothing', 'TouchChest', 'TouchRibs', 'TouchAbdomen', 'TouchWaist', 'TouchHip', 'TouchSkirt', 'TouchLeg', 'TouchThigh', 'TouchKnee', 'TouchCalf', 'TouchAnkle', 'TouchFoot', 'TouchShoe'],
+    githubRefs: ['Live2D/CubismWebSamples:Samples/Resources/Haru/motions', 'Live2D/CubismWebSamples:Samples/Resources/Haru/Haru.physics3.json'],
+    use: 'Use official motion and physics package shape as a timing reference for weight shift, garment adjustment, and recovery to idle.',
+    boundary: 'Private opt-in zones remain semantic and runtime-gated; public package must not include explicit assets.',
+  },
+  {
+    id: 'turn-orientation',
+    label: 'Turn preview and future multi-view',
+    motionGroups: ['TurnPreview'],
+    githubRefs: ['Live2D/CubismWebSamples:Samples/Resources/*/motions', 'Inochi2D/inochi2d:parameterized puppet contrast'],
+    use: 'Use official parameterized motion format and open puppet-system contrast to plan front/profile/back transitions.',
+    boundary: 'Current `TurnPreview` is a 2.5D hint; true turn requires separate source packages and orientation hit maps.',
+  },
+  {
+    id: 'future-tracking',
+    label: 'Future gaze, blink, expression input',
+    motionGroups: ['Idle', 'Listen', 'Speak'],
+    githubRefs: ['DenchiSoft/VTubeStudio:API/Wiki', 'emilianavt/OpenSeeFace:landmark tracking'],
+    use: 'Use ecosystem references for future camera or tracking input that can drive gaze, blink, expression, and head angle parameters.',
+    boundary: 'Not a current dependency and not required for the Lite preview.',
+  },
+];
+
 function main() {
   const manifest = readJson(path.join(PACKAGE_ROOT, 'manifest.json'));
   const sourceReview = readJson(path.join(PACKAGE_ROOT, manifest.sourceArt.reviewReport));
@@ -84,6 +143,8 @@ function main() {
   const wardrobeAudit = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-wardrobe-readiness-audit.json'));
   const interactionMatrix = readJson(path.join(PACKAGE_ROOT, manifest.sourceArt.interactionMatrix));
   const interactionAudit = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-interaction-readiness-audit.json'));
+  const orientationContract = readJson(path.join(PACKAGE_ROOT, manifest.sourceArt.orientationContract));
+  const orientationAudit = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-orientation-readiness-audit.json'));
 
   const githubScan = {
     version: 1,
@@ -92,9 +153,11 @@ function main() {
     packageId: manifest.id,
     status: 'reference_scan_ready',
     repositories: GITHUB_REFERENCES,
+    motionReferenceFamilies: MOTION_REFERENCE_FAMILIES,
     adoptedDecisions: [
       'Keep official Live2D samples as package and timing references, not copied assets.',
       'Use Pixi and VTube Studio ecosystem ideas for hit-test, motion trigger, and parameter-control design.',
+      'Map every Su Shixia motion group to at least one reference family before authoring Cubism motion clips.',
       'Keep face-tracking and alternate rigging ecosystems as future research, not current dependencies.',
       'Do not claim a genuine Cubism default until Editor export and Cubism Web proof replace the current Lite preview.',
     ],
@@ -268,6 +331,8 @@ function main() {
       <h2>GitHub Reference Scan</h2>
       <p class="note">These repositories inform structure, runtime behavior, and future input routes. They are not imported character assets.</p>
       ${githubTable(githubScan.repositories)}
+      <h3>Motion Reference Families</h3>
+      ${motionFamilyTable(githubScan.motionReferenceFamilies)}
     </section>
 
     <section>
@@ -282,6 +347,13 @@ function main() {
       <p class="note">The persona may generate replies, but the runtime owns zone permissions, motion allowlists, and mode boundaries.</p>
       ${interactionSummaryTable(interactionMatrix, interactionAudit)}
       ${interactionZoneTable(interactionMatrix.zones)}
+    </section>
+
+    <section>
+      <h2>Orientation Contract</h2>
+      <p class="note">TurnPreview is a front-view 2.5D hint. True turn behavior requires source packages and hit maps per orientation.</p>
+      ${orientationSummaryTable(orientationContract, orientationAudit)}
+      ${orientationTable(orientationContract.orientations)}
     </section>
 
     <section>
@@ -358,6 +430,17 @@ function githubTable(repos) {
   return simpleTable(['Repository', 'License', 'Stars', 'Use', 'Boundary'], rows, true);
 }
 
+function motionFamilyTable(families) {
+  const rows = families.map(item => [
+    `<code>${escapeHtml(item.id)}</code>`,
+    escapeHtml(item.label),
+    item.motionGroups.map(group => `<code>${escapeHtml(group)}</code>`).join(' '),
+    item.githubRefs.map(escapeHtml).join('<br>'),
+    escapeHtml(item.boundary),
+  ]);
+  return simpleTable(['Family', 'Label', 'Motion Groups', 'GitHub Evidence', 'Boundary'], rows, true);
+}
+
 function findingsTable(findings) {
   const rows = findings.map(item => [
     `<code>${escapeHtml(item.area)}</code>`,
@@ -401,6 +484,27 @@ function interactionZoneTable(zones) {
     escapeHtml(item.bodyPart),
   ]);
   return simpleTable(['Zone', 'Layer', 'Sensitivity', 'Motion', 'Expression', 'Body Part'], rows, true);
+}
+
+function orientationSummaryTable(contract, audit) {
+  return `<table>
+        <tbody>
+          <tr><th>Audit</th><td><code>${escapeHtml(audit.status)}</code></td></tr>
+          <tr><th>Current runtime</th><td><code>${escapeHtml(contract.currentRuntime.turnPreviewCapability)}</code>; visual QA <code>${escapeHtml(contract.currentRuntime.turnPreviewVisualQaCovered)}</code></td></tr>
+          <tr><th>Sources</th><td><code>${audit.sourceReadyOrientationCount}</code> ready, <code>${audit.futureSourceOrientationCount}</code> future required</td></tr>
+          <tr><th>Known No-Go</th><td>${Object.entries(audit.goNoGo).map(([key, value]) => `<code>${escapeHtml(key)}=${escapeHtml(value)}</code>`).join(' ')}</td></tr>
+        </tbody>
+      </table>`;
+}
+
+function orientationTable(orientations) {
+  const rows = orientations.map(item => [
+    `<code>${escapeHtml(item.id)}</code>`,
+    `<code>${escapeHtml(item.sourceStatus)}</code>`,
+    `<code>${escapeHtml(item.runtimeStatus)}</code>`,
+    item.requiredZoneFamilies.map(escapeHtml).join('<br>'),
+  ]);
+  return simpleTable(['Orientation', 'Source Status', 'Runtime Status', 'Required Zone Families'], rows, true);
 }
 
 function simpleTable(headers, rows, trustedRows = false) {

@@ -137,7 +137,7 @@
       <span class="pill">Package <code>su-shixia-live2d-v2</code></span>
       <span class="pill">Generated <code>2026-08-24</code></span>
       <span class="pill">Overall <span class="status-no_go">NO_GO</span></span>
-      <span class="pill">Blockers <code>12</code></span>
+      <span class="pill">Blockers <code>13</code></span>
     </div>
   </header>
   <main>
@@ -147,7 +147,7 @@
         <thead><tr><th>Stage</th><th>Status</th><th>Checks</th></tr></thead>
         <tbody>
           <tr><td><code>requirements</code></td><td><span class="status-go">GO</span></td><td>concept-baseline-approved: pass<br>athena-default-variant: pass</td></tr>
-          <tr><td><code>source-and-layering</code></td><td><span class="status-no_go">NO_GO</span></td><td>transparent-master: pass<br>layered-baseline: pass<br>parts-count: pass<br>human-layer-review-approved: fail (manual review remains required)<br>hidden-fill-review-approved: fail (manual hidden-fill review remains required)<br>alignment-review-approved: fail (alignment review remains required)</td></tr>
+          <tr><td><code>source-and-layering</code></td><td><span class="status-no_go">NO_GO</span></td><td>transparent-master: pass<br>layered-baseline: pass<br>parts-count: pass<br>orientation-contract-ready: pass<br>orientation-readiness-audit-ready: pass<br>orientation-contract-go: pass<br>turn-preview-qa: pass<br>human-layer-review-approved: fail (manual review remains required)<br>hidden-fill-review-approved: fail (manual hidden-fill review remains required)<br>alignment-review-approved: fail (alignment review remains required)<br>multi-view-source-ready: fail (profile/back source packages and orientation hit maps are not ready)</td></tr>
           <tr><td><code>lite-runtime</code></td><td><span class="status-go">GO</span></td><td>lite-runtime-ready: pass<br>runtime-ready: pass<br>layers: pass<br>hot-zones: pass<br>motions: pass<br>visual-qa-ready: pass<br>motion-frames-visible: pass<br>motion-deltas-visible: pass</td></tr>
           <tr><td><code>appearance-and-wardrobe</code></td><td><span class="status-partial">PARTIAL</span></td><td>appearance-preview-ready: pass<br>appearance-qa-ready: pass<br>appearance-preset-count: pass<br>wardrobe-contract-ready: pass<br>wardrobe-binding-plan-ready: pass<br>wardrobe-readiness-audit-ready: pass<br>runtime-outfit-preference-ready: pass<br>wardrobe-contract-go: pass<br>wardrobe-binding-plan-go: pass<br>preview-only: pass (current appearance presets are preview-only)<br>true-outfit-swap: fail (true outfit source layers and Cubism bindings are not ready)</td></tr>
           <tr><td><code>interaction</code></td><td><span class="status-go">GO</span></td><td>interaction-policy: pass<br>interaction-matrix-ready: pass<br>interaction-readiness-audit-ready: pass<br>interaction-audit-go: pass<br>interaction-zones-covered: pass<br>interaction-private-zone-count: pass<br>interaction-visual-qa-representatives: pass<br>normal-boundary: pass<br>private-opt-in-boundary: pass<br>persona-reply-delegation: pass<br>private-mode-opt-in: pass<br>semantic-hot-zones: pass<br>private-zone-boundaries: pass</td></tr>
@@ -202,6 +202,19 @@
           <tr><td><a href="https://github.com/shinshin86/live2d-add-motion-sample-web-ui">shinshin86/live2d-add-motion-sample-web-ui</a></td><td><code>MIT</code></td><td>121</td><td>Engineering reference for adding motion JSON definitions to an existing model package.</td><td>Borrow the workflow concept; authored Su Shixia motion data remains local to Athena.</td></tr>
           <tr><td><a href="https://github.com/emilianavt/OpenSeeFace">emilianavt/OpenSeeFace</a></td><td><code>BSD-2-Clause</code></td><td>2034</td><td>Optional future face and landmark tracking input source for gaze, blink, and expression parameters.</td><td>Not needed for the current Lite preview; do not add as a dependency until a camera feature is explicitly scoped.</td></tr>
           <tr><td><a href="https://github.com/Inochi2D/inochi2d">Inochi2D/inochi2d</a></td><td><code>BSD-2-Clause</code></td><td>1771</td><td>Useful contrast for open 2D rigging concepts and parameterized puppet design.</td><td>Not a Cubism replacement for Athena V2; genuine Cubism export remains the target.</td></tr>
+        </tbody>
+      </table>
+      <h3>Motion Reference Families</h3>
+      <table>
+        <thead><tr><th>Family</th><th>Label</th><th>Motion Groups</th><th>GitHub Evidence</th><th>Boundary</th></tr></thead>
+        <tbody>
+          <tr><td><code>idle-presence</code></td><td>Idle, listen, think, return</td><td><code>Idle</code> <code>Listen</code> <code>Think</code> <code>Greet</code> <code>Return</code> <code>Sleepy</code></td><td>Live2D/CubismWebSamples:Samples/Resources/Haru/motions<br>Live2D/CubismNativeSamples:Samples/Resources</td><td>Timing and grouping reference only; Su Shixia needs authored curves and her own layered art.</td></tr>
+          <tr><td><code>voice-speech</code></td><td>TTS speech and voice response</td><td><code>Speak</code> <code>Nod</code> <code>ShakeHead</code></td><td>Live2D/CubismWebSamples:Samples/Resources/Haru/Haru.model3.json<br>Live2D/CubismWebSamples:Samples/Resources/Haru/sounds</td><td>Athena TTS drives mouth parameters locally; do not import sample voice clips.</td></tr>
+          <tr><td><code>face-head-touch</code></td><td>Head, hair, face, ear, neck reactions</td><td><code>TouchHead</code> <code>TouchHair</code> <code>TouchHairClip</code> <code>TouchFace</code> <code>TouchEar</code> <code>TouchNeck</code></td><td>Live2D/CubismWebSamples:Samples/Resources/Haru/motions<br>DenchiSoft/VTubeStudio:Wiki/API trigger workflow</td><td>No third-party character motion is copied; sensitive-zone responses stay mode-gated.</td></tr>
+          <tr><td><code>hands-arms-gesture</code></td><td>Hands, arms, wave, drag</td><td><code>Wave</code> <code>TouchHand</code> <code>TouchUpperArm</code> <code>TouchForearm</code> <code>TouchWrist</code> <code>TouchPalm</code> <code>Drag</code></td><td>Live2D/CubismWebSamples:Samples/Resources/Hiyori/motions<br>Live2D/CubismWebSamples:Samples/Resources/Mao/motions<br>guansss/pixi-live2d-display:interaction runtime</td><td>Independent arm motion still requires real mesh deformers; Lite overlay hands are preview-only.</td></tr>
+          <tr><td><code>garment-body-boundary</code></td><td>Clothing, torso, skirt, legs</td><td><code>TouchShoulder</code> <code>TouchCollar</code> <code>TouchBlouse</code> <code>TouchClothing</code> <code>TouchChest</code> <code>TouchRibs</code> <code>TouchAbdomen</code> <code>TouchWaist</code> <code>TouchHip</code> <code>TouchSkirt</code> <code>TouchLeg</code> <code>TouchThigh</code> <code>TouchKnee</code> <code>TouchCalf</code> <code>TouchAnkle</code> <code>TouchFoot</code> <code>TouchShoe</code></td><td>Live2D/CubismWebSamples:Samples/Resources/Haru/motions<br>Live2D/CubismWebSamples:Samples/Resources/Haru/Haru.physics3.json</td><td>Private opt-in zones remain semantic and runtime-gated; public package must not include explicit assets.</td></tr>
+          <tr><td><code>turn-orientation</code></td><td>Turn preview and future multi-view</td><td><code>TurnPreview</code></td><td>Live2D/CubismWebSamples:Samples/Resources/*/motions<br>Inochi2D/inochi2d:parameterized puppet contrast</td><td>Current `TurnPreview` is a 2.5D hint; true turn requires separate source packages and orientation hit maps.</td></tr>
+          <tr><td><code>future-tracking</code></td><td>Future gaze, blink, expression input</td><td><code>Idle</code> <code>Listen</code> <code>Speak</code></td><td>DenchiSoft/VTubeStudio:API/Wiki<br>emilianavt/OpenSeeFace:landmark tracking</td><td>Not a current dependency and not required for the Lite preview.</td></tr>
         </tbody>
       </table>
     </section>
@@ -278,6 +291,32 @@
     </section>
 
     <section>
+      <h2>Orientation Contract</h2>
+      <p class="note">TurnPreview is a front-view 2.5D hint. True turn behavior requires source packages and hit maps per orientation.</p>
+      <table>
+        <tbody>
+          <tr><th>Audit</th><td><code>no_go</code></td></tr>
+          <tr><th>Current runtime</th><td><code>front_view_2_5d_hint_only</code>; visual QA <code>true</code></td></tr>
+          <tr><th>Sources</th><td><code>1</code> ready, <code>7</code> future required</td></tr>
+          <tr><th>Known No-Go</th><td><code>orientationContract=go</code> <code>frontOrientationLitePreview=go</code> <code>turnPreview2_5dHint=go</code> <code>profileSourcePackages=no_go</code> <code>backSourcePackage=no_go</code> <code>orientationSpecificHitMaps=no_go</code> <code>fullTurnProduction=no_go</code></td></tr>
+        </tbody>
+      </table>
+      <table>
+        <thead><tr><th>Orientation</th><th>Source Status</th><th>Runtime Status</th><th>Required Zone Families</th></tr></thead>
+        <tbody>
+          <tr><td><code>front</code></td><td><code>current_front_source_review_required</code></td><td><code>lite_front_runtime_preview</code></td><td>hair<br>face<br>ear<br>neck<br>torso<br>arms<br>hands<br>garment<br>lower-body<br>shoes</td></tr>
+          <tr><td><code>front_three_quarter_left</code></td><td><code>future_source_required</code></td><td><code>not_available</code></td><td>hair<br>face<br>ear<br>neck<br>torso<br>arms<br>hands<br>garment<br>lower-body<br>shoes</td></tr>
+          <tr><td><code>profile_left</code></td><td><code>future_source_required</code></td><td><code>not_available</code></td><td>hair-side<br>ear-visible<br>face-profile<br>neck-side<br>torso-side<br>arm-side<br>waist-side<br>leg-side<br>shoe-side</td></tr>
+          <tr><td><code>rear_three_quarter_left</code></td><td><code>future_source_required</code></td><td><code>not_available</code></td><td>hair<br>face<br>ear<br>neck<br>torso<br>arms<br>hands<br>garment<br>lower-body<br>shoes</td></tr>
+          <tr><td><code>back</code></td><td><code>future_source_required</code></td><td><code>not_available</code></td><td>hair-rear<br>neck-back<br>shoulder-back<br>back-upper<br>back-lower<br>waist-back<br>skirt-back<br>calf<br>shoe</td></tr>
+          <tr><td><code>rear_three_quarter_right</code></td><td><code>future_source_required</code></td><td><code>not_available</code></td><td>hair<br>face<br>ear<br>neck<br>torso<br>arms<br>hands<br>garment<br>lower-body<br>shoes</td></tr>
+          <tr><td><code>profile_right</code></td><td><code>future_source_required</code></td><td><code>not_available</code></td><td>hair-side<br>ear-visible<br>face-profile<br>neck-side<br>torso-side<br>arm-side<br>waist-side<br>leg-side<br>shoe-side</td></tr>
+          <tr><td><code>front_three_quarter_right</code></td><td><code>future_source_required</code></td><td><code>not_available</code></td><td>hair<br>face<br>ear<br>neck<br>torso<br>arms<br>hands<br>garment<br>lower-body<br>shoes</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
       <h2>Open Manual Findings</h2>
       <table>
         <thead><tr><th>Area</th><th>Severity</th><th>Status</th><th>Note</th></tr></thead>
@@ -302,6 +341,7 @@
         <li><code>source-and-layering:human-layer-review-approved</code></li>
         <li><code>source-and-layering:hidden-fill-review-approved</code></li>
         <li><code>source-and-layering:alignment-review-approved</code></li>
+        <li><code>source-and-layering:multi-view-source-ready</code></li>
         <li><code>appearance-and-wardrobe:true-outfit-swap</code></li>
         <li><code>genuine-cubism-export:runtime-proof-not-template</code></li>
         <li><code>genuine-cubism-export:cubism-export-ready</code></li>
@@ -320,6 +360,7 @@
         <thead><tr><th>Evidence</th></tr></thead>
         <tbody>
           <tr><td>Human art review approval for source alignment, hands, lower body, hidden fill, and turn behavior.</td></tr>
+          <tr><td>Profile/back source packages plus orientation-specific hit maps for true turn behavior.</td></tr>
           <tr><td>Separate source layers/drawables for true clothing variants beyond preview tint presets.</td></tr>
           <tr><td>Wardrobe contract blockers resolved: default outfit human approval and three future public outfit source packages.</td></tr>
           <tr><td>Cubism Editor project and exported moc3/model3/physics/cdi/texture files.</td></tr>

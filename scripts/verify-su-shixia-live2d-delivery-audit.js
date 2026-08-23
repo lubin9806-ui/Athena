@@ -17,6 +17,8 @@ function main() {
   assert.equal(manifest.sourceArt.wardrobeReadinessAudit, '../../../docs/quality/su-shixia-wardrobe-readiness-audit.json');
   assert.equal(manifest.sourceArt.interactionMatrix, 'source/review/interaction-matrix-v1.json');
   assert.equal(manifest.sourceArt.interactionReadinessAudit, '../../../docs/quality/su-shixia-interaction-readiness-audit.json');
+  assert.equal(manifest.sourceArt.orientationContract, 'source/review/orientation-contract-v1.json');
+  assert.equal(manifest.sourceArt.orientationReadinessAudit, '../../../docs/quality/su-shixia-orientation-readiness-audit.json');
   assert.equal(manifest.production.deliveryAuditReady, true);
   assert.equal(manifest.production.reviewDashboardReady, true);
   assert.equal(manifest.production.githubReferenceScanReady, true);
@@ -26,6 +28,8 @@ function main() {
   assert.equal(manifest.production.runtimeOutfitPreferenceReady, true);
   assert.equal(manifest.production.interactionMatrixReady, true);
   assert.equal(manifest.production.interactionReadinessAuditReady, true);
+  assert.equal(manifest.production.orientationContractReady, true);
+  assert.equal(manifest.production.orientationReadinessAuditReady, true);
   assert.equal(report.version, 1);
   assert.equal(report.packageId, 'su-shixia-live2d-v2');
   assert.equal(report.status, 'no_go');
@@ -45,6 +49,9 @@ function main() {
   assert.ok(report.blockers.includes('source-and-layering:human-layer-review-approved'));
   assert.ok(report.blockers.includes('source-and-layering:hidden-fill-review-approved'));
   assert.ok(report.blockers.includes('source-and-layering:alignment-review-approved'));
+  assert.ok(report.blockers.includes('source-and-layering:multi-view-source-ready'));
+  assert.ok(report.stages.find(item => item.id === 'source-and-layering').checks.some(item => item.id === 'orientation-contract-go' && item.status === 'pass'));
+  assert.ok(report.nextRequiredEvidence.some(item => item.includes('Profile/back source packages')));
   assert.ok(report.blockers.includes('genuine-cubism-export:cubism-export-ready'));
   assert.ok(report.stages.find(item => item.id === 'interaction').checks.some(item => item.id === 'interaction-audit-go' && item.status === 'pass'));
   assert.ok(report.stages.find(item => item.id === 'interaction').checks.some(item => item.id === 'interaction-visual-qa-representatives' && item.status === 'pass'));

@@ -187,7 +187,7 @@ Produced on 2026-08-24:
 - Athena preference persistence for `appearancePresetId`;
 - runtime tint and accessory-visibility support in `BrowserLive2DLiteHost`;
 - appearance visual QA contact sheet: `runtime-appearance-contact-sheet-v1.png`;
-- GitHub scan notes for motion/reference repositories in `docs/LIVE2D_SU_SHIXIA_V2_MOTION_REFERENCES.md`.
+- GitHub scan notes and motion-reference families in `docs/LIVE2D_SU_SHIXIA_V2_MOTION_REFERENCES.md`.
 
 Stage 3C status: `APPEARANCE PRESET PREVIEW READY, TRUE WARDROBE STILL NO-GO`. The current system can recolor hair, eyes, blouse, skirt, shoes, and hide or tint the A hair clip. It does not include new clothing silhouettes, garment physics, or genuine Cubism wardrobe parameters. `trueOutfitSwapReady` remains false until separate outfit source layers and Cubism binding exist.
 
@@ -246,7 +246,7 @@ Produced on 2026-08-24:
 - dashboard verifier: `scripts/verify-su-shixia-review-dashboard.js`;
 - npm command: `npm.cmd run test:live2d:su-shixia-review-dashboard`.
 
-Stage 3H status: `REVIEW DASHBOARD READY, OVERALL STILL NO-GO`. The dashboard combines source alignment, source scale, source part sheet, Lite motion QA, appearance QA, GitHub reference sources, delivery blockers, manual findings, and Cubism proof boundaries into one local page. The GitHub scan informs package structure, runtime interaction, motion trigger workflow, and future face-tracking research, but it does not import third-party character assets or replace the required Cubism Editor export.
+Stage 3H status: `REVIEW DASHBOARD READY, OVERALL STILL NO-GO`. The dashboard combines source alignment, source scale, source part sheet, Lite motion QA, appearance QA, GitHub reference sources, delivery blockers, manual findings, and Cubism proof boundaries into one local page. The GitHub scan informs package structure, runtime interaction, motion trigger workflow, and future face-tracking research, but it does not import third-party character assets or replace the required Cubism Editor export. The scan now also groups references into motion families so every current Su Shixia motion group has a reference direction before it is promoted to authored Cubism motion.
 
 ## Stage 3I Current Evidence
 
@@ -284,6 +284,18 @@ Produced on 2026-08-24:
 - npm command: `npm.cmd run test:live2d:su-shixia-interaction-matrix`.
 
 Stage 3K status: `SEMANTIC TOUCH MATRIX READY, ADVANCED GESTURES STILL NO-GO`. The matrix proves the current profile exposes 37 enabled touch zones across body, garment, and accessory layers, with bounded normal/private prompts, motion templates, and representative visual QA. It does not implement full gesture classification, orientation-specific hit maps, or private/adult asset packages.
+
+## Stage 3L Current Evidence
+
+Produced on 2026-08-24:
+
+- orientation contract: `assets/avatar/su-shixia-live2d-v2/source/review/orientation-contract-v1.json`;
+- orientation readiness audit: `docs/quality/su-shixia-orientation-readiness-audit.json`;
+- orientation contract generator: `scripts/generate-su-shixia-orientation-contract.js`;
+- orientation contract verifier: `scripts/verify-su-shixia-orientation-contract.js`;
+- npm command: `npm.cmd run test:live2d:su-shixia-orientation-contract`.
+
+Stage 3L status: `ORIENTATION CONTRACT READY, TRUE MULTI-VIEW STILL NO-GO`. The current runtime has `front` plus `TurnPreview` as a visible 2.5D hint. Real turn behavior still requires profile/back source packages, orientation-specific hit maps, authored transition assets, and Cubism or equivalent runtime proof.
 
 ## Acceptance Gates
 

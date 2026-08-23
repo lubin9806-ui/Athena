@@ -50,6 +50,26 @@
           "detail": ""
         },
         {
+          "id": "orientation-contract-ready",
+          "status": "pass",
+          "detail": ""
+        },
+        {
+          "id": "orientation-readiness-audit-ready",
+          "status": "pass",
+          "detail": ""
+        },
+        {
+          "id": "orientation-contract-go",
+          "status": "pass",
+          "detail": ""
+        },
+        {
+          "id": "turn-preview-qa",
+          "status": "pass",
+          "detail": ""
+        },
+        {
           "id": "human-layer-review-approved",
           "status": "fail",
           "detail": "manual review remains required"
@@ -63,6 +83,11 @@
           "id": "alignment-review-approved",
           "status": "fail",
           "detail": "alignment review remains required"
+        },
+        {
+          "id": "multi-view-source-ready",
+          "status": "fail",
+          "detail": "profile/back source packages and orientation hit maps are not ready"
         }
       ]
     },
@@ -357,6 +382,7 @@
     "source-and-layering:human-layer-review-approved",
     "source-and-layering:hidden-fill-review-approved",
     "source-and-layering:alignment-review-approved",
+    "source-and-layering:multi-view-source-ready",
     "appearance-and-wardrobe:true-outfit-swap",
     "genuine-cubism-export:runtime-proof-not-template",
     "genuine-cubism-export:cubism-export-ready",
@@ -376,6 +402,7 @@
   },
   "nextRequiredEvidence": [
     "Human art review approval for source alignment, hands, lower body, hidden fill, and turn behavior.",
+    "Profile/back source packages plus orientation-specific hit maps for true turn behavior.",
     "Separate source layers/drawables for true clothing variants beyond preview tint presets.",
     "Wardrobe contract blockers resolved: default outfit human approval and three future public outfit source packages.",
     "Cubism Editor project and exported moc3/model3/physics/cdi/texture files.",

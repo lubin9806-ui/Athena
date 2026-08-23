@@ -1,0 +1,469 @@
+{
+  "version": 1,
+  "generatedAt": "2026-08-24",
+  "packageId": "su-shixia-live2d-v2",
+  "status": "orientation_contract_ready_multiview_sources_required",
+  "currentRuntime": {
+    "activeOrientation": "front",
+    "availableSourceOrientations": [
+      "front"
+    ],
+    "availableRuntimeOrientations": [
+      "front"
+    ],
+    "turnPreviewMotionGroup": "TurnPreview",
+    "turnPreviewCapability": "front_view_2_5d_hint_only",
+    "turnPreviewVisualQaCovered": true,
+    "multiViewReady": false
+  },
+  "conceptReferences": [
+    "docs/concepts/su-shixia-live2d-v2-default-turnaround-v1.png",
+    "docs/concepts/su-shixia-live2d-v2-turn-touch-storyboard-v1.png"
+  ],
+  "orientations": [
+    {
+      "id": "front",
+      "sourceStatus": "current_front_source_review_required",
+      "runtimeStatus": "lite_front_runtime_preview",
+      "requiredSourcePackage": "source/su-shixia-front-layered-v1.psd",
+      "requiredZoneFamilies": [
+        "hair",
+        "face",
+        "ear",
+        "neck",
+        "torso",
+        "arms",
+        "hands",
+        "garment",
+        "lower-body",
+        "shoes"
+      ],
+      "expectedHitZonePolicy": {
+        "copyFrontZonesAllowed": false,
+        "visibleLayerFirst": true,
+        "privateModeBoundaryInherited": true,
+        "garmentOcclusionRequired": true,
+        "asymmetricAccessoryReviewRequired": true
+      },
+      "unavailableFrontZones": [],
+      "reusableFrontSemantics": [
+        "hair",
+        "hair_clip",
+        "forehead",
+        "left_ear",
+        "right_ear",
+        "face_cheek",
+        "mouth_chin",
+        "neck",
+        "collar",
+        "left_shoulder",
+        "right_shoulder",
+        "left_upper_arm",
+        "right_upper_arm",
+        "left_forearm",
+        "right_forearm",
+        "left_wrist",
+        "right_wrist",
+        "left_hand",
+        "right_hand",
+        "blouse",
+        "chest",
+        "left_ribs",
+        "right_ribs",
+        "abdomen",
+        "waist",
+        "hip",
+        "skirt_front",
+        "left_thigh",
+        "right_thigh",
+        "left_knee",
+        "right_knee",
+        "left_calf",
+        "right_calf",
+        "left_ankle",
+        "right_ankle",
+        "left_shoe",
+        "right_shoe"
+      ]
+    },
+    {
+      "id": "front_three_quarter_left",
+      "sourceStatus": "future_source_required",
+      "runtimeStatus": "not_available",
+      "requiredSourcePackage": "future source/front_three_quarter_left/layered source package",
+      "requiredZoneFamilies": [
+        "hair",
+        "face",
+        "ear",
+        "neck",
+        "torso",
+        "arms",
+        "hands",
+        "garment",
+        "lower-body",
+        "shoes"
+      ],
+      "expectedHitZonePolicy": {
+        "copyFrontZonesAllowed": false,
+        "visibleLayerFirst": true,
+        "privateModeBoundaryInherited": true,
+        "garmentOcclusionRequired": true,
+        "asymmetricAccessoryReviewRequired": true
+      },
+      "unavailableFrontZones": [],
+      "reusableFrontSemantics": []
+    },
+    {
+      "id": "profile_left",
+      "sourceStatus": "future_source_required",
+      "runtimeStatus": "not_available",
+      "requiredSourcePackage": "future source/profile_left/layered source package",
+      "requiredZoneFamilies": [
+        "hair-side",
+        "ear-visible",
+        "face-profile",
+        "neck-side",
+        "torso-side",
+        "arm-side",
+        "waist-side",
+        "leg-side",
+        "shoe-side"
+      ],
+      "expectedHitZonePolicy": {
+        "copyFrontZonesAllowed": false,
+        "visibleLayerFirst": true,
+        "privateModeBoundaryInherited": true,
+        "garmentOcclusionRequired": true,
+        "asymmetricAccessoryReviewRequired": true
+      },
+      "unavailableFrontZones": [],
+      "reusableFrontSemantics": []
+    },
+    {
+      "id": "rear_three_quarter_left",
+      "sourceStatus": "future_source_required",
+      "runtimeStatus": "not_available",
+      "requiredSourcePackage": "future source/rear_three_quarter_left/layered source package",
+      "requiredZoneFamilies": [
+        "hair",
+        "face",
+        "ear",
+        "neck",
+        "torso",
+        "arms",
+        "hands",
+        "garment",
+        "lower-body",
+        "shoes"
+      ],
+      "expectedHitZonePolicy": {
+        "copyFrontZonesAllowed": false,
+        "visibleLayerFirst": true,
+        "privateModeBoundaryInherited": true,
+        "garmentOcclusionRequired": true,
+        "asymmetricAccessoryReviewRequired": true
+      },
+      "unavailableFrontZones": [
+        "face_cheek",
+        "mouth_chin",
+        "forehead",
+        "chest",
+        "blouse"
+      ],
+      "reusableFrontSemantics": []
+    },
+    {
+      "id": "back",
+      "sourceStatus": "future_source_required",
+      "runtimeStatus": "not_available",
+      "requiredSourcePackage": "future source/back/layered source package",
+      "requiredZoneFamilies": [
+        "hair-rear",
+        "neck-back",
+        "shoulder-back",
+        "back-upper",
+        "back-lower",
+        "waist-back",
+        "skirt-back",
+        "calf",
+        "shoe"
+      ],
+      "expectedHitZonePolicy": {
+        "copyFrontZonesAllowed": false,
+        "visibleLayerFirst": true,
+        "privateModeBoundaryInherited": true,
+        "garmentOcclusionRequired": true,
+        "asymmetricAccessoryReviewRequired": true
+      },
+      "unavailableFrontZones": [
+        "face_cheek",
+        "mouth_chin",
+        "forehead",
+        "chest",
+        "blouse"
+      ],
+      "reusableFrontSemantics": []
+    },
+    {
+      "id": "rear_three_quarter_right",
+      "sourceStatus": "future_source_required",
+      "runtimeStatus": "not_available",
+      "requiredSourcePackage": "future source/rear_three_quarter_right/layered source package",
+      "requiredZoneFamilies": [
+        "hair",
+        "face",
+        "ear",
+        "neck",
+        "torso",
+        "arms",
+        "hands",
+        "garment",
+        "lower-body",
+        "shoes"
+      ],
+      "expectedHitZonePolicy": {
+        "copyFrontZonesAllowed": false,
+        "visibleLayerFirst": true,
+        "privateModeBoundaryInherited": true,
+        "garmentOcclusionRequired": true,
+        "asymmetricAccessoryReviewRequired": true
+      },
+      "unavailableFrontZones": [
+        "face_cheek",
+        "mouth_chin",
+        "forehead",
+        "chest",
+        "blouse"
+      ],
+      "reusableFrontSemantics": []
+    },
+    {
+      "id": "profile_right",
+      "sourceStatus": "future_source_required",
+      "runtimeStatus": "not_available",
+      "requiredSourcePackage": "future source/profile_right/layered source package",
+      "requiredZoneFamilies": [
+        "hair-side",
+        "ear-visible",
+        "face-profile",
+        "neck-side",
+        "torso-side",
+        "arm-side",
+        "waist-side",
+        "leg-side",
+        "shoe-side"
+      ],
+      "expectedHitZonePolicy": {
+        "copyFrontZonesAllowed": false,
+        "visibleLayerFirst": true,
+        "privateModeBoundaryInherited": true,
+        "garmentOcclusionRequired": true,
+        "asymmetricAccessoryReviewRequired": true
+      },
+      "unavailableFrontZones": [],
+      "reusableFrontSemantics": []
+    },
+    {
+      "id": "front_three_quarter_right",
+      "sourceStatus": "future_source_required",
+      "runtimeStatus": "not_available",
+      "requiredSourcePackage": "future source/front_three_quarter_right/layered source package",
+      "requiredZoneFamilies": [
+        "hair",
+        "face",
+        "ear",
+        "neck",
+        "torso",
+        "arms",
+        "hands",
+        "garment",
+        "lower-body",
+        "shoes"
+      ],
+      "expectedHitZonePolicy": {
+        "copyFrontZonesAllowed": false,
+        "visibleLayerFirst": true,
+        "privateModeBoundaryInherited": true,
+        "garmentOcclusionRequired": true,
+        "asymmetricAccessoryReviewRequired": true
+      },
+      "unavailableFrontZones": [],
+      "reusableFrontSemantics": []
+    }
+  ],
+  "transitions": [
+    {
+      "id": "front_to_front_three_quarter_left",
+      "from": "front",
+      "to": "front_three_quarter_left",
+      "sourceStatus": "storyboard_reference_only",
+      "requiredAssets": [
+        "entry anticipation pose",
+        "silhouette-compatible crossfade frame",
+        "destination settle pose",
+        "destination hit-map activation threshold",
+        "reverse-compatible motion review"
+      ],
+      "runtimePolicy": [
+        "lock current hit map while crossfading",
+        "preserve speech only if destination supports mouth and face parameters",
+        "carry semantic intent but re-resolve available motions after settle",
+        "do not mirror asymmetric hair clip blindly"
+      ]
+    },
+    {
+      "id": "front_three_quarter_left_to_profile_left",
+      "from": "front_three_quarter_left",
+      "to": "profile_left",
+      "sourceStatus": "future_source_required",
+      "requiredAssets": [
+        "entry anticipation pose",
+        "silhouette-compatible crossfade frame",
+        "destination settle pose",
+        "destination hit-map activation threshold",
+        "reverse-compatible motion review"
+      ],
+      "runtimePolicy": [
+        "lock current hit map while crossfading",
+        "preserve speech only if destination supports mouth and face parameters",
+        "carry semantic intent but re-resolve available motions after settle",
+        "do not mirror asymmetric hair clip blindly"
+      ]
+    },
+    {
+      "id": "profile_left_to_rear_three_quarter_left",
+      "from": "profile_left",
+      "to": "rear_three_quarter_left",
+      "sourceStatus": "future_source_required",
+      "requiredAssets": [
+        "entry anticipation pose",
+        "silhouette-compatible crossfade frame",
+        "destination settle pose",
+        "destination hit-map activation threshold",
+        "reverse-compatible motion review"
+      ],
+      "runtimePolicy": [
+        "lock current hit map while crossfading",
+        "preserve speech only if destination supports mouth and face parameters",
+        "carry semantic intent but re-resolve available motions after settle",
+        "do not mirror asymmetric hair clip blindly"
+      ]
+    },
+    {
+      "id": "rear_three_quarter_left_to_back",
+      "from": "rear_three_quarter_left",
+      "to": "back",
+      "sourceStatus": "future_source_required",
+      "requiredAssets": [
+        "entry anticipation pose",
+        "silhouette-compatible crossfade frame",
+        "destination settle pose",
+        "destination hit-map activation threshold",
+        "reverse-compatible motion review"
+      ],
+      "runtimePolicy": [
+        "lock current hit map while crossfading",
+        "preserve speech only if destination supports mouth and face parameters",
+        "carry semantic intent but re-resolve available motions after settle",
+        "do not mirror asymmetric hair clip blindly"
+      ]
+    },
+    {
+      "id": "back_to_rear_three_quarter_right",
+      "from": "back",
+      "to": "rear_three_quarter_right",
+      "sourceStatus": "future_source_required",
+      "requiredAssets": [
+        "entry anticipation pose",
+        "silhouette-compatible crossfade frame",
+        "destination settle pose",
+        "destination hit-map activation threshold",
+        "reverse-compatible motion review"
+      ],
+      "runtimePolicy": [
+        "lock current hit map while crossfading",
+        "preserve speech only if destination supports mouth and face parameters",
+        "carry semantic intent but re-resolve available motions after settle",
+        "do not mirror asymmetric hair clip blindly"
+      ]
+    },
+    {
+      "id": "rear_three_quarter_right_to_profile_right",
+      "from": "rear_three_quarter_right",
+      "to": "profile_right",
+      "sourceStatus": "future_source_required",
+      "requiredAssets": [
+        "entry anticipation pose",
+        "silhouette-compatible crossfade frame",
+        "destination settle pose",
+        "destination hit-map activation threshold",
+        "reverse-compatible motion review"
+      ],
+      "runtimePolicy": [
+        "lock current hit map while crossfading",
+        "preserve speech only if destination supports mouth and face parameters",
+        "carry semantic intent but re-resolve available motions after settle",
+        "do not mirror asymmetric hair clip blindly"
+      ]
+    },
+    {
+      "id": "profile_right_to_front_three_quarter_right",
+      "from": "profile_right",
+      "to": "front_three_quarter_right",
+      "sourceStatus": "future_source_required",
+      "requiredAssets": [
+        "entry anticipation pose",
+        "silhouette-compatible crossfade frame",
+        "destination settle pose",
+        "destination hit-map activation threshold",
+        "reverse-compatible motion review"
+      ],
+      "runtimePolicy": [
+        "lock current hit map while crossfading",
+        "preserve speech only if destination supports mouth and face parameters",
+        "carry semantic intent but re-resolve available motions after settle",
+        "do not mirror asymmetric hair clip blindly"
+      ]
+    },
+    {
+      "id": "front_three_quarter_right_to_front",
+      "from": "front_three_quarter_right",
+      "to": "front",
+      "sourceStatus": "future_source_required",
+      "requiredAssets": [
+        "entry anticipation pose",
+        "silhouette-compatible crossfade frame",
+        "destination settle pose",
+        "destination hit-map activation threshold",
+        "reverse-compatible motion review"
+      ],
+      "runtimePolicy": [
+        "lock current hit map while crossfading",
+        "preserve speech only if destination supports mouth and face parameters",
+        "carry semantic intent but re-resolve available motions after settle",
+        "do not mirror asymmetric hair clip blindly"
+      ]
+    }
+  ],
+  "hitMapRequirements": [
+    "visible target layer resolution: body, garment, accessory",
+    "orientation-specific face, hair, ear, neck, torso, arm, garment, and lower-body rectangles",
+    "hidden-zone suspension during transition crossfade",
+    "asymmetric A hair clip side preservation",
+    "normal/private mode boundary inheritance from interaction matrix",
+    "outfit occlusion map compatibility",
+    "representative screenshot proof after Cubism export"
+  ],
+  "interactionInheritance": {
+    "source": "source/review/interaction-matrix-v1.json",
+    "frontZoneCount": 37,
+    "privateOptInZoneCount": 6,
+    "rule": "Each orientation must derive its active zones from visible layers, not blindly copy the front rectangles."
+  },
+  "noGoUntil": [
+    "Profile and back source packages exist as layered transparent assets.",
+    "At least front, profile_left, profile_right, and back have reviewed orientation-specific hit maps.",
+    "Turn transitions have authored entry, crossfade, and settle assets.",
+    "Cubism export or equivalent runtime proof demonstrates orientation handoff without broken hair, clothing, or touch zones."
+  ]
+}

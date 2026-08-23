@@ -15,6 +15,7 @@ function main() {
   const runtimeProof = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-cubism-runtime-proof.json'));
   const wardrobeAudit = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-wardrobe-readiness-audit.json'));
   const interactionAudit = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-interaction-readiness-audit.json'));
+  const orientationAudit = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-orientation-readiness-audit.json'));
 
   const stages = [
     stage('requirements', 'go', [
@@ -25,9 +26,14 @@ function main() {
       check('transparent-master', manifest.production.transparentMasterReady === true),
       check('layered-baseline', manifest.production.automatedLayeredBaselineReady === true),
       check('parts-count', manifest.production.partsCount === 66),
+      check('orientation-contract-ready', manifest.production.orientationContractReady === true),
+      check('orientation-readiness-audit-ready', manifest.production.orientationReadinessAuditReady === true),
+      check('orientation-contract-go', orientationAudit.goNoGo.orientationContract === 'go'),
+      check('turn-preview-qa', orientationAudit.goNoGo.turnPreview2_5dHint === 'go'),
       check('human-layer-review-approved', manifest.production.humanLayerReviewRequired !== true, 'manual review remains required'),
       check('hidden-fill-review-approved', manifest.production.hiddenFillReviewRequired !== true, 'manual hidden-fill review remains required'),
       check('alignment-review-approved', manifest.production.alignmentReviewRequired !== true, 'alignment review remains required'),
+      check('multi-view-source-ready', manifest.production.multiViewReady === true, 'profile/back source packages and orientation hit maps are not ready'),
     ]),
     stage('lite-runtime', 'go', [
       check('lite-runtime-ready', manifest.production.liteRuntimePreviewReady === true),
@@ -122,6 +128,7 @@ function main() {
     },
     nextRequiredEvidence: [
       'Human art review approval for source alignment, hands, lower body, hidden fill, and turn behavior.',
+      'Profile/back source packages plus orientation-specific hit maps for true turn behavior.',
       'Separate source layers/drawables for true clothing variants beyond preview tint presets.',
       'Wardrobe contract blockers resolved: default outfit human approval and three future public outfit source packages.',
       'Cubism Editor project and exported moc3/model3/physics/cdi/texture files.',

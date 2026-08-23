@@ -1,0 +1,93 @@
+{
+  "version": 1,
+  "generatedAt": "2026-08-24",
+  "packageId": "su-shixia-live2d-v2",
+  "status": "no_go",
+  "sourceReadyOrientationCount": 1,
+  "futureSourceOrientationCount": 7,
+  "turnPreviewVisualQaCovered": true,
+  "checks": [
+    {
+      "id": "contract-ready",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "id": "eight-orientation-targets",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "id": "front-source-exists",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "id": "turn-preview-visual-qa",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "id": "interaction-inheritance",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "id": "transition-plan-complete",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "id": "hit-map-requirements-ready",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "id": "multiview-production-ready",
+      "status": "fail",
+      "detail": "profile/back source packages and hit maps are not ready"
+    },
+    {
+      "id": "profile-left-source-ready",
+      "status": "fail",
+      "detail": "profile_left source package missing"
+    },
+    {
+      "id": "profile-right-source-ready",
+      "status": "fail",
+      "detail": "profile_right source package missing"
+    },
+    {
+      "id": "back-source-ready",
+      "status": "fail",
+      "detail": "back source package missing"
+    },
+    {
+      "id": "orientation-specific-hit-maps-ready",
+      "status": "fail",
+      "detail": "only front hit rectangles exist"
+    }
+  ],
+  "blockers": [
+    "multiview-production-ready",
+    "profile-left-source-ready",
+    "profile-right-source-ready",
+    "back-source-ready",
+    "orientation-specific-hit-maps-ready"
+  ],
+  "goNoGo": {
+    "orientationContract": "go",
+    "frontOrientationLitePreview": "go",
+    "turnPreview2_5dHint": "go",
+    "profileSourcePackages": "no_go",
+    "backSourcePackage": "no_go",
+    "orientationSpecificHitMaps": "no_go",
+    "fullTurnProduction": "no_go"
+  },
+  "requiredEvidence": [
+    "Profile and back source packages exist as layered transparent assets.",
+    "At least front, profile_left, profile_right, and back have reviewed orientation-specific hit maps.",
+    "Turn transitions have authored entry, crossfade, and settle assets.",
+    "Cubism export or equivalent runtime proof demonstrates orientation handoff without broken hair, clothing, or touch zones."
+  ]
+}

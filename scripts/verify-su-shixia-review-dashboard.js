@@ -11,16 +11,19 @@ function main() {
   const manifest = readJson(path.join(PACKAGE_ROOT, 'manifest.json'));
   const deliveryAudit = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-live2d-v2-delivery-audit.json'));
   const githubScan = readJson(GITHUB_SCAN_PATH);
+  const liteRuntime = readJson(path.join(PACKAGE_ROOT, manifest.sourceArt.liteRuntimeModel));
   const html = fs.readFileSync(DASHBOARD_PATH, 'utf8');
 
   assert.equal(manifest.sourceArt.reviewDashboard, 'source/review/su-shixia-live2d-v2-review-dashboard.html');
   assert.equal(manifest.sourceArt.githubReferenceScan, '../../../docs/quality/su-shixia-github-reference-scan.json');
   assert.equal(manifest.sourceArt.wardrobeContract, 'wardrobe/wardrobe-contract-v1.json');
   assert.equal(manifest.sourceArt.interactionMatrix, 'source/review/interaction-matrix-v1.json');
+  assert.equal(manifest.sourceArt.orientationContract, 'source/review/orientation-contract-v1.json');
   assert.equal(manifest.production.reviewDashboardReady, true);
   assert.equal(manifest.production.githubReferenceScanReady, true);
   assert.equal(manifest.production.wardrobeContractReady, true);
   assert.equal(manifest.production.interactionMatrixReady, true);
+  assert.equal(manifest.production.orientationContractReady, true);
 
   assert.equal(githubScan.version, 1);
   assert.equal(githubScan.packageId, 'su-shixia-live2d-v2');
@@ -29,7 +32,15 @@ function main() {
   assert.ok(githubScan.repositories.some(item => item.repo === 'Live2D/CubismWebSamples' && item.license === 'NOASSERTION'));
   assert.ok(githubScan.repositories.some(item => item.repo === 'guansss/pixi-live2d-display' && item.license === 'MIT'));
   assert.ok(githubScan.repositories.some(item => item.repo === 'emilianavt/OpenSeeFace' && item.license === 'BSD-2-Clause'));
+  assert.ok(githubScan.motionReferenceFamilies.length >= 7);
+  assert.ok(githubScan.motionReferenceFamilies.some(item => item.id === 'voice-speech'));
+  assert.ok(githubScan.motionReferenceFamilies.some(item => item.id === 'turn-orientation'));
+  const referencedMotionGroups = new Set(githubScan.motionReferenceFamilies.flatMap(item => item.motionGroups));
+  for (const motionGroup of Object.keys(liteRuntime.AthenaLive2DLite.motionGroups)) {
+    assert.ok(referencedMotionGroups.has(motionGroup), `missing motion reference family for ${motionGroup}`);
+  }
   assert.ok(githubScan.adoptedDecisions.some(item => item.includes('not copied assets')));
+  assert.ok(githubScan.adoptedDecisions.some(item => item.includes('every Su Shixia motion group')));
 
   assert.ok(html.includes('data-su-shixia-review-dashboard="v1"'));
   assert.ok(html.includes('front-alignment-preview-v1.png'));
@@ -40,6 +51,11 @@ function main() {
   assert.ok(html.includes('Live2D/CubismWebSamples'));
   assert.ok(html.includes('guansss/pixi-live2d-display'));
   assert.ok(html.includes('emilianavt/OpenSeeFace'));
+  assert.ok(html.includes('Motion Reference Families'));
+  assert.ok(html.includes('idle-presence'));
+  assert.ok(html.includes('voice-speech'));
+  assert.ok(html.includes('garment-body-boundary'));
+  assert.ok(html.includes('turn-orientation'));
   assert.ok(html.includes('Wardrobe Contract'));
   assert.ok(html.includes('classic_daily'));
   assert.ok(html.includes('soft_assistant'));
@@ -50,6 +66,10 @@ function main() {
   assert.ok(html.includes('face_cheek'));
   assert.ok(html.includes('TouchChest'));
   assert.ok(html.includes('gestureClassifierV2=no_go'));
+  assert.ok(html.includes('Orientation Contract'));
+  assert.ok(html.includes('front_three_quarter_left'));
+  assert.ok(html.includes('profile_left'));
+  assert.ok(html.includes('fullTurnProduction=no_go'));
   assert.ok(html.includes('source-and-layering'));
   assert.ok(html.includes('genuine-cubism-export'));
   assert.ok(html.includes('distribution'));

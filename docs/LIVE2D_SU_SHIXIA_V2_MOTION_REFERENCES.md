@@ -43,6 +43,20 @@ Checked on 2026-08-24:
 
 Machine-readable snapshot: `docs/quality/su-shixia-github-reference-scan.json`.
 
+## Motion Reference Families
+
+The GitHub scan is now organized by motion family so each authored Cubism clip can point back to a reviewable reference direction:
+
+- `idle-presence`: idle, listen, think, return, and sleepy presence loops.
+- `voice-speech`: TTS-driven speech, nod, and no/boundary head motions.
+- `face-head-touch`: head, hair, hair clip, face, ear, and neck touch reactions.
+- `hands-arms-gesture`: hand, wrist, forearm, upper-arm, wave, and drag-follow motions.
+- `garment-body-boundary`: shoulder, collar, blouse, clothing, chest, ribs, abdomen, waist, hip, skirt, leg, knee, calf, ankle, foot, and shoe reactions.
+- `turn-orientation`: current front-view `TurnPreview` and future profile/back orientation transitions.
+- `future-tracking`: optional future gaze, blink, expression, and head-angle input from tracking workflows.
+
+Every current Su Shixia Lite runtime motion group must be covered by at least one motion reference family before it is promoted to an authored Cubism clip. This is reference discipline, not asset import: third-party character art, textures, voices, and unclear-license motion files stay out of the Su Shixia package.
+
 ## Motion Group Map
 
 | Su Shixia group | Current preview behavior | Reference direction |

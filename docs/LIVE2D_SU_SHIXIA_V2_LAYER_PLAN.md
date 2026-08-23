@@ -328,3 +328,19 @@ The model chooses semantic intent and reply. The runtime resolves only motions v
 ## Stage Boundary
 
 The refined front source package now proves that named transparent parts, a contact sheet, a default-state alignment preview, and a readable layered PSD exist. It does not prove production-ready hidden fill, exact reconstruction, Cubism deformers, motions, physics, or multi-model handoffs. The next gate is human approval of the Stage 2B front alignment preview before Cubism rigging.
+
+## Stage 3L Orientation Contract
+
+Produced on 2026-08-24:
+
+- orientation contract: `assets/avatar/su-shixia-live2d-v2/source/review/orientation-contract-v1.json`;
+- orientation readiness audit: `docs/quality/su-shixia-orientation-readiness-audit.json`;
+- generator: `scripts/generate-su-shixia-orientation-contract.js`;
+- verifier: `scripts/verify-su-shixia-orientation-contract.js`;
+- npm command: `npm.cmd run test:live2d:su-shixia-orientation-contract`.
+
+Stage 3L status: `ORIENTATION CONTRACT READY, TRUE MULTI-VIEW STILL NO-GO`. The contract defines eight target orientations, eight transition handoffs, orientation-specific hit-map requirements, and inheritance from the front interaction matrix. Current runtime support remains `front` plus `TurnPreview` as a front-view 2.5D hint. Profile, back, rear three-quarter, and orientation-specific hit maps remain missing source packages and must not be claimed as production-ready turn behavior.
+
+## Motion Reference Discipline
+
+The GitHub reference scan in `docs/quality/su-shixia-github-reference-scan.json` now includes motion-reference families for idle presence, voice speech, face/head touch, hand/arm gestures, garment/body boundary reactions, turn orientation, and future tracking input. The dashboard verifier checks that every current Lite runtime motion group is covered by at least one family before the motion can be treated as ready for Cubism authoring. These references guide timing and interaction design only; third-party character art, textures, voice clips, and unclear-license motion files are not imported into Su Shixia.
