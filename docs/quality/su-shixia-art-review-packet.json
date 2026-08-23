@@ -1,0 +1,1452 @@
+{
+  "version": 1,
+  "generatedAt": "2026-08-24",
+  "packageId": "su-shixia-live2d-v2",
+  "status": "manual_review_packet_ready",
+  "sourceStatus": "front_source_refinement_review_required",
+  "evidence": {
+    "alignmentPreview": "assets/avatar/su-shixia-live2d-v2/source/review/front-alignment-preview-v1.png",
+    "scalePreview": "assets/avatar/su-shixia-live2d-v2/source/review/front-source-scale-preview-v1.png",
+    "partsContactSheet": "assets/avatar/su-shixia-live2d-v2/source/parts/parts-contact-sheet-v1.png",
+    "runtimeMotionContactSheet": "assets/avatar/su-shixia-live2d-v2/source/review/runtime-visual-qa-v1/runtime-motion-contact-sheet-v1.png",
+    "appearanceContactSheet": "assets/avatar/su-shixia-live2d-v2/source/review/runtime-visual-qa-v1/runtime-appearance-contact-sheet-v1.png",
+    "reviewDashboard": "assets/avatar/su-shixia-live2d-v2/source/review/su-shixia-live2d-v2-review-dashboard.html",
+    "sourceReview": "assets/avatar/su-shixia-live2d-v2/source/review/source-review-v1.json",
+    "wardrobeAudit": "../../../docs/quality/su-shixia-wardrobe-readiness-audit.json",
+    "orientationAudit": "../../../docs/quality/su-shixia-orientation-readiness-audit.json"
+  },
+  "openFindings": [
+    {
+      "area": "mouth",
+      "severity": "medium",
+      "status": "provisional",
+      "note": "Style is softer than v1 but still requires final illustrator and Cubism deformation review."
+    },
+    {
+      "area": "hands",
+      "severity": "medium",
+      "status": "provisional",
+      "note": "Neutral and cheek-touch variants exist; anatomy, wrist joins, and hidden fill require rigger review."
+    },
+    {
+      "area": "hidden-fill",
+      "severity": "high",
+      "status": "required",
+      "note": "Automated torso, blouse, skirt, and limb fills are not a substitute for hand-painted occluded regions."
+    },
+    {
+      "area": "alignment",
+      "severity": "high",
+      "status": "required",
+      "note": "Target rectangles are production estimates and need user-visible approval before Cubism import."
+    },
+    {
+      "area": "display-scale",
+      "severity": "medium",
+      "status": "runtime-rule",
+      "note": "A 220 px full-body render cannot carry readable facial emotion; compact placement must use a bust crop or a larger minimum height."
+    },
+    {
+      "area": "multi-view",
+      "severity": "high",
+      "status": "not-started",
+      "note": "Profile and back source packages remain separate future work."
+    }
+  ],
+  "reviewLanes": [
+    {
+      "id": "identity-default-read",
+      "label": "Identity and default read",
+      "status": "review_required",
+      "evidence": [
+        "assets/avatar/su-shixia-live2d-v2/source/parts/parts-contact-sheet-v1.png",
+        "assets/avatar/su-shixia-live2d-v2/source/review/front-alignment-preview-v1.png"
+      ],
+      "partCount": 7,
+      "highRiskPartCount": 2,
+      "highRiskParts": [
+        {
+          "name": "SSX_HAIR_BANGS_LEFT",
+          "group": "Head",
+          "file": "layers-v1/SSX_HAIR_BANGS_LEFT.png",
+          "targetRect": [
+            335,
+            55,
+            170,
+            180
+          ],
+          "aspectDistortion": 1.83,
+          "riskFlags": [
+            "high-aspect-or-scale-review"
+          ]
+        },
+        {
+          "name": "SSX_HAIR_BANGS_RIGHT",
+          "group": "Head",
+          "file": "layers-v1/SSX_HAIR_BANGS_RIGHT.png",
+          "targetRect": [
+            415,
+            55,
+            170,
+            180
+          ],
+          "aspectDistortion": 1.896,
+          "riskFlags": [
+            "high-aspect-or-scale-review"
+          ]
+        }
+      ],
+      "passCriteria": [
+        "Reads as Su Shixia at first glance: soft semi-real 20-ish default, black shoulder-length hair, A hair clip, white blouse, dark pleated skirt.",
+        "No mechanical trim, costume armor shapes, or cheap AI artifact styling are visible in the first viewport pose."
+      ],
+      "signoffFields": [
+        "reviewer",
+        "reviewedAt",
+        "decision",
+        "notes"
+      ]
+    },
+    {
+      "id": "hands-arms-anatomy",
+      "label": "Hands, wrists, and arms",
+      "status": "review_required",
+      "evidence": [
+        "assets/avatar/su-shixia-live2d-v2/source/parts/parts-contact-sheet-v1.png",
+        "assets/avatar/su-shixia-live2d-v2/source/review/front-alignment-preview-v1.png"
+      ],
+      "partCount": 8,
+      "highRiskPartCount": 8,
+      "highRiskParts": [
+        {
+          "name": "SSX_ARM_UPPER_L",
+          "group": "Body",
+          "file": "layers-v1/SSX_ARM_UPPER_L.png",
+          "targetRect": [
+            260,
+            430,
+            85,
+            230
+          ],
+          "aspectDistortion": 1.353,
+          "riskFlags": [
+            "anatomy-and-joint-review",
+            "hidden-fill-review"
+          ]
+        },
+        {
+          "name": "SSX_ARM_LOWER_L",
+          "group": "Body",
+          "file": "layers-v1/SSX_ARM_LOWER_L.png",
+          "targetRect": [
+            220,
+            610,
+            125,
+            245
+          ],
+          "aspectDistortion": 1.125,
+          "riskFlags": [
+            "anatomy-and-joint-review",
+            "hidden-fill-review"
+          ]
+        },
+        {
+          "name": "SSX_HAND_CHEEK_L",
+          "group": "Body",
+          "file": "layers-v1/SSX_HAND_CHEEK_L.png",
+          "targetRect": [
+            300,
+            160,
+            135,
+            250
+          ],
+          "aspectDistortion": 1.2,
+          "riskFlags": [
+            "anatomy-and-joint-review"
+          ]
+        },
+        {
+          "name": "SSX_ARM_UPPER_R",
+          "group": "Body",
+          "file": "layers-v1/SSX_ARM_UPPER_R.png",
+          "targetRect": [
+            575,
+            430,
+            85,
+            230
+          ],
+          "aspectDistortion": 1.364,
+          "riskFlags": [
+            "anatomy-and-joint-review",
+            "hidden-fill-review"
+          ]
+        },
+        {
+          "name": "SSX_ARM_LOWER_R",
+          "group": "Body",
+          "file": "layers-v1/SSX_ARM_LOWER_R.png",
+          "targetRect": [
+            575,
+            610,
+            125,
+            245
+          ],
+          "aspectDistortion": 1.089,
+          "riskFlags": [
+            "anatomy-and-joint-review",
+            "hidden-fill-review"
+          ]
+        },
+        {
+          "name": "SSX_HAND_CHEEK_R",
+          "group": "Body",
+          "file": "layers-v1/SSX_HAND_CHEEK_R.png",
+          "targetRect": [
+            485,
+            160,
+            135,
+            250
+          ],
+          "aspectDistortion": 1.186,
+          "riskFlags": [
+            "anatomy-and-joint-review"
+          ]
+        },
+        {
+          "name": "SSX_HAND_NEUTRAL_L",
+          "group": "Body",
+          "file": "layers-v1/SSX_HAND_NEUTRAL_L.png",
+          "targetRect": [
+            202,
+            785,
+            105,
+            155
+          ],
+          "aspectDistortion": 1.856,
+          "riskFlags": [
+            "high-aspect-or-scale-review",
+            "anatomy-and-joint-review"
+          ]
+        },
+        {
+          "name": "SSX_HAND_NEUTRAL_R",
+          "group": "Body",
+          "file": "layers-v1/SSX_HAND_NEUTRAL_R.png",
+          "targetRect": [
+            612,
+            785,
+            105,
+            155
+          ],
+          "aspectDistortion": 1.847,
+          "riskFlags": [
+            "high-aspect-or-scale-review",
+            "anatomy-and-joint-review"
+          ]
+        }
+      ],
+      "passCriteria": [
+        "Neutral hands, cheek-touch hands, wrists, and sleeve joins read as plausible anatomy at chat size and review size.",
+        "Hidden wrist/forearm fill remains valid during hand-to-face and hand-rest motions."
+      ],
+      "signoffFields": [
+        "reviewer",
+        "reviewedAt",
+        "decision",
+        "notes"
+      ]
+    },
+    {
+      "id": "hidden-fill-occlusion",
+      "label": "Hidden fill and occlusion",
+      "status": "review_required",
+      "evidence": [
+        "assets/avatar/su-shixia-live2d-v2/source/parts/parts-contact-sheet-v1.png",
+        "assets/avatar/su-shixia-live2d-v2/source/review/front-alignment-preview-v1.png"
+      ],
+      "partCount": 10,
+      "highRiskPartCount": 10,
+      "highRiskParts": [
+        {
+          "name": "SSX_TORSO_BASE",
+          "group": "Body",
+          "file": "layers-v1/SSX_TORSO_BASE.png",
+          "targetRect": [
+            335,
+            275,
+            250,
+            310
+          ],
+          "aspectDistortion": 1.077,
+          "riskFlags": [
+            "hidden-fill-review"
+          ]
+        },
+        {
+          "name": "SSX_BLOUSE_BACK_FILL",
+          "group": "Body",
+          "file": "layers-v1/SSX_BLOUSE_BACK_FILL.png",
+          "targetRect": [
+            300,
+            295,
+            320,
+            310
+          ],
+          "aspectDistortion": 1.326,
+          "riskFlags": [
+            "hidden-fill-review"
+          ]
+        },
+        {
+          "name": "SSX_ARM_UPPER_L",
+          "group": "Body",
+          "file": "layers-v1/SSX_ARM_UPPER_L.png",
+          "targetRect": [
+            260,
+            430,
+            85,
+            230
+          ],
+          "aspectDistortion": 1.353,
+          "riskFlags": [
+            "anatomy-and-joint-review",
+            "hidden-fill-review"
+          ]
+        },
+        {
+          "name": "SSX_ARM_LOWER_L",
+          "group": "Body",
+          "file": "layers-v1/SSX_ARM_LOWER_L.png",
+          "targetRect": [
+            220,
+            610,
+            125,
+            245
+          ],
+          "aspectDistortion": 1.125,
+          "riskFlags": [
+            "anatomy-and-joint-review",
+            "hidden-fill-review"
+          ]
+        },
+        {
+          "name": "SSX_ARM_UPPER_R",
+          "group": "Body",
+          "file": "layers-v1/SSX_ARM_UPPER_R.png",
+          "targetRect": [
+            575,
+            430,
+            85,
+            230
+          ],
+          "aspectDistortion": 1.364,
+          "riskFlags": [
+            "anatomy-and-joint-review",
+            "hidden-fill-review"
+          ]
+        },
+        {
+          "name": "SSX_ARM_LOWER_R",
+          "group": "Body",
+          "file": "layers-v1/SSX_ARM_LOWER_R.png",
+          "targetRect": [
+            575,
+            610,
+            125,
+            245
+          ],
+          "aspectDistortion": 1.089,
+          "riskFlags": [
+            "anatomy-and-joint-review",
+            "hidden-fill-review"
+          ]
+        },
+        {
+          "name": "SSX_WAIST_PELVIS_BASE",
+          "group": "SkirtAndLegs",
+          "file": "layers-v1/SSX_WAIST_PELVIS_BASE.png",
+          "targetRect": [
+            330,
+            520,
+            260,
+            430
+          ],
+          "aspectDistortion": 1.289,
+          "riskFlags": [
+            "hidden-fill-review"
+          ]
+        },
+        {
+          "name": "SSX_SKIRT_REAR_BASE",
+          "group": "SkirtAndLegs",
+          "file": "layers-v1/SSX_SKIRT_REAR_BASE.png",
+          "targetRect": [
+            270,
+            560,
+            380,
+            405
+          ],
+          "aspectDistortion": 1.252,
+          "riskFlags": [
+            "hidden-fill-review"
+          ]
+        },
+        {
+          "name": "SSX_THIGH_L",
+          "group": "SkirtAndLegs",
+          "file": "layers-v1/SSX_THIGH_L.png",
+          "targetRect": [
+            325,
+            930,
+            120,
+            330
+          ],
+          "aspectDistortion": 1.813,
+          "riskFlags": [
+            "high-aspect-or-scale-review",
+            "hidden-fill-review"
+          ]
+        },
+        {
+          "name": "SSX_THIGH_R",
+          "group": "SkirtAndLegs",
+          "file": "layers-v1/SSX_THIGH_R.png",
+          "targetRect": [
+            475,
+            930,
+            120,
+            330
+          ],
+          "aspectDistortion": 1.792,
+          "riskFlags": [
+            "high-aspect-or-scale-review",
+            "hidden-fill-review"
+          ]
+        }
+      ],
+      "passCriteria": [
+        "Occluded torso, blouse, skirt, pelvis, arm, and leg fills are hand-painted or approved before Cubism deformers are authored.",
+        "No blank holes appear when breathing, shy recoil, turn preview, or hand-touch overlays move."
+      ],
+      "signoffFields": [
+        "reviewer",
+        "reviewedAt",
+        "decision",
+        "notes"
+      ]
+    },
+    {
+      "id": "lower-body-shoes",
+      "label": "Lower body, knees, ankles, shoes",
+      "status": "review_required",
+      "evidence": [
+        "assets/avatar/su-shixia-live2d-v2/source/parts/parts-contact-sheet-v1.png",
+        "assets/avatar/su-shixia-live2d-v2/source/review/front-alignment-preview-v1.png"
+      ],
+      "partCount": 8,
+      "highRiskPartCount": 8,
+      "highRiskParts": [
+        {
+          "name": "SSX_THIGH_L",
+          "group": "SkirtAndLegs",
+          "file": "layers-v1/SSX_THIGH_L.png",
+          "targetRect": [
+            325,
+            930,
+            120,
+            330
+          ],
+          "aspectDistortion": 1.813,
+          "riskFlags": [
+            "high-aspect-or-scale-review",
+            "hidden-fill-review"
+          ]
+        },
+        {
+          "name": "SSX_CALF_L",
+          "group": "SkirtAndLegs",
+          "file": "layers-v1/SSX_CALF_L.png",
+          "targetRect": [
+            335,
+            1200,
+            105,
+            365
+          ],
+          "aspectDistortion": 1.022,
+          "riskFlags": [
+            "lower-body-review"
+          ]
+        },
+        {
+          "name": "SSX_KNEE_OVERLAY_L",
+          "group": "SkirtAndLegs",
+          "file": "layers-v1/SSX_KNEE_OVERLAY_L.png",
+          "targetRect": [
+            330,
+            1100,
+            110,
+            120
+          ],
+          "aspectDistortion": 1.273,
+          "riskFlags": [
+            "lower-body-review"
+          ]
+        },
+        {
+          "name": "SSX_THIGH_R",
+          "group": "SkirtAndLegs",
+          "file": "layers-v1/SSX_THIGH_R.png",
+          "targetRect": [
+            475,
+            930,
+            120,
+            330
+          ],
+          "aspectDistortion": 1.792,
+          "riskFlags": [
+            "high-aspect-or-scale-review",
+            "hidden-fill-review"
+          ]
+        },
+        {
+          "name": "SSX_CALF_R",
+          "group": "SkirtAndLegs",
+          "file": "layers-v1/SSX_CALF_R.png",
+          "targetRect": [
+            480,
+            1200,
+            105,
+            365
+          ],
+          "aspectDistortion": 1.217,
+          "riskFlags": [
+            "lower-body-review"
+          ]
+        },
+        {
+          "name": "SSX_KNEE_OVERLAY_R",
+          "group": "SkirtAndLegs",
+          "file": "layers-v1/SSX_KNEE_OVERLAY_R.png",
+          "targetRect": [
+            480,
+            1100,
+            110,
+            120
+          ],
+          "aspectDistortion": 1.287,
+          "riskFlags": [
+            "lower-body-review"
+          ]
+        },
+        {
+          "name": "SSX_SHOE_L",
+          "group": "SkirtAndLegs",
+          "file": "layers-v1/SSX_SHOE_L.png",
+          "targetRect": [
+            348,
+            1535,
+            90,
+            135
+          ],
+          "aspectDistortion": 1.834,
+          "riskFlags": [
+            "high-aspect-or-scale-review",
+            "lower-body-review"
+          ]
+        },
+        {
+          "name": "SSX_SHOE_R",
+          "group": "SkirtAndLegs",
+          "file": "layers-v1/SSX_SHOE_R.png",
+          "targetRect": [
+            480,
+            1535,
+            90,
+            135
+          ],
+          "aspectDistortion": 1.834,
+          "riskFlags": [
+            "high-aspect-or-scale-review",
+            "lower-body-review"
+          ]
+        }
+      ],
+      "passCriteria": [
+        "Leg proportions, knees, calves, ankles, and shoes remain natural in the knee-up and full-body frames.",
+        "Skirt hem and thigh boundaries do not create unintended exposure or broken occlusion in normal mode."
+      ],
+      "signoffFields": [
+        "reviewer",
+        "reviewedAt",
+        "decision",
+        "notes"
+      ]
+    },
+    {
+      "id": "mouth-expression-speech",
+      "label": "Mouth, eyes, expression, speech",
+      "status": "review_required",
+      "evidence": [
+        "assets/avatar/su-shixia-live2d-v2/source/parts/mouths-atlas-v2-alpha.png",
+        "assets/avatar/su-shixia-live2d-v2/source/review/runtime-visual-qa-v1/runtime-motion-contact-sheet-v1.png"
+      ],
+      "partCount": 22,
+      "highRiskPartCount": 6,
+      "highRiskParts": [
+        {
+          "name": "SSX_MOUTH_CLOSED",
+          "group": "Mouth",
+          "file": "layers-v1/SSX_MOUTH_CLOSED.png",
+          "targetRect": [
+            433,
+            235,
+            54,
+            28
+          ],
+          "aspectDistortion": 1.227,
+          "riskFlags": [
+            "speech-shape-review"
+          ]
+        },
+        {
+          "name": "SSX_MOUTH_OPEN_SMALL",
+          "group": "Mouth",
+          "file": "layers-v1/SSX_MOUTH_OPEN_SMALL.png",
+          "targetRect": [
+            433,
+            233,
+            54,
+            32
+          ],
+          "aspectDistortion": 1.064,
+          "riskFlags": [
+            "speech-shape-review"
+          ]
+        },
+        {
+          "name": "SSX_MOUTH_OPEN_WIDE",
+          "group": "Mouth",
+          "file": "layers-v1/SSX_MOUTH_OPEN_WIDE.png",
+          "targetRect": [
+            431,
+            228,
+            58,
+            42
+          ],
+          "aspectDistortion": 1.497,
+          "riskFlags": [
+            "speech-shape-review"
+          ]
+        },
+        {
+          "name": "SSX_MOUTH_FORM_EI",
+          "group": "Mouth",
+          "file": "layers-v1/SSX_MOUTH_FORM_EI.png",
+          "targetRect": [
+            430,
+            234,
+            60,
+            30
+          ],
+          "aspectDistortion": 1.011,
+          "riskFlags": [
+            "speech-shape-review"
+          ]
+        },
+        {
+          "name": "SSX_MOUTH_FORM_OU",
+          "group": "Mouth",
+          "file": "layers-v1/SSX_MOUTH_FORM_OU.png",
+          "targetRect": [
+            440,
+            227,
+            40,
+            44
+          ],
+          "aspectDistortion": 1.041,
+          "riskFlags": [
+            "speech-shape-review"
+          ]
+        },
+        {
+          "name": "SSX_MOUTH_FORM_MBP",
+          "group": "Mouth",
+          "file": "layers-v1/SSX_MOUTH_FORM_MBP.png",
+          "targetRect": [
+            433,
+            235,
+            54,
+            28
+          ],
+          "aspectDistortion": 1.278,
+          "riskFlags": [
+            "speech-shape-review"
+          ]
+        }
+      ],
+      "passCriteria": [
+        "Six mouth states are style-consistent and suitable for TTS lip-sync without uncanny jumps.",
+        "Eyes, brows, blush, shy, surprised, and soft smile states preserve the half-real half-anime direction."
+      ],
+      "signoffFields": [
+        "reviewer",
+        "reviewedAt",
+        "decision",
+        "notes"
+      ]
+    },
+    {
+      "id": "alignment-scale",
+      "label": "Alignment, scale, and canvas readability",
+      "status": "review_required",
+      "evidence": [
+        "assets/avatar/su-shixia-live2d-v2/source/review/front-alignment-preview-v1.png",
+        "assets/avatar/su-shixia-live2d-v2/source/review/front-source-scale-preview-v1.png"
+      ],
+      "partCount": 66,
+      "highRiskPartCount": 30,
+      "highRiskParts": [
+        {
+          "name": "SSX_HAIR_BANGS_LEFT",
+          "group": "Head",
+          "file": "layers-v1/SSX_HAIR_BANGS_LEFT.png",
+          "targetRect": [
+            335,
+            55,
+            170,
+            180
+          ],
+          "aspectDistortion": 1.83,
+          "riskFlags": [
+            "high-aspect-or-scale-review"
+          ]
+        },
+        {
+          "name": "SSX_HAIR_BANGS_RIGHT",
+          "group": "Head",
+          "file": "layers-v1/SSX_HAIR_BANGS_RIGHT.png",
+          "targetRect": [
+            415,
+            55,
+            170,
+            180
+          ],
+          "aspectDistortion": 1.896,
+          "riskFlags": [
+            "high-aspect-or-scale-review"
+          ]
+        },
+        {
+          "name": "SSX_MOUTH_CLOSED",
+          "group": "Mouth",
+          "file": "layers-v1/SSX_MOUTH_CLOSED.png",
+          "targetRect": [
+            433,
+            235,
+            54,
+            28
+          ],
+          "aspectDistortion": 1.227,
+          "riskFlags": [
+            "speech-shape-review"
+          ]
+        },
+        {
+          "name": "SSX_MOUTH_OPEN_SMALL",
+          "group": "Mouth",
+          "file": "layers-v1/SSX_MOUTH_OPEN_SMALL.png",
+          "targetRect": [
+            433,
+            233,
+            54,
+            32
+          ],
+          "aspectDistortion": 1.064,
+          "riskFlags": [
+            "speech-shape-review"
+          ]
+        },
+        {
+          "name": "SSX_MOUTH_OPEN_WIDE",
+          "group": "Mouth",
+          "file": "layers-v1/SSX_MOUTH_OPEN_WIDE.png",
+          "targetRect": [
+            431,
+            228,
+            58,
+            42
+          ],
+          "aspectDistortion": 1.497,
+          "riskFlags": [
+            "speech-shape-review"
+          ]
+        },
+        {
+          "name": "SSX_MOUTH_FORM_EI",
+          "group": "Mouth",
+          "file": "layers-v1/SSX_MOUTH_FORM_EI.png",
+          "targetRect": [
+            430,
+            234,
+            60,
+            30
+          ],
+          "aspectDistortion": 1.011,
+          "riskFlags": [
+            "speech-shape-review"
+          ]
+        },
+        {
+          "name": "SSX_MOUTH_FORM_OU",
+          "group": "Mouth",
+          "file": "layers-v1/SSX_MOUTH_FORM_OU.png",
+          "targetRect": [
+            440,
+            227,
+            40,
+            44
+          ],
+          "aspectDistortion": 1.041,
+          "riskFlags": [
+            "speech-shape-review"
+          ]
+        },
+        {
+          "name": "SSX_MOUTH_FORM_MBP",
+          "group": "Mouth",
+          "file": "layers-v1/SSX_MOUTH_FORM_MBP.png",
+          "targetRect": [
+            433,
+            235,
+            54,
+            28
+          ],
+          "aspectDistortion": 1.278,
+          "riskFlags": [
+            "speech-shape-review"
+          ]
+        },
+        {
+          "name": "SSX_TORSO_BASE",
+          "group": "Body",
+          "file": "layers-v1/SSX_TORSO_BASE.png",
+          "targetRect": [
+            335,
+            275,
+            250,
+            310
+          ],
+          "aspectDistortion": 1.077,
+          "riskFlags": [
+            "hidden-fill-review"
+          ]
+        },
+        {
+          "name": "SSX_BLOUSE_COLLAR_L",
+          "group": "Body",
+          "file": "layers-v1/SSX_BLOUSE_COLLAR_L.png",
+          "targetRect": [
+            350,
+            302,
+            110,
+            95
+          ],
+          "aspectDistortion": 1.754,
+          "riskFlags": [
+            "high-aspect-or-scale-review"
+          ]
+        },
+        {
+          "name": "SSX_BLOUSE_COLLAR_R",
+          "group": "Body",
+          "file": "layers-v1/SSX_BLOUSE_COLLAR_R.png",
+          "targetRect": [
+            460,
+            302,
+            110,
+            95
+          ],
+          "aspectDistortion": 1.745,
+          "riskFlags": [
+            "high-aspect-or-scale-review"
+          ]
+        },
+        {
+          "name": "SSX_BLOUSE_BACK_FILL",
+          "group": "Body",
+          "file": "layers-v1/SSX_BLOUSE_BACK_FILL.png",
+          "targetRect": [
+            300,
+            295,
+            320,
+            310
+          ],
+          "aspectDistortion": 1.326,
+          "riskFlags": [
+            "hidden-fill-review"
+          ]
+        },
+        {
+          "name": "SSX_ARM_UPPER_L",
+          "group": "Body",
+          "file": "layers-v1/SSX_ARM_UPPER_L.png",
+          "targetRect": [
+            260,
+            430,
+            85,
+            230
+          ],
+          "aspectDistortion": 1.353,
+          "riskFlags": [
+            "anatomy-and-joint-review",
+            "hidden-fill-review"
+          ]
+        },
+        {
+          "name": "SSX_ARM_LOWER_L",
+          "group": "Body",
+          "file": "layers-v1/SSX_ARM_LOWER_L.png",
+          "targetRect": [
+            220,
+            610,
+            125,
+            245
+          ],
+          "aspectDistortion": 1.125,
+          "riskFlags": [
+            "anatomy-and-joint-review",
+            "hidden-fill-review"
+          ]
+        },
+        {
+          "name": "SSX_HAND_CHEEK_L",
+          "group": "Body",
+          "file": "layers-v1/SSX_HAND_CHEEK_L.png",
+          "targetRect": [
+            300,
+            160,
+            135,
+            250
+          ],
+          "aspectDistortion": 1.2,
+          "riskFlags": [
+            "anatomy-and-joint-review"
+          ]
+        },
+        {
+          "name": "SSX_ARM_UPPER_R",
+          "group": "Body",
+          "file": "layers-v1/SSX_ARM_UPPER_R.png",
+          "targetRect": [
+            575,
+            430,
+            85,
+            230
+          ],
+          "aspectDistortion": 1.364,
+          "riskFlags": [
+            "anatomy-and-joint-review",
+            "hidden-fill-review"
+          ]
+        },
+        {
+          "name": "SSX_ARM_LOWER_R",
+          "group": "Body",
+          "file": "layers-v1/SSX_ARM_LOWER_R.png",
+          "targetRect": [
+            575,
+            610,
+            125,
+            245
+          ],
+          "aspectDistortion": 1.089,
+          "riskFlags": [
+            "anatomy-and-joint-review",
+            "hidden-fill-review"
+          ]
+        },
+        {
+          "name": "SSX_HAND_CHEEK_R",
+          "group": "Body",
+          "file": "layers-v1/SSX_HAND_CHEEK_R.png",
+          "targetRect": [
+            485,
+            160,
+            135,
+            250
+          ],
+          "aspectDistortion": 1.186,
+          "riskFlags": [
+            "anatomy-and-joint-review"
+          ]
+        },
+        {
+          "name": "SSX_WAIST_PELVIS_BASE",
+          "group": "SkirtAndLegs",
+          "file": "layers-v1/SSX_WAIST_PELVIS_BASE.png",
+          "targetRect": [
+            330,
+            520,
+            260,
+            430
+          ],
+          "aspectDistortion": 1.289,
+          "riskFlags": [
+            "hidden-fill-review"
+          ]
+        },
+        {
+          "name": "SSX_SKIRT_REAR_BASE",
+          "group": "SkirtAndLegs",
+          "file": "layers-v1/SSX_SKIRT_REAR_BASE.png",
+          "targetRect": [
+            270,
+            560,
+            380,
+            405
+          ],
+          "aspectDistortion": 1.252,
+          "riskFlags": [
+            "hidden-fill-review"
+          ]
+        },
+        {
+          "name": "SSX_THIGH_L",
+          "group": "SkirtAndLegs",
+          "file": "layers-v1/SSX_THIGH_L.png",
+          "targetRect": [
+            325,
+            930,
+            120,
+            330
+          ],
+          "aspectDistortion": 1.813,
+          "riskFlags": [
+            "high-aspect-or-scale-review",
+            "hidden-fill-review"
+          ]
+        },
+        {
+          "name": "SSX_CALF_L",
+          "group": "SkirtAndLegs",
+          "file": "layers-v1/SSX_CALF_L.png",
+          "targetRect": [
+            335,
+            1200,
+            105,
+            365
+          ],
+          "aspectDistortion": 1.022,
+          "riskFlags": [
+            "lower-body-review"
+          ]
+        },
+        {
+          "name": "SSX_KNEE_OVERLAY_L",
+          "group": "SkirtAndLegs",
+          "file": "layers-v1/SSX_KNEE_OVERLAY_L.png",
+          "targetRect": [
+            330,
+            1100,
+            110,
+            120
+          ],
+          "aspectDistortion": 1.273,
+          "riskFlags": [
+            "lower-body-review"
+          ]
+        },
+        {
+          "name": "SSX_THIGH_R",
+          "group": "SkirtAndLegs",
+          "file": "layers-v1/SSX_THIGH_R.png",
+          "targetRect": [
+            475,
+            930,
+            120,
+            330
+          ],
+          "aspectDistortion": 1.792,
+          "riskFlags": [
+            "high-aspect-or-scale-review",
+            "hidden-fill-review"
+          ]
+        },
+        {
+          "name": "SSX_CALF_R",
+          "group": "SkirtAndLegs",
+          "file": "layers-v1/SSX_CALF_R.png",
+          "targetRect": [
+            480,
+            1200,
+            105,
+            365
+          ],
+          "aspectDistortion": 1.217,
+          "riskFlags": [
+            "lower-body-review"
+          ]
+        },
+        {
+          "name": "SSX_KNEE_OVERLAY_R",
+          "group": "SkirtAndLegs",
+          "file": "layers-v1/SSX_KNEE_OVERLAY_R.png",
+          "targetRect": [
+            480,
+            1100,
+            110,
+            120
+          ],
+          "aspectDistortion": 1.287,
+          "riskFlags": [
+            "lower-body-review"
+          ]
+        },
+        {
+          "name": "SSX_HAND_NEUTRAL_L",
+          "group": "Body",
+          "file": "layers-v1/SSX_HAND_NEUTRAL_L.png",
+          "targetRect": [
+            202,
+            785,
+            105,
+            155
+          ],
+          "aspectDistortion": 1.856,
+          "riskFlags": [
+            "high-aspect-or-scale-review",
+            "anatomy-and-joint-review"
+          ]
+        },
+        {
+          "name": "SSX_HAND_NEUTRAL_R",
+          "group": "Body",
+          "file": "layers-v1/SSX_HAND_NEUTRAL_R.png",
+          "targetRect": [
+            612,
+            785,
+            105,
+            155
+          ],
+          "aspectDistortion": 1.847,
+          "riskFlags": [
+            "high-aspect-or-scale-review",
+            "anatomy-and-joint-review"
+          ]
+        },
+        {
+          "name": "SSX_SHOE_L",
+          "group": "SkirtAndLegs",
+          "file": "layers-v1/SSX_SHOE_L.png",
+          "targetRect": [
+            348,
+            1535,
+            90,
+            135
+          ],
+          "aspectDistortion": 1.834,
+          "riskFlags": [
+            "high-aspect-or-scale-review",
+            "lower-body-review"
+          ]
+        },
+        {
+          "name": "SSX_SHOE_R",
+          "group": "SkirtAndLegs",
+          "file": "layers-v1/SSX_SHOE_R.png",
+          "targetRect": [
+            480,
+            1535,
+            90,
+            135
+          ],
+          "aspectDistortion": 1.834,
+          "riskFlags": [
+            "high-aspect-or-scale-review",
+            "lower-body-review"
+          ]
+        }
+      ],
+      "passCriteria": [
+        "All target rectangles reconstruct the front master without visible drift, jumps, or mismatched seams.",
+        "Chat, overlay, pet, and compact sizes use a readable crop/scale; 220 px full-body is not accepted for emotional readability."
+      ],
+      "signoffFields": [
+        "reviewer",
+        "reviewedAt",
+        "decision",
+        "notes"
+      ]
+    },
+    {
+      "id": "wardrobe-source-boundary",
+      "label": "Wardrobe source boundary",
+      "status": "review_required",
+      "evidence": [
+        "assets/avatar/su-shixia-live2d-v2/source/review/runtime-visual-qa-v1/runtime-appearance-contact-sheet-v1.png",
+        "wardrobe/wardrobe-contract-v1.json"
+      ],
+      "partCount": 17,
+      "highRiskPartCount": 6,
+      "highRiskParts": [
+        {
+          "name": "SSX_BLOUSE_COLLAR_L",
+          "group": "Body",
+          "file": "layers-v1/SSX_BLOUSE_COLLAR_L.png",
+          "targetRect": [
+            350,
+            302,
+            110,
+            95
+          ],
+          "aspectDistortion": 1.754,
+          "riskFlags": [
+            "high-aspect-or-scale-review"
+          ]
+        },
+        {
+          "name": "SSX_BLOUSE_COLLAR_R",
+          "group": "Body",
+          "file": "layers-v1/SSX_BLOUSE_COLLAR_R.png",
+          "targetRect": [
+            460,
+            302,
+            110,
+            95
+          ],
+          "aspectDistortion": 1.745,
+          "riskFlags": [
+            "high-aspect-or-scale-review"
+          ]
+        },
+        {
+          "name": "SSX_BLOUSE_BACK_FILL",
+          "group": "Body",
+          "file": "layers-v1/SSX_BLOUSE_BACK_FILL.png",
+          "targetRect": [
+            300,
+            295,
+            320,
+            310
+          ],
+          "aspectDistortion": 1.326,
+          "riskFlags": [
+            "hidden-fill-review"
+          ]
+        },
+        {
+          "name": "SSX_SKIRT_REAR_BASE",
+          "group": "SkirtAndLegs",
+          "file": "layers-v1/SSX_SKIRT_REAR_BASE.png",
+          "targetRect": [
+            270,
+            560,
+            380,
+            405
+          ],
+          "aspectDistortion": 1.252,
+          "riskFlags": [
+            "hidden-fill-review"
+          ]
+        },
+        {
+          "name": "SSX_SHOE_L",
+          "group": "SkirtAndLegs",
+          "file": "layers-v1/SSX_SHOE_L.png",
+          "targetRect": [
+            348,
+            1535,
+            90,
+            135
+          ],
+          "aspectDistortion": 1.834,
+          "riskFlags": [
+            "high-aspect-or-scale-review",
+            "lower-body-review"
+          ]
+        },
+        {
+          "name": "SSX_SHOE_R",
+          "group": "SkirtAndLegs",
+          "file": "layers-v1/SSX_SHOE_R.png",
+          "targetRect": [
+            480,
+            1535,
+            90,
+            135
+          ],
+          "aspectDistortion": 1.834,
+          "riskFlags": [
+            "high-aspect-or-scale-review",
+            "lower-body-review"
+          ]
+        }
+      ],
+      "passCriteria": [
+        "Classic daily outfit can be approved as the only current-source outfit.",
+        "Assistant, home, ceremony, private, and adult outfits remain future source packages, not recolor-only production claims."
+      ],
+      "signoffFields": [
+        "reviewer",
+        "reviewedAt",
+        "decision",
+        "notes"
+      ]
+    },
+    {
+      "id": "turn-multiview-boundary",
+      "label": "Turn and multi-view boundary",
+      "status": "review_required",
+      "evidence": [
+        "source/review/orientation-contract-v1.json",
+        "../../../docs/quality/su-shixia-orientation-readiness-audit.json"
+      ],
+      "partCount": 20,
+      "highRiskPartCount": 4,
+      "highRiskParts": [
+        {
+          "name": "SSX_HAIR_BANGS_LEFT",
+          "group": "Head",
+          "file": "layers-v1/SSX_HAIR_BANGS_LEFT.png",
+          "targetRect": [
+            335,
+            55,
+            170,
+            180
+          ],
+          "aspectDistortion": 1.83,
+          "riskFlags": [
+            "high-aspect-or-scale-review"
+          ]
+        },
+        {
+          "name": "SSX_HAIR_BANGS_RIGHT",
+          "group": "Head",
+          "file": "layers-v1/SSX_HAIR_BANGS_RIGHT.png",
+          "targetRect": [
+            415,
+            55,
+            170,
+            180
+          ],
+          "aspectDistortion": 1.896,
+          "riskFlags": [
+            "high-aspect-or-scale-review"
+          ]
+        },
+        {
+          "name": "SSX_TORSO_BASE",
+          "group": "Body",
+          "file": "layers-v1/SSX_TORSO_BASE.png",
+          "targetRect": [
+            335,
+            275,
+            250,
+            310
+          ],
+          "aspectDistortion": 1.077,
+          "riskFlags": [
+            "hidden-fill-review"
+          ]
+        },
+        {
+          "name": "SSX_SKIRT_REAR_BASE",
+          "group": "SkirtAndLegs",
+          "file": "layers-v1/SSX_SKIRT_REAR_BASE.png",
+          "targetRect": [
+            270,
+            560,
+            380,
+            405
+          ],
+          "aspectDistortion": 1.252,
+          "riskFlags": [
+            "hidden-fill-review"
+          ]
+        }
+      ],
+      "passCriteria": [
+        "Current TurnPreview is accepted only as a front-view 2.5D hint.",
+        "Profile, back, rear three-quarter, and orientation-specific hit maps require separate reviewed source packages."
+      ],
+      "signoffFields": [
+        "reviewer",
+        "reviewedAt",
+        "decision",
+        "notes"
+      ]
+    }
+  ],
+  "approvalGates": [
+    {
+      "id": "human-layer-review-approved",
+      "approved": false,
+      "status": "review_required",
+      "detail": "Human approval of source alignment, anatomy, identity, hands, lower body, and display scale is still missing."
+    },
+    {
+      "id": "hidden-fill-review-approved",
+      "approved": false,
+      "status": "review_required",
+      "detail": "Hand-painted or human-approved occluded torso, clothing, arm, and leg fills are still missing."
+    },
+    {
+      "id": "alignment-review-approved",
+      "approved": false,
+      "status": "review_required",
+      "detail": "The front alignment and scale previews still need visible signoff before Cubism import."
+    },
+    {
+      "id": "multi-view-source-ready",
+      "approved": false,
+      "status": "review_required",
+      "detail": "Profile/back source packages and orientation-specific hit maps are still missing."
+    },
+    {
+      "id": "true-outfit-source-ready",
+      "approved": false,
+      "status": "review_required",
+      "detail": "Only the default outfit source exists; future outfit source packages remain missing."
+    }
+  ],
+  "blockerMapping": {
+    "source-and-layering:human-layer-review-approved": [
+      "identity-default-read",
+      "hands-arms-anatomy",
+      "lower-body-shoes",
+      "mouth-expression-speech",
+      "alignment-scale"
+    ],
+    "source-and-layering:hidden-fill-review-approved": [
+      "hidden-fill-occlusion"
+    ],
+    "source-and-layering:alignment-review-approved": [
+      "alignment-scale"
+    ],
+    "source-and-layering:multi-view-source-ready": [
+      "turn-multiview-boundary"
+    ],
+    "appearance-and-wardrobe:true-outfit-swap": [
+      "wardrobe-source-boundary"
+    ]
+  },
+  "goNoGo": {
+    "packetReady": "go",
+    "humanLayerReviewApproved": "no_go",
+    "hiddenFillReviewApproved": "no_go",
+    "alignmentReviewApproved": "no_go",
+    "trueWardrobeSourceReady": "no_go",
+    "multiviewSourceReady": "no_go"
+  },
+  "boundary": {
+    "doesNotApproveArtAutomatically": true,
+    "doesNotStartGenuineCubismRigging": true,
+    "doesNotClaimTrueWardrobe": true,
+    "doesNotClaimMultiView": true,
+    "requiredBeforeCubismImport": [
+      "Human signoff on every review lane marked review_required.",
+      "Resolved or waived open findings with reviewer notes.",
+      "Updated manifest gates only after evidence files and signoff are present."
+    ]
+  }
+}

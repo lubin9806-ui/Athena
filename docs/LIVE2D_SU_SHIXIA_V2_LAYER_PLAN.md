@@ -366,3 +366,14 @@ Produced on 2026-08-24:
 - npm command: `npm.cmd run test:live2d:su-shixia-hot-zone-events`.
 
 Stage 3N status: `CANVAS HOT-ZONE EVENT PROOF READY`. The proof uses the compiled `Live2DCanvasController` and a fake Live2D host to prove representative canvas pointer hits route to `hotZone.trigger`, visual actions, runtime events, and the persona callback for face, hand, chest, thigh, and hair clip. It does not validate browser pixel rendering, true Cubism `.moc3`, or full orientation-specific hit maps.
+
+## Stage 3O Art Review Packet
+
+Produced on 2026-08-24:
+
+- art review packet: `docs/quality/su-shixia-art-review-packet.json`;
+- packet generator: `scripts/generate-su-shixia-art-review-packet.js`;
+- packet verifier: `scripts/verify-su-shixia-art-review-packet.js`;
+- npm command: `npm.cmd run test:live2d:su-shixia-art-review`.
+
+Stage 3O status: `ART REVIEW PACKET READY`. The packet turns the source-art NO-GO items into eight manual signoff lanes and maps them to the current delivery blockers. It identifies high-risk parts for hands/arms, hidden fill, lower body/shoes, mouth/expression, alignment/scale, wardrobe source boundaries, and turn/multi-view boundaries. It intentionally keeps `humanLayerReviewApproved`, `hiddenFillReviewApproved`, and `alignmentReviewApproved` as `NO-GO` until reviewed evidence and signoff are present.

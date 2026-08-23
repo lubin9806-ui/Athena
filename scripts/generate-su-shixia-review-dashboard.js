@@ -135,6 +135,7 @@ const MOTION_REFERENCE_FAMILIES = [
 function main() {
   const manifest = readJson(path.join(PACKAGE_ROOT, 'manifest.json'));
   const sourceReview = readJson(path.join(PACKAGE_ROOT, manifest.sourceArt.reviewReport));
+  const artReviewPacket = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-art-review-packet.json'));
   const runtimeQa = readJson(path.join(PACKAGE_ROOT, manifest.sourceArt.runtimeVisualQaReport));
   const deliveryAudit = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-live2d-v2-delivery-audit.json'));
   const exportAudit = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-cubism-export-audit.json'));
@@ -330,6 +331,12 @@ function main() {
     </section>
 
     <section>
+      <h2>Art Review Packet</h2>
+      <p class="note">This packet makes the human source-art gate actionable. It does not approve art automatically.</p>
+      ${artReviewPacketTable(artReviewPacket)}
+    </section>
+
+    <section>
       <h2>GitHub Reference Scan</h2>
       <p class="note">These repositories inform structure, runtime behavior, and future input routes. They are not imported character assets.</p>
       ${githubTable(githubScan.repositories)}
@@ -455,6 +462,19 @@ function findingsTable(findings) {
     escapeHtml(item.note),
   ]);
   return simpleTable(['Area', 'Severity', 'Status', 'Note'], rows, true);
+}
+
+function artReviewPacketTable(packet) {
+  const rows = packet.reviewLanes.map(item => [
+    `<code>${escapeHtml(item.id)}</code>`,
+    escapeHtml(item.label),
+    `<code>${escapeHtml(item.status)}</code>`,
+    `<code>${item.partCount}</code>`,
+    `<code>${item.highRiskPartCount}</code>`,
+  ]);
+  const gates = packet.approvalGates.map(item => `<code>${escapeHtml(item.id)}=${escapeHtml(item.status)}</code>`).join(' ');
+  return `${simpleTable(['Lane', 'Label', 'Status', 'Parts', 'High Risk'], rows, true)}
+      <p class="note">Approval gates: ${gates}</p>`;
 }
 
 function wardrobeTable(outfits) {

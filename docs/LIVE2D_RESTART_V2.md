@@ -319,6 +319,17 @@ Produced on 2026-08-24:
 
 Stage 3N status: `CANVAS HOT-ZONE EVENT PROOF READY, PIXEL/CUBISM PROOF STILL SEPARATE`. The proof runs the compiled `Live2DCanvasController` path and confirms representative pointer hits for face, hand, chest, thigh, and hair clip route through hit-test, visual action, runtime event emission, and persona reply callback. It does not prove real Cubism `.moc3` loading or browser pixel output.
 
+## Stage 3O Current Evidence
+
+Produced on 2026-08-24:
+
+- art review packet: `docs/quality/su-shixia-art-review-packet.json`;
+- packet generator: `scripts/generate-su-shixia-art-review-packet.js`;
+- packet verifier: `scripts/verify-su-shixia-art-review-packet.js`;
+- npm command: `npm.cmd run test:live2d:su-shixia-art-review`.
+
+Stage 3O status: `ART REVIEW PACKET READY, ART APPROVAL STILL NO-GO`. The packet maps source-art review lanes to the current delivery blockers: identity/default read, hands/arms, hidden fill, lower body/shoes, mouth/expression, alignment/scale, wardrobe source boundary, and turn/multi-view boundary. It makes manual art signoff actionable but does not approve the art, does not clear the human-layer/hidden-fill/alignment blockers, and does not start genuine Cubism rigging.
+
 ## Acceptance Gates
 
 V2 cannot become the final public Cubism default until all are true:

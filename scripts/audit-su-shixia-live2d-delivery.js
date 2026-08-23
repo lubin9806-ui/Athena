@@ -10,6 +10,7 @@ function main() {
   const profile = readJson(path.join(PACKAGE_ROOT, 'profile.avatar.json'));
   const liteModel = readJson(path.join(PACKAGE_ROOT, 'model', 'su-shixia-live2d-v2-lite.model3.json')).AthenaLive2DLite;
   const sourceReview = readJson(path.join(PACKAGE_ROOT, manifest.sourceArt.reviewReport));
+  const artReviewPacket = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-art-review-packet.json'));
   const runtimeQa = readJson(path.join(PACKAGE_ROOT, manifest.sourceArt.runtimeVisualQaReport));
   const exportAudit = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-cubism-export-audit.json'));
   const runtimeProof = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-cubism-runtime-proof.json'));
@@ -27,6 +28,7 @@ function main() {
     stage('source-and-layering', sourceReview.gate.includes('Do not begin genuine Cubism rigging') ? 'no_go' : 'go', [
       check('transparent-master', manifest.production.transparentMasterReady === true),
       check('layered-baseline', manifest.production.automatedLayeredBaselineReady === true),
+      check('art-review-packet-ready', manifest.production.artReviewPacketReady === true && artReviewPacket.status === 'manual_review_packet_ready'),
       check('parts-count', manifest.production.partsCount === 66),
       check('orientation-contract-ready', manifest.production.orientationContractReady === true),
       check('orientation-readiness-audit-ready', manifest.production.orientationReadinessAuditReady === true),

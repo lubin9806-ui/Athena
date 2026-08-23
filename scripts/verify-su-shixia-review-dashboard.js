@@ -15,6 +15,7 @@ function main() {
   const html = fs.readFileSync(DASHBOARD_PATH, 'utf8');
 
   assert.equal(manifest.sourceArt.reviewDashboard, 'source/review/su-shixia-live2d-v2-review-dashboard.html');
+  assert.equal(manifest.sourceArt.artReviewPacket, '../../../docs/quality/su-shixia-art-review-packet.json');
   assert.equal(manifest.sourceArt.githubReferenceScan, '../../../docs/quality/su-shixia-github-reference-scan.json');
   assert.equal(manifest.sourceArt.wardrobeContract, 'wardrobe/wardrobe-contract-v1.json');
   assert.equal(manifest.sourceArt.interactionMatrix, 'source/review/interaction-matrix-v1.json');
@@ -22,6 +23,7 @@ function main() {
   assert.equal(manifest.sourceArt.hotZoneEventProof, '../../../docs/quality/su-shixia-hot-zone-event-proof.json');
   assert.equal(manifest.sourceArt.orientationContract, 'source/review/orientation-contract-v1.json');
   assert.equal(manifest.production.reviewDashboardReady, true);
+  assert.equal(manifest.production.artReviewPacketReady, true);
   assert.equal(manifest.production.githubReferenceScanReady, true);
   assert.equal(manifest.production.wardrobeContractReady, true);
   assert.equal(manifest.production.interactionMatrixReady, true);
@@ -52,6 +54,10 @@ function main() {
   assert.ok(html.includes('../parts/parts-contact-sheet-v1.png'));
   assert.ok(html.includes('runtime-motion-contact-sheet-v1.png'));
   assert.ok(html.includes('runtime-appearance-contact-sheet-v1.png'));
+  assert.ok(html.includes('Art Review Packet'));
+  assert.ok(html.includes('hands-arms-anatomy'));
+  assert.ok(html.includes('hidden-fill-occlusion'));
+  assert.ok(html.includes('does not approve art automatically'));
   assert.ok(html.includes('Live2D/CubismWebSamples'));
   assert.ok(html.includes('guansss/pixi-live2d-display'));
   assert.ok(html.includes('emilianavt/OpenSeeFace'));

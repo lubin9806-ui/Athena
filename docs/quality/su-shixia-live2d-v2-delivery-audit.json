@@ -45,6 +45,11 @@
           "detail": ""
         },
         {
+          "id": "art-review-packet-ready",
+          "status": "pass",
+          "detail": ""
+        },
+        {
           "id": "parts-count",
           "status": "pass",
           "detail": ""

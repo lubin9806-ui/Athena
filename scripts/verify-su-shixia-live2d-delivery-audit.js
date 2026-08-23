@@ -10,6 +10,7 @@ function main() {
   const report = readJson(REPORT_PATH);
 
   assert.equal(manifest.sourceArt.deliveryAuditReport, '../../../docs/quality/su-shixia-live2d-v2-delivery-audit.json');
+  assert.equal(manifest.sourceArt.artReviewPacket, '../../../docs/quality/su-shixia-art-review-packet.json');
   assert.equal(manifest.sourceArt.reviewDashboard, 'source/review/su-shixia-live2d-v2-review-dashboard.html');
   assert.equal(manifest.sourceArt.githubReferenceScan, '../../../docs/quality/su-shixia-github-reference-scan.json');
   assert.equal(manifest.sourceArt.wardrobeContract, 'wardrobe/wardrobe-contract-v1.json');
@@ -22,6 +23,7 @@ function main() {
   assert.equal(manifest.sourceArt.orientationContract, 'source/review/orientation-contract-v1.json');
   assert.equal(manifest.sourceArt.orientationReadinessAudit, '../../../docs/quality/su-shixia-orientation-readiness-audit.json');
   assert.equal(manifest.production.deliveryAuditReady, true);
+  assert.equal(manifest.production.artReviewPacketReady, true);
   assert.equal(manifest.production.reviewDashboardReady, true);
   assert.equal(manifest.production.githubReferenceScanReady, true);
   assert.equal(manifest.production.wardrobeContractReady, true);
@@ -51,6 +53,7 @@ function main() {
   assert.equal(report.goNoGo.trueWardrobe, 'no_go');
   assert.equal(report.goNoGo.publicDistribution, 'no_go');
   assert.ok(report.blockers.includes('source-and-layering:human-layer-review-approved'));
+  assert.ok(report.stages.find(item => item.id === 'source-and-layering').checks.some(item => item.id === 'art-review-packet-ready' && item.status === 'pass'));
   assert.ok(report.blockers.includes('source-and-layering:hidden-fill-review-approved'));
   assert.ok(report.blockers.includes('source-and-layering:alignment-review-approved'));
   assert.ok(report.blockers.includes('source-and-layering:multi-view-source-ready'));
