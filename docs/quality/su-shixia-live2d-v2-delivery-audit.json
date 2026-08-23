@@ -218,6 +218,31 @@
           "detail": ""
         },
         {
+          "id": "runtime-policy-proof-ready",
+          "status": "pass",
+          "detail": ""
+        },
+        {
+          "id": "runtime-policy-proof-go",
+          "status": "pass",
+          "detail": ""
+        },
+        {
+          "id": "compiled-helper-policy-coverage",
+          "status": "pass",
+          "detail": ""
+        },
+        {
+          "id": "runtime-normal-mode-boundary-proof",
+          "status": "pass",
+          "detail": ""
+        },
+        {
+          "id": "runtime-private-asset-boundary-proof",
+          "status": "pass",
+          "detail": ""
+        },
+        {
           "id": "interaction-audit-go",
           "status": "pass",
           "detail": ""

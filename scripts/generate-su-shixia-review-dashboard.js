@@ -143,6 +143,7 @@ function main() {
   const wardrobeAudit = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-wardrobe-readiness-audit.json'));
   const interactionMatrix = readJson(path.join(PACKAGE_ROOT, manifest.sourceArt.interactionMatrix));
   const interactionAudit = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-interaction-readiness-audit.json'));
+  const runtimePolicyProof = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-runtime-policy-proof.json'));
   const orientationContract = readJson(path.join(PACKAGE_ROOT, manifest.sourceArt.orientationContract));
   const orientationAudit = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-orientation-readiness-audit.json'));
 
@@ -346,6 +347,8 @@ function main() {
       <h2>Interaction Matrix</h2>
       <p class="note">The persona may generate replies, but the runtime owns zone permissions, motion allowlists, and mode boundaries.</p>
       ${interactionSummaryTable(interactionMatrix, interactionAudit)}
+      <h3>Runtime Policy Proof</h3>
+      ${runtimePolicyProofTable(runtimePolicyProof)}
       ${interactionZoneTable(interactionMatrix.zones)}
     </section>
 
@@ -470,6 +473,17 @@ function interactionSummaryTable(matrix, audit) {
           <tr><th>Target layers</th><td>${Object.entries(matrix.coverage.byTargetLayer).map(([key, value]) => `<code>${escapeHtml(key)}=${escapeHtml(value)}</code>`).join(' ')}</td></tr>
           <tr><th>Sensitivity</th><td>${Object.entries(matrix.coverage.bySensitivity).map(([key, value]) => `<code>${escapeHtml(key)}=${escapeHtml(value)}</code>`).join(' ')}</td></tr>
           <tr><th>Known No-Go</th><td>${Object.entries(audit.goNoGo).map(([key, value]) => `<code>${escapeHtml(key)}=${escapeHtml(value)}</code>`).join(' ')}</td></tr>
+        </tbody>
+      </table>`;
+}
+
+function runtimePolicyProofTable(proof) {
+  return `<table>
+        <tbody>
+          <tr><th>Status</th><td><code>${escapeHtml(proof.status)}</code></td></tr>
+          <tr><th>Runtime module</th><td><code>${escapeHtml(proof.runtimeModule)}</code></td></tr>
+          <tr><th>Coverage</th><td><code>zones=${proof.coverage.totalZones}</code> <code>normal=${proof.coverage.normalModeProofs}</code> <code>private=${proof.coverage.privateModeProofs}</code> <code>fallback=${proof.coverage.privateAttemptsFallingBackToNormal}</code></td></tr>
+          <tr><th>Boundary</th><td>${Object.entries(proof.boundary).map(([key, value]) => `<code>${escapeHtml(key)}=${escapeHtml(value)}</code>`).join(' ')}</td></tr>
         </tbody>
       </table>`;
 }

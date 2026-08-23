@@ -15,6 +15,7 @@ function main() {
   const runtimeProof = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-cubism-runtime-proof.json'));
   const wardrobeAudit = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-wardrobe-readiness-audit.json'));
   const interactionAudit = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-interaction-readiness-audit.json'));
+  const runtimePolicyProof = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-runtime-policy-proof.json'));
   const orientationAudit = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-orientation-readiness-audit.json'));
 
   const stages = [
@@ -62,6 +63,11 @@ function main() {
       check('interaction-policy', manifest.production.interactionPolicyReady === true),
       check('interaction-matrix-ready', manifest.production.interactionMatrixReady === true),
       check('interaction-readiness-audit-ready', manifest.production.interactionReadinessAuditReady === true),
+      check('runtime-policy-proof-ready', manifest.production.runtimePolicyProofReady === true),
+      check('runtime-policy-proof-go', runtimePolicyProof.status === 'go'),
+      check('compiled-helper-policy-coverage', runtimePolicyProof.coverage.totalZones === profile.hotZones.length),
+      check('runtime-normal-mode-boundary-proof', runtimePolicyProof.boundary.normalModeAdultEscalationAllowed === false),
+      check('runtime-private-asset-boundary-proof', runtimePolicyProof.boundary.publicPackagePrivateAssetsAllowed === false),
       check('interaction-audit-go', interactionAudit.status === 'go'),
       check('interaction-zones-covered', interactionAudit.zoneCount === manifest.production.liteRuntimeHitZoneCount),
       check('interaction-private-zone-count', interactionAudit.privateOptInZoneCount >= 5),

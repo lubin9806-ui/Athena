@@ -18,11 +18,13 @@ function main() {
   assert.equal(manifest.sourceArt.githubReferenceScan, '../../../docs/quality/su-shixia-github-reference-scan.json');
   assert.equal(manifest.sourceArt.wardrobeContract, 'wardrobe/wardrobe-contract-v1.json');
   assert.equal(manifest.sourceArt.interactionMatrix, 'source/review/interaction-matrix-v1.json');
+  assert.equal(manifest.sourceArt.runtimePolicyProof, '../../../docs/quality/su-shixia-runtime-policy-proof.json');
   assert.equal(manifest.sourceArt.orientationContract, 'source/review/orientation-contract-v1.json');
   assert.equal(manifest.production.reviewDashboardReady, true);
   assert.equal(manifest.production.githubReferenceScanReady, true);
   assert.equal(manifest.production.wardrobeContractReady, true);
   assert.equal(manifest.production.interactionMatrixReady, true);
+  assert.equal(manifest.production.runtimePolicyProofReady, true);
   assert.equal(manifest.production.orientationContractReady, true);
 
   assert.equal(githubScan.version, 1);
@@ -63,6 +65,9 @@ function main() {
   assert.ok(html.includes('future_source_required'));
   assert.ok(html.includes('true outfit swap'));
   assert.ok(html.includes('Interaction Matrix'));
+  assert.ok(html.includes('Runtime Policy Proof'));
+  assert.ok(html.includes('compiled-helper-policy-coverage'));
+  assert.ok(html.includes('publicPackagePrivateAssetsAllowed=false'));
   assert.ok(html.includes('face_cheek'));
   assert.ok(html.includes('TouchChest'));
   assert.ok(html.includes('gestureClassifierV2=no_go'));

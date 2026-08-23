@@ -297,6 +297,17 @@ Produced on 2026-08-24:
 
 Stage 3L status: `ORIENTATION CONTRACT READY, TRUE MULTI-VIEW STILL NO-GO`. The current runtime has `front` plus `TurnPreview` as a visible 2.5D hint. Real turn behavior still requires profile/back source packages, orientation-specific hit maps, authored transition assets, and Cubism or equivalent runtime proof.
 
+## Stage 3M Current Evidence
+
+Produced on 2026-08-24:
+
+- runtime policy proof: `docs/quality/su-shixia-runtime-policy-proof.json`;
+- proof generator: `scripts/generate-su-shixia-runtime-policy-proof.js`;
+- proof verifier: `scripts/verify-su-shixia-runtime-policy-proof.js`;
+- npm command: `npm.cmd run test:live2d:su-shixia-runtime-policy`.
+
+Stage 3M status: `RUNTIME HOT-ZONE POLICY PROOF READY, CUBISM RUNTIME PROOF STILL NO-GO`. The proof runs against the compiled `AthenaLive2DCompanion` helper and confirms normal/private prompt boundaries for all current Su Shixia hot zones. It proves the Lite runtime prompt boundary and public private-asset exclusion logic. It does not prove a genuine Cubism `.moc3` load, authored Cubism motion playback, or final public distribution readiness.
+
 ## Acceptance Gates
 
 V2 cannot become the final public Cubism default until all are true:

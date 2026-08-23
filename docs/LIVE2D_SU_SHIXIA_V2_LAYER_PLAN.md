@@ -344,3 +344,14 @@ Stage 3L status: `ORIENTATION CONTRACT READY, TRUE MULTI-VIEW STILL NO-GO`. The 
 ## Motion Reference Discipline
 
 The GitHub reference scan in `docs/quality/su-shixia-github-reference-scan.json` now includes motion-reference families for idle presence, voice speech, face/head touch, hand/arm gestures, garment/body boundary reactions, turn orientation, and future tracking input. The dashboard verifier checks that every current Lite runtime motion group is covered by at least one family before the motion can be treated as ready for Cubism authoring. These references guide timing and interaction design only; third-party character art, textures, voice clips, and unclear-license motion files are not imported into Su Shixia.
+
+## Stage 3M Runtime Policy Proof
+
+Produced on 2026-08-24:
+
+- runtime policy proof: `docs/quality/su-shixia-runtime-policy-proof.json`;
+- proof generator: `scripts/generate-su-shixia-runtime-policy-proof.js`;
+- proof verifier: `scripts/verify-su-shixia-runtime-policy-proof.js`;
+- npm command: `npm.cmd run test:live2d:su-shixia-runtime-policy`.
+
+Stage 3M status: `RUNTIME HOT-ZONE POLICY PROOF READY`. The proof uses the compiled `AthenaLive2DCompanion` helper to verify all 37 current hot zones in normal mode and private-opt-in attempts. Private-capable zones enter `private_opt_in` only when allowed by zone metadata; non-private zones fall back to normal even under a private-mode attempt. Sensitive and private zones in normal mode include the no-adult-escalation boundary. This is still Lite runtime policy evidence, not genuine Cubism export evidence.

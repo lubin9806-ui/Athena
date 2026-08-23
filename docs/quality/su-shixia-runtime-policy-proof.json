@@ -1,0 +1,827 @@
+{
+  "version": 1,
+  "generatedAt": "2026-08-24",
+  "packageId": "su-shixia-live2d-v2",
+  "status": "go",
+  "runtimeModule": "dist/renderer/avatar/live2d/AthenaLive2DCompanion",
+  "profilePath": "assets/avatar/su-shixia-live2d-v2/profile.avatar.json",
+  "coverage": {
+    "totalZones": 37,
+    "privateOptInCapableZones": 6,
+    "normalModeProofs": 37,
+    "privateModeProofs": 6,
+    "privateAttemptsFallingBackToNormal": 31,
+    "forbiddenPublicAssetTypes": [
+      "nude_body",
+      "explicit_pose",
+      "adult_costume",
+      "adult_motion"
+    ]
+  },
+  "checks": [
+    {
+      "id": "compiled-runtime-helper-loaded",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "id": "default-preferences-normal",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "id": "all-zones-have-action-prompt",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "id": "all-normal-prompts-stay-normal",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "id": "all-normal-prompts-include-body-part",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "id": "all-normal-prompts-include-motion-intent",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "id": "sensitive-normal-prompts-block-adult-escalation",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "id": "private-opt-in-zones-enter-private-mode",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "id": "non-private-zones-remain-normal-on-private-attempt",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "id": "matrix-zone-count-matches-profile",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "id": "public-forbidden-assets-declared",
+      "status": "pass",
+      "detail": ""
+    }
+  ],
+  "zoneProofs": [
+    {
+      "id": "hair",
+      "bodyPart": "头发",
+      "sensitivity": "affectionate",
+      "privateModeAllowed": false,
+      "actionPromptPresent": true,
+      "normalMode": {
+        "effectiveMode": "normal",
+        "includesBodyPart": true,
+        "includesMotionIntent": true,
+        "includesNormalBoundary": true,
+        "blocksAdultEscalation": false
+      },
+      "privateOptInAttempt": {
+        "expectedEffectiveMode": "normal",
+        "effectiveMode": "normal",
+        "includesPrivateBoundary": false,
+        "fallsBackToNormalWhenNotAllowed": true
+      }
+    },
+    {
+      "id": "hair_clip",
+      "bodyPart": "银色 A 字发夹",
+      "sensitivity": "affectionate",
+      "privateModeAllowed": false,
+      "actionPromptPresent": true,
+      "normalMode": {
+        "effectiveMode": "normal",
+        "includesBodyPart": true,
+        "includesMotionIntent": true,
+        "includesNormalBoundary": true,
+        "blocksAdultEscalation": false
+      },
+      "privateOptInAttempt": {
+        "expectedEffectiveMode": "normal",
+        "effectiveMode": "normal",
+        "includesPrivateBoundary": false,
+        "fallsBackToNormalWhenNotAllowed": true
+      }
+    },
+    {
+      "id": "forehead",
+      "bodyPart": "额头",
+      "sensitivity": "affectionate",
+      "privateModeAllowed": false,
+      "actionPromptPresent": true,
+      "normalMode": {
+        "effectiveMode": "normal",
+        "includesBodyPart": true,
+        "includesMotionIntent": true,
+        "includesNormalBoundary": true,
+        "blocksAdultEscalation": false
+      },
+      "privateOptInAttempt": {
+        "expectedEffectiveMode": "normal",
+        "effectiveMode": "normal",
+        "includesPrivateBoundary": false,
+        "fallsBackToNormalWhenNotAllowed": true
+      }
+    },
+    {
+      "id": "left_ear",
+      "bodyPart": "耳侧",
+      "sensitivity": "sensitive",
+      "privateModeAllowed": false,
+      "actionPromptPresent": true,
+      "normalMode": {
+        "effectiveMode": "normal",
+        "includesBodyPart": true,
+        "includesMotionIntent": true,
+        "includesNormalBoundary": true,
+        "blocksAdultEscalation": true
+      },
+      "privateOptInAttempt": {
+        "expectedEffectiveMode": "normal",
+        "effectiveMode": "normal",
+        "includesPrivateBoundary": false,
+        "fallsBackToNormalWhenNotAllowed": true
+      }
+    },
+    {
+      "id": "right_ear",
+      "bodyPart": "耳侧",
+      "sensitivity": "sensitive",
+      "privateModeAllowed": false,
+      "actionPromptPresent": true,
+      "normalMode": {
+        "effectiveMode": "normal",
+        "includesBodyPart": true,
+        "includesMotionIntent": true,
+        "includesNormalBoundary": true,
+        "blocksAdultEscalation": true
+      },
+      "privateOptInAttempt": {
+        "expectedEffectiveMode": "normal",
+        "effectiveMode": "normal",
+        "includesPrivateBoundary": false,
+        "fallsBackToNormalWhenNotAllowed": true
+      }
+    },
+    {
+      "id": "face_cheek",
+      "bodyPart": "脸颊",
+      "sensitivity": "affectionate",
+      "privateModeAllowed": false,
+      "actionPromptPresent": true,
+      "normalMode": {
+        "effectiveMode": "normal",
+        "includesBodyPart": true,
+        "includesMotionIntent": true,
+        "includesNormalBoundary": true,
+        "blocksAdultEscalation": false
+      },
+      "privateOptInAttempt": {
+        "expectedEffectiveMode": "normal",
+        "effectiveMode": "normal",
+        "includesPrivateBoundary": false,
+        "fallsBackToNormalWhenNotAllowed": true
+      }
+    },
+    {
+      "id": "mouth_chin",
+      "bodyPart": "嘴唇或下巴附近",
+      "sensitivity": "sensitive",
+      "privateModeAllowed": false,
+      "actionPromptPresent": true,
+      "normalMode": {
+        "effectiveMode": "normal",
+        "includesBodyPart": true,
+        "includesMotionIntent": true,
+        "includesNormalBoundary": true,
+        "blocksAdultEscalation": true
+      },
+      "privateOptInAttempt": {
+        "expectedEffectiveMode": "normal",
+        "effectiveMode": "normal",
+        "includesPrivateBoundary": false,
+        "fallsBackToNormalWhenNotAllowed": true
+      }
+    },
+    {
+      "id": "neck",
+      "bodyPart": "脖颈",
+      "sensitivity": "sensitive",
+      "privateModeAllowed": false,
+      "actionPromptPresent": true,
+      "normalMode": {
+        "effectiveMode": "normal",
+        "includesBodyPart": true,
+        "includesMotionIntent": true,
+        "includesNormalBoundary": true,
+        "blocksAdultEscalation": true
+      },
+      "privateOptInAttempt": {
+        "expectedEffectiveMode": "normal",
+        "effectiveMode": "normal",
+        "includesPrivateBoundary": false,
+        "fallsBackToNormalWhenNotAllowed": true
+      }
+    },
+    {
+      "id": "collar",
+      "bodyPart": "衣领",
+      "sensitivity": "sensitive",
+      "privateModeAllowed": false,
+      "actionPromptPresent": true,
+      "normalMode": {
+        "effectiveMode": "normal",
+        "includesBodyPart": true,
+        "includesMotionIntent": true,
+        "includesNormalBoundary": true,
+        "blocksAdultEscalation": true
+      },
+      "privateOptInAttempt": {
+        "expectedEffectiveMode": "normal",
+        "effectiveMode": "normal",
+        "includesPrivateBoundary": false,
+        "fallsBackToNormalWhenNotAllowed": true
+      }
+    },
+    {
+      "id": "left_shoulder",
+      "bodyPart": "肩膀",
+      "sensitivity": "neutral",
+      "privateModeAllowed": false,
+      "actionPromptPresent": true,
+      "normalMode": {
+        "effectiveMode": "normal",
+        "includesBodyPart": true,
+        "includesMotionIntent": true,
+        "includesNormalBoundary": true,
+        "blocksAdultEscalation": false
+      },
+      "privateOptInAttempt": {
+        "expectedEffectiveMode": "normal",
+        "effectiveMode": "normal",
+        "includesPrivateBoundary": false,
+        "fallsBackToNormalWhenNotAllowed": true
+      }
+    },
+    {
+      "id": "right_shoulder",
+      "bodyPart": "肩膀",
+      "sensitivity": "neutral",
+      "privateModeAllowed": false,
+      "actionPromptPresent": true,
+      "normalMode": {
+        "effectiveMode": "normal",
+        "includesBodyPart": true,
+        "includesMotionIntent": true,
+        "includesNormalBoundary": true,
+        "blocksAdultEscalation": false
+      },
+      "privateOptInAttempt": {
+        "expectedEffectiveMode": "normal",
+        "effectiveMode": "normal",
+        "includesPrivateBoundary": false,
+        "fallsBackToNormalWhenNotAllowed": true
+      }
+    },
+    {
+      "id": "left_upper_arm",
+      "bodyPart": "上臂",
+      "sensitivity": "neutral",
+      "privateModeAllowed": false,
+      "actionPromptPresent": true,
+      "normalMode": {
+        "effectiveMode": "normal",
+        "includesBodyPart": true,
+        "includesMotionIntent": true,
+        "includesNormalBoundary": true,
+        "blocksAdultEscalation": false
+      },
+      "privateOptInAttempt": {
+        "expectedEffectiveMode": "normal",
+        "effectiveMode": "normal",
+        "includesPrivateBoundary": false,
+        "fallsBackToNormalWhenNotAllowed": true
+      }
+    },
+    {
+      "id": "right_upper_arm",
+      "bodyPart": "上臂",
+      "sensitivity": "neutral",
+      "privateModeAllowed": false,
+      "actionPromptPresent": true,
+      "normalMode": {
+        "effectiveMode": "normal",
+        "includesBodyPart": true,
+        "includesMotionIntent": true,
+        "includesNormalBoundary": true,
+        "blocksAdultEscalation": false
+      },
+      "privateOptInAttempt": {
+        "expectedEffectiveMode": "normal",
+        "effectiveMode": "normal",
+        "includesPrivateBoundary": false,
+        "fallsBackToNormalWhenNotAllowed": true
+      }
+    },
+    {
+      "id": "left_forearm",
+      "bodyPart": "前臂",
+      "sensitivity": "neutral",
+      "privateModeAllowed": false,
+      "actionPromptPresent": true,
+      "normalMode": {
+        "effectiveMode": "normal",
+        "includesBodyPart": true,
+        "includesMotionIntent": true,
+        "includesNormalBoundary": true,
+        "blocksAdultEscalation": false
+      },
+      "privateOptInAttempt": {
+        "expectedEffectiveMode": "normal",
+        "effectiveMode": "normal",
+        "includesPrivateBoundary": false,
+        "fallsBackToNormalWhenNotAllowed": true
+      }
+    },
+    {
+      "id": "right_forearm",
+      "bodyPart": "前臂",
+      "sensitivity": "neutral",
+      "privateModeAllowed": false,
+      "actionPromptPresent": true,
+      "normalMode": {
+        "effectiveMode": "normal",
+        "includesBodyPart": true,
+        "includesMotionIntent": true,
+        "includesNormalBoundary": true,
+        "blocksAdultEscalation": false
+      },
+      "privateOptInAttempt": {
+        "expectedEffectiveMode": "normal",
+        "effectiveMode": "normal",
+        "includesPrivateBoundary": false,
+        "fallsBackToNormalWhenNotAllowed": true
+      }
+    },
+    {
+      "id": "left_wrist",
+      "bodyPart": "手腕",
+      "sensitivity": "affectionate",
+      "privateModeAllowed": false,
+      "actionPromptPresent": true,
+      "normalMode": {
+        "effectiveMode": "normal",
+        "includesBodyPart": true,
+        "includesMotionIntent": true,
+        "includesNormalBoundary": true,
+        "blocksAdultEscalation": false
+      },
+      "privateOptInAttempt": {
+        "expectedEffectiveMode": "normal",
+        "effectiveMode": "normal",
+        "includesPrivateBoundary": false,
+        "fallsBackToNormalWhenNotAllowed": true
+      }
+    },
+    {
+      "id": "right_wrist",
+      "bodyPart": "手腕",
+      "sensitivity": "affectionate",
+      "privateModeAllowed": false,
+      "actionPromptPresent": true,
+      "normalMode": {
+        "effectiveMode": "normal",
+        "includesBodyPart": true,
+        "includesMotionIntent": true,
+        "includesNormalBoundary": true,
+        "blocksAdultEscalation": false
+      },
+      "privateOptInAttempt": {
+        "expectedEffectiveMode": "normal",
+        "effectiveMode": "normal",
+        "includesPrivateBoundary": false,
+        "fallsBackToNormalWhenNotAllowed": true
+      }
+    },
+    {
+      "id": "left_hand",
+      "bodyPart": "手",
+      "sensitivity": "affectionate",
+      "privateModeAllowed": false,
+      "actionPromptPresent": true,
+      "normalMode": {
+        "effectiveMode": "normal",
+        "includesBodyPart": true,
+        "includesMotionIntent": true,
+        "includesNormalBoundary": true,
+        "blocksAdultEscalation": false
+      },
+      "privateOptInAttempt": {
+        "expectedEffectiveMode": "normal",
+        "effectiveMode": "normal",
+        "includesPrivateBoundary": false,
+        "fallsBackToNormalWhenNotAllowed": true
+      }
+    },
+    {
+      "id": "right_hand",
+      "bodyPart": "手",
+      "sensitivity": "affectionate",
+      "privateModeAllowed": false,
+      "actionPromptPresent": true,
+      "normalMode": {
+        "effectiveMode": "normal",
+        "includesBodyPart": true,
+        "includesMotionIntent": true,
+        "includesNormalBoundary": true,
+        "blocksAdultEscalation": false
+      },
+      "privateOptInAttempt": {
+        "expectedEffectiveMode": "normal",
+        "effectiveMode": "normal",
+        "includesPrivateBoundary": false,
+        "fallsBackToNormalWhenNotAllowed": true
+      }
+    },
+    {
+      "id": "blouse",
+      "bodyPart": "白衬衫",
+      "sensitivity": "sensitive",
+      "privateModeAllowed": false,
+      "actionPromptPresent": true,
+      "normalMode": {
+        "effectiveMode": "normal",
+        "includesBodyPart": true,
+        "includesMotionIntent": true,
+        "includesNormalBoundary": true,
+        "blocksAdultEscalation": true
+      },
+      "privateOptInAttempt": {
+        "expectedEffectiveMode": "normal",
+        "effectiveMode": "normal",
+        "includesPrivateBoundary": false,
+        "fallsBackToNormalWhenNotAllowed": true
+      }
+    },
+    {
+      "id": "chest",
+      "bodyPart": "胸口",
+      "sensitivity": "private",
+      "privateModeAllowed": true,
+      "actionPromptPresent": true,
+      "normalMode": {
+        "effectiveMode": "normal",
+        "includesBodyPart": true,
+        "includesMotionIntent": true,
+        "includesNormalBoundary": true,
+        "blocksAdultEscalation": true
+      },
+      "privateOptInAttempt": {
+        "expectedEffectiveMode": "private_opt_in",
+        "effectiveMode": "private_opt_in",
+        "includesPrivateBoundary": true,
+        "fallsBackToNormalWhenNotAllowed": false
+      }
+    },
+    {
+      "id": "left_ribs",
+      "bodyPart": "侧腰上方",
+      "sensitivity": "sensitive",
+      "privateModeAllowed": false,
+      "actionPromptPresent": true,
+      "normalMode": {
+        "effectiveMode": "normal",
+        "includesBodyPart": true,
+        "includesMotionIntent": true,
+        "includesNormalBoundary": true,
+        "blocksAdultEscalation": true
+      },
+      "privateOptInAttempt": {
+        "expectedEffectiveMode": "normal",
+        "effectiveMode": "normal",
+        "includesPrivateBoundary": false,
+        "fallsBackToNormalWhenNotAllowed": true
+      }
+    },
+    {
+      "id": "right_ribs",
+      "bodyPart": "侧腰上方",
+      "sensitivity": "sensitive",
+      "privateModeAllowed": false,
+      "actionPromptPresent": true,
+      "normalMode": {
+        "effectiveMode": "normal",
+        "includesBodyPart": true,
+        "includesMotionIntent": true,
+        "includesNormalBoundary": true,
+        "blocksAdultEscalation": true
+      },
+      "privateOptInAttempt": {
+        "expectedEffectiveMode": "normal",
+        "effectiveMode": "normal",
+        "includesPrivateBoundary": false,
+        "fallsBackToNormalWhenNotAllowed": true
+      }
+    },
+    {
+      "id": "abdomen",
+      "bodyPart": "腹部",
+      "sensitivity": "sensitive",
+      "privateModeAllowed": true,
+      "actionPromptPresent": true,
+      "normalMode": {
+        "effectiveMode": "normal",
+        "includesBodyPart": true,
+        "includesMotionIntent": true,
+        "includesNormalBoundary": true,
+        "blocksAdultEscalation": true
+      },
+      "privateOptInAttempt": {
+        "expectedEffectiveMode": "private_opt_in",
+        "effectiveMode": "private_opt_in",
+        "includesPrivateBoundary": true,
+        "fallsBackToNormalWhenNotAllowed": false
+      }
+    },
+    {
+      "id": "waist",
+      "bodyPart": "腰部",
+      "sensitivity": "sensitive",
+      "privateModeAllowed": true,
+      "actionPromptPresent": true,
+      "normalMode": {
+        "effectiveMode": "normal",
+        "includesBodyPart": true,
+        "includesMotionIntent": true,
+        "includesNormalBoundary": true,
+        "blocksAdultEscalation": true
+      },
+      "privateOptInAttempt": {
+        "expectedEffectiveMode": "private_opt_in",
+        "effectiveMode": "private_opt_in",
+        "includesPrivateBoundary": true,
+        "fallsBackToNormalWhenNotAllowed": false
+      }
+    },
+    {
+      "id": "hip",
+      "bodyPart": "臀侧或裙腰后侧",
+      "sensitivity": "private",
+      "privateModeAllowed": true,
+      "actionPromptPresent": true,
+      "normalMode": {
+        "effectiveMode": "normal",
+        "includesBodyPart": true,
+        "includesMotionIntent": true,
+        "includesNormalBoundary": true,
+        "blocksAdultEscalation": true
+      },
+      "privateOptInAttempt": {
+        "expectedEffectiveMode": "private_opt_in",
+        "effectiveMode": "private_opt_in",
+        "includesPrivateBoundary": true,
+        "fallsBackToNormalWhenNotAllowed": false
+      }
+    },
+    {
+      "id": "skirt_front",
+      "bodyPart": "深色百褶裙",
+      "sensitivity": "sensitive",
+      "privateModeAllowed": false,
+      "actionPromptPresent": true,
+      "normalMode": {
+        "effectiveMode": "normal",
+        "includesBodyPart": true,
+        "includesMotionIntent": true,
+        "includesNormalBoundary": true,
+        "blocksAdultEscalation": true
+      },
+      "privateOptInAttempt": {
+        "expectedEffectiveMode": "normal",
+        "effectiveMode": "normal",
+        "includesPrivateBoundary": false,
+        "fallsBackToNormalWhenNotAllowed": true
+      }
+    },
+    {
+      "id": "left_thigh",
+      "bodyPart": "大腿",
+      "sensitivity": "private",
+      "privateModeAllowed": true,
+      "actionPromptPresent": true,
+      "normalMode": {
+        "effectiveMode": "normal",
+        "includesBodyPart": true,
+        "includesMotionIntent": true,
+        "includesNormalBoundary": true,
+        "blocksAdultEscalation": true
+      },
+      "privateOptInAttempt": {
+        "expectedEffectiveMode": "private_opt_in",
+        "effectiveMode": "private_opt_in",
+        "includesPrivateBoundary": true,
+        "fallsBackToNormalWhenNotAllowed": false
+      }
+    },
+    {
+      "id": "right_thigh",
+      "bodyPart": "大腿",
+      "sensitivity": "private",
+      "privateModeAllowed": true,
+      "actionPromptPresent": true,
+      "normalMode": {
+        "effectiveMode": "normal",
+        "includesBodyPart": true,
+        "includesMotionIntent": true,
+        "includesNormalBoundary": true,
+        "blocksAdultEscalation": true
+      },
+      "privateOptInAttempt": {
+        "expectedEffectiveMode": "private_opt_in",
+        "effectiveMode": "private_opt_in",
+        "includesPrivateBoundary": true,
+        "fallsBackToNormalWhenNotAllowed": false
+      }
+    },
+    {
+      "id": "left_knee",
+      "bodyPart": "膝盖",
+      "sensitivity": "neutral",
+      "privateModeAllowed": false,
+      "actionPromptPresent": true,
+      "normalMode": {
+        "effectiveMode": "normal",
+        "includesBodyPart": true,
+        "includesMotionIntent": true,
+        "includesNormalBoundary": true,
+        "blocksAdultEscalation": false
+      },
+      "privateOptInAttempt": {
+        "expectedEffectiveMode": "normal",
+        "effectiveMode": "normal",
+        "includesPrivateBoundary": false,
+        "fallsBackToNormalWhenNotAllowed": true
+      }
+    },
+    {
+      "id": "right_knee",
+      "bodyPart": "膝盖",
+      "sensitivity": "neutral",
+      "privateModeAllowed": false,
+      "actionPromptPresent": true,
+      "normalMode": {
+        "effectiveMode": "normal",
+        "includesBodyPart": true,
+        "includesMotionIntent": true,
+        "includesNormalBoundary": true,
+        "blocksAdultEscalation": false
+      },
+      "privateOptInAttempt": {
+        "expectedEffectiveMode": "normal",
+        "effectiveMode": "normal",
+        "includesPrivateBoundary": false,
+        "fallsBackToNormalWhenNotAllowed": true
+      }
+    },
+    {
+      "id": "left_calf",
+      "bodyPart": "小腿",
+      "sensitivity": "neutral",
+      "privateModeAllowed": false,
+      "actionPromptPresent": true,
+      "normalMode": {
+        "effectiveMode": "normal",
+        "includesBodyPart": true,
+        "includesMotionIntent": true,
+        "includesNormalBoundary": true,
+        "blocksAdultEscalation": false
+      },
+      "privateOptInAttempt": {
+        "expectedEffectiveMode": "normal",
+        "effectiveMode": "normal",
+        "includesPrivateBoundary": false,
+        "fallsBackToNormalWhenNotAllowed": true
+      }
+    },
+    {
+      "id": "right_calf",
+      "bodyPart": "小腿",
+      "sensitivity": "neutral",
+      "privateModeAllowed": false,
+      "actionPromptPresent": true,
+      "normalMode": {
+        "effectiveMode": "normal",
+        "includesBodyPart": true,
+        "includesMotionIntent": true,
+        "includesNormalBoundary": true,
+        "blocksAdultEscalation": false
+      },
+      "privateOptInAttempt": {
+        "expectedEffectiveMode": "normal",
+        "effectiveMode": "normal",
+        "includesPrivateBoundary": false,
+        "fallsBackToNormalWhenNotAllowed": true
+      }
+    },
+    {
+      "id": "left_ankle",
+      "bodyPart": "脚踝",
+      "sensitivity": "neutral",
+      "privateModeAllowed": false,
+      "actionPromptPresent": true,
+      "normalMode": {
+        "effectiveMode": "normal",
+        "includesBodyPart": true,
+        "includesMotionIntent": true,
+        "includesNormalBoundary": true,
+        "blocksAdultEscalation": false
+      },
+      "privateOptInAttempt": {
+        "expectedEffectiveMode": "normal",
+        "effectiveMode": "normal",
+        "includesPrivateBoundary": false,
+        "fallsBackToNormalWhenNotAllowed": true
+      }
+    },
+    {
+      "id": "right_ankle",
+      "bodyPart": "脚踝",
+      "sensitivity": "neutral",
+      "privateModeAllowed": false,
+      "actionPromptPresent": true,
+      "normalMode": {
+        "effectiveMode": "normal",
+        "includesBodyPart": true,
+        "includesMotionIntent": true,
+        "includesNormalBoundary": true,
+        "blocksAdultEscalation": false
+      },
+      "privateOptInAttempt": {
+        "expectedEffectiveMode": "normal",
+        "effectiveMode": "normal",
+        "includesPrivateBoundary": false,
+        "fallsBackToNormalWhenNotAllowed": true
+      }
+    },
+    {
+      "id": "left_shoe",
+      "bodyPart": "鞋",
+      "sensitivity": "neutral",
+      "privateModeAllowed": false,
+      "actionPromptPresent": true,
+      "normalMode": {
+        "effectiveMode": "normal",
+        "includesBodyPart": true,
+        "includesMotionIntent": true,
+        "includesNormalBoundary": true,
+        "blocksAdultEscalation": false
+      },
+      "privateOptInAttempt": {
+        "expectedEffectiveMode": "normal",
+        "effectiveMode": "normal",
+        "includesPrivateBoundary": false,
+        "fallsBackToNormalWhenNotAllowed": true
+      }
+    },
+    {
+      "id": "right_shoe",
+      "bodyPart": "鞋",
+      "sensitivity": "neutral",
+      "privateModeAllowed": false,
+      "actionPromptPresent": true,
+      "normalMode": {
+        "effectiveMode": "normal",
+        "includesBodyPart": true,
+        "includesMotionIntent": true,
+        "includesNormalBoundary": true,
+        "blocksAdultEscalation": false
+      },
+      "privateOptInAttempt": {
+        "expectedEffectiveMode": "normal",
+        "effectiveMode": "normal",
+        "includesPrivateBoundary": false,
+        "fallsBackToNormalWhenNotAllowed": true
+      }
+    }
+  ],
+  "boundary": {
+    "replyTextGeneratedByPersona": true,
+    "runtimeOwnsModeAndPromptBoundary": true,
+    "normalModeAdultEscalationAllowed": false,
+    "publicPackagePrivateAssetsAllowed": false,
+    "proofDoesNotVerifyCubismMoc3": true
+  }
+}
