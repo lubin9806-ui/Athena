@@ -7,6 +7,7 @@ const PACKAGE_ROOT = path.join(ROOT, 'assets', 'avatar', 'su-shixia-live2d-v2');
 const MODEL_PATH = path.join(PACKAGE_ROOT, 'model', 'su-shixia-live2d-v2-lite.model3.json');
 const REVIEW_ROOT = path.join(PACKAGE_ROOT, 'source', 'review', 'runtime-visual-qa-v1');
 const CONTACT_SHEET_PATH = path.join(REVIEW_ROOT, 'runtime-motion-contact-sheet-v1.png');
+const APPEARANCE_CONTACT_SHEET_PATH = path.join(REVIEW_ROOT, 'runtime-appearance-contact-sheet-v1.png');
 const REPORT_PATH = path.join(REVIEW_ROOT, 'runtime-visual-qa-v1.json');
 
 const CASES = [
@@ -48,17 +49,37 @@ async function main() {
       : compareImageData(idle, item);
   }
   await buildContactSheet(rendered);
+  const appearanceRendered = [];
+  for (const preset of model.appearancePresets ?? []) {
+    const frame = renderCase(model, images, qaCase(`appearance-${preset.id}`, 'Idle', 2.2, expression('soft_smile')), preset.id);
+    appearanceRendered.push({
+      id: preset.id,
+      label: preset.label ?? preset.id,
+      previewOnly: preset.previewOnly === true,
+      silhouetteSwap: preset.silhouetteSwap === true,
+      width: frame.canvas.width,
+      height: frame.canvas.height,
+      data: frame.data,
+      stats: imageStats(frame.data, frame.canvas.width, frame.canvas.height),
+      canvas: frame.canvas,
+    });
+  }
+  await buildAppearanceContactSheet(appearanceRendered);
   const report = {
     version: 1,
     generatedAt: '2026-08-24',
     status: 'runtime_visual_qa_ready',
     sourceModel: 'model/su-shixia-live2d-v2-lite.model3.json',
     contactSheet: 'runtime-motion-contact-sheet-v1.png',
+    appearanceContactSheet: 'runtime-appearance-contact-sheet-v1.png',
     checks: {
       transparentBackground: true,
       individualFrames: rendered.length,
+      appearancePresetFrames: appearanceRendered.length,
+      appearancePresetPreviewOnly: appearanceRendered.every(item => item.previewOnly && !item.silhouetteSwap),
       requiredMotionCases: CASES.map(item => item.motionGroup),
       allFramesVisible: rendered.every(item => item.stats.visiblePixels > 180000),
+      allAppearanceFramesVisible: appearanceRendered.every(item => item.stats.visiblePixels > 180000),
       motionFramesDifferFromIdle: rendered
         .filter(item => item.id !== 'idle')
         .every(item => item.diffFromIdle.changedVisiblePixels > 1800),
@@ -73,6 +94,15 @@ async function main() {
       partialAlphaPixels: item.stats.partialAlphaPixels,
       bounds: item.stats.bounds,
       diffFromIdle: item.diffFromIdle,
+    })),
+    appearanceFrames: appearanceRendered.map(item => ({
+      id: item.id,
+      label: item.label,
+      previewOnly: item.previewOnly,
+      silhouetteSwap: item.silhouetteSwap,
+      visiblePixels: item.stats.visiblePixels,
+      partialAlphaPixels: item.stats.partialAlphaPixels,
+      bounds: item.stats.bounds,
     })),
     manualReviewFindings: [
       {
@@ -93,6 +123,12 @@ async function main() {
         severity: 'high',
         note: 'TurnPreview is a front-view 2.5D hint. True side/back turn behavior requires separate reviewed source views or a genuine Cubism rig with authored deformers.',
       },
+      {
+        area: 'true-wardrobe-swap',
+        status: 'not-production-ready',
+        severity: 'high',
+        note: 'Appearance presets are tint and accessory-visibility previews over the same white-blouse and pleated-skirt silhouette. New clothing silhouettes require new reviewed source layers and Cubism binding.',
+      },
     ],
     gate: 'This is a Live2D Lite visual QA render, not proof of a genuine Cubism .moc3 export.',
   };
@@ -100,7 +136,7 @@ async function main() {
   console.log(`SU_SHIXIA_LIVE2D_VISUAL_QA_GENERATED frames=${rendered.length} contactSheet=${CONTACT_SHEET_PATH}`);
 }
 
-function renderCase(model, images, item) {
+function renderCase(model, images, item, appearancePresetId) {
   const canvas = createCanvas(model.canvas.width, model.canvas.height);
   const context = canvas.getContext('2d');
   const pose = motionPose(item.motionGroup, item.seconds, item.seconds);
@@ -113,6 +149,7 @@ function renderCase(model, images, item) {
       ParamEyeBallX: item.motionGroup === 'Think' ? -0.2 : 0,
       ParamEyeBallY: item.motionGroup === 'Sleepy' ? -0.2 : 0,
     },
+    appearancePreset: resolveAppearancePreset(model, appearancePresetId ?? model.defaultAppearancePresetId),
   };
   for (const layer of model.layers) drawLayer(context, layer, images, pose, item.seconds, state);
   return { canvas, data: context.getImageData(0, 0, canvas.width, canvas.height).data };
@@ -144,7 +181,7 @@ function drawLayer(context, layer, images, pose, seconds, state) {
     context.translate(parameter(state, 'ParamEyeBallX') * 5, -parameter(state, 'ParamEyeBallY') * 3);
   }
 
-  context.globalAlpha = layerAlpha(layer, state);
+  context.globalAlpha = layerAlpha(layer, state) * appearanceLayerAlpha(layer, state);
   if (context.globalAlpha > 0.002) drawShape(context, layer, images, state);
   context.restore();
 }
@@ -177,6 +214,16 @@ function drawShape(context, layer, images, state) {
     width || sourceWidth || image.width,
     height || sourceHeight || image.height,
   );
+  const override = appearanceOverrideForLayer(layer, state);
+  if (override?.tint && (override.alpha ?? 0) > 0) {
+    const baseAlpha = context.globalAlpha;
+    context.save();
+    context.globalCompositeOperation = 'source-atop';
+    context.globalAlpha = baseAlpha * clamp(override.alpha ?? 0, 0, 1);
+    context.fillStyle = override.tint;
+    context.fillRect(x, y, width || sourceWidth || image.width, height || sourceHeight || image.height);
+    context.restore();
+  }
 }
 
 function motionPose(activeMotion, seconds, motionSeconds) {
@@ -299,6 +346,39 @@ async function buildContactSheet(rendered) {
   fs.writeFileSync(CONTACT_SHEET_PATH, canvas.toBuffer('image/png'));
 }
 
+async function buildAppearanceContactSheet(rendered) {
+  const columns = 3;
+  const cellWidth = 360;
+  const cellHeight = 700;
+  const rows = Math.ceil(rendered.length / columns);
+  const canvas = createCanvas(columns * cellWidth, rows * cellHeight);
+  const context = canvas.getContext('2d');
+  context.fillStyle = '#dfe4e8';
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.font = '16px Segoe UI';
+  context.textAlign = 'center';
+  context.textBaseline = 'middle';
+
+  for (let index = 0; index < rendered.length; index += 1) {
+    const item = rendered[index];
+    const column = index % columns;
+    const row = Math.floor(index / columns);
+    const left = column * cellWidth;
+    const top = row * cellHeight;
+    drawChecker(context, left + 8, top + 8, cellWidth - 16, cellHeight - 16);
+    const maxWidth = cellWidth - 36;
+    const maxHeight = cellHeight - 72;
+    const scale = Math.min(maxWidth / item.canvas.width, maxHeight / item.canvas.height);
+    const width = item.canvas.width * scale;
+    const height = item.canvas.height * scale;
+    context.drawImage(item.canvas, left + (cellWidth - width) / 2, top + 44, width, height);
+    context.fillStyle = '#20262d';
+    context.fillText(item.label, left + cellWidth / 2, top + 28, cellWidth - 24);
+  }
+
+  fs.writeFileSync(APPEARANCE_CONTACT_SHEET_PATH, canvas.toBuffer('image/png'));
+}
+
 function imageStats(data, width, height) {
   let visiblePixels = 0;
   let partialAlphaPixels = 0;
@@ -381,6 +461,26 @@ function expression(id, patch = {}) {
 
 function parameter(state, id) {
   return state.parameters[id] ?? 0;
+}
+
+function resolveAppearancePreset(model, presetId) {
+  const presets = model.appearancePresets ?? [];
+  return presets.find(preset => preset.id === presetId) ?? presets[0] ?? null;
+}
+
+function appearanceOverrideForLayer(layer, state) {
+  const overrides = state.appearancePreset?.overrides;
+  if (!overrides) return null;
+  for (const tag of layer.appearanceTags ?? []) {
+    if (overrides[tag]) return overrides[tag];
+  }
+  return null;
+}
+
+function appearanceLayerAlpha(layer, state) {
+  const override = appearanceOverrideForLayer(layer, state);
+  if (!override || override.alpha === undefined || override.tint) return 1;
+  return clamp(override.alpha, 0, 1);
 }
 
 function readJson(filePath) {

@@ -201,6 +201,15 @@ export class BrowserCubismLive2DHost implements Live2DHost {
     this.applyPersistentParameters();
   }
 
+  async setAppearancePreset(presetId: string): Promise<void> {
+    if (this.fallbackActive) return this.options.fallbackHost?.setAppearancePreset?.(presetId);
+  }
+
+  getAppearancePresetIds(): string[] {
+    if (this.fallbackActive) return this.options.fallbackHost?.getAppearancePresetIds?.() ?? [];
+    return [];
+  }
+
   async updatePointer(point: AvatarPoint): Promise<void> {
     if (this.fallbackActive) return this.options.fallbackHost?.updatePointer(point);
     this.requireModel().focus(clamp(point.x, -1, 1), clamp(-point.y, -1, 1));

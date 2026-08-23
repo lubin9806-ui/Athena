@@ -30,6 +30,7 @@ export interface AthenaLive2DPreferences {
   opacity: number;
   modelVariant: AthenaLive2DModelVariant;
   interactionMode: AvatarInteractionMode;
+  appearancePresetId: string;
 }
 
 export type AthenaLive2DModelVariant = 'su_shixia_v2' | 'official_haru' | 'athena_default';
@@ -54,6 +55,7 @@ const DEFAULT_PREFERENCES: AthenaLive2DPreferences = {
   opacity: 0.98,
   modelVariant: 'su_shixia_v2',
   interactionMode: 'normal',
+  appearancePresetId: 'classic_blouse_navy',
 };
 
 export class AthenaLive2DCompanion {
@@ -132,6 +134,7 @@ export class AthenaLive2DCompanion {
         await new Promise(resolve => window.setTimeout(resolve, 180));
         await this.controller.reload();
       }
+      await this.host.setAppearancePreset?.(this.preferences.appearancePresetId);
       this.loaded = true;
       this.options.root.dataset.engine = this.host.getRendererKind();
       const fallbackReason = this.host.getFallbackReason();
@@ -249,6 +252,8 @@ export class AthenaLive2DCompanion {
     this.controller.updateLayoutMode(this.preferences.layout);
     this.options.canvas.style.setProperty('--avatar-scale-x', String(this.preferences.scale));
     this.options.canvas.style.setProperty('--avatar-scale-y', String(this.preferences.scale));
+    this.options.root.dataset.appearancePreset = this.preferences.appearancePresetId;
+    if (this.loaded) void this.host.setAppearancePreset?.(this.preferences.appearancePresetId);
   }
 
   private handleHotZoneAction(action: AvatarHotZoneAction, hotZoneId: string): void {
@@ -328,6 +333,7 @@ function sanitizePreferences(value: Partial<AthenaLive2DPreferences>): AthenaLiv
     opacity: clamp(value.opacity, 0.3, 1, DEFAULT_PREFERENCES.opacity),
     modelVariant: isModelVariant(value.modelVariant) ? value.modelVariant : DEFAULT_PREFERENCES.modelVariant,
     interactionMode: value.interactionMode === 'private_opt_in' ? 'private_opt_in' : DEFAULT_PREFERENCES.interactionMode,
+    appearancePresetId: isSafePresetId(value.appearancePresetId) ? value.appearancePresetId : DEFAULT_PREFERENCES.appearancePresetId,
   };
 }
 
@@ -405,6 +411,10 @@ function live2dModelConfig(variant: AthenaLive2DModelVariant): {
 
 function isModelVariant(value: unknown): value is AthenaLive2DModelVariant {
   return value === 'su_shixia_v2' || value === 'official_haru' || value === 'athena_default';
+}
+
+function isSafePresetId(value: unknown): value is string {
+  return typeof value === 'string' && /^[a-z0-9_-]{3,64}$/.test(value);
 }
 
 function live2dLiteModelDocument(modelUrl: string): unknown {

@@ -322,6 +322,62 @@
     ],
     "randomize": true
   },
+  "appearance": {
+    "defaultPresetId": "classic_blouse_navy",
+    "presets": [
+      {
+        "id": "classic_blouse_navy",
+        "label": "Classic White Blouse",
+        "description": "Default Su Shixia look: black hair, dark eyes, silver A hair clip, white blouse, and deep navy pleated skirt.",
+        "previewOnly": true,
+        "silhouetteSwap": false
+      },
+      {
+        "id": "soft_office_gray",
+        "label": "Soft Office Gray",
+        "description": "Low-key work mode with cooler blouse shadows and a charcoal skirt while keeping the same source silhouette.",
+        "previewOnly": true,
+        "silhouetteSwap": false
+      },
+      {
+        "id": "warm_evening",
+        "label": "Warm Evening",
+        "description": "Warmer companion tone with soft brown-black hair, cream blouse, and muted plum skirt tint.",
+        "previewOnly": true,
+        "silhouetteSwap": false
+      },
+      {
+        "id": "blue_focus",
+        "label": "Blue Focus",
+        "description": "Sharper assistant mode with blue-gray eyes, crisp blouse light, and a deeper ink-blue skirt.",
+        "previewOnly": true,
+        "silhouetteSwap": false
+      },
+      {
+        "id": "no_clip_minimal",
+        "label": "Minimal No Clip",
+        "description": "Minimal accessory variant that hides the A hair clip; useful for checking accessory toggles.",
+        "previewOnly": true,
+        "silhouetteSwap": false
+      }
+    ],
+    "customizableChannels": [
+      "hair",
+      "eyes",
+      "blouse",
+      "skirt",
+      "shoes",
+      "accessory"
+    ],
+    "runtimeControls": [
+      "preset",
+      "hairTint",
+      "eyeTint",
+      "outfitTint",
+      "accessoryVisibility"
+    ],
+    "productionBoundary": "Current controls recolor or hide existing layers only. True wardrobe swaps require separate clothing source layers and a Cubism rig pass."
+  },
   "interactionPolicy": {
     "defaultMode": "normal",
     "privateModeRequiresExplicitOptIn": true,
@@ -1764,5 +1820,5 @@
     ],
     "auditEnabled": true
   },
-  "notes": "Su Shixia V2 layered-2D runtime preview. This is not a genuine Cubism .moc3 export. Motion groups are reference-driven from the Haru official sample grouping plus Su Shixia V2 touch/turn requirements, and should be replaced with authored Cubism motions after model rigging."
+  "notes": "Su Shixia V2 layered-2D runtime preview. This is not a genuine Cubism .moc3 export. Motion groups are reference-driven from the Haru official sample grouping plus Su Shixia V2 touch/turn requirements, and should be replaced with authored Cubism motions after model rigging. Appearance presets are preview recolors/accessory toggles, not true outfit silhouette swaps."
 }

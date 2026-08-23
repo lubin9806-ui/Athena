@@ -4,9 +4,12 @@
   "status": "runtime_visual_qa_ready",
   "sourceModel": "model/su-shixia-live2d-v2-lite.model3.json",
   "contactSheet": "runtime-motion-contact-sheet-v1.png",
+  "appearanceContactSheet": "runtime-appearance-contact-sheet-v1.png",
   "checks": {
     "transparentBackground": true,
     "individualFrames": 11,
+    "appearancePresetFrames": 5,
+    "appearancePresetPreviewOnly": true,
     "requiredMotionCases": [
       "Idle",
       "Listen",
@@ -21,6 +24,7 @@
       "Sleepy"
     ],
     "allFramesVisible": true,
+    "allAppearanceFramesVisible": true,
     "motionFramesDifferFromIdle": true,
     "noOfficialCubismClaim": true
   },
@@ -58,9 +62,9 @@
         "maxY": 1668
       },
       "diffFromIdle": {
-        "changedPixels": 116074,
-        "changedVisiblePixels": 116074,
-        "meanAlphaDelta": 1.0039
+        "changedPixels": 108169,
+        "changedVisiblePixels": 108169,
+        "meanAlphaDelta": 1.0038
       }
     },
     {
@@ -77,9 +81,9 @@
         "maxY": 1668
       },
       "diffFromIdle": {
-        "changedPixels": 72894,
-        "changedVisiblePixels": 72894,
-        "meanAlphaDelta": 0.3622
+        "changedPixels": 64306,
+        "changedVisiblePixels": 64306,
+        "meanAlphaDelta": 0.3617
       }
     },
     {
@@ -96,9 +100,9 @@
         "maxY": 1668
       },
       "diffFromIdle": {
-        "changedPixels": 99140,
-        "changedVisiblePixels": 99140,
-        "meanAlphaDelta": 1.5135
+        "changedPixels": 92887,
+        "changedVisiblePixels": 92887,
+        "meanAlphaDelta": 1.5134
       }
     },
     {
@@ -115,9 +119,9 @@
         "maxY": 1668
       },
       "diffFromIdle": {
-        "changedPixels": 102836,
-        "changedVisiblePixels": 102836,
-        "meanAlphaDelta": 1.2045
+        "changedPixels": 96252,
+        "changedVisiblePixels": 96252,
+        "meanAlphaDelta": 1.2043
       }
     },
     {
@@ -134,9 +138,9 @@
         "maxY": 1668
       },
       "diffFromIdle": {
-        "changedPixels": 115021,
-        "changedVisiblePixels": 115021,
-        "meanAlphaDelta": 1.082
+        "changedPixels": 107702,
+        "changedVisiblePixels": 107702,
+        "meanAlphaDelta": 1.0819
       }
     },
     {
@@ -153,9 +157,9 @@
         "maxY": 1668
       },
       "diffFromIdle": {
-        "changedPixels": 76310,
-        "changedVisiblePixels": 76310,
-        "meanAlphaDelta": 0.6635
+        "changedPixels": 70880,
+        "changedVisiblePixels": 70880,
+        "meanAlphaDelta": 0.6633
       }
     },
     {
@@ -172,9 +176,9 @@
         "maxY": 1668
       },
       "diffFromIdle": {
-        "changedPixels": 45734,
-        "changedVisiblePixels": 45734,
-        "meanAlphaDelta": 0.2356
+        "changedPixels": 38388,
+        "changedVisiblePixels": 38388,
+        "meanAlphaDelta": 0.2353
       }
     },
     {
@@ -191,9 +195,9 @@
         "maxY": 1668
       },
       "diffFromIdle": {
-        "changedPixels": 97152,
-        "changedVisiblePixels": 97152,
-        "meanAlphaDelta": 0.6091
+        "changedPixels": 88602,
+        "changedVisiblePixels": 88602,
+        "meanAlphaDelta": 0.6089
       }
     },
     {
@@ -210,9 +214,9 @@
         "maxY": 1668
       },
       "diffFromIdle": {
-        "changedPixels": 155351,
-        "changedVisiblePixels": 155351,
-        "meanAlphaDelta": 2.382
+        "changedPixels": 150488,
+        "changedVisiblePixels": 150488,
+        "meanAlphaDelta": 2.3821
       }
     },
     {
@@ -229,9 +233,81 @@
         "maxY": 1668
       },
       "diffFromIdle": {
-        "changedPixels": 82198,
-        "changedVisiblePixels": 82198,
-        "meanAlphaDelta": 1.1795
+        "changedPixels": 82185,
+        "changedVisiblePixels": 82185,
+        "meanAlphaDelta": 1.1793
+      }
+    }
+  ],
+  "appearanceFrames": [
+    {
+      "id": "classic_blouse_navy",
+      "label": "Classic White Blouse",
+      "previewOnly": true,
+      "silhouetteSwap": false,
+      "visiblePixels": 418051,
+      "partialAlphaPixels": 12549,
+      "bounds": {
+        "minX": 205,
+        "minY": 46,
+        "maxX": 713,
+        "maxY": 1668
+      }
+    },
+    {
+      "id": "soft_office_gray",
+      "label": "Soft Office Gray",
+      "previewOnly": true,
+      "silhouetteSwap": false,
+      "visiblePixels": 418051,
+      "partialAlphaPixels": 12549,
+      "bounds": {
+        "minX": 205,
+        "minY": 46,
+        "maxX": 713,
+        "maxY": 1668
+      }
+    },
+    {
+      "id": "warm_evening",
+      "label": "Warm Evening",
+      "previewOnly": true,
+      "silhouetteSwap": false,
+      "visiblePixels": 418051,
+      "partialAlphaPixels": 12549,
+      "bounds": {
+        "minX": 205,
+        "minY": 46,
+        "maxX": 713,
+        "maxY": 1668
+      }
+    },
+    {
+      "id": "blue_focus",
+      "label": "Blue Focus",
+      "previewOnly": true,
+      "silhouetteSwap": false,
+      "visiblePixels": 418051,
+      "partialAlphaPixels": 12549,
+      "bounds": {
+        "minX": 205,
+        "minY": 46,
+        "maxX": 713,
+        "maxY": 1668
+      }
+    },
+    {
+      "id": "no_clip_minimal",
+      "label": "Minimal No Clip",
+      "previewOnly": true,
+      "silhouetteSwap": false,
+      "visiblePixels": 418051,
+      "partialAlphaPixels": 12549,
+      "bounds": {
+        "minX": 205,
+        "minY": 46,
+        "maxX": 713,
+        "maxY": 1668
       }
     }
   ],
@@ -253,6 +329,12 @@
       "status": "not-production-ready",
       "severity": "high",
       "note": "TurnPreview is a front-view 2.5D hint. True side/back turn behavior requires separate reviewed source views or a genuine Cubism rig with authored deformers."
+    },
+    {
+      "area": "true-wardrobe-swap",
+      "status": "not-production-ready",
+      "severity": "high",
+      "note": "Appearance presets are tint and accessory-visibility previews over the same white-blouse and pleated-skirt silhouette. New clothing silhouettes require new reviewed source layers and Cubism binding."
     }
   ],
   "gate": "This is a Live2D Lite visual QA render, not proof of a genuine Cubism .moc3 export."

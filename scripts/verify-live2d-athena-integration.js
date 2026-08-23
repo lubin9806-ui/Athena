@@ -66,6 +66,7 @@ function main() {
     opacity: 0.98,
     modelVariant: 'su_shixia_v2',
     interactionMode: 'normal',
+    appearancePresetId: 'classic_blouse_navy',
   });
   assert.deepEqual(readAthenaLive2DPreferences(JSON.stringify({
     version: 1,
@@ -75,6 +76,7 @@ function main() {
     opacity: -2,
     modelVariant: 'athena_default',
     interactionMode: 'private_opt_in',
+    appearancePresetId: 'warm_evening',
   })), {
     version: 1,
     enabled: false,
@@ -83,6 +85,7 @@ function main() {
     opacity: 0.3,
     modelVariant: 'athena_default',
     interactionMode: 'private_opt_in',
+    appearancePresetId: 'warm_evening',
   });
   assert.deepEqual(readAthenaLive2DPreferences(JSON.stringify({
     version: 1,
@@ -99,7 +102,17 @@ function main() {
     scale: 1,
     opacity: 1,
     modelVariant: 'unknown',
+    appearancePresetId: '../bad',
   })).modelVariant, 'su_shixia_v2');
+  assert.equal(readAthenaLive2DPreferences(JSON.stringify({
+    version: 1,
+    enabled: true,
+    layout: 'chat_background',
+    scale: 1,
+    opacity: 1,
+    modelVariant: 'su_shixia_v2',
+    appearancePresetId: '../bad',
+  })).appearancePresetId, 'classic_blouse_navy');
 
   assert.equal(findAthenaReplyPrompt({
     type: 'composite',
@@ -136,6 +149,8 @@ function main() {
     'su-shixia-live2d-v2',
     'official_haru',
     'live2d-official-haru',
+    'appearancePresetId',
+    'setAppearancePreset',
   ]) {
     assert.ok(live2dCompanion.includes(contract), `Live2D companion integration missing ${contract}`);
   }

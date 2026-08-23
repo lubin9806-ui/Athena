@@ -146,6 +146,84 @@ const EXPRESSIONS_MAP = [
   ['soft', 'soft_smile', 0.88],
 ];
 
+const APPEARANCE_PRESETS = [
+  {
+    id: 'classic_blouse_navy',
+    label: 'Classic White Blouse',
+    previewOnly: true,
+    silhouetteSwap: false,
+    description: 'Default Su Shixia look: black hair, dark eyes, silver A hair clip, white blouse, and deep navy pleated skirt.',
+    overrides: {
+      hair: { tint: '#11161d', alpha: 0.12 },
+      eyes: { tint: '#2f3948', alpha: 0.2 },
+      blouse: { tint: '#ffffff', alpha: 0.08 },
+      skirt: { tint: '#101928', alpha: 0.16 },
+      shoes: { tint: '#fffaf5', alpha: 0.1 },
+      accessory: { tint: '#d8dde2', alpha: 0.16 },
+    },
+  },
+  {
+    id: 'soft_office_gray',
+    label: 'Soft Office Gray',
+    previewOnly: true,
+    silhouetteSwap: false,
+    description: 'Low-key work mode with cooler blouse shadows and a charcoal skirt while keeping the same source silhouette.',
+    overrides: {
+      hair: { tint: '#171b22', alpha: 0.18 },
+      eyes: { tint: '#3d4652', alpha: 0.22 },
+      blouse: { tint: '#dfe5e8', alpha: 0.28 },
+      skirt: { tint: '#2d323a', alpha: 0.3 },
+      shoes: { tint: '#e9e8e4', alpha: 0.18 },
+      accessory: { tint: '#c6cbd0', alpha: 0.18 },
+    },
+  },
+  {
+    id: 'warm_evening',
+    label: 'Warm Evening',
+    previewOnly: true,
+    silhouetteSwap: false,
+    description: 'Warmer companion tone with soft brown-black hair, cream blouse, and muted plum skirt tint.',
+    overrides: {
+      hair: { tint: '#2b211e', alpha: 0.32 },
+      eyes: { tint: '#4b332e', alpha: 0.24 },
+      blouse: { tint: '#fff2df', alpha: 0.32 },
+      skirt: { tint: '#3f2b3d', alpha: 0.34 },
+      shoes: { tint: '#f6eadc', alpha: 0.22 },
+      accessory: { tint: '#e0c9a6', alpha: 0.24 },
+    },
+  },
+  {
+    id: 'blue_focus',
+    label: 'Blue Focus',
+    previewOnly: true,
+    silhouetteSwap: false,
+    description: 'Sharper assistant mode with blue-gray eyes, crisp blouse light, and a deeper ink-blue skirt.',
+    overrides: {
+      hair: { tint: '#101824', alpha: 0.22 },
+      eyes: { tint: '#536d88', alpha: 0.34 },
+      blouse: { tint: '#eef7ff', alpha: 0.26 },
+      skirt: { tint: '#0d2038', alpha: 0.32 },
+      shoes: { tint: '#f2f5f8', alpha: 0.18 },
+      accessory: { tint: '#b8d8e6', alpha: 0.32 },
+    },
+  },
+  {
+    id: 'no_clip_minimal',
+    label: 'Minimal No Clip',
+    previewOnly: true,
+    silhouetteSwap: false,
+    description: 'Minimal accessory variant that hides the A hair clip; useful for checking accessory toggles.',
+    overrides: {
+      hair: { tint: '#121820', alpha: 0.14 },
+      eyes: { tint: '#303846', alpha: 0.18 },
+      blouse: { tint: '#ffffff', alpha: 0.08 },
+      skirt: { tint: '#111827', alpha: 0.18 },
+      shoes: { tint: '#fffaf5', alpha: 0.1 },
+      accessory: { alpha: 0 },
+    },
+  },
+];
+
 const LAYER_DRAW_ORDER = [
   'SSX_HAIR_REAR_CENTER',
   'SSX_HAIR_REAR_LEFT',
@@ -307,10 +385,13 @@ function main() {
         height: Math.round(zone.rect.height * CANVAS.height),
       })),
       layers,
+      defaultAppearancePresetId: 'classic_blouse_navy',
+      appearancePresets: APPEARANCE_PRESETS,
       metadata: {
         sourcePackage: 'assets/avatar/su-shixia-live2d-v2',
         generatedFrom: 'source/parts/parts-inventory-v1.json',
         motionReferencePolicy: 'Motion groups are named against Haru official sample groups and Su Shixia V2 storyboards; replace with authored Cubism motions after rigging.',
+        appearancePolicy: 'Appearance presets are preview-only tint and accessory-visibility controls over the current source silhouette. New outfit silhouettes require new layered source art and Cubism binding.',
         cubismExportReady: false,
       },
     },
@@ -386,6 +467,19 @@ function main() {
       motionGroups: ['Idle', 'Think'],
       randomize: true,
     },
+    appearance: {
+      defaultPresetId: 'classic_blouse_navy',
+      presets: APPEARANCE_PRESETS.map(preset => ({
+        id: preset.id,
+        label: preset.label,
+        description: preset.description,
+        previewOnly: preset.previewOnly,
+        silhouetteSwap: preset.silhouetteSwap,
+      })),
+      customizableChannels: ['hair', 'eyes', 'blouse', 'skirt', 'shoes', 'accessory'],
+      runtimeControls: ['preset', 'hairTint', 'eyeTint', 'outfitTint', 'accessoryVisibility'],
+      productionBoundary: 'Current controls recolor or hide existing layers only. True wardrobe swaps require separate clothing source layers and a Cubism rig pass.',
+    },
     interactionPolicy: {
       defaultMode: 'normal',
       privateModeRequiresExplicitOptIn: true,
@@ -404,7 +498,7 @@ function main() {
       allowedCommandTypes: ['avatar.motion.play', 'avatar.expression.set', 'avatar.parameter.set', 'avatar.pointer.move', 'avatar.hotZone.trigger'],
       auditEnabled: true,
     },
-    notes: 'Su Shixia V2 layered-2D runtime preview. This is not a genuine Cubism .moc3 export. Motion groups are reference-driven from the Haru official sample grouping plus Su Shixia V2 touch/turn requirements, and should be replaced with authored Cubism motions after model rigging.',
+    notes: 'Su Shixia V2 layered-2D runtime preview. This is not a genuine Cubism .moc3 export. Motion groups are reference-driven from the Haru official sample grouping plus Su Shixia V2 touch/turn requirements, and should be replaced with authored Cubism motions after model rigging. Appearance presets are preview recolors/accessory toggles, not true outfit silhouette swaps.',
   };
 
   writeJson(path.join(MODEL_ROOT, 'su-shixia-live2d-v2-lite.model3.json'), model);
@@ -435,7 +529,19 @@ function imageLayer(part) {
     ...(MOTION_ALPHA[part.name] ? { motionAlpha: MOTION_ALPHA[part.name], alpha: 0.92 } : {}),
     ...(SWAY[part.name] ? { sway: SWAY[part.name] } : {}),
     ...(EYE_TRACK.has(part.name) ? { eyeTrack: true } : {}),
+    ...(appearanceTagsForLayer(part.name).length ? { appearanceTags: appearanceTagsForLayer(part.name) } : {}),
   };
+}
+
+function appearanceTagsForLayer(name) {
+  const tags = [];
+  if (/HAIR|BROW/.test(name)) tags.push('hair');
+  if (/EYE_.*(IRIS|PUPIL)/.test(name)) tags.push('eyes');
+  if (/BLOUSE|COLLAR/.test(name)) tags.push('blouse');
+  if (/SKIRT/.test(name)) tags.push('skirt');
+  if (/SHOE/.test(name)) tags.push('shoes');
+  if (/ACCESSORY_HAIR_CLIP/.test(name)) tags.push('accessory');
+  return tags;
 }
 
 function zone({

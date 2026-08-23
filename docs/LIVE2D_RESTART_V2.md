@@ -177,6 +177,20 @@ Produced on 2026-08-24:
 
 Stage 3B status: `RUNTIME VISUAL QA READY, PUBLIC ART REVIEW STILL NO-GO`. The QA report proves the Lite renderer produces nonblank transparent frames and visible motion deltas for key states. It also records high-priority manual review findings for hand/arm layering and full-turn behavior, plus medium-priority lower-body occlusion quality. This is useful runtime evidence, not final character-art approval and not a genuine Cubism export.
 
+## Stage 3C Current Evidence
+
+Produced on 2026-08-24:
+
+- preview-only appearance preset contract: `docs/LIVE2D_SU_SHIXIA_V2_APPEARANCE_PRESETS.md`;
+- five Lite appearance presets in `model/su-shixia-live2d-v2-lite.model3.json`;
+- layer-level `appearanceTags` for hair, eyes, blouse, skirt, shoes, and the A hair clip;
+- Athena preference persistence for `appearancePresetId`;
+- runtime tint and accessory-visibility support in `BrowserLive2DLiteHost`;
+- appearance visual QA contact sheet: `runtime-appearance-contact-sheet-v1.png`;
+- GitHub scan notes for motion/reference repositories in `docs/LIVE2D_SU_SHIXIA_V2_MOTION_REFERENCES.md`.
+
+Stage 3C status: `APPEARANCE PRESET PREVIEW READY, TRUE WARDROBE STILL NO-GO`. The current system can recolor hair, eyes, blouse, skirt, shoes, and hide or tint the A hair clip. It does not include new clothing silhouettes, garment physics, or genuine Cubism wardrobe parameters. `trueOutfitSwapReady` remains false until separate outfit source layers and Cubism binding exist.
+
 ## Acceptance Gates
 
 V2 cannot become the final public Cubism default until all are true:
@@ -191,4 +205,4 @@ V2 cannot become the final public Cubism default until all are true:
 
 ## Immediate Next Step
 
-Review the Stage 3A Lite runtime preview in chat-right and desktop-pet placements. In parallel, prepare the genuine Cubism rig plan from the reviewed PSD: mesh groups, deformers, parameter ranges, physics chains, and authored `.motion3.json` reference clips. Profile and back packages follow the approved front-source method; adult-only private assets remain a separate later package boundary.
+Review the Stage 3A-3C Lite runtime preview in chat-right and desktop-pet placements, including the motion and appearance contact sheets. In parallel, prepare the genuine Cubism rig plan from the reviewed PSD: mesh groups, deformers, parameter ranges, physics chains, authored `.motion3.json` reference clips, and future wardrobe visibility parameters. Profile and back packages follow the approved front-source method; adult-only private assets remain a separate later package boundary.

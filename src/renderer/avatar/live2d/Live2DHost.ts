@@ -15,6 +15,8 @@ export interface Live2DHost {
   setExpression(expressionId: string, intensity: number): Promise<void>;
   playMotion(mapping: AvatarMotionMapping): Promise<void>;
   setParameter(parameterId: string, value: number): Promise<void>;
+  setAppearancePreset?(presetId: string): Promise<void>;
+  getAppearancePresetIds?(): string[];
   updatePointer(point: AvatarPoint): Promise<void>;
   hitTestCanvasPoint?(point: AvatarPoint): string[];
 }

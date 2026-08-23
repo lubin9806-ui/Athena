@@ -29,6 +29,7 @@ interface LiteLayer {
   type: string;
   src?: string;
   sourceRect?: number[];
+  appearanceTags?: string[];
   color?: string;
   accent?: string;
   alpha?: number;
@@ -50,6 +51,19 @@ interface LiteLayer {
   lines?: number[][][];
 }
 
+interface LiteAppearanceOverride {
+  tint?: string;
+  alpha?: number;
+}
+
+interface LiteAppearancePreset {
+  id: string;
+  label?: string;
+  previewOnly?: boolean;
+  silhouetteSwap?: boolean;
+  overrides?: Record<string, LiteAppearanceOverride>;
+}
+
 interface Live2DLiteDefinition {
   schemaVersion: number;
   displayName: string;
@@ -59,6 +73,8 @@ interface Live2DLiteDefinition {
   motionGroups: Record<string, string[]>;
   hitAreas: LiteHitArea[];
   layers: LiteLayer[];
+  defaultAppearancePresetId?: string;
+  appearancePresets?: LiteAppearancePreset[];
 }
 
 interface Live2DLiteDocument {
@@ -101,6 +117,7 @@ export class BrowserLive2DLiteHost implements Live2DHost {
   private startedAt = 0;
   private viewport = { scale: 1, offsetX: 0, offsetY: 0, cssWidth: 1, cssHeight: 1 };
   private readonly images = new Map<string, HTMLImageElement>();
+  private activeAppearancePreset: LiteAppearancePreset | null = null;
 
   constructor(private readonly options: BrowserLive2DLiteHostOptions = {}) {}
 
@@ -127,6 +144,7 @@ export class BrowserLive2DLiteHost implements Live2DHost {
     const neutral = model.expressions.neutral ?? NEUTRAL_EXPRESSION;
     this.expression = { ...neutral, intensity: 1 };
     this.expressionTarget = { ...neutral, intensity: 1 };
+    this.activeAppearancePreset = this.resolveAppearancePreset(model.defaultAppearancePresetId);
     this.activeMotion = 'Idle';
     this.startedAt = performance.now();
     this.motionStartedAt = this.startedAt;
@@ -142,6 +160,7 @@ export class BrowserLive2DLiteHost implements Live2DHost {
     this.model = null;
     this.images.clear();
     this.parameters.clear();
+    this.activeAppearancePreset = null;
   }
 
   async setExpression(expressionId: string, intensity: number): Promise<void> {
@@ -175,6 +194,14 @@ export class BrowserLive2DLiteHost implements Live2DHost {
     const definition = this.requireModel().parameters[parameterId];
     if (!definition) return;
     this.parameters.set(parameterId, clamp(value, definition.min, definition.max));
+  }
+
+  async setAppearancePreset(presetId: string): Promise<void> {
+    this.activeAppearancePreset = this.resolveAppearancePreset(presetId);
+  }
+
+  getAppearancePresetIds(): string[] {
+    return this.model?.appearancePresets?.map(preset => preset.id) ?? [];
   }
 
   async updatePointer(point: AvatarPoint): Promise<void> {
@@ -438,7 +465,7 @@ export class BrowserLive2DLiteHost implements Live2DHost {
       );
     }
 
-    context.globalAlpha = this.layerAlpha(layer);
+    context.globalAlpha = this.layerAlpha(layer) * this.appearanceLayerAlpha(layer);
     if (context.globalAlpha > 0.002) {
       context.fillStyle = layer.color ?? '#ffffff';
       context.strokeStyle = layer.color ?? '#ffffff';
@@ -674,21 +701,57 @@ export class BrowserLive2DLiteHost implements Live2DHost {
     if (!image) return;
     const sourceRect = layer.sourceRect ?? [0, 0, image.naturalWidth, image.naturalHeight];
     const [sourceX, sourceY, sourceWidth, sourceHeight] = sourceRect;
+    const targetX = layer.x ?? 0;
+    const targetY = layer.y ?? 0;
+    const targetWidth = layer.width ?? sourceWidth ?? image.naturalWidth;
+    const targetHeight = layer.height ?? sourceHeight ?? image.naturalHeight;
     context.drawImage(
       image,
       sourceX ?? 0,
       sourceY ?? 0,
       sourceWidth ?? image.naturalWidth,
       sourceHeight ?? image.naturalHeight,
-      layer.x ?? 0,
-      layer.y ?? 0,
-      layer.width ?? sourceWidth ?? image.naturalWidth,
-      layer.height ?? sourceHeight ?? image.naturalHeight,
+      targetX,
+      targetY,
+      targetWidth,
+      targetHeight,
     );
+    const override = this.appearanceOverrideForLayer(layer);
+    if (override?.tint && (override.alpha ?? 0) > 0) {
+      const baseAlpha = context.globalAlpha;
+      context.save();
+      context.globalCompositeOperation = 'source-atop';
+      context.globalAlpha = baseAlpha * clamp(override.alpha ?? 0, 0, 1);
+      context.fillStyle = override.tint;
+      context.fillRect(targetX, targetY, targetWidth, targetHeight);
+      context.restore();
+    }
   }
 
   private parameter(id: string): number {
     return this.parameters.get(id) ?? this.model?.parameters[id]?.default ?? 0;
+  }
+
+  private resolveAppearancePreset(presetId?: string): LiteAppearancePreset | null {
+    const presets = this.model?.appearancePresets ?? [];
+    if (presets.length === 0) return null;
+    return presets.find(preset => preset.id === presetId) ?? presets[0] ?? null;
+  }
+
+  private appearanceOverrideForLayer(layer: LiteLayer): LiteAppearanceOverride | null {
+    const overrides = this.activeAppearancePreset?.overrides;
+    if (!overrides) return null;
+    for (const tag of layer.appearanceTags ?? []) {
+      const override = overrides[tag];
+      if (override) return override;
+    }
+    return null;
+  }
+
+  private appearanceLayerAlpha(layer: LiteLayer): number {
+    const override = this.appearanceOverrideForLayer(layer);
+    if (!override || override.alpha === undefined || override.tint) return 1;
+    return clamp(override.alpha, 0, 1);
   }
 }
 

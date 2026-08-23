@@ -15,10 +15,23 @@ The current runtime is a Live2D Lite preview, not a genuine Cubism `.moc3` rig. 
 - Live2D Cubism Web Samples GitHub: `https://github.com/Live2D/CubismWebSamples`
 - Live2D SDK manual, motion playback and `.motion3.json`: `https://docs.live2d.com/en/cubism-sdk-manual/motion/`
 - Live2D standard parameter list: `https://docs.live2d.com/en/cubism-editor-manual/standard-parameter-list/`
+- VTube Studio API/Wiki GitHub: `https://github.com/DenchiSoft/VTubeStudio`
+- Live2D motion append workflow example: `https://github.com/shinshin86/live2d-add-motion-sample-web-ui`
 - Local Haru sample package: `assets/avatar/live2d-official-haru`
 - Su Shixia turn and touch storyboard: `docs/concepts/su-shixia-live2d-v2-turn-touch-storyboard-v1.png`
 
 The official samples are used as timing and grouping references. Do not copy third-party character art, textures, or unclear-license motion assets into Su Shixia.
+
+## GitHub Scan Notes
+
+Checked on 2026-08-24:
+
+- `Live2D/CubismWebSamples`: official sample repository. GitHub reports the repository license as `NOASSERTION/Other`, so Athena treats it as an official structural and timing reference only. The Haru sample layout confirms the expected `Haru.model3.json`, `Haru.moc3`, `Haru.physics3.json`, `expressions`, `motions`, `sounds`, and texture directory shape.
+- `DenchiSoft/VTubeStudio`: GitHub API reports `MIT License`. Useful as a workflow reference for model control, animation triggering, and VTube Studio-style recording/automation concepts. Do not import app assets.
+- `shinshin86/live2d-add-motion-sample-web-ui`: GitHub API reports `MIT License`. Useful as an engineering reference for appending JSON motion definitions to an existing model package. Athena can borrow the workflow idea, but Su Shixia motion data remains generated or authored in the Athena package.
+- `HKUDS/CLI-Anything` Live2D skill and similar CLI references describe inspection, linting, diffing, asset management, and model-package editing around existing Cubism runtime files. They do not remove the need for a real rigged Cubism source project and `.moc3` export.
+- `J621111/live2d-automation` points at menu-driven Cubism Editor automation for paths such as `[File] -> [Export Embedded File] -> Export as MOC3 file`. Treat this as possible GUI automation research only, not a supported headless exporter.
+- VTube Studio wiki pages still describe runtime export as a Cubism Editor action and note that Editor communication can sync/record parameters, not synthesize a finished rig from flat art.
 
 ## Motion Group Map
 

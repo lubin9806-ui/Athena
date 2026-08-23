@@ -28,6 +28,32 @@ async function main() {
   assert.equal(profile.interactionPolicy.defaultMode, 'normal');
   assert.equal(profile.interactionPolicy.privateModeRequiresExplicitOptIn, true);
   assert.equal(profile.interactionPolicy.replyDelegatedToPersona, true);
+  assert.equal(lite.defaultAppearancePresetId, 'classic_blouse_navy');
+  assert.ok(Array.isArray(lite.appearancePresets) && lite.appearancePresets.length >= 4);
+  assert.equal(profile.appearance.defaultPresetId, 'classic_blouse_navy');
+  assert.ok(profile.appearance.customizableChannels.includes('hair'));
+  assert.ok(profile.appearance.customizableChannels.includes('eyes'));
+  assert.ok(profile.appearance.customizableChannels.includes('blouse'));
+  assert.ok(profile.appearance.customizableChannels.includes('skirt'));
+  assert.ok(profile.appearance.productionBoundary.includes('recolor'));
+  for (const preset of lite.appearancePresets) {
+    assert.equal(preset.previewOnly, true, `appearance preset must be preview-only: ${preset.id}`);
+    assert.equal(preset.silhouetteSwap, false, `appearance preset must not claim silhouette swap: ${preset.id}`);
+    assert.ok(preset.overrides?.hair || preset.overrides?.accessory, `preset missing visible override: ${preset.id}`);
+  }
+  for (const [tag, matcher] of Object.entries({
+    hair: /HAIR/,
+    eyes: /EYE_.*(IRIS|PUPIL)/,
+    blouse: /BLOUSE|COLLAR/,
+    skirt: /SKIRT/,
+    shoes: /SHOE/,
+    accessory: /ACCESSORY_HAIR_CLIP/,
+  })) {
+    assert.ok(
+      lite.layers.some(layer => matcher.test(layer.id) && layer.appearanceTags?.includes(tag)),
+      `missing appearance tag ${tag}`,
+    );
+  }
   assert.ok(profile.hotZones.length >= 35);
   for (const id of ['face_cheek', 'left_hand', 'right_hand', 'blouse', 'chest', 'abdomen', 'waist', 'hip', 'skirt_front', 'left_thigh', 'right_thigh', 'left_knee', 'right_calf', 'left_shoe']) {
     assert.ok(profile.hotZones.some(zone => zone.id === id), `missing hot zone ${id}`);
@@ -56,6 +82,8 @@ async function main() {
   assert.equal(manifest.production.runtimeReady, true);
   assert.equal(manifest.production.cubismExportReady, false);
   assert.equal(manifest.production.motionReferenceDriven, true);
+  assert.equal(manifest.production.appearancePresetPreviewReady, true);
+  assert.equal(manifest.production.trueOutfitSwapReady, false);
 
   console.log(`SU_SHIXIA_LIVE2D_RUNTIME_PREVIEW_OK layers=${lite.layers.length} hitZones=${profile.hotZones.length} motions=${Object.keys(lite.motionGroups).length} cubism=false`);
 }
