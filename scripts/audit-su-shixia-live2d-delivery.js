@@ -11,6 +11,7 @@ function main() {
   const liteModel = readJson(path.join(PACKAGE_ROOT, 'model', 'su-shixia-live2d-v2-lite.model3.json')).AthenaLive2DLite;
   const sourceReview = readJson(path.join(PACKAGE_ROOT, manifest.sourceArt.reviewReport));
   const artReviewPacket = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-art-review-packet.json'));
+  const motionAuthoringPacket = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-motion-authoring-packet.json'));
   const runtimeQa = readJson(path.join(PACKAGE_ROOT, manifest.sourceArt.runtimeVisualQaReport));
   const exportAudit = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-cubism-export-audit.json'));
   const runtimeProof = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-cubism-runtime-proof.json'));
@@ -90,6 +91,7 @@ function main() {
       check('handoff-ready', manifest.production.cubismHandoffReady === true),
       check('readiness-checklist', manifest.production.cubismEditorReadinessChecklistReady === true),
       check('export-gate', manifest.production.cubismExportGateReady === true),
+      check('motion-authoring-packet-ready', manifest.production.motionAuthoringPacketReady === true && motionAuthoringPacket.status === 'motion_authoring_packet_ready'),
       check('motion-template-count', manifest.production.cubismMotionTemplateCount >= 37),
       check('physics-template', manifest.production.cubismPhysicsTemplateReady === true),
       check('headless-export-unavailable', manifest.production.cubismHeadlessExportAvailable === false, 'manual Editor export remains required'),

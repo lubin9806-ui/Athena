@@ -330,6 +330,17 @@ Produced on 2026-08-24:
 
 Stage 3O status: `ART REVIEW PACKET READY, ART APPROVAL STILL NO-GO`. The packet maps source-art review lanes to the current delivery blockers: identity/default read, hands/arms, hidden fill, lower body/shoes, mouth/expression, alignment/scale, wardrobe source boundary, and turn/multi-view boundary. It makes manual art signoff actionable but does not approve the art, does not clear the human-layer/hidden-fill/alignment blockers, and does not start genuine Cubism rigging.
 
+## Stage 3P Current Evidence
+
+Produced on 2026-08-24:
+
+- motion authoring packet: `docs/quality/su-shixia-motion-authoring-packet.json`;
+- packet generator: `scripts/generate-su-shixia-motion-authoring-packet.js`;
+- packet verifier: `scripts/verify-su-shixia-motion-authoring-packet.js`;
+- npm command: `npm.cmd run test:live2d:su-shixia-motion-authoring`.
+
+Stage 3P status: `MOTION AUTHORING PACKET READY, FINAL CUBISM MOTION POLISH STILL NO-GO`. The packet maps all 37 Cubism motion templates to GitHub-backed reference families, semantic touch zones, voice-sync requirements, stiffness-review notes, and true-turn boundaries. It gives the rigger a concrete motion checklist for idle, voice, face/head touch, hand/arm, clothing/torso, leg/foot, and turn-preview reactions. It does not prove final non-stiff Cubism playback, because that still requires Editor playback capture, mesh/deformer polish, real TTS blending, and human review.
+
 ## Acceptance Gates
 
 V2 cannot become the final public Cubism default until all are true:
@@ -344,4 +355,4 @@ V2 cannot become the final public Cubism default until all are true:
 
 ## Immediate Next Step
 
-Review the Stage 3A-3C Lite runtime preview in chat-right and desktop-pet placements, including the motion and appearance contact sheets. In parallel, prepare the genuine Cubism rig plan from the reviewed PSD: mesh groups, deformers, parameter ranges, physics chains, authored `.motion3.json` reference clips, and future wardrobe visibility parameters. Profile and back packages follow the approved front-source method; adult-only private assets remain a separate later package boundary.
+Review the Stage 3A-3P Lite runtime preview in chat-right and desktop-pet placements, including the motion and appearance contact sheets, art review packet, and motion authoring packet. In parallel, prepare the genuine Cubism rig from the reviewed PSD: mesh groups, deformers, parameter ranges, physics chains, authored `.motion3.json` curves, and future wardrobe visibility parameters. Profile and back packages follow the approved front-source method; adult-only private assets remain a separate later package boundary.

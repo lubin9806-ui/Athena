@@ -140,6 +140,7 @@ function main() {
   const deliveryAudit = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-live2d-v2-delivery-audit.json'));
   const exportAudit = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-cubism-export-audit.json'));
   const runtimeProof = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-cubism-runtime-proof.json'));
+  const motionAuthoringPacket = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-motion-authoring-packet.json'));
   const wardrobeContract = readJson(path.join(PACKAGE_ROOT, manifest.sourceArt.wardrobeContract));
   const wardrobeAudit = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-wardrobe-readiness-audit.json'));
   const interactionMatrix = readJson(path.join(PACKAGE_ROOT, manifest.sourceArt.interactionMatrix));
@@ -345,6 +346,13 @@ function main() {
     </section>
 
     <section>
+      <h2>Motion Authoring Packet</h2>
+      <p class="note">GitHub references are converted into a Cubism motion handoff checklist. This proves coverage and boundaries, not final hand-polished playback.</p>
+      ${motionAuthoringSummaryTable(motionAuthoringPacket)}
+      ${motionAuthoringTable(motionAuthoringPacket.authoringRows)}
+    </section>
+
+    <section>
       <h2>Wardrobe Contract</h2>
       <p class="note">Current runtime presets remain tint/accessory previews. True wardrobe requires separate source layers, Cubism drawables, and motion QA.</p>
       ${wardrobeTable(wardrobeContract.publicOutfits)}
@@ -452,6 +460,31 @@ function motionFamilyTable(families) {
     escapeHtml(item.boundary),
   ]);
   return simpleTable(['Family', 'Label', 'Motion Groups', 'GitHub Evidence', 'Boundary'], rows, true);
+}
+
+function motionAuthoringSummaryTable(packet) {
+  return `<table>
+        <tbody>
+          <tr><th>Status</th><td><code>${escapeHtml(packet.status)}</code></td></tr>
+          <tr><th>Rows</th><td><code>${packet.authoringRows.length}</code> motion templates</td></tr>
+          <tr><th>Voice sync</th><td><code>${escapeHtml(packet.voiceSyncReview.status)}</code></td></tr>
+          <tr><th>Stiffness risk</th><td><code>high=${packet.stiffnessReview.highRisk.length}</code> <code>medium=${packet.stiffnessReview.mediumRisk.length}</code></td></tr>
+          <tr><th>Go/No-Go</th><td>${Object.entries(packet.goNoGo).map(([key, value]) => `<code>${escapeHtml(key)}=${escapeHtml(value)}</code>`).join(' ')}</td></tr>
+        </tbody>
+      </table>`;
+}
+
+function motionAuthoringTable(rows) {
+  const rendered = rows.map(item => [
+    `<code>${escapeHtml(item.motionGroup)}</code>`,
+    `<code>${escapeHtml(item.tier)}</code>`,
+    `<code>${escapeHtml(item.duration)}s</code>`,
+    `<code>${escapeHtml(item.curveCount)}</code>`,
+    `<code>${escapeHtml(item.stiffnessRisk)}</code>`,
+    item.referenceFamilies.map(family => `<code>${escapeHtml(family.id)}</code>`).join(' '),
+    escapeHtml(item.authoringIntent),
+  ]);
+  return simpleTable(['Motion', 'Tier', 'Duration', 'Curves', 'Stiffness', 'Refs', 'Intent'], rendered, true);
 }
 
 function findingsTable(findings) {

@@ -1,0 +1,1812 @@
+{
+  "version": 1,
+  "generatedAt": "2026-08-24",
+  "packageId": "su-shixia-live2d-v2",
+  "status": "motion_authoring_packet_ready",
+  "source": {
+    "githubReferenceScan": "../../../docs/quality/su-shixia-github-reference-scan.json",
+    "interactionMatrix": "source/review/interaction-matrix-v1.json",
+    "motionTemplateDirectory": "cubism-handoff/motions",
+    "policy": "Use GitHub repositories as timing, file-format, hit-test, and workflow references only. Do not copy third-party character assets or motion data into Su Shixia."
+  },
+  "gestureTiers": [
+    {
+      "id": "idle_presence",
+      "motionGroups": [
+        "Idle",
+        "Listen",
+        "Think",
+        "Return",
+        "Sleepy"
+      ],
+      "count": 5,
+      "present": true
+    },
+    {
+      "id": "voice_speech",
+      "motionGroups": [
+        "Speak",
+        "Nod",
+        "ShakeHead"
+      ],
+      "count": 3,
+      "present": true
+    },
+    {
+      "id": "face_head_touch",
+      "motionGroups": [
+        "TouchHead",
+        "TouchHair",
+        "TouchHairClip",
+        "TouchFace",
+        "TouchEar",
+        "TouchNeck"
+      ],
+      "count": 6,
+      "present": true
+    },
+    {
+      "id": "hands_arms",
+      "motionGroups": [
+        "TouchShoulder",
+        "TouchHand",
+        "TouchUpperArm",
+        "TouchForearm",
+        "TouchWrist",
+        "TouchPalm"
+      ],
+      "count": 6,
+      "present": true
+    },
+    {
+      "id": "garment_torso",
+      "motionGroups": [
+        "TouchCollar",
+        "TouchClothing",
+        "TouchBlouse",
+        "TouchChest",
+        "TouchRibs",
+        "TouchAbdomen",
+        "TouchWaist",
+        "TouchHip",
+        "TouchSkirt"
+      ],
+      "count": 9,
+      "present": true
+    },
+    {
+      "id": "legs_feet",
+      "motionGroups": [
+        "TouchLeg",
+        "TouchThigh",
+        "TouchKnee",
+        "TouchCalf",
+        "TouchAnkle",
+        "TouchFoot",
+        "TouchShoe"
+      ],
+      "count": 7,
+      "present": true
+    },
+    {
+      "id": "turn_preview",
+      "motionGroups": [
+        "TurnPreview"
+      ],
+      "count": 1,
+      "present": true
+    }
+  ],
+  "authoringRows": [
+    {
+      "motionGroup": "Idle",
+      "tier": "idle_presence",
+      "duration": 3.6,
+      "loop": true,
+      "curveCount": 5,
+      "parameterIds": [
+        "ParamBreath",
+        "ParamAngleZ",
+        "ParamHairFront",
+        "ParamHairSide",
+        "ParamAccessoryHairClip"
+      ],
+      "amplitudeScore": 4.78,
+      "referenceFamilies": [
+        {
+          "id": "idle-presence",
+          "label": "Idle, listen, think, return",
+          "githubRefs": [
+            "Live2D/CubismWebSamples:Samples/Resources/Haru/motions",
+            "Live2D/CubismNativeSamples:Samples/Resources"
+          ],
+          "use": "Use official Haru motion timing as a low-amplitude presence reference for breathing, eye motion, hair settling, and recovery.",
+          "boundary": "Timing and grouping reference only; Su Shixia needs authored curves and her own layered art."
+        },
+        {
+          "id": "future-tracking",
+          "label": "Future gaze, blink, expression input",
+          "githubRefs": [
+            "DenchiSoft/VTubeStudio:API/Wiki",
+            "emilianavt/OpenSeeFace:landmark tracking"
+          ],
+          "use": "Use ecosystem references for future camera or tracking input that can drive gaze, blink, expression, and head angle parameters.",
+          "boundary": "Not a current dependency and not required for the Lite preview."
+        }
+      ],
+      "zones": [],
+      "authoringIntent": "Subtle breathing and small hair drift for long companion presence.",
+      "stiffnessRisk": "low",
+      "cubismPolishNeeded": [
+        "Replace linear template feel with Cubism tangent/easing polish.",
+        "Check mesh deformation at the most extreme keyframes.",
+        "Tune hair, sleeve, skirt, and recovery overlap after real playback."
+      ]
+    },
+    {
+      "motionGroup": "Listen",
+      "tier": "idle_presence",
+      "duration": 2.4,
+      "loop": true,
+      "curveCount": 3,
+      "parameterIds": [
+        "ParamAngleX",
+        "ParamAngleY",
+        "ParamBodyAngleX"
+      ],
+      "amplitudeScore": 7,
+      "referenceFamilies": [
+        {
+          "id": "idle-presence",
+          "label": "Idle, listen, think, return",
+          "githubRefs": [
+            "Live2D/CubismWebSamples:Samples/Resources/Haru/motions",
+            "Live2D/CubismNativeSamples:Samples/Resources"
+          ],
+          "use": "Use official Haru motion timing as a low-amplitude presence reference for breathing, eye motion, hair settling, and recovery.",
+          "boundary": "Timing and grouping reference only; Su Shixia needs authored curves and her own layered art."
+        },
+        {
+          "id": "future-tracking",
+          "label": "Future gaze, blink, expression input",
+          "githubRefs": [
+            "DenchiSoft/VTubeStudio:API/Wiki",
+            "emilianavt/OpenSeeFace:landmark tracking"
+          ],
+          "use": "Use ecosystem references for future camera or tracking input that can drive gaze, blink, expression, and head angle parameters.",
+          "boundary": "Not a current dependency and not required for the Lite preview."
+        }
+      ],
+      "zones": [],
+      "authoringIntent": "Lean attention toward the user without overacting.",
+      "stiffnessRisk": "low",
+      "cubismPolishNeeded": [
+        "Replace linear template feel with Cubism tangent/easing polish.",
+        "Check mesh deformation at the most extreme keyframes.",
+        "Tune hair, sleeve, skirt, and recovery overlap after real playback."
+      ]
+    },
+    {
+      "motionGroup": "Nod",
+      "tier": "voice_speech",
+      "duration": 1.2,
+      "loop": false,
+      "curveCount": 2,
+      "parameterIds": [
+        "ParamAngleY",
+        "ParamBodyAngleZ"
+      ],
+      "amplitudeScore": 15.5,
+      "referenceFamilies": [
+        {
+          "id": "voice-speech",
+          "label": "TTS speech and voice response",
+          "githubRefs": [
+            "Live2D/CubismWebSamples:Samples/Resources/Haru/Haru.model3.json",
+            "Live2D/CubismWebSamples:Samples/Resources/Haru/sounds"
+          ],
+          "use": "Use official sample model and sound package layout to keep voice-triggered motion, expression, and audio timing separate.",
+          "boundary": "Athena TTS drives mouth parameters locally; do not import sample voice clips."
+        }
+      ],
+      "zones": [],
+      "authoringIntent": "State transition and recovery motion.",
+      "stiffnessRisk": "medium",
+      "cubismPolishNeeded": [
+        "Replace linear template feel with Cubism tangent/easing polish.",
+        "Check mesh deformation at the most extreme keyframes.",
+        "Tune hair, sleeve, skirt, and recovery overlap after real playback."
+      ]
+    },
+    {
+      "motionGroup": "Return",
+      "tier": "idle_presence",
+      "duration": 1.8,
+      "loop": false,
+      "curveCount": 3,
+      "parameterIds": [
+        "ParamAngleX",
+        "ParamAngleY",
+        "ParamBodyAngleX"
+      ],
+      "amplitudeScore": 16,
+      "referenceFamilies": [
+        {
+          "id": "idle-presence",
+          "label": "Idle, listen, think, return",
+          "githubRefs": [
+            "Live2D/CubismWebSamples:Samples/Resources/Haru/motions",
+            "Live2D/CubismNativeSamples:Samples/Resources"
+          ],
+          "use": "Use official Haru motion timing as a low-amplitude presence reference for breathing, eye motion, hair settling, and recovery.",
+          "boundary": "Timing and grouping reference only; Su Shixia needs authored curves and her own layered art."
+        }
+      ],
+      "zones": [],
+      "authoringIntent": "State transition and recovery motion.",
+      "stiffnessRisk": "low",
+      "cubismPolishNeeded": [
+        "Replace linear template feel with Cubism tangent/easing polish.",
+        "Check mesh deformation at the most extreme keyframes.",
+        "Tune hair, sleeve, skirt, and recovery overlap after real playback."
+      ]
+    },
+    {
+      "motionGroup": "ShakeHead",
+      "tier": "voice_speech",
+      "duration": 1.45,
+      "loop": false,
+      "curveCount": 2,
+      "parameterIds": [
+        "ParamAngleX",
+        "ParamHairSide"
+      ],
+      "amplitudeScore": 25.5,
+      "referenceFamilies": [
+        {
+          "id": "voice-speech",
+          "label": "TTS speech and voice response",
+          "githubRefs": [
+            "Live2D/CubismWebSamples:Samples/Resources/Haru/Haru.model3.json",
+            "Live2D/CubismWebSamples:Samples/Resources/Haru/sounds"
+          ],
+          "use": "Use official sample model and sound package layout to keep voice-triggered motion, expression, and audio timing separate.",
+          "boundary": "Athena TTS drives mouth parameters locally; do not import sample voice clips."
+        }
+      ],
+      "zones": [],
+      "authoringIntent": "State transition and recovery motion.",
+      "stiffnessRisk": "medium",
+      "cubismPolishNeeded": [
+        "Replace linear template feel with Cubism tangent/easing polish.",
+        "Check mesh deformation at the most extreme keyframes.",
+        "Tune hair, sleeve, skirt, and recovery overlap after real playback."
+      ]
+    },
+    {
+      "motionGroup": "Sleepy",
+      "tier": "idle_presence",
+      "duration": 3.4,
+      "loop": true,
+      "curveCount": 3,
+      "parameterIds": [
+        "ParamEyeLOpen",
+        "ParamEyeROpen",
+        "ParamAngleY"
+      ],
+      "amplitudeScore": 4.46,
+      "referenceFamilies": [
+        {
+          "id": "idle-presence",
+          "label": "Idle, listen, think, return",
+          "githubRefs": [
+            "Live2D/CubismWebSamples:Samples/Resources/Haru/motions",
+            "Live2D/CubismNativeSamples:Samples/Resources"
+          ],
+          "use": "Use official Haru motion timing as a low-amplitude presence reference for breathing, eye motion, hair settling, and recovery.",
+          "boundary": "Timing and grouping reference only; Su Shixia needs authored curves and her own layered art."
+        }
+      ],
+      "zones": [],
+      "authoringIntent": "State transition and recovery motion.",
+      "stiffnessRisk": "low",
+      "cubismPolishNeeded": [
+        "Replace linear template feel with Cubism tangent/easing polish.",
+        "Check mesh deformation at the most extreme keyframes.",
+        "Tune hair, sleeve, skirt, and recovery overlap after real playback."
+      ]
+    },
+    {
+      "motionGroup": "Speak",
+      "tier": "voice_speech",
+      "duration": 1.2,
+      "loop": true,
+      "curveCount": 3,
+      "parameterIds": [
+        "ParamMouthOpenY",
+        "ParamMouthForm",
+        "ParamAngleY"
+      ],
+      "amplitudeScore": 3.33,
+      "referenceFamilies": [
+        {
+          "id": "voice-speech",
+          "label": "TTS speech and voice response",
+          "githubRefs": [
+            "Live2D/CubismWebSamples:Samples/Resources/Haru/Haru.model3.json",
+            "Live2D/CubismWebSamples:Samples/Resources/Haru/sounds"
+          ],
+          "use": "Use official sample model and sound package layout to keep voice-triggered motion, expression, and audio timing separate.",
+          "boundary": "Athena TTS drives mouth parameters locally; do not import sample voice clips."
+        },
+        {
+          "id": "future-tracking",
+          "label": "Future gaze, blink, expression input",
+          "githubRefs": [
+            "DenchiSoft/VTubeStudio:API/Wiki",
+            "emilianavt/OpenSeeFace:landmark tracking"
+          ],
+          "use": "Use ecosystem references for future camera or tracking input that can drive gaze, blink, expression, and head angle parameters.",
+          "boundary": "Not a current dependency and not required for the Lite preview."
+        }
+      ],
+      "zones": [],
+      "authoringIntent": "Speech rhythm, mouth openness, tiny head motion, no robotic jaw snapping.",
+      "stiffnessRisk": "low",
+      "cubismPolishNeeded": [
+        "Replace linear template feel with Cubism tangent/easing polish.",
+        "Check mesh deformation at the most extreme keyframes.",
+        "Tune hair, sleeve, skirt, and recovery overlap after real playback."
+      ]
+    },
+    {
+      "motionGroup": "Think",
+      "tier": "idle_presence",
+      "duration": 2.8,
+      "loop": true,
+      "curveCount": 3,
+      "parameterIds": [
+        "ParamAngleX",
+        "ParamMouthForm",
+        "ParamEyeBallX"
+      ],
+      "amplitudeScore": 9.43,
+      "referenceFamilies": [
+        {
+          "id": "idle-presence",
+          "label": "Idle, listen, think, return",
+          "githubRefs": [
+            "Live2D/CubismWebSamples:Samples/Resources/Haru/motions",
+            "Live2D/CubismNativeSamples:Samples/Resources"
+          ],
+          "use": "Use official Haru motion timing as a low-amplitude presence reference for breathing, eye motion, hair settling, and recovery.",
+          "boundary": "Timing and grouping reference only; Su Shixia needs authored curves and her own layered art."
+        }
+      ],
+      "zones": [],
+      "authoringIntent": "Small gaze and mouth-form changes to show thought.",
+      "stiffnessRisk": "low",
+      "cubismPolishNeeded": [
+        "Replace linear template feel with Cubism tangent/easing polish.",
+        "Check mesh deformation at the most extreme keyframes.",
+        "Tune hair, sleeve, skirt, and recovery overlap after real playback."
+      ]
+    },
+    {
+      "motionGroup": "TouchAbdomen",
+      "tier": "garment_torso",
+      "duration": 1.7,
+      "loop": false,
+      "curveCount": 2,
+      "parameterIds": [
+        "ParamAngleY",
+        "ParamBodyAngleZ"
+      ],
+      "amplitudeScore": 6.8,
+      "referenceFamilies": [
+        {
+          "id": "garment-body-boundary",
+          "label": "Clothing, torso, skirt, legs",
+          "githubRefs": [
+            "Live2D/CubismWebSamples:Samples/Resources/Haru/motions",
+            "Live2D/CubismWebSamples:Samples/Resources/Haru/Haru.physics3.json"
+          ],
+          "use": "Use official motion and physics package shape as a timing reference for weight shift, garment adjustment, and recovery to idle.",
+          "boundary": "Private opt-in zones remain semantic and runtime-gated; public package must not include explicit assets."
+        }
+      ],
+      "zones": [
+        {
+          "id": "abdomen",
+          "bodyPart": "腹部",
+          "sensitivity": "sensitive",
+          "privateModeAllowed": true,
+          "motionIntent": "轻轻收腹、整理衣摆"
+        }
+      ],
+      "authoringIntent": "轻轻收腹、整理衣摆",
+      "stiffnessRisk": "high",
+      "cubismPolishNeeded": [
+        "Replace linear template feel with Cubism tangent/easing polish.",
+        "Check mesh deformation at the most extreme keyframes.",
+        "Tune hair, sleeve, skirt, and recovery overlap after real playback."
+      ]
+    },
+    {
+      "motionGroup": "TouchAnkle",
+      "tier": "legs_feet",
+      "duration": 1.35,
+      "loop": false,
+      "curveCount": 2,
+      "parameterIds": [
+        "ParamBodyAngleZ",
+        "ParamAngleY"
+      ],
+      "amplitudeScore": 3.8,
+      "referenceFamilies": [
+        {
+          "id": "garment-body-boundary",
+          "label": "Clothing, torso, skirt, legs",
+          "githubRefs": [
+            "Live2D/CubismWebSamples:Samples/Resources/Haru/motions",
+            "Live2D/CubismWebSamples:Samples/Resources/Haru/Haru.physics3.json"
+          ],
+          "use": "Use official motion and physics package shape as a timing reference for weight shift, garment adjustment, and recovery to idle.",
+          "boundary": "Private opt-in zones remain semantic and runtime-gated; public package must not include explicit assets."
+        }
+      ],
+      "zones": [
+        {
+          "id": "left_ankle",
+          "bodyPart": "脚踝",
+          "sensitivity": "neutral",
+          "privateModeAllowed": false,
+          "motionIntent": "脚踝轻转、站稳"
+        },
+        {
+          "id": "right_ankle",
+          "bodyPart": "脚踝",
+          "sensitivity": "neutral",
+          "privateModeAllowed": false,
+          "motionIntent": "脚踝轻转、站稳"
+        }
+      ],
+      "authoringIntent": "脚踝轻转、站稳 / 脚踝轻转、站稳",
+      "stiffnessRisk": "medium",
+      "cubismPolishNeeded": [
+        "Replace linear template feel with Cubism tangent/easing polish.",
+        "Check mesh deformation at the most extreme keyframes.",
+        "Tune hair, sleeve, skirt, and recovery overlap after real playback."
+      ]
+    },
+    {
+      "motionGroup": "TouchBlouse",
+      "tier": "garment_torso",
+      "duration": 1.65,
+      "loop": false,
+      "curveCount": 3,
+      "parameterIds": [
+        "ParamBodyAngleZ",
+        "ParamArmL",
+        "ParamMouthForm"
+      ],
+      "amplitudeScore": 4.83,
+      "referenceFamilies": [
+        {
+          "id": "garment-body-boundary",
+          "label": "Clothing, torso, skirt, legs",
+          "githubRefs": [
+            "Live2D/CubismWebSamples:Samples/Resources/Haru/motions",
+            "Live2D/CubismWebSamples:Samples/Resources/Haru/Haru.physics3.json"
+          ],
+          "use": "Use official motion and physics package shape as a timing reference for weight shift, garment adjustment, and recovery to idle.",
+          "boundary": "Private opt-in zones remain semantic and runtime-gated; public package must not include explicit assets."
+        }
+      ],
+      "zones": [
+        {
+          "id": "blouse",
+          "bodyPart": "白衬衫",
+          "sensitivity": "sensitive",
+          "privateModeAllowed": false,
+          "motionIntent": "整理衬衫、视线下移再回看"
+        }
+      ],
+      "authoringIntent": "整理衬衫、视线下移再回看",
+      "stiffnessRisk": "low",
+      "cubismPolishNeeded": [
+        "Replace linear template feel with Cubism tangent/easing polish.",
+        "Check mesh deformation at the most extreme keyframes.",
+        "Tune hair, sleeve, skirt, and recovery overlap after real playback."
+      ]
+    },
+    {
+      "motionGroup": "TouchCalf",
+      "tier": "legs_feet",
+      "duration": 1.45,
+      "loop": false,
+      "curveCount": 2,
+      "parameterIds": [
+        "ParamBodyAngleX",
+        "ParamAngleY"
+      ],
+      "amplitudeScore": 4,
+      "referenceFamilies": [
+        {
+          "id": "garment-body-boundary",
+          "label": "Clothing, torso, skirt, legs",
+          "githubRefs": [
+            "Live2D/CubismWebSamples:Samples/Resources/Haru/motions",
+            "Live2D/CubismWebSamples:Samples/Resources/Haru/Haru.physics3.json"
+          ],
+          "use": "Use official motion and physics package shape as a timing reference for weight shift, garment adjustment, and recovery to idle.",
+          "boundary": "Private opt-in zones remain semantic and runtime-gated; public package must not include explicit assets."
+        }
+      ],
+      "zones": [
+        {
+          "id": "left_calf",
+          "bodyPart": "小腿",
+          "sensitivity": "neutral",
+          "privateModeAllowed": false,
+          "motionIntent": "脚尖轻移、站姿放松"
+        },
+        {
+          "id": "right_calf",
+          "bodyPart": "小腿",
+          "sensitivity": "neutral",
+          "privateModeAllowed": false,
+          "motionIntent": "脚尖轻移、站姿放松"
+        }
+      ],
+      "authoringIntent": "脚尖轻移、站姿放松 / 脚尖轻移、站姿放松",
+      "stiffnessRisk": "medium",
+      "cubismPolishNeeded": [
+        "Replace linear template feel with Cubism tangent/easing polish.",
+        "Check mesh deformation at the most extreme keyframes.",
+        "Tune hair, sleeve, skirt, and recovery overlap after real playback."
+      ]
+    },
+    {
+      "motionGroup": "TouchChest",
+      "tier": "garment_torso",
+      "duration": 1.75,
+      "loop": false,
+      "curveCount": 3,
+      "parameterIds": [
+        "ParamAngleY",
+        "ParamBodyAngleZ",
+        "ParamArmL"
+      ],
+      "amplitudeScore": 10.75,
+      "referenceFamilies": [
+        {
+          "id": "garment-body-boundary",
+          "label": "Clothing, torso, skirt, legs",
+          "githubRefs": [
+            "Live2D/CubismWebSamples:Samples/Resources/Haru/motions",
+            "Live2D/CubismWebSamples:Samples/Resources/Haru/Haru.physics3.json"
+          ],
+          "use": "Use official motion and physics package shape as a timing reference for weight shift, garment adjustment, and recovery to idle.",
+          "boundary": "Private opt-in zones remain semantic and runtime-gated; public package must not include explicit assets."
+        }
+      ],
+      "zones": [
+        {
+          "id": "chest",
+          "bodyPart": "胸口",
+          "sensitivity": "private",
+          "privateModeAllowed": true,
+          "motionIntent": "护住胸口、后退半步、脸红"
+        }
+      ],
+      "authoringIntent": "护住胸口、后退半步、脸红",
+      "stiffnessRisk": "low",
+      "cubismPolishNeeded": [
+        "Replace linear template feel with Cubism tangent/easing polish.",
+        "Check mesh deformation at the most extreme keyframes.",
+        "Tune hair, sleeve, skirt, and recovery overlap after real playback."
+      ]
+    },
+    {
+      "motionGroup": "TouchClothing",
+      "tier": "garment_torso",
+      "duration": 1.6,
+      "loop": false,
+      "curveCount": 2,
+      "parameterIds": [
+        "ParamBodyAngleZ",
+        "ParamMouthForm"
+      ],
+      "amplitudeScore": 5.22,
+      "referenceFamilies": [
+        {
+          "id": "garment-body-boundary",
+          "label": "Clothing, torso, skirt, legs",
+          "githubRefs": [
+            "Live2D/CubismWebSamples:Samples/Resources/Haru/motions",
+            "Live2D/CubismWebSamples:Samples/Resources/Haru/Haru.physics3.json"
+          ],
+          "use": "Use official motion and physics package shape as a timing reference for weight shift, garment adjustment, and recovery to idle.",
+          "boundary": "Private opt-in zones remain semantic and runtime-gated; public package must not include explicit assets."
+        }
+      ],
+      "zones": [],
+      "authoringIntent": "State transition and recovery motion.",
+      "stiffnessRisk": "medium",
+      "cubismPolishNeeded": [
+        "Replace linear template feel with Cubism tangent/easing polish.",
+        "Check mesh deformation at the most extreme keyframes.",
+        "Tune hair, sleeve, skirt, and recovery overlap after real playback."
+      ]
+    },
+    {
+      "motionGroup": "TouchCollar",
+      "tier": "garment_torso",
+      "duration": 1.65,
+      "loop": false,
+      "curveCount": 3,
+      "parameterIds": [
+        "ParamAngleY",
+        "ParamBodyAngleZ",
+        "ParamMouthForm"
+      ],
+      "amplitudeScore": 7.78,
+      "referenceFamilies": [
+        {
+          "id": "garment-body-boundary",
+          "label": "Clothing, torso, skirt, legs",
+          "githubRefs": [
+            "Live2D/CubismWebSamples:Samples/Resources/Haru/motions",
+            "Live2D/CubismWebSamples:Samples/Resources/Haru/Haru.physics3.json"
+          ],
+          "use": "Use official motion and physics package shape as a timing reference for weight shift, garment adjustment, and recovery to idle.",
+          "boundary": "Private opt-in zones remain semantic and runtime-gated; public package must not include explicit assets."
+        }
+      ],
+      "zones": [
+        {
+          "id": "collar",
+          "bodyPart": "衣领",
+          "sensitivity": "sensitive",
+          "privateModeAllowed": false,
+          "motionIntent": "整理衣领、向后半步"
+        }
+      ],
+      "authoringIntent": "整理衣领、向后半步",
+      "stiffnessRisk": "low",
+      "cubismPolishNeeded": [
+        "Replace linear template feel with Cubism tangent/easing polish.",
+        "Check mesh deformation at the most extreme keyframes.",
+        "Tune hair, sleeve, skirt, and recovery overlap after real playback."
+      ]
+    },
+    {
+      "motionGroup": "TouchEar",
+      "tier": "face_head_touch",
+      "duration": 1.5,
+      "loop": false,
+      "curveCount": 3,
+      "parameterIds": [
+        "ParamAngleX",
+        "ParamAngleZ",
+        "ParamMouthOpenY"
+      ],
+      "amplitudeScore": 17.18,
+      "referenceFamilies": [
+        {
+          "id": "face-head-touch",
+          "label": "Head, hair, face, ear, neck reactions",
+          "githubRefs": [
+            "Live2D/CubismWebSamples:Samples/Resources/Haru/motions",
+            "DenchiSoft/VTubeStudio:Wiki/API trigger workflow"
+          ],
+          "use": "Combine official small head motions with trigger-style reaction design for shy, startled, and affectionate micro-reactions.",
+          "boundary": "No third-party character motion is copied; sensitive-zone responses stay mode-gated."
+        }
+      ],
+      "zones": [
+        {
+          "id": "left_ear",
+          "bodyPart": "耳侧",
+          "sensitivity": "sensitive",
+          "privateModeAllowed": false,
+          "motionIntent": "轻微缩肩、脸红"
+        },
+        {
+          "id": "right_ear",
+          "bodyPart": "耳侧",
+          "sensitivity": "sensitive",
+          "privateModeAllowed": false,
+          "motionIntent": "轻微缩肩、脸红"
+        }
+      ],
+      "authoringIntent": "轻微缩肩、脸红 / 轻微缩肩、脸红",
+      "stiffnessRisk": "low",
+      "cubismPolishNeeded": [
+        "Replace linear template feel with Cubism tangent/easing polish.",
+        "Check mesh deformation at the most extreme keyframes.",
+        "Tune hair, sleeve, skirt, and recovery overlap after real playback."
+      ]
+    },
+    {
+      "motionGroup": "TouchFace",
+      "tier": "face_head_touch",
+      "duration": 2,
+      "loop": false,
+      "curveCount": 3,
+      "parameterIds": [
+        "ParamHandCheek",
+        "ParamAngleX",
+        "ParamMouthForm"
+      ],
+      "amplitudeScore": 8.28,
+      "referenceFamilies": [
+        {
+          "id": "face-head-touch",
+          "label": "Head, hair, face, ear, neck reactions",
+          "githubRefs": [
+            "Live2D/CubismWebSamples:Samples/Resources/Haru/motions",
+            "DenchiSoft/VTubeStudio:Wiki/API trigger workflow"
+          ],
+          "use": "Combine official small head motions with trigger-style reaction design for shy, startled, and affectionate micro-reactions.",
+          "boundary": "No third-party character motion is copied; sensitive-zone responses stay mode-gated."
+        }
+      ],
+      "zones": [
+        {
+          "id": "face_cheek",
+          "bodyPart": "脸颊",
+          "sensitivity": "affectionate",
+          "privateModeAllowed": false,
+          "motionIntent": "抬手挡脸、脸红"
+        },
+        {
+          "id": "mouth_chin",
+          "bodyPart": "嘴唇或下巴附近",
+          "sensitivity": "sensitive",
+          "privateModeAllowed": false,
+          "motionIntent": "微微后仰、眼神闪躲"
+        }
+      ],
+      "authoringIntent": "抬手挡脸、脸红 / 微微后仰、眼神闪躲",
+      "stiffnessRisk": "low",
+      "cubismPolishNeeded": [
+        "Replace linear template feel with Cubism tangent/easing polish.",
+        "Check mesh deformation at the most extreme keyframes.",
+        "Tune hair, sleeve, skirt, and recovery overlap after real playback."
+      ]
+    },
+    {
+      "motionGroup": "TouchFoot",
+      "tier": "legs_feet",
+      "duration": 1.35,
+      "loop": false,
+      "curveCount": 2,
+      "parameterIds": [
+        "ParamBodyAngleZ",
+        "ParamAngleY"
+      ],
+      "amplitudeScore": 4.2,
+      "referenceFamilies": [
+        {
+          "id": "garment-body-boundary",
+          "label": "Clothing, torso, skirt, legs",
+          "githubRefs": [
+            "Live2D/CubismWebSamples:Samples/Resources/Haru/motions",
+            "Live2D/CubismWebSamples:Samples/Resources/Haru/Haru.physics3.json"
+          ],
+          "use": "Use official motion and physics package shape as a timing reference for weight shift, garment adjustment, and recovery to idle.",
+          "boundary": "Private opt-in zones remain semantic and runtime-gated; public package must not include explicit assets."
+        }
+      ],
+      "zones": [],
+      "authoringIntent": "State transition and recovery motion.",
+      "stiffnessRisk": "medium",
+      "cubismPolishNeeded": [
+        "Replace linear template feel with Cubism tangent/easing polish.",
+        "Check mesh deformation at the most extreme keyframes.",
+        "Tune hair, sleeve, skirt, and recovery overlap after real playback."
+      ]
+    },
+    {
+      "motionGroup": "TouchForearm",
+      "tier": "hands_arms",
+      "duration": 1.5,
+      "loop": false,
+      "curveCount": 2,
+      "parameterIds": [
+        "ParamArmR",
+        "ParamMouthForm"
+      ],
+      "amplitudeScore": 0.83,
+      "referenceFamilies": [
+        {
+          "id": "hands-arms-gesture",
+          "label": "Hands, arms, wave, drag",
+          "githubRefs": [
+            "Live2D/CubismWebSamples:Samples/Resources/Hiyori/motions",
+            "Live2D/CubismWebSamples:Samples/Resources/Mao/motions",
+            "guansss/pixi-live2d-display:interaction runtime"
+          ],
+          "use": "Use official sample gesture clips and Pixi hit-test patterns as references for hand wave, arm recoil, and pointer-driven drag follow.",
+          "boundary": "Independent arm motion still requires real mesh deformers; Lite overlay hands are preview-only."
+        }
+      ],
+      "zones": [
+        {
+          "id": "left_forearm",
+          "bodyPart": "前臂",
+          "sensitivity": "neutral",
+          "privateModeAllowed": false,
+          "motionIntent": "轻轻抬手回应"
+        },
+        {
+          "id": "right_forearm",
+          "bodyPart": "前臂",
+          "sensitivity": "neutral",
+          "privateModeAllowed": false,
+          "motionIntent": "轻轻抬手回应"
+        }
+      ],
+      "authoringIntent": "轻轻抬手回应 / 轻轻抬手回应",
+      "stiffnessRisk": "medium",
+      "cubismPolishNeeded": [
+        "Replace linear template feel with Cubism tangent/easing polish.",
+        "Check mesh deformation at the most extreme keyframes.",
+        "Tune hair, sleeve, skirt, and recovery overlap after real playback."
+      ]
+    },
+    {
+      "motionGroup": "TouchHair",
+      "tier": "face_head_touch",
+      "duration": 1.6,
+      "loop": false,
+      "curveCount": 3,
+      "parameterIds": [
+        "ParamAngleZ",
+        "ParamHairFront",
+        "ParamHairSide"
+      ],
+      "amplitudeScore": 5.65,
+      "referenceFamilies": [
+        {
+          "id": "face-head-touch",
+          "label": "Head, hair, face, ear, neck reactions",
+          "githubRefs": [
+            "Live2D/CubismWebSamples:Samples/Resources/Haru/motions",
+            "DenchiSoft/VTubeStudio:Wiki/API trigger workflow"
+          ],
+          "use": "Combine official small head motions with trigger-style reaction design for shy, startled, and affectionate micro-reactions.",
+          "boundary": "No third-party character motion is copied; sensitive-zone responses stay mode-gated."
+        }
+      ],
+      "zones": [
+        {
+          "id": "hair",
+          "bodyPart": "头发",
+          "sensitivity": "affectionate",
+          "privateModeAllowed": false,
+          "motionIntent": "发丝轻晃、微微偏头"
+        }
+      ],
+      "authoringIntent": "发丝轻晃、微微偏头",
+      "stiffnessRisk": "low",
+      "cubismPolishNeeded": [
+        "Replace linear template feel with Cubism tangent/easing polish.",
+        "Check mesh deformation at the most extreme keyframes.",
+        "Tune hair, sleeve, skirt, and recovery overlap after real playback."
+      ]
+    },
+    {
+      "motionGroup": "TouchHairClip",
+      "tier": "face_head_touch",
+      "duration": 1.6,
+      "loop": false,
+      "curveCount": 3,
+      "parameterIds": [
+        "ParamAngleX",
+        "ParamAngleZ",
+        "ParamMouthForm"
+      ],
+      "amplitudeScore": 9.28,
+      "referenceFamilies": [
+        {
+          "id": "face-head-touch",
+          "label": "Head, hair, face, ear, neck reactions",
+          "githubRefs": [
+            "Live2D/CubismWebSamples:Samples/Resources/Haru/motions",
+            "DenchiSoft/VTubeStudio:Wiki/API trigger workflow"
+          ],
+          "use": "Combine official small head motions with trigger-style reaction design for shy, startled, and affectionate micro-reactions.",
+          "boundary": "No third-party character motion is copied; sensitive-zone responses stay mode-gated."
+        }
+      ],
+      "zones": [
+        {
+          "id": "hair_clip",
+          "bodyPart": "银色 A 字发夹",
+          "sensitivity": "affectionate",
+          "privateModeAllowed": false,
+          "motionIntent": "整理发夹、眼神短暂移开"
+        }
+      ],
+      "authoringIntent": "整理发夹、眼神短暂移开",
+      "stiffnessRisk": "low",
+      "cubismPolishNeeded": [
+        "Replace linear template feel with Cubism tangent/easing polish.",
+        "Check mesh deformation at the most extreme keyframes.",
+        "Tune hair, sleeve, skirt, and recovery overlap after real playback."
+      ]
+    },
+    {
+      "motionGroup": "TouchHand",
+      "tier": "hands_arms",
+      "duration": 1.7,
+      "loop": false,
+      "curveCount": 2,
+      "parameterIds": [
+        "ParamArmR",
+        "ParamMouthForm"
+      ],
+      "amplitudeScore": 1.25,
+      "referenceFamilies": [
+        {
+          "id": "hands-arms-gesture",
+          "label": "Hands, arms, wave, drag",
+          "githubRefs": [
+            "Live2D/CubismWebSamples:Samples/Resources/Hiyori/motions",
+            "Live2D/CubismWebSamples:Samples/Resources/Mao/motions",
+            "guansss/pixi-live2d-display:interaction runtime"
+          ],
+          "use": "Use official sample gesture clips and Pixi hit-test patterns as references for hand wave, arm recoil, and pointer-driven drag follow.",
+          "boundary": "Independent arm motion still requires real mesh deformers; Lite overlay hands are preview-only."
+        }
+      ],
+      "zones": [],
+      "authoringIntent": "State transition and recovery motion.",
+      "stiffnessRisk": "medium",
+      "cubismPolishNeeded": [
+        "Replace linear template feel with Cubism tangent/easing polish.",
+        "Check mesh deformation at the most extreme keyframes.",
+        "Tune hair, sleeve, skirt, and recovery overlap after real playback."
+      ]
+    },
+    {
+      "motionGroup": "TouchHead",
+      "tier": "face_head_touch",
+      "duration": 1.8,
+      "loop": false,
+      "curveCount": 3,
+      "parameterIds": [
+        "ParamAngleY",
+        "ParamAngleZ",
+        "ParamMouthForm"
+      ],
+      "amplitudeScore": 12.35,
+      "referenceFamilies": [
+        {
+          "id": "face-head-touch",
+          "label": "Head, hair, face, ear, neck reactions",
+          "githubRefs": [
+            "Live2D/CubismWebSamples:Samples/Resources/Haru/motions",
+            "DenchiSoft/VTubeStudio:Wiki/API trigger workflow"
+          ],
+          "use": "Combine official small head motions with trigger-style reaction design for shy, startled, and affectionate micro-reactions.",
+          "boundary": "No third-party character motion is copied; sensitive-zone responses stay mode-gated."
+        }
+      ],
+      "zones": [
+        {
+          "id": "forehead",
+          "bodyPart": "额头",
+          "sensitivity": "affectionate",
+          "privateModeAllowed": false,
+          "motionIntent": "轻轻低头、放松微笑"
+        }
+      ],
+      "authoringIntent": "轻轻低头、放松微笑",
+      "stiffnessRisk": "low",
+      "cubismPolishNeeded": [
+        "Replace linear template feel with Cubism tangent/easing polish.",
+        "Check mesh deformation at the most extreme keyframes.",
+        "Tune hair, sleeve, skirt, and recovery overlap after real playback."
+      ]
+    },
+    {
+      "motionGroup": "TouchHip",
+      "tier": "garment_torso",
+      "duration": 1.8,
+      "loop": false,
+      "curveCount": 3,
+      "parameterIds": [
+        "ParamAngleX",
+        "ParamBodyAngleZ",
+        "ParamSkirtSwing"
+      ],
+      "amplitudeScore": 11.15,
+      "referenceFamilies": [
+        {
+          "id": "garment-body-boundary",
+          "label": "Clothing, torso, skirt, legs",
+          "githubRefs": [
+            "Live2D/CubismWebSamples:Samples/Resources/Haru/motions",
+            "Live2D/CubismWebSamples:Samples/Resources/Haru/Haru.physics3.json"
+          ],
+          "use": "Use official motion and physics package shape as a timing reference for weight shift, garment adjustment, and recovery to idle.",
+          "boundary": "Private opt-in zones remain semantic and runtime-gated; public package must not include explicit assets."
+        }
+      ],
+      "zones": [
+        {
+          "id": "hip",
+          "bodyPart": "臀侧或裙腰后侧",
+          "sensitivity": "private",
+          "privateModeAllowed": true,
+          "motionIntent": "身体侧开、整理裙腰"
+        }
+      ],
+      "authoringIntent": "身体侧开、整理裙腰",
+      "stiffnessRisk": "low",
+      "cubismPolishNeeded": [
+        "Replace linear template feel with Cubism tangent/easing polish.",
+        "Check mesh deformation at the most extreme keyframes.",
+        "Tune hair, sleeve, skirt, and recovery overlap after real playback."
+      ]
+    },
+    {
+      "motionGroup": "TouchKnee",
+      "tier": "legs_feet",
+      "duration": 1.45,
+      "loop": false,
+      "curveCount": 2,
+      "parameterIds": [
+        "ParamBodyAngleX",
+        "ParamBodyAngleZ"
+      ],
+      "amplitudeScore": 4,
+      "referenceFamilies": [
+        {
+          "id": "garment-body-boundary",
+          "label": "Clothing, torso, skirt, legs",
+          "githubRefs": [
+            "Live2D/CubismWebSamples:Samples/Resources/Haru/motions",
+            "Live2D/CubismWebSamples:Samples/Resources/Haru/Haru.physics3.json"
+          ],
+          "use": "Use official motion and physics package shape as a timing reference for weight shift, garment adjustment, and recovery to idle.",
+          "boundary": "Private opt-in zones remain semantic and runtime-gated; public package must not include explicit assets."
+        }
+      ],
+      "zones": [
+        {
+          "id": "left_knee",
+          "bodyPart": "膝盖",
+          "sensitivity": "neutral",
+          "privateModeAllowed": false,
+          "motionIntent": "膝盖微弯、站姿调整"
+        },
+        {
+          "id": "right_knee",
+          "bodyPart": "膝盖",
+          "sensitivity": "neutral",
+          "privateModeAllowed": false,
+          "motionIntent": "膝盖微弯、站姿调整"
+        }
+      ],
+      "authoringIntent": "膝盖微弯、站姿调整 / 膝盖微弯、站姿调整",
+      "stiffnessRisk": "medium",
+      "cubismPolishNeeded": [
+        "Replace linear template feel with Cubism tangent/easing polish.",
+        "Check mesh deformation at the most extreme keyframes.",
+        "Tune hair, sleeve, skirt, and recovery overlap after real playback."
+      ]
+    },
+    {
+      "motionGroup": "TouchLeg",
+      "tier": "legs_feet",
+      "duration": 1.7,
+      "loop": false,
+      "curveCount": 2,
+      "parameterIds": [
+        "ParamAngleY",
+        "ParamBodyAngleZ"
+      ],
+      "amplitudeScore": 6,
+      "referenceFamilies": [
+        {
+          "id": "garment-body-boundary",
+          "label": "Clothing, torso, skirt, legs",
+          "githubRefs": [
+            "Live2D/CubismWebSamples:Samples/Resources/Haru/motions",
+            "Live2D/CubismWebSamples:Samples/Resources/Haru/Haru.physics3.json"
+          ],
+          "use": "Use official motion and physics package shape as a timing reference for weight shift, garment adjustment, and recovery to idle.",
+          "boundary": "Private opt-in zones remain semantic and runtime-gated; public package must not include explicit assets."
+        }
+      ],
+      "zones": [],
+      "authoringIntent": "State transition and recovery motion.",
+      "stiffnessRisk": "medium",
+      "cubismPolishNeeded": [
+        "Replace linear template feel with Cubism tangent/easing polish.",
+        "Check mesh deformation at the most extreme keyframes.",
+        "Tune hair, sleeve, skirt, and recovery overlap after real playback."
+      ]
+    },
+    {
+      "motionGroup": "TouchNeck",
+      "tier": "face_head_touch",
+      "duration": 1.7,
+      "loop": false,
+      "curveCount": 3,
+      "parameterIds": [
+        "ParamAngleY",
+        "ParamBodyAngleZ",
+        "ParamMouthForm"
+      ],
+      "amplitudeScore": 10.24,
+      "referenceFamilies": [
+        {
+          "id": "face-head-touch",
+          "label": "Head, hair, face, ear, neck reactions",
+          "githubRefs": [
+            "Live2D/CubismWebSamples:Samples/Resources/Haru/motions",
+            "DenchiSoft/VTubeStudio:Wiki/API trigger workflow"
+          ],
+          "use": "Combine official small head motions with trigger-style reaction design for shy, startled, and affectionate micro-reactions.",
+          "boundary": "No third-party character motion is copied; sensitive-zone responses stay mode-gated."
+        }
+      ],
+      "zones": [
+        {
+          "id": "neck",
+          "bodyPart": "脖颈",
+          "sensitivity": "sensitive",
+          "privateModeAllowed": false,
+          "motionIntent": "缩肩、整理衣领"
+        }
+      ],
+      "authoringIntent": "缩肩、整理衣领",
+      "stiffnessRisk": "low",
+      "cubismPolishNeeded": [
+        "Replace linear template feel with Cubism tangent/easing polish.",
+        "Check mesh deformation at the most extreme keyframes.",
+        "Tune hair, sleeve, skirt, and recovery overlap after real playback."
+      ]
+    },
+    {
+      "motionGroup": "TouchPalm",
+      "tier": "hands_arms",
+      "duration": 1.65,
+      "loop": false,
+      "curveCount": 2,
+      "parameterIds": [
+        "ParamArmR",
+        "ParamMouthForm"
+      ],
+      "amplitudeScore": 1.33,
+      "referenceFamilies": [
+        {
+          "id": "hands-arms-gesture",
+          "label": "Hands, arms, wave, drag",
+          "githubRefs": [
+            "Live2D/CubismWebSamples:Samples/Resources/Hiyori/motions",
+            "Live2D/CubismWebSamples:Samples/Resources/Mao/motions",
+            "guansss/pixi-live2d-display:interaction runtime"
+          ],
+          "use": "Use official sample gesture clips and Pixi hit-test patterns as references for hand wave, arm recoil, and pointer-driven drag follow.",
+          "boundary": "Independent arm motion still requires real mesh deformers; Lite overlay hands are preview-only."
+        }
+      ],
+      "zones": [
+        {
+          "id": "left_hand",
+          "bodyPart": "手",
+          "sensitivity": "affectionate",
+          "privateModeAllowed": false,
+          "motionIntent": "轻轻抬手、短暂牵手感"
+        },
+        {
+          "id": "right_hand",
+          "bodyPart": "手",
+          "sensitivity": "affectionate",
+          "privateModeAllowed": false,
+          "motionIntent": "轻轻抬手、短暂牵手感"
+        }
+      ],
+      "authoringIntent": "轻轻抬手、短暂牵手感 / 轻轻抬手、短暂牵手感",
+      "stiffnessRisk": "high",
+      "cubismPolishNeeded": [
+        "Replace linear template feel with Cubism tangent/easing polish.",
+        "Check mesh deformation at the most extreme keyframes.",
+        "Tune hair, sleeve, skirt, and recovery overlap after real playback."
+      ]
+    },
+    {
+      "motionGroup": "TouchRibs",
+      "tier": "garment_torso",
+      "duration": 1.65,
+      "loop": false,
+      "curveCount": 2,
+      "parameterIds": [
+        "ParamAngleX",
+        "ParamBodyAngleZ"
+      ],
+      "amplitudeScore": 9,
+      "referenceFamilies": [
+        {
+          "id": "garment-body-boundary",
+          "label": "Clothing, torso, skirt, legs",
+          "githubRefs": [
+            "Live2D/CubismWebSamples:Samples/Resources/Haru/motions",
+            "Live2D/CubismWebSamples:Samples/Resources/Haru/Haru.physics3.json"
+          ],
+          "use": "Use official motion and physics package shape as a timing reference for weight shift, garment adjustment, and recovery to idle.",
+          "boundary": "Private opt-in zones remain semantic and runtime-gated; public package must not include explicit assets."
+        }
+      ],
+      "zones": [
+        {
+          "id": "left_ribs",
+          "bodyPart": "侧腰上方",
+          "sensitivity": "sensitive",
+          "privateModeAllowed": false,
+          "motionIntent": "身体轻轻侧开"
+        },
+        {
+          "id": "right_ribs",
+          "bodyPart": "侧腰上方",
+          "sensitivity": "sensitive",
+          "privateModeAllowed": false,
+          "motionIntent": "身体轻轻侧开"
+        }
+      ],
+      "authoringIntent": "身体轻轻侧开 / 身体轻轻侧开",
+      "stiffnessRisk": "high",
+      "cubismPolishNeeded": [
+        "Replace linear template feel with Cubism tangent/easing polish.",
+        "Check mesh deformation at the most extreme keyframes.",
+        "Tune hair, sleeve, skirt, and recovery overlap after real playback."
+      ]
+    },
+    {
+      "motionGroup": "TouchShoe",
+      "tier": "legs_feet",
+      "duration": 1.35,
+      "loop": false,
+      "curveCount": 2,
+      "parameterIds": [
+        "ParamBodyAngleZ",
+        "ParamMouthForm"
+      ],
+      "amplitudeScore": 2.14,
+      "referenceFamilies": [
+        {
+          "id": "garment-body-boundary",
+          "label": "Clothing, torso, skirt, legs",
+          "githubRefs": [
+            "Live2D/CubismWebSamples:Samples/Resources/Haru/motions",
+            "Live2D/CubismWebSamples:Samples/Resources/Haru/Haru.physics3.json"
+          ],
+          "use": "Use official motion and physics package shape as a timing reference for weight shift, garment adjustment, and recovery to idle.",
+          "boundary": "Private opt-in zones remain semantic and runtime-gated; public package must not include explicit assets."
+        }
+      ],
+      "zones": [
+        {
+          "id": "left_shoe",
+          "bodyPart": "鞋",
+          "sensitivity": "neutral",
+          "privateModeAllowed": false,
+          "motionIntent": "鞋尖轻移"
+        },
+        {
+          "id": "right_shoe",
+          "bodyPart": "鞋",
+          "sensitivity": "neutral",
+          "privateModeAllowed": false,
+          "motionIntent": "鞋尖轻移"
+        }
+      ],
+      "authoringIntent": "鞋尖轻移 / 鞋尖轻移",
+      "stiffnessRisk": "medium",
+      "cubismPolishNeeded": [
+        "Replace linear template feel with Cubism tangent/easing polish.",
+        "Check mesh deformation at the most extreme keyframes.",
+        "Tune hair, sleeve, skirt, and recovery overlap after real playback."
+      ]
+    },
+    {
+      "motionGroup": "TouchShoulder",
+      "tier": "hands_arms",
+      "duration": 1.45,
+      "loop": false,
+      "curveCount": 2,
+      "parameterIds": [
+        "ParamAngleX",
+        "ParamBodyAngleX"
+      ],
+      "amplitudeScore": 9,
+      "referenceFamilies": [
+        {
+          "id": "garment-body-boundary",
+          "label": "Clothing, torso, skirt, legs",
+          "githubRefs": [
+            "Live2D/CubismWebSamples:Samples/Resources/Haru/motions",
+            "Live2D/CubismWebSamples:Samples/Resources/Haru/Haru.physics3.json"
+          ],
+          "use": "Use official motion and physics package shape as a timing reference for weight shift, garment adjustment, and recovery to idle.",
+          "boundary": "Private opt-in zones remain semantic and runtime-gated; public package must not include explicit assets."
+        }
+      ],
+      "zones": [
+        {
+          "id": "left_shoulder",
+          "bodyPart": "肩膀",
+          "sensitivity": "neutral",
+          "privateModeAllowed": false,
+          "motionIntent": "像被叫住一样转头"
+        },
+        {
+          "id": "right_shoulder",
+          "bodyPart": "肩膀",
+          "sensitivity": "neutral",
+          "privateModeAllowed": false,
+          "motionIntent": "像被叫住一样转头"
+        }
+      ],
+      "authoringIntent": "像被叫住一样转头 / 像被叫住一样转头",
+      "stiffnessRisk": "medium",
+      "cubismPolishNeeded": [
+        "Replace linear template feel with Cubism tangent/easing polish.",
+        "Check mesh deformation at the most extreme keyframes.",
+        "Tune hair, sleeve, skirt, and recovery overlap after real playback."
+      ]
+    },
+    {
+      "motionGroup": "TouchSkirt",
+      "tier": "garment_torso",
+      "duration": 1.7,
+      "loop": false,
+      "curveCount": 3,
+      "parameterIds": [
+        "ParamBodyAngleZ",
+        "ParamSkirtSwing",
+        "ParamMouthForm"
+      ],
+      "amplitudeScore": 6.34,
+      "referenceFamilies": [
+        {
+          "id": "garment-body-boundary",
+          "label": "Clothing, torso, skirt, legs",
+          "githubRefs": [
+            "Live2D/CubismWebSamples:Samples/Resources/Haru/motions",
+            "Live2D/CubismWebSamples:Samples/Resources/Haru/Haru.physics3.json"
+          ],
+          "use": "Use official motion and physics package shape as a timing reference for weight shift, garment adjustment, and recovery to idle.",
+          "boundary": "Private opt-in zones remain semantic and runtime-gated; public package must not include explicit assets."
+        }
+      ],
+      "zones": [
+        {
+          "id": "skirt_front",
+          "bodyPart": "深色百褶裙",
+          "sensitivity": "sensitive",
+          "privateModeAllowed": false,
+          "motionIntent": "整理裙摆、向后半步"
+        }
+      ],
+      "authoringIntent": "整理裙摆、向后半步",
+      "stiffnessRisk": "low",
+      "cubismPolishNeeded": [
+        "Replace linear template feel with Cubism tangent/easing polish.",
+        "Check mesh deformation at the most extreme keyframes.",
+        "Tune hair, sleeve, skirt, and recovery overlap after real playback."
+      ]
+    },
+    {
+      "motionGroup": "TouchThigh",
+      "tier": "legs_feet",
+      "duration": 1.75,
+      "loop": false,
+      "curveCount": 3,
+      "parameterIds": [
+        "ParamAngleY",
+        "ParamBodyAngleZ",
+        "ParamSkirtSwing"
+      ],
+      "amplitudeScore": 9.05,
+      "referenceFamilies": [
+        {
+          "id": "garment-body-boundary",
+          "label": "Clothing, torso, skirt, legs",
+          "githubRefs": [
+            "Live2D/CubismWebSamples:Samples/Resources/Haru/motions",
+            "Live2D/CubismWebSamples:Samples/Resources/Haru/Haru.physics3.json"
+          ],
+          "use": "Use official motion and physics package shape as a timing reference for weight shift, garment adjustment, and recovery to idle.",
+          "boundary": "Private opt-in zones remain semantic and runtime-gated; public package must not include explicit assets."
+        }
+      ],
+      "zones": [
+        {
+          "id": "left_thigh",
+          "bodyPart": "大腿",
+          "sensitivity": "private",
+          "privateModeAllowed": true,
+          "motionIntent": "腿部换重心、裙摆轻晃"
+        },
+        {
+          "id": "right_thigh",
+          "bodyPart": "大腿",
+          "sensitivity": "private",
+          "privateModeAllowed": true,
+          "motionIntent": "腿部换重心、裙摆轻晃"
+        }
+      ],
+      "authoringIntent": "腿部换重心、裙摆轻晃 / 腿部换重心、裙摆轻晃",
+      "stiffnessRisk": "low",
+      "cubismPolishNeeded": [
+        "Replace linear template feel with Cubism tangent/easing polish.",
+        "Check mesh deformation at the most extreme keyframes.",
+        "Tune hair, sleeve, skirt, and recovery overlap after real playback."
+      ]
+    },
+    {
+      "motionGroup": "TouchUpperArm",
+      "tier": "hands_arms",
+      "duration": 1.5,
+      "loop": false,
+      "curveCount": 3,
+      "parameterIds": [
+        "ParamArmL",
+        "ParamArmR",
+        "ParamBodyAngleZ"
+      ],
+      "amplitudeScore": 2.4,
+      "referenceFamilies": [
+        {
+          "id": "hands-arms-gesture",
+          "label": "Hands, arms, wave, drag",
+          "githubRefs": [
+            "Live2D/CubismWebSamples:Samples/Resources/Hiyori/motions",
+            "Live2D/CubismWebSamples:Samples/Resources/Mao/motions",
+            "guansss/pixi-live2d-display:interaction runtime"
+          ],
+          "use": "Use official sample gesture clips and Pixi hit-test patterns as references for hand wave, arm recoil, and pointer-driven drag follow.",
+          "boundary": "Independent arm motion still requires real mesh deformers; Lite overlay hands are preview-only."
+        }
+      ],
+      "zones": [
+        {
+          "id": "left_upper_arm",
+          "bodyPart": "上臂",
+          "sensitivity": "neutral",
+          "privateModeAllowed": false,
+          "motionIntent": "手臂轻轻收回"
+        },
+        {
+          "id": "right_upper_arm",
+          "bodyPart": "上臂",
+          "sensitivity": "neutral",
+          "privateModeAllowed": false,
+          "motionIntent": "手臂轻轻收回"
+        }
+      ],
+      "authoringIntent": "手臂轻轻收回 / 手臂轻轻收回",
+      "stiffnessRisk": "low",
+      "cubismPolishNeeded": [
+        "Replace linear template feel with Cubism tangent/easing polish.",
+        "Check mesh deformation at the most extreme keyframes.",
+        "Tune hair, sleeve, skirt, and recovery overlap after real playback."
+      ]
+    },
+    {
+      "motionGroup": "TouchWaist",
+      "tier": "garment_torso",
+      "duration": 1.8,
+      "loop": false,
+      "curveCount": 3,
+      "parameterIds": [
+        "ParamAngleX",
+        "ParamBodyAngleX",
+        "ParamBodyAngleZ"
+      ],
+      "amplitudeScore": 12.5,
+      "referenceFamilies": [
+        {
+          "id": "garment-body-boundary",
+          "label": "Clothing, torso, skirt, legs",
+          "githubRefs": [
+            "Live2D/CubismWebSamples:Samples/Resources/Haru/motions",
+            "Live2D/CubismWebSamples:Samples/Resources/Haru/Haru.physics3.json"
+          ],
+          "use": "Use official motion and physics package shape as a timing reference for weight shift, garment adjustment, and recovery to idle.",
+          "boundary": "Private opt-in zones remain semantic and runtime-gated; public package must not include explicit assets."
+        }
+      ],
+      "zones": [
+        {
+          "id": "waist",
+          "bodyPart": "腰部",
+          "sensitivity": "sensitive",
+          "privateModeAllowed": true,
+          "motionIntent": "腰部轻躲、回头看用户"
+        }
+      ],
+      "authoringIntent": "腰部轻躲、回头看用户",
+      "stiffnessRisk": "low",
+      "cubismPolishNeeded": [
+        "Replace linear template feel with Cubism tangent/easing polish.",
+        "Check mesh deformation at the most extreme keyframes.",
+        "Tune hair, sleeve, skirt, and recovery overlap after real playback."
+      ]
+    },
+    {
+      "motionGroup": "TouchWrist",
+      "tier": "hands_arms",
+      "duration": 1.55,
+      "loop": false,
+      "curveCount": 2,
+      "parameterIds": [
+        "ParamArmR",
+        "ParamAngleY"
+      ],
+      "amplitudeScore": 2.7,
+      "referenceFamilies": [
+        {
+          "id": "hands-arms-gesture",
+          "label": "Hands, arms, wave, drag",
+          "githubRefs": [
+            "Live2D/CubismWebSamples:Samples/Resources/Hiyori/motions",
+            "Live2D/CubismWebSamples:Samples/Resources/Mao/motions",
+            "guansss/pixi-live2d-display:interaction runtime"
+          ],
+          "use": "Use official sample gesture clips and Pixi hit-test patterns as references for hand wave, arm recoil, and pointer-driven drag follow.",
+          "boundary": "Independent arm motion still requires real mesh deformers; Lite overlay hands are preview-only."
+        }
+      ],
+      "zones": [
+        {
+          "id": "left_wrist",
+          "bodyPart": "手腕",
+          "sensitivity": "affectionate",
+          "privateModeAllowed": false,
+          "motionIntent": "手腕轻转、短暂看向用户"
+        },
+        {
+          "id": "right_wrist",
+          "bodyPart": "手腕",
+          "sensitivity": "affectionate",
+          "privateModeAllowed": false,
+          "motionIntent": "手腕轻转、短暂看向用户"
+        }
+      ],
+      "authoringIntent": "手腕轻转、短暂看向用户 / 手腕轻转、短暂看向用户",
+      "stiffnessRisk": "high",
+      "cubismPolishNeeded": [
+        "Replace linear template feel with Cubism tangent/easing polish.",
+        "Check mesh deformation at the most extreme keyframes.",
+        "Tune hair, sleeve, skirt, and recovery overlap after real playback."
+      ]
+    },
+    {
+      "motionGroup": "TurnPreview",
+      "tier": "turn_preview",
+      "duration": 2.2,
+      "loop": false,
+      "curveCount": 3,
+      "parameterIds": [
+        "ParamAngleX",
+        "ParamBodyAngleX",
+        "ParamHairSide"
+      ],
+      "amplitudeScore": 43.7,
+      "referenceFamilies": [
+        {
+          "id": "turn-orientation",
+          "label": "Turn preview and future multi-view",
+          "githubRefs": [
+            "Live2D/CubismWebSamples:Samples/Resources/*/motions",
+            "Inochi2D/inochi2d:parameterized puppet contrast"
+          ],
+          "use": "Use official parameterized motion format and open puppet-system contrast to plan front/profile/back transitions.",
+          "boundary": "Current `TurnPreview` is a 2.5D hint; true turn requires separate source packages and orientation hit maps."
+        }
+      ],
+      "zones": [],
+      "authoringIntent": "Front-view hint for body/head turn only; not true rotation.",
+      "stiffnessRisk": "high",
+      "cubismPolishNeeded": [
+        "Replace linear template feel with Cubism tangent/easing polish.",
+        "Check mesh deformation at the most extreme keyframes.",
+        "Tune hair, sleeve, skirt, and recovery overlap after real playback."
+      ]
+    }
+  ],
+  "stiffnessReview": {
+    "status": "needs_polish",
+    "highRisk": [
+      "TouchAbdomen",
+      "TouchPalm",
+      "TouchRibs",
+      "TouchWrist",
+      "TurnPreview"
+    ],
+    "mediumRisk": [
+      "Nod",
+      "ShakeHead",
+      "TouchAnkle",
+      "TouchCalf",
+      "TouchClothing",
+      "TouchFoot",
+      "TouchForearm",
+      "TouchHand",
+      "TouchKnee",
+      "TouchLeg",
+      "TouchShoe",
+      "TouchShoulder"
+    ],
+    "requirements": [
+      "Every touch reaction needs anticipation, response, hold, and recovery phases.",
+      "At least one secondary element should move for intimate or startled reactions: hair, sleeve, skirt, gaze, or hand overlay.",
+      "Looping idle/listen/speak motions must remain subtle enough for long desktop use."
+    ]
+  },
+  "voiceSyncReview": {
+    "status": "handoff_ready",
+    "motionGroup": "Speak",
+    "duration": 1.2,
+    "requiredRuntimeBlend": [
+      "TTS amplitude owns ParamMouthOpenY.",
+      "Motion template provides jaw rhythm and mouth-form bias only.",
+      "Speaking state should blend with Listen/Idle without snapping head angle."
+    ]
+  },
+  "touchReview": {
+    "status": "storyboard_ready",
+    "count": 28,
+    "privateOrSensitiveMotions": [
+      "TouchAbdomen",
+      "TouchBlouse",
+      "TouchChest",
+      "TouchCollar",
+      "TouchEar",
+      "TouchFace",
+      "TouchHair",
+      "TouchHairClip",
+      "TouchHead",
+      "TouchHip",
+      "TouchNeck",
+      "TouchPalm",
+      "TouchRibs",
+      "TouchSkirt",
+      "TouchThigh",
+      "TouchWaist",
+      "TouchWrist"
+    ],
+    "representativeMotions": [
+      "TouchFace",
+      "TouchPalm",
+      "TouchChest",
+      "TouchSkirt",
+      "TouchThigh"
+    ],
+    "runtimeBoundary": "Persona may write the line; runtime owns zone permission, expression, cooldown, and motion allowlist."
+  },
+  "turnReview": {
+    "status": "preview_only",
+    "motionGroup": "TurnPreview",
+    "requirement": "Use as a front-view 2.5D turn hint only until front/profile/back source packages and orientation-specific hit maps exist.",
+    "noGoForTrueTurn": [
+      "No profile source package.",
+      "No back source package.",
+      "No orientation-specific hit maps.",
+      "No Cubism Editor deformation proof."
+    ]
+  },
+  "qaRepresentatives": [
+    {
+      "motionGroup": "Idle",
+      "present": true,
+      "reason": "Long-running companion state proof."
+    },
+    {
+      "motionGroup": "Listen",
+      "present": true,
+      "reason": "Long-running companion state proof."
+    },
+    {
+      "motionGroup": "Speak",
+      "present": true,
+      "reason": "Voice adaptation and mouth parameter proof."
+    },
+    {
+      "motionGroup": "TouchFace",
+      "present": true,
+      "reason": "Body-zone touch reaction proof."
+    },
+    {
+      "motionGroup": "TouchEar",
+      "present": true,
+      "reason": "Body-zone touch reaction proof."
+    },
+    {
+      "motionGroup": "TouchChest",
+      "present": true,
+      "reason": "Body-zone touch reaction proof."
+    },
+    {
+      "motionGroup": "TouchWaist",
+      "present": true,
+      "reason": "Body-zone touch reaction proof."
+    },
+    {
+      "motionGroup": "TouchSkirt",
+      "present": true,
+      "reason": "Body-zone touch reaction proof."
+    },
+    {
+      "motionGroup": "TouchThigh",
+      "present": true,
+      "reason": "Body-zone touch reaction proof."
+    },
+    {
+      "motionGroup": "TurnPreview",
+      "present": true,
+      "reason": "Future turn boundary and current preview behavior."
+    },
+    {
+      "motionGroup": "Sleepy",
+      "present": true,
+      "reason": "Long-running companion state proof."
+    }
+  ],
+  "approvalGates": [
+    {
+      "id": "motion-reference-coverage",
+      "status": "pass",
+      "detail": "Every Cubism motion template maps to at least one GitHub-backed reference family."
+    },
+    {
+      "id": "speech-mouth-curve-ready",
+      "status": "pass",
+      "detail": "Speech has mouth-open and mouth-form curves for TTS/lip-sync handoff."
+    },
+    {
+      "id": "touch-zone-motion-intent-ready",
+      "status": "pass",
+      "detail": "Every hot zone carries a semantic motion intent."
+    },
+    {
+      "id": "private-zone-runtime-gated",
+      "status": "pass",
+      "detail": "Private/sensitive zones stay runtime gated; model replies cannot bypass policy."
+    },
+    {
+      "id": "third-party-assets-not-copied",
+      "status": "pass",
+      "detail": "GitHub repos are references only, not asset sources."
+    },
+    {
+      "id": "true-turn-still-blocked",
+      "status": "pass",
+      "detail": "TurnPreview remains a preview until multiview source packages exist."
+    }
+  ],
+  "goNoGo": {
+    "motionAuthoringPacket": "go",
+    "cubismMotionTemplates": "go",
+    "voiceTimingHandoff": "go",
+    "touchReactionStoryboard": "go",
+    "stiffnessPolishApproved": "no_go",
+    "genuineCubismMotionPlayback": "no_go",
+    "trueTurn": "no_go"
+  },
+  "nextRequiredEvidence": [
+    "Cubism Editor playback capture showing each representative motion is visually distinct and not stiff.",
+    "Human review of shoulder, wrist, thigh, skirt, and chest reactions for natural timing.",
+    "Voice/TTS capture with ParamMouthOpenY driven by real audio and motion blending.",
+    "Profile/back source packages before any true turn or pose rotation claim."
+  ]
+}

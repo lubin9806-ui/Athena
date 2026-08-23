@@ -13,6 +13,7 @@ function main() {
   assert.equal(manifest.sourceArt.artReviewPacket, '../../../docs/quality/su-shixia-art-review-packet.json');
   assert.equal(manifest.sourceArt.reviewDashboard, 'source/review/su-shixia-live2d-v2-review-dashboard.html');
   assert.equal(manifest.sourceArt.githubReferenceScan, '../../../docs/quality/su-shixia-github-reference-scan.json');
+  assert.equal(manifest.sourceArt.motionAuthoringPacket, '../../../docs/quality/su-shixia-motion-authoring-packet.json');
   assert.equal(manifest.sourceArt.wardrobeContract, 'wardrobe/wardrobe-contract-v1.json');
   assert.equal(manifest.sourceArt.wardrobeBindingPlan, 'cubism-handoff/wardrobe-binding-plan-v1.json');
   assert.equal(manifest.sourceArt.wardrobeReadinessAudit, '../../../docs/quality/su-shixia-wardrobe-readiness-audit.json');
@@ -26,6 +27,7 @@ function main() {
   assert.equal(manifest.production.artReviewPacketReady, true);
   assert.equal(manifest.production.reviewDashboardReady, true);
   assert.equal(manifest.production.githubReferenceScanReady, true);
+  assert.equal(manifest.production.motionAuthoringPacketReady, true);
   assert.equal(manifest.production.wardrobeContractReady, true);
   assert.equal(manifest.production.wardrobeBindingPlanReady, true);
   assert.equal(manifest.production.wardrobeReadinessAuditReady, true);
@@ -73,6 +75,7 @@ function main() {
   assert.ok(report.blockers.includes('distribution:public-installer-allowed'));
   assert.ok(report.nextRequiredEvidence.some(item => item.includes('Cubism Editor project')));
   assert.ok(report.nextRequiredEvidence.some(item => item.includes('true clothing variants')));
+  assert.ok(report.stages.find(item => item.id === 'cubism-handoff').checks.some(item => item.id === 'motion-authoring-packet-ready' && item.status === 'pass'));
 
   console.log(`SU_SHIXIA_LIVE2D_DELIVERY_AUDIT_OK status=${report.status} blockers=${report.blockers.length}`);
 }

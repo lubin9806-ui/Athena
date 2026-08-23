@@ -11,12 +11,14 @@ function main() {
   const manifest = readJson(path.join(PACKAGE_ROOT, 'manifest.json'));
   const deliveryAudit = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-live2d-v2-delivery-audit.json'));
   const githubScan = readJson(GITHUB_SCAN_PATH);
+  const motionAuthoringPacket = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-motion-authoring-packet.json'));
   const liteRuntime = readJson(path.join(PACKAGE_ROOT, manifest.sourceArt.liteRuntimeModel));
   const html = fs.readFileSync(DASHBOARD_PATH, 'utf8');
 
   assert.equal(manifest.sourceArt.reviewDashboard, 'source/review/su-shixia-live2d-v2-review-dashboard.html');
   assert.equal(manifest.sourceArt.artReviewPacket, '../../../docs/quality/su-shixia-art-review-packet.json');
   assert.equal(manifest.sourceArt.githubReferenceScan, '../../../docs/quality/su-shixia-github-reference-scan.json');
+  assert.equal(manifest.sourceArt.motionAuthoringPacket, '../../../docs/quality/su-shixia-motion-authoring-packet.json');
   assert.equal(manifest.sourceArt.wardrobeContract, 'wardrobe/wardrobe-contract-v1.json');
   assert.equal(manifest.sourceArt.interactionMatrix, 'source/review/interaction-matrix-v1.json');
   assert.equal(manifest.sourceArt.runtimePolicyProof, '../../../docs/quality/su-shixia-runtime-policy-proof.json');
@@ -25,6 +27,7 @@ function main() {
   assert.equal(manifest.production.reviewDashboardReady, true);
   assert.equal(manifest.production.artReviewPacketReady, true);
   assert.equal(manifest.production.githubReferenceScanReady, true);
+  assert.equal(manifest.production.motionAuthoringPacketReady, true);
   assert.equal(manifest.production.wardrobeContractReady, true);
   assert.equal(manifest.production.interactionMatrixReady, true);
   assert.equal(manifest.production.runtimePolicyProofReady, true);
@@ -47,6 +50,10 @@ function main() {
   }
   assert.ok(githubScan.adoptedDecisions.some(item => item.includes('not copied assets')));
   assert.ok(githubScan.adoptedDecisions.some(item => item.includes('every Su Shixia motion group')));
+  assert.equal(motionAuthoringPacket.status, 'motion_authoring_packet_ready');
+  assert.equal(motionAuthoringPacket.authoringRows.length, manifest.production.cubismMotionTemplateCount);
+  assert.equal(motionAuthoringPacket.goNoGo.trueTurn, 'no_go');
+  assert.ok(motionAuthoringPacket.stiffnessReview.highRisk.includes('TurnPreview'));
 
   assert.ok(html.includes('data-su-shixia-review-dashboard="v1"'));
   assert.ok(html.includes('front-alignment-preview-v1.png'));
@@ -66,6 +73,13 @@ function main() {
   assert.ok(html.includes('voice-speech'));
   assert.ok(html.includes('garment-body-boundary'));
   assert.ok(html.includes('turn-orientation'));
+  assert.ok(html.includes('Motion Authoring Packet'));
+  assert.ok(html.includes('Voice sync'));
+  assert.ok(html.includes('stiffnessPolishApproved=no_go'));
+  assert.ok(html.includes('genuineCubismMotionPlayback=no_go'));
+  assert.ok(html.includes('TouchChest'));
+  assert.ok(html.includes('TouchThigh'));
+  assert.ok(html.includes('TurnPreview'));
   assert.ok(html.includes('Wardrobe Contract'));
   assert.ok(html.includes('classic_daily'));
   assert.ok(html.includes('soft_assistant'));
@@ -78,7 +92,6 @@ function main() {
   assert.ok(html.includes('publicPackagePrivateAssetsAllowed=false'));
   assert.ok(html.includes('Hot Zone Event Proof'));
   assert.ok(html.includes('TouchFace'));
-  assert.ok(html.includes('TouchThigh'));
   assert.ok(html.includes('Cubism moc3 proof'));
   assert.ok(html.includes('face_cheek'));
   assert.ok(html.includes('TouchChest'));

@@ -377,3 +377,14 @@ Produced on 2026-08-24:
 - npm command: `npm.cmd run test:live2d:su-shixia-art-review`.
 
 Stage 3O status: `ART REVIEW PACKET READY`. The packet turns the source-art NO-GO items into eight manual signoff lanes and maps them to the current delivery blockers. It identifies high-risk parts for hands/arms, hidden fill, lower body/shoes, mouth/expression, alignment/scale, wardrobe source boundaries, and turn/multi-view boundaries. It intentionally keeps `humanLayerReviewApproved`, `hiddenFillReviewApproved`, and `alignmentReviewApproved` as `NO-GO` until reviewed evidence and signoff are present.
+
+## Stage 3P Motion Authoring Packet
+
+Produced on 2026-08-24:
+
+- motion authoring packet: `docs/quality/su-shixia-motion-authoring-packet.json`;
+- packet generator: `scripts/generate-su-shixia-motion-authoring-packet.js`;
+- packet verifier: `scripts/verify-su-shixia-motion-authoring-packet.js`;
+- npm command: `npm.cmd run test:live2d:su-shixia-motion-authoring`.
+
+Stage 3P status: `MOTION AUTHORING PACKET READY`. The packet joins the GitHub reference scan, interaction matrix, profile hot zones, and 37 Cubism `.motion3.json` templates into one authoring checklist. It groups motions into idle presence, voice speech, face/head touch, hand/arm gestures, garment/body reactions, legs/feet, and turn preview. It records duration, curve count, parameter IDs, linked touch zones, stiffness risk, voice-sync requirements, and next evidence for Cubism playback capture. This is a motion-production handoff, not final animation approval; high-risk reactions and `TurnPreview` still need real Editor polish and human review.

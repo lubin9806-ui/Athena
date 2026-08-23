@@ -16,7 +16,8 @@ Included:
 - art review packet mapping manual signoff lanes to current delivery blockers;
 - runtime visual QA contact sheet for 11 key Lite motions;
 - runtime appearance contact sheet for five preview-only presets;
-- static review dashboard combining source boards, runtime QA, delivery blockers, GitHub reference scan, and motion-reference families;
+- static review dashboard combining source boards, runtime QA, delivery blockers, GitHub reference scan, motion-reference families, and the motion authoring packet;
+- motion authoring packet that maps all 37 Cubism motion templates to reference families, stiffness-review notes, voice-sync handoff, touch storyboard rows, and true-turn No-Go boundaries;
 - softer v2 six-state mouth atlas derived from the approved face direction;
 - corrective front-view neutral hands and shoes atlas;
 - grouped layered PSD generated with `ag-psd`;
@@ -66,11 +67,12 @@ npm.cmd run test:live2d:su-shixia-delivery-audit
 npm.cmd run test:live2d:su-shixia-review-dashboard
 npm.cmd run test:live2d:su-shixia-wardrobe-contract
 npm.cmd run test:live2d:su-shixia-interaction-matrix
+npm.cmd run test:live2d:su-shixia-motion-authoring
 npm.cmd run test:live2d:su-shixia-runtime-policy
 npm.cmd run test:live2d:su-shixia-hot-zone-events
 npm.cmd run test:live2d:su-shixia-orientation-contract
 ```
 
-The Lite runtime preview is allowed for local Athena integration and review. Runtime visual QA now proves nonblank transparent frames, visible motion deltas for the key preview motions, and visible appearance-preset differences. `source/review/su-shixia-live2d-v2-review-dashboard.html` collects the current visual boards, art review packet, GitHub reference scan, wardrobe contract, runtime policy proof, hot-zone event proof, blockers, and Go/No-Go state in one local page. These presets recolor or hide existing layers only; they are not true clothing swaps. `wardrobe/wardrobe-contract-v1.json` and `cubism-handoff/wardrobe-binding-plan-v1.json` define the future true outfit swap requirements and parameters, but the assistant, home, and ceremony outfit source packages do not exist yet. The runtime persists `outfitId` separately from `appearancePresetId`, and currently allows only `classic_daily`. The A hair clip can be mapped to a real Cubism opacity parameter, but the color presets and clothing variations still need new source layers or runtime texture/drawable work before they can become genuine Cubism wardrobe controls. The contact sheets still show provisional automated art quality in hands, arms, lower body, wardrobe variety, and turn behavior.
+The Lite runtime preview is allowed for local Athena integration and review. Runtime visual QA now proves nonblank transparent frames, visible motion deltas for the key preview motions, and visible appearance-preset differences. `source/review/su-shixia-live2d-v2-review-dashboard.html` collects the current visual boards, art review packet, GitHub reference scan, motion authoring packet, wardrobe contract, runtime policy proof, hot-zone event proof, blockers, and Go/No-Go state in one local page. These presets recolor or hide existing layers only; they are not true clothing swaps. `wardrobe/wardrobe-contract-v1.json` and `cubism-handoff/wardrobe-binding-plan-v1.json` define the future true outfit swap requirements and parameters, but the assistant, home, and ceremony outfit source packages do not exist yet. The runtime persists `outfitId` separately from `appearancePresetId`, and currently allows only `classic_daily`. The A hair clip can be mapped to a real Cubism opacity parameter, but the color presets and clothing variations still need new source layers or runtime texture/drawable work before they can become genuine Cubism wardrobe controls. The contact sheets still show provisional automated art quality in hands, arms, lower body, wardrobe variety, and turn behavior.
 
 `test:live2d:su-shixia-cubism-proof-template` creates the runtime proof JSON skeleton and verifies that it is still marked unverified. `test:live2d:su-shixia-cubism-audit` is expected to pass while reporting `NO-GO` until a real Editor export exists. `test:live2d:su-shixia-cubism-required` is the hard gate for the future genuine Cubism package and should fail now. The Cubism handoff package is ready for Editor work, but a genuine `.moc3` has not been exported. Source and handoff directories must remain excluded from public installers. Public distribution stays blocked pending source refinement, rights review, Live2D license review, genuine Cubism rigging, and runtime QA.

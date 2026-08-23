@@ -339,6 +339,11 @@
           "detail": ""
         },
         {
+          "id": "motion-authoring-packet-ready",
+          "status": "pass",
+          "detail": ""
+        },
+        {
           "id": "motion-template-count",
           "status": "pass",
           "detail": ""
