@@ -72,6 +72,8 @@ async function main() {
     maxY = Math.max(maxY, y);
   }
 
+  featherForegroundEdge(pixels, background, image.width, image.height);
+
   context.putImageData(imageData, 0, 0);
   fs.mkdirSync(path.dirname(path.resolve(output)), { recursive: true });
   fs.writeFileSync(output, canvas.toBuffer('image/png'));
@@ -89,6 +91,28 @@ async function main() {
     foregroundPixels,
     foregroundBounds: { minX, minY, maxX, maxY },
   }));
+}
+
+function featherForegroundEdge(pixels, background, width, height) {
+  const originalAlpha = new Uint8Array(width * height);
+  for (let index = 0; index < originalAlpha.length; index += 1) originalAlpha[index] = pixels[index * 4 + 3];
+
+  for (let y = 1; y < height - 1; y += 1) {
+    for (let x = 1; x < width - 1; x += 1) {
+      const index = y * width + x;
+      if (background[index] || originalAlpha[index] === 0) continue;
+      let transparentNeighbors = 0;
+      for (let offsetY = -1; offsetY <= 1; offsetY += 1) {
+        for (let offsetX = -1; offsetX <= 1; offsetX += 1) {
+          if (offsetX === 0 && offsetY === 0) continue;
+          if (background[(y + offsetY) * width + x + offsetX]) transparentNeighbors += 1;
+        }
+      }
+      if (transparentNeighbors > 0) {
+        pixels[index * 4 + 3] = Math.min(originalAlpha[index], transparentNeighbors >= 4 ? 112 : 176);
+      }
+    }
+  }
 }
 
 function isLightNeutral(pixels, index) {

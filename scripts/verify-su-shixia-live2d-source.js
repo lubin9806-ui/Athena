@@ -14,10 +14,15 @@ async function main() {
   const masterPath = path.join(PACKAGE_ROOT, manifest.sourceArt.frontMaster);
   const psdPath = path.join(PACKAGE_ROOT, manifest.sourceArt.layeredPsd);
   const contactSheetPath = path.join(PACKAGE_ROOT, manifest.sourceArt.partsContactSheet);
+  const alignmentPreviewPath = path.join(PACKAGE_ROOT, manifest.sourceArt.alignmentPreview);
+  const scalePreviewPath = path.join(PACKAGE_ROOT, manifest.sourceArt.scalePreview);
+  const reviewReport = readJson(path.join(PACKAGE_ROOT, manifest.sourceArt.reviewReport));
 
-  assert.equal(manifest.status, 'layered_source_baseline_review_required');
+  assert.equal(manifest.status, 'front_source_refinement_review_required');
   assert.equal(manifest.sourceOnly, true);
   assert.equal(manifest.production.automatedLayeredBaselineReady, true);
+  assert.equal(manifest.production.frontRefinementPassReady, true);
+  assert.equal(manifest.production.alignmentPreviewReady, true);
   assert.equal(manifest.production.humanLayerReviewRequired, true);
   assert.equal(manifest.production.cubismProjectReady, false);
   assert.equal(manifest.production.cubismExportReady, false);
@@ -26,7 +31,7 @@ async function main() {
   assert.equal(manifest.production.adultPackageIncluded, false);
   assert.equal(manifest.distribution.publicInstallerAllowed, false);
   assert.equal(manifest.distribution.storePackageAllowed, false);
-  assert.equal(layerMap.status, 'automated_baseline_review_required');
+  assert.equal(layerMap.status, 'front_source_refinement_review_required');
   assert.deepEqual(layerMap.currentOrientationCoverage, ['front']);
 
   assert.equal(manifest.production.partsCount, 66);
@@ -78,7 +83,8 @@ async function main() {
   for (const file of [
     'head-hair-atlas-v1-alpha.png',
     'eyes-brows-atlas-v1-alpha.png',
-    'mouths-atlas-v1-alpha.png',
+    'mouths-atlas-v2-alpha.png',
+    'hands-shoes-atlas-v2-alpha.png',
     'upper-body-atlas-v1-alpha.png',
     'lower-body-atlas-v1-alpha.png'
   ]) {
@@ -92,6 +98,21 @@ async function main() {
   assert.equal(contact.width, 1500);
   assert.equal(contact.height, 3360);
 
+  const alignment = await loadImage(alignmentPreviewPath);
+  assert.equal(alignment.width, 1380);
+  assert.equal(alignment.height, 1760);
+  const scalePreview = await loadImage(scalePreviewPath);
+  assert.equal(scalePreview.width, 1400);
+  assert.equal(scalePreview.height, 820);
+  assert.equal(reviewReport.status, manifest.status);
+  assert.equal(reviewReport.summary.parts, 66);
+  assert.equal(reviewReport.summary.allTargetsInsideCanvas, true);
+  assert.equal(reviewReport.summary.scalePreview, 'front-source-scale-preview-v1.png');
+  assert.ok(reviewReport.openFindings.some(item => item.area === 'mouth' && item.status === 'provisional'));
+  assert.ok(reviewReport.openFindings.some(item => item.area === 'hidden-fill' && item.status === 'required'));
+  assert.ok(reviewReport.openFindings.some(item => item.area === 'display-scale' && item.status === 'runtime-rule'));
+  assert.equal(layerMap.displayGuidance.compact.fullBodyAllowed, false);
+
   assert.ok(fs.statSync(psdPath).size > 1000000, 'layered PSD is unexpectedly small');
   const psd = readPsd(fs.readFileSync(psdPath), {
     skipLayerImageData: true,
@@ -103,6 +124,11 @@ async function main() {
   const names = flattenNames(psd.children || []);
   for (const group of manifest.production.psdGroups) assert.ok(names.includes(group), `PSD is missing group: ${group}`);
   for (const item of inventory.parts) assert.ok(names.includes(item.name), `PSD is missing part: ${item.name}`);
+  const nodes = new Map(flattenNodes(psd.children || []).map(node => [node.name, node]));
+  for (const alternative of ['SSX_EYE_L_CLOSED', 'SSX_MOUTH_OPEN_WIDE', 'SSX_HAND_CHEEK_R']) {
+    assert.equal(nodes.get(alternative)?.hidden, true, `PSD alternative must be hidden by default: ${alternative}`);
+  }
+  assert.notEqual(nodes.get('SSX_MOUTH_CLOSED')?.hidden, true, 'default mouth must remain visible inside its group');
 
   console.log(
     `SU_SHIXIA_LIVE2D_SOURCE_PACKAGE_OK status=${manifest.status} master=${master.width}x${master.height} `
@@ -141,6 +167,15 @@ function flattenNames(children) {
     if (child.children) names.push(...flattenNames(child.children));
   }
   return names;
+}
+
+function flattenNodes(children) {
+  const nodes = [];
+  for (const child of children) {
+    nodes.push(child);
+    if (child.children) nodes.push(...flattenNodes(child.children));
+  }
+  return nodes;
 }
 
 main().catch(error => {

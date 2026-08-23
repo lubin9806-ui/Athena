@@ -5,7 +5,7 @@
   "layeredPsd": "source/su-shixia-front-layered-v1.psd",
   "partsInventory": "source/parts/parts-inventory-v1.json",
   "target": "Live2D Cubism 5",
-  "status": "automated_baseline_review_required",
+  "status": "front_source_refinement_review_required",
   "layerNaming": {
     "prefix": "SSX",
     "separator": "_",
@@ -29,6 +29,12 @@
     "front_three_quarter_right"
   ],
   "currentOrientationCoverage": ["front"],
+  "displayGuidance": {
+    "chatRight": { "recommendedHeightPx": 720, "crop": "full_body" },
+    "draggableOverlay": { "recommendedHeightPx": 520, "crop": "full_body" },
+    "desktopPet": { "minimumHeightPx": 320, "crop": "full_body" },
+    "compact": { "maximumHeightPx": 240, "crop": "bust", "fullBodyAllowed": false }
+  },
   "requiredParameters": [
     { "id": "ParamAngleX", "min": -30, "max": 30, "default": 0 },
     { "id": "ParamAngleY", "min": -30, "max": 30, "default": 0 },

@@ -1,8 +1,8 @@
 {
   "id": "su-shixia-live2d-v2",
   "displayName": "Su Shixia Live2D V2 Source Baseline",
-  "version": "0.1.0",
-  "status": "layered_source_baseline_review_required",
+  "version": "0.2.0",
+  "status": "front_source_refinement_review_required",
   "sourceOnly": true,
   "sourceArt": {
     "frontMaster": "source/su-shixia-front-master-v2-alpha.png",
@@ -10,6 +10,11 @@
     "partsInventory": "source/parts/parts-inventory-v1.json",
     "partsLayout": "source/parts/parts-layout-v1.json",
     "partsContactSheet": "source/parts/parts-contact-sheet-v1.png",
+    "mouthAtlas": "source/parts/mouths-atlas-v2-alpha.png",
+    "correctiveHandsShoesAtlas": "source/parts/hands-shoes-atlas-v2-alpha.png",
+    "alignmentPreview": "source/review/front-alignment-preview-v1.png",
+    "scalePreview": "source/review/front-source-scale-preview-v1.png",
+    "reviewReport": "source/review/source-review-v1.json",
     "layerMap": "layer-map.json",
     "rawDirectory": "source/raw",
     "rawPartsDirectory": "source/parts/raw"
@@ -18,6 +23,9 @@
     "conceptBaselineApproved": true,
     "transparentMasterReady": true,
     "automatedLayeredBaselineReady": true,
+    "frontRefinementPassReady": true,
+    "alignmentPreviewReady": true,
+    "mouthAtlasVersion": 2,
     "partsCount": 66,
     "psdGroups": ["Head", "Eyes", "Mouth", "Body", "SkirtAndLegs"],
     "humanLayerReviewRequired": true,
@@ -39,6 +47,7 @@
   "generation": {
     "method": "OpenAI built-in image generation plus local chroma extraction and deterministic source slicing",
     "generatedAt": "2026-08-23",
+    "refinedAt": "2026-08-24",
     "humanPolish": "required"
   }
 }

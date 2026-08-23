@@ -129,6 +129,20 @@ Produced on 2026-08-23:
 
 Stage 2 status: `AUTOMATED BASELINE REVIEW REQUIRED`. The package passes structural, alpha, naming, part-count, contact-sheet, and PSD-readback checks. Human refinement is still required for hidden fill, seams, hand anatomy, mouth style, target alignment, and deformation readiness. Profile, back, and adult-only private source packages do not exist yet.
 
+Stage 2B refinement evidence produced on 2026-08-24:
+
+- softer six-state v2 mouth atlas;
+- corrective front-view neutral hands and shoes atlas;
+- corrected eye and mouth target proportions;
+- default-state-only six-panel alignment preview at `source/review/front-alignment-preview-v1.png`;
+- four-size source readability preview at `source/review/front-source-scale-preview-v1.png`;
+- machine-readable findings at `source/review/source-review-v1.json`;
+- mutually exclusive PSD variants hidden by default.
+
+Stage 2B status: `FRONT SOURCE REFINEMENT REVIEW REQUIRED`. Automated validation passes, but the alignment preview still shows the expected limits of independently generated parts. Mouth, hands, hidden fill, joint overlap, and exact reconstruction remain provisional and require human-visible approval before Cubism import.
+
+Display-size review result: full-body rendering remains readable at 720 px, 520 px, and approximately 360 px high. At 220 px the facial performance is no longer readable, so compact placement must switch to a bust crop instead of shrinking the full body further.
+
 ## Acceptance Gates
 
 V2 cannot become the default until all are true:
@@ -143,4 +157,4 @@ V2 cannot become the default until all are true:
 
 ## Immediate Next Step
 
-Perform Stage 2B source refinement on the front package: inspect every `SSX_*` part against the master, correct hidden fill and seams, refine mouth and hand consistency, and produce an alignment preview. Do not start genuine Cubism rigging until the refined source receives human approval. Multi-view profile and back packages follow the approved front-source method; adult-only private assets remain a separate later package boundary.
+Review the Stage 2B front alignment preview at normal and desktop-pet scale. After human approval, begin genuine Cubism front-model rigging with the reviewed PSD. If the preview is rejected, revise the affected front assets before rigging. Profile and back packages follow the approved front-source method; adult-only private assets remain a separate later package boundary.

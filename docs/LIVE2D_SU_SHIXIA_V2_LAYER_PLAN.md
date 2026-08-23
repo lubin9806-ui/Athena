@@ -2,7 +2,7 @@
 
 Date: 2026-08-23
 
-Status: Stage 2A automated source baseline exists at `assets/avatar/su-shixia-live2d-v2`. It contains a 66-part layered PSD and validation evidence, but no Cubism project or V2 `.moc3` export.
+Status: Stage 2B front-source refinement review exists at `assets/avatar/su-shixia-live2d-v2`. It contains a 66-part layered PSD, corrected default-state placement evidence, and explicit provisional findings, but no Cubism project or V2 `.moc3` export.
 
 ## Core Decision
 
@@ -327,4 +327,4 @@ The model chooses semantic intent and reply. The runtime resolves only motions v
 
 ## Stage Boundary
 
-The automated front source baseline now proves that named transparent parts, a contact sheet, and a readable layered PSD exist. It does not prove that those layers have production-ready hidden fill, alignment, Cubism deformers, motions, physics, or multi-model handoffs. The next gate is Stage 2B human source refinement and approval before Cubism rigging.
+The refined front source package now proves that named transparent parts, a contact sheet, a default-state alignment preview, and a readable layered PSD exist. It does not prove production-ready hidden fill, exact reconstruction, Cubism deformers, motions, physics, or multi-model handoffs. The next gate is human approval of the Stage 2B front alignment preview before Cubism rigging.

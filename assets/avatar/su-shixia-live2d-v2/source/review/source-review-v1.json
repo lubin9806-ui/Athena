@@ -1,0 +1,390 @@
+{
+  "version": 1,
+  "reviewedAt": "2026-08-24",
+  "status": "front_source_refinement_review_required",
+  "summary": {
+    "parts": 66,
+    "allTargetsInsideCanvas": true,
+    "highAspectDistortionCount": 0,
+    "alignmentPreview": "front-alignment-preview-v1.png",
+    "scalePreview": "front-source-scale-preview-v1.png"
+  },
+  "refinements": [
+    "Replaced the first mouth atlas with a softer six-state v2 atlas derived from the approved face style.",
+    "Replaced neutral hands and side-view shoes with a dedicated front-view corrective atlas.",
+    "Added a deterministic placement preview for the master, face, head, upper body, lower body, and all parts.",
+    "Marked mutually exclusive hair, eye, mouth, and cheek-touch layers hidden by default in the PSD.",
+    "Retained source and generated intermediates for provenance and non-destructive review."
+  ],
+  "openFindings": [
+    {
+      "area": "mouth",
+      "severity": "medium",
+      "status": "provisional",
+      "note": "Style is softer than v1 but still requires final illustrator and Cubism deformation review."
+    },
+    {
+      "area": "hands",
+      "severity": "medium",
+      "status": "provisional",
+      "note": "Neutral and cheek-touch variants exist; anatomy, wrist joins, and hidden fill require rigger review."
+    },
+    {
+      "area": "hidden-fill",
+      "severity": "high",
+      "status": "required",
+      "note": "Automated torso, blouse, skirt, and limb fills are not a substitute for hand-painted occluded regions."
+    },
+    {
+      "area": "alignment",
+      "severity": "high",
+      "status": "required",
+      "note": "Target rectangles are production estimates and need user-visible approval before Cubism import."
+    },
+    {
+      "area": "display-scale",
+      "severity": "medium",
+      "status": "runtime-rule",
+      "note": "A 220 px full-body render cannot carry readable facial emotion; compact placement must use a bust crop or a larger minimum height."
+    },
+    {
+      "area": "multi-view",
+      "severity": "high",
+      "status": "not-started",
+      "note": "Profile and back source packages remain separate future work."
+    }
+  ],
+  "geometry": [
+    {
+      "name": "SSX_HEAD_FACE_BASE",
+      "aspectDistortion": 1.011,
+      "targetInsideCanvas": true
+    },
+    {
+      "name": "SSX_HEAD_NECK",
+      "aspectDistortion": 1.476,
+      "targetInsideCanvas": true
+    },
+    {
+      "name": "SSX_HAIR_REAR_CENTER",
+      "aspectDistortion": 1.005,
+      "targetInsideCanvas": true
+    },
+    {
+      "name": "SSX_HAIR_REAR_LEFT",
+      "aspectDistortion": 1.181,
+      "targetInsideCanvas": true
+    },
+    {
+      "name": "SSX_HAIR_REAR_RIGHT",
+      "aspectDistortion": 1.149,
+      "targetInsideCanvas": true
+    },
+    {
+      "name": "SSX_HAIR_BANGS_CENTER",
+      "aspectDistortion": 1.12,
+      "targetInsideCanvas": true
+    },
+    {
+      "name": "SSX_HAIR_BANGS_LEFT",
+      "aspectDistortion": 1.83,
+      "targetInsideCanvas": true
+    },
+    {
+      "name": "SSX_HAIR_BANGS_RIGHT",
+      "aspectDistortion": 1.896,
+      "targetInsideCanvas": true
+    },
+    {
+      "name": "SSX_HAIR_SIDE_LOCK_LEFT",
+      "aspectDistortion": 1.061,
+      "targetInsideCanvas": true
+    },
+    {
+      "name": "SSX_HAIR_SIDE_LOCK_RIGHT",
+      "aspectDistortion": 1.069,
+      "targetInsideCanvas": true
+    },
+    {
+      "name": "SSX_HAIR_LOOSE_STRANDS",
+      "aspectDistortion": 1.551,
+      "targetInsideCanvas": true
+    },
+    {
+      "name": "SSX_ACCESSORY_HAIR_CLIP",
+      "aspectDistortion": 1.124,
+      "targetInsideCanvas": true
+    },
+    {
+      "name": "SSX_EYE_L_WHITE",
+      "aspectDistortion": 1.037,
+      "targetInsideCanvas": true
+    },
+    {
+      "name": "SSX_EYE_L_IRIS",
+      "aspectDistortion": 1.006,
+      "targetInsideCanvas": true
+    },
+    {
+      "name": "SSX_EYE_L_PUPIL",
+      "aspectDistortion": 1.01,
+      "targetInsideCanvas": true
+    },
+    {
+      "name": "SSX_EYE_L_HIGHLIGHT",
+      "aspectDistortion": 1,
+      "targetInsideCanvas": true
+    },
+    {
+      "name": "SSX_EYE_L_UPPER_LASH",
+      "aspectDistortion": 1.014,
+      "targetInsideCanvas": true
+    },
+    {
+      "name": "SSX_EYE_L_LOWER_LASH",
+      "aspectDistortion": 1.136,
+      "targetInsideCanvas": true
+    },
+    {
+      "name": "SSX_BROW_L",
+      "aspectDistortion": 1.153,
+      "targetInsideCanvas": true
+    },
+    {
+      "name": "SSX_EYE_L_CLOSED",
+      "aspectDistortion": 1.51,
+      "targetInsideCanvas": true
+    },
+    {
+      "name": "SSX_EYE_R_WHITE",
+      "aspectDistortion": 1.042,
+      "targetInsideCanvas": true
+    },
+    {
+      "name": "SSX_EYE_R_IRIS",
+      "aspectDistortion": 1.012,
+      "targetInsideCanvas": true
+    },
+    {
+      "name": "SSX_EYE_R_PUPIL",
+      "aspectDistortion": 1,
+      "targetInsideCanvas": true
+    },
+    {
+      "name": "SSX_EYE_R_HIGHLIGHT",
+      "aspectDistortion": 1.033,
+      "targetInsideCanvas": true
+    },
+    {
+      "name": "SSX_EYE_R_UPPER_LASH",
+      "aspectDistortion": 1.006,
+      "targetInsideCanvas": true
+    },
+    {
+      "name": "SSX_EYE_R_LOWER_LASH",
+      "aspectDistortion": 1.165,
+      "targetInsideCanvas": true
+    },
+    {
+      "name": "SSX_BROW_R",
+      "aspectDistortion": 1.153,
+      "targetInsideCanvas": true
+    },
+    {
+      "name": "SSX_EYE_R_CLOSED",
+      "aspectDistortion": 1.478,
+      "targetInsideCanvas": true
+    },
+    {
+      "name": "SSX_MOUTH_CLOSED",
+      "aspectDistortion": 1.227,
+      "targetInsideCanvas": true
+    },
+    {
+      "name": "SSX_MOUTH_OPEN_SMALL",
+      "aspectDistortion": 1.064,
+      "targetInsideCanvas": true
+    },
+    {
+      "name": "SSX_MOUTH_OPEN_WIDE",
+      "aspectDistortion": 1.497,
+      "targetInsideCanvas": true
+    },
+    {
+      "name": "SSX_MOUTH_FORM_EI",
+      "aspectDistortion": 1.011,
+      "targetInsideCanvas": true
+    },
+    {
+      "name": "SSX_MOUTH_FORM_OU",
+      "aspectDistortion": 1.041,
+      "targetInsideCanvas": true
+    },
+    {
+      "name": "SSX_MOUTH_FORM_MBP",
+      "aspectDistortion": 1.278,
+      "targetInsideCanvas": true
+    },
+    {
+      "name": "SSX_TORSO_BASE",
+      "aspectDistortion": 1.077,
+      "targetInsideCanvas": true
+    },
+    {
+      "name": "SSX_BLOUSE_FRONT",
+      "aspectDistortion": 1.331,
+      "targetInsideCanvas": true
+    },
+    {
+      "name": "SSX_BLOUSE_COLLAR_L",
+      "aspectDistortion": 1.754,
+      "targetInsideCanvas": true
+    },
+    {
+      "name": "SSX_BLOUSE_COLLAR_R",
+      "aspectDistortion": 1.745,
+      "targetInsideCanvas": true
+    },
+    {
+      "name": "SSX_BLOUSE_SLEEVE_L",
+      "aspectDistortion": 1.406,
+      "targetInsideCanvas": true
+    },
+    {
+      "name": "SSX_BLOUSE_SLEEVE_R",
+      "aspectDistortion": 1.15,
+      "targetInsideCanvas": true
+    },
+    {
+      "name": "SSX_BLOUSE_BUTTON_PLACKET",
+      "aspectDistortion": 1.037,
+      "targetInsideCanvas": true
+    },
+    {
+      "name": "SSX_BLOUSE_BACK_FILL",
+      "aspectDistortion": 1.326,
+      "targetInsideCanvas": true
+    },
+    {
+      "name": "SSX_ARM_UPPER_L",
+      "aspectDistortion": 1.353,
+      "targetInsideCanvas": true
+    },
+    {
+      "name": "SSX_ARM_LOWER_L",
+      "aspectDistortion": 1.125,
+      "targetInsideCanvas": true
+    },
+    {
+      "name": "SSX_HAND_CHEEK_L",
+      "aspectDistortion": 1.2,
+      "targetInsideCanvas": true
+    },
+    {
+      "name": "SSX_ARM_UPPER_R",
+      "aspectDistortion": 1.364,
+      "targetInsideCanvas": true
+    },
+    {
+      "name": "SSX_ARM_LOWER_R",
+      "aspectDistortion": 1.089,
+      "targetInsideCanvas": true
+    },
+    {
+      "name": "SSX_HAND_CHEEK_R",
+      "aspectDistortion": 1.186,
+      "targetInsideCanvas": true
+    },
+    {
+      "name": "SSX_WAIST_PELVIS_BASE",
+      "aspectDistortion": 1.289,
+      "targetInsideCanvas": true
+    },
+    {
+      "name": "SSX_SKIRT_WAIST",
+      "aspectDistortion": 1.426,
+      "targetInsideCanvas": true
+    },
+    {
+      "name": "SSX_SKIRT_REAR_BASE",
+      "aspectDistortion": 1.252,
+      "targetInsideCanvas": true
+    },
+    {
+      "name": "SSX_SKIRT_FRONT_BASE",
+      "aspectDistortion": 1.188,
+      "targetInsideCanvas": true
+    },
+    {
+      "name": "SSX_SKIRT_PLEATS_L",
+      "aspectDistortion": 1.331,
+      "targetInsideCanvas": true
+    },
+    {
+      "name": "SSX_SKIRT_PLEATS_CENTER",
+      "aspectDistortion": 1.657,
+      "targetInsideCanvas": true
+    },
+    {
+      "name": "SSX_SKIRT_PLEATS_R",
+      "aspectDistortion": 1.264,
+      "targetInsideCanvas": true
+    },
+    {
+      "name": "SSX_SKIRT_HEM_UNDERSIDE",
+      "aspectDistortion": 1.089,
+      "targetInsideCanvas": true
+    },
+    {
+      "name": "SSX_THIGH_L",
+      "aspectDistortion": 1.813,
+      "targetInsideCanvas": true
+    },
+    {
+      "name": "SSX_CALF_L",
+      "aspectDistortion": 1.022,
+      "targetInsideCanvas": true
+    },
+    {
+      "name": "SSX_KNEE_OVERLAY_L",
+      "aspectDistortion": 1.273,
+      "targetInsideCanvas": true
+    },
+    {
+      "name": "SSX_THIGH_R",
+      "aspectDistortion": 1.792,
+      "targetInsideCanvas": true
+    },
+    {
+      "name": "SSX_CALF_R",
+      "aspectDistortion": 1.217,
+      "targetInsideCanvas": true
+    },
+    {
+      "name": "SSX_KNEE_OVERLAY_R",
+      "aspectDistortion": 1.287,
+      "targetInsideCanvas": true
+    },
+    {
+      "name": "SSX_HAND_NEUTRAL_L",
+      "aspectDistortion": 1.856,
+      "targetInsideCanvas": true
+    },
+    {
+      "name": "SSX_HAND_NEUTRAL_R",
+      "aspectDistortion": 1.847,
+      "targetInsideCanvas": true
+    },
+    {
+      "name": "SSX_SHOE_L",
+      "aspectDistortion": 1.834,
+      "targetInsideCanvas": true
+    },
+    {
+      "name": "SSX_SHOE_R",
+      "aspectDistortion": 1.834,
+      "targetInsideCanvas": true
+    }
+  ],
+  "gate": "Do not begin genuine Cubism rigging until the front alignment preview and provisional findings receive human approval."
+}
