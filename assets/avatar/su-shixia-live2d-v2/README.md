@@ -25,6 +25,7 @@ Included:
 - 40 reference-driven motion groups mapped from Haru official sample groups and Su Shixia interaction storyboards;
 - 37 semantic touch zones for hair, face, ears, neck, shoulders, arms, hands, clothing, torso, waist, skirt, legs, ankles, and shoes;
 - normal/private-opt-in interaction policy metadata so persona replies are model-generated but runtime-bounded;
+- interaction matrix and readiness audit for target layers, sensitivities, private-mode boundaries, motion coverage, and representative visual QA;
 - preview-only appearance presets for hair color, eye color, blouse/skirt/shoe tint, and hair-clip visibility;
 - wardrobe contract and Cubism binding plan for four public outfits plus a separate private-package boundary;
 - runtime `outfitId` preference that persists the current outfit and rejects future outfits until their source packages are ready;
@@ -59,6 +60,7 @@ npm.cmd run test:live2d:su-shixia-cubism-required
 npm.cmd run test:live2d:su-shixia-delivery-audit
 npm.cmd run test:live2d:su-shixia-review-dashboard
 npm.cmd run test:live2d:su-shixia-wardrobe-contract
+npm.cmd run test:live2d:su-shixia-interaction-matrix
 ```
 
 The Lite runtime preview is allowed for local Athena integration and review. Runtime visual QA now proves nonblank transparent frames, visible motion deltas for the key preview motions, and visible appearance-preset differences. `source/review/su-shixia-live2d-v2-review-dashboard.html` collects the current visual boards, GitHub reference scan, wardrobe contract, blockers, and Go/No-Go state in one local page. These presets recolor or hide existing layers only; they are not true clothing swaps. `wardrobe/wardrobe-contract-v1.json` and `cubism-handoff/wardrobe-binding-plan-v1.json` define the future true outfit swap requirements and parameters, but the assistant, home, and ceremony outfit source packages do not exist yet. The runtime persists `outfitId` separately from `appearancePresetId`, and currently allows only `classic_daily`. The A hair clip can be mapped to a real Cubism opacity parameter, but the color presets and clothing variations still need new source layers or runtime texture/drawable work before they can become genuine Cubism wardrobe controls. The contact sheets still show provisional automated art quality in hands, arms, lower body, wardrobe variety, and turn behavior.

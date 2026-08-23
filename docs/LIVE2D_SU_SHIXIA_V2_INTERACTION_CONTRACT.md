@@ -253,3 +253,15 @@ Future implementation will need to evolve beyond the current `AvatarHotZone` sha
 - public versus adult package isolation tests.
 
 This remains future runtime work until the visual source and Stage 1 interaction review are approved.
+
+## Stage 3K Runtime Matrix
+
+Produced on 2026-08-24:
+
+- interaction matrix: `assets/avatar/su-shixia-live2d-v2/source/review/interaction-matrix-v1.json`;
+- interaction readiness audit: `docs/quality/su-shixia-interaction-readiness-audit.json`;
+- generator: `scripts/generate-su-shixia-interaction-matrix.js`;
+- verifier: `scripts/verify-su-shixia-interaction-matrix.js`;
+- npm command: `npm.cmd run test:live2d:su-shixia-interaction-matrix`.
+
+Stage 3K status: `SEMANTIC TOUCH MATRIX READY, ADVANCED GESTURES STILL NO-GO`. The current package has 37 enabled zones covering body, garment, and accessory targets; every zone declares body part, sensitivity, mode boundary, motion intent, Lite motion, Cubism motion template, and persona reply delegation. Representative visual QA covers face, ear, chest, waist, skirt, and thigh touch reactions. Gesture classifier v2, orientation-specific hit maps, and private/adult asset packages remain future work.

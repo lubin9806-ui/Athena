@@ -15,6 +15,8 @@ function main() {
   assert.equal(manifest.sourceArt.wardrobeContract, 'wardrobe/wardrobe-contract-v1.json');
   assert.equal(manifest.sourceArt.wardrobeBindingPlan, 'cubism-handoff/wardrobe-binding-plan-v1.json');
   assert.equal(manifest.sourceArt.wardrobeReadinessAudit, '../../../docs/quality/su-shixia-wardrobe-readiness-audit.json');
+  assert.equal(manifest.sourceArt.interactionMatrix, 'source/review/interaction-matrix-v1.json');
+  assert.equal(manifest.sourceArt.interactionReadinessAudit, '../../../docs/quality/su-shixia-interaction-readiness-audit.json');
   assert.equal(manifest.production.deliveryAuditReady, true);
   assert.equal(manifest.production.reviewDashboardReady, true);
   assert.equal(manifest.production.githubReferenceScanReady, true);
@@ -22,6 +24,8 @@ function main() {
   assert.equal(manifest.production.wardrobeBindingPlanReady, true);
   assert.equal(manifest.production.wardrobeReadinessAuditReady, true);
   assert.equal(manifest.production.runtimeOutfitPreferenceReady, true);
+  assert.equal(manifest.production.interactionMatrixReady, true);
+  assert.equal(manifest.production.interactionReadinessAuditReady, true);
   assert.equal(report.version, 1);
   assert.equal(report.packageId, 'su-shixia-live2d-v2');
   assert.equal(report.status, 'no_go');
@@ -42,6 +46,8 @@ function main() {
   assert.ok(report.blockers.includes('source-and-layering:hidden-fill-review-approved'));
   assert.ok(report.blockers.includes('source-and-layering:alignment-review-approved'));
   assert.ok(report.blockers.includes('genuine-cubism-export:cubism-export-ready'));
+  assert.ok(report.stages.find(item => item.id === 'interaction').checks.some(item => item.id === 'interaction-audit-go' && item.status === 'pass'));
+  assert.ok(report.stages.find(item => item.id === 'interaction').checks.some(item => item.id === 'interaction-visual-qa-representatives' && item.status === 'pass'));
   assert.ok(report.blockers.includes('appearance-and-wardrobe:true-outfit-swap'));
   assert.ok(report.stages.find(item => item.id === 'appearance-and-wardrobe').checks.some(item => item.id === 'wardrobe-contract-go' && item.status === 'pass'));
   assert.ok(report.stages.find(item => item.id === 'appearance-and-wardrobe').checks.some(item => item.id === 'runtime-outfit-preference-ready' && item.status === 'pass'));

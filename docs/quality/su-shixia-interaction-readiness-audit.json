@@ -1,0 +1,142 @@
+{
+  "version": 1,
+  "generatedAt": "2026-08-24",
+  "packageId": "su-shixia-live2d-v2",
+  "status": "go",
+  "zoneCount": 37,
+  "privateOptInZoneCount": 6,
+  "targetLayerCoverage": {
+    "body": 31,
+    "accessory": 1,
+    "garment": 5
+  },
+  "sensitivityCoverage": {
+    "affectionate": 8,
+    "sensitive": 11,
+    "neutral": 14,
+    "private": 4
+  },
+  "checks": [
+    {
+      "id": "matrix-ready",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "id": "zone-count",
+      "status": "pass",
+      "detail": "zones=37"
+    },
+    {
+      "id": "required-zones-present",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "id": "all-zones-enabled",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "id": "all-zones-reply-delegated",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "id": "all-zones-have-body-part",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "id": "all-zones-have-motion-intent",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "id": "all-zones-have-normal-boundary",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "id": "private-zones-opt-in",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "id": "private-zones-have-private-boundary",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "id": "target-layer-body-present",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "id": "target-layer-garment-present",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "id": "target-layer-accessory-present",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "id": "lite-motion-groups-present",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "id": "cubism-motion-templates-present",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "id": "representative-visual-qa-covered",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "id": "no-public-private-assets",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "id": "policy-normal-default",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "id": "policy-private-opt-in",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "id": "model-reply-runtime-bounded",
+      "status": "pass",
+      "detail": ""
+    }
+  ],
+  "blockers": [],
+  "motionCoverage": {
+    "liteMotionGroups": 40,
+    "cubismMotionTemplates": 37,
+    "representativeVisualQaMotions": [
+      "TouchFace",
+      "TouchEar",
+      "TouchChest",
+      "TouchWaist",
+      "TouchSkirt",
+      "TouchThigh"
+    ]
+  },
+  "goNoGo": {
+    "semanticTouchMatrix": "go",
+    "runtimePromptBoundary": "go",
+    "immediateLiteVisualResponse": "go",
+    "gestureClassifierV2": "no_go",
+    "orientationSpecificHitMaps": "no_go",
+    "privateAssetPackage": "no_go"
+  }
+}

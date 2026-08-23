@@ -150,7 +150,7 @@
           <tr><td><code>source-and-layering</code></td><td><span class="status-no_go">NO_GO</span></td><td>transparent-master: pass<br>layered-baseline: pass<br>parts-count: pass<br>human-layer-review-approved: fail (manual review remains required)<br>hidden-fill-review-approved: fail (manual hidden-fill review remains required)<br>alignment-review-approved: fail (alignment review remains required)</td></tr>
           <tr><td><code>lite-runtime</code></td><td><span class="status-go">GO</span></td><td>lite-runtime-ready: pass<br>runtime-ready: pass<br>layers: pass<br>hot-zones: pass<br>motions: pass<br>visual-qa-ready: pass<br>motion-frames-visible: pass<br>motion-deltas-visible: pass</td></tr>
           <tr><td><code>appearance-and-wardrobe</code></td><td><span class="status-partial">PARTIAL</span></td><td>appearance-preview-ready: pass<br>appearance-qa-ready: pass<br>appearance-preset-count: pass<br>wardrobe-contract-ready: pass<br>wardrobe-binding-plan-ready: pass<br>wardrobe-readiness-audit-ready: pass<br>runtime-outfit-preference-ready: pass<br>wardrobe-contract-go: pass<br>wardrobe-binding-plan-go: pass<br>preview-only: pass (current appearance presets are preview-only)<br>true-outfit-swap: fail (true outfit source layers and Cubism bindings are not ready)</td></tr>
-          <tr><td><code>interaction</code></td><td><span class="status-go">GO</span></td><td>interaction-policy: pass<br>normal-boundary: pass<br>private-opt-in-boundary: pass<br>persona-reply-delegation: pass<br>private-mode-opt-in: pass<br>semantic-hot-zones: pass<br>private-zone-boundaries: pass</td></tr>
+          <tr><td><code>interaction</code></td><td><span class="status-go">GO</span></td><td>interaction-policy: pass<br>interaction-matrix-ready: pass<br>interaction-readiness-audit-ready: pass<br>interaction-audit-go: pass<br>interaction-zones-covered: pass<br>interaction-private-zone-count: pass<br>interaction-visual-qa-representatives: pass<br>normal-boundary: pass<br>private-opt-in-boundary: pass<br>persona-reply-delegation: pass<br>private-mode-opt-in: pass<br>semantic-hot-zones: pass<br>private-zone-boundaries: pass</td></tr>
           <tr><td><code>cubism-handoff</code></td><td><span class="status-go">GO</span></td><td>editor-installed: pass<br>handoff-ready: pass<br>readiness-checklist: pass<br>export-gate: pass<br>motion-template-count: pass<br>physics-template: pass<br>headless-export-unavailable: pass (manual Editor export remains required)</td></tr>
           <tr><td><code>genuine-cubism-export</code></td><td><span class="status-no_go">NO_GO</span></td><td>export-audit-ready: pass<br>runtime-proof-template-ready: pass<br>runtime-proof-not-template: fail (runtime proof is still a template)<br>cubism-export-ready: fail (no genuine .moc3 export yet)<br>cubism-project-ready: fail (no Cubism project committed/exported yet)<br>export-audit-go: fail (export audit status=no_go)</td></tr>
           <tr><td><code>distribution</code></td><td><span class="status-no_go">NO_GO</span></td><td>public-installer-allowed: fail (public installer is intentionally blocked)<br>store-package-allowed: fail (Store package is intentionally blocked)<br>source-release-excluded: pass<br>rights-review: fail (rights review remains required)<br>live2d-license-review: fail (Live2D license review remains required)</td></tr>
@@ -219,6 +219,62 @@
         </tbody>
       </table>
       <p class="note">Wardrobe audit: <code>no_go</code>; true outfit swap: <code>false</code>; future source outfits missing: <code>3</code>.</p>
+    </section>
+
+    <section>
+      <h2>Interaction Matrix</h2>
+      <p class="note">The persona may generate replies, but the runtime owns zone permissions, motion allowlists, and mode boundaries.</p>
+      <table>
+        <tbody>
+          <tr><th>Audit</th><td><code>go</code></td></tr>
+          <tr><th>Zones</th><td><code>37</code> total, <code>6</code> private opt-in capable</td></tr>
+          <tr><th>Target layers</th><td><code>body=31</code> <code>accessory=1</code> <code>garment=5</code></td></tr>
+          <tr><th>Sensitivity</th><td><code>affectionate=8</code> <code>sensitive=11</code> <code>neutral=14</code> <code>private=4</code></td></tr>
+          <tr><th>Known No-Go</th><td><code>semanticTouchMatrix=go</code> <code>runtimePromptBoundary=go</code> <code>immediateLiteVisualResponse=go</code> <code>gestureClassifierV2=no_go</code> <code>orientationSpecificHitMaps=no_go</code> <code>privateAssetPackage=no_go</code></td></tr>
+        </tbody>
+      </table>
+      <table>
+        <thead><tr><th>Zone</th><th>Layer</th><th>Sensitivity</th><th>Motion</th><th>Expression</th><th>Body Part</th></tr></thead>
+        <tbody>
+          <tr><td><code>hair</code></td><td><code>body</code></td><td><code>affectionate</code></td><td><code>TouchHair</code></td><td><code>playful</code></td><td>头发</td></tr>
+          <tr><td><code>hair_clip</code></td><td><code>accessory</code></td><td><code>affectionate</code></td><td><code>TouchHairClip</code></td><td><code>shy</code></td><td>银色 A 字发夹</td></tr>
+          <tr><td><code>forehead</code></td><td><code>body</code></td><td><code>affectionate</code></td><td><code>TouchHead</code></td><td><code>soft_smile</code></td><td>额头</td></tr>
+          <tr><td><code>left_ear</code></td><td><code>body</code></td><td><code>sensitive</code></td><td><code>TouchEar</code></td><td><code>surprised</code></td><td>耳侧</td></tr>
+          <tr><td><code>right_ear</code></td><td><code>body</code></td><td><code>sensitive</code></td><td><code>TouchEar</code></td><td><code>surprised</code></td><td>耳侧</td></tr>
+          <tr><td><code>face_cheek</code></td><td><code>body</code></td><td><code>affectionate</code></td><td><code>TouchFace</code></td><td><code>shy</code></td><td>脸颊</td></tr>
+          <tr><td><code>mouth_chin</code></td><td><code>body</code></td><td><code>sensitive</code></td><td><code>TouchFace</code></td><td><code>surprised</code></td><td>嘴唇或下巴附近</td></tr>
+          <tr><td><code>neck</code></td><td><code>body</code></td><td><code>sensitive</code></td><td><code>TouchNeck</code></td><td><code>shy</code></td><td>脖颈</td></tr>
+          <tr><td><code>collar</code></td><td><code>garment</code></td><td><code>sensitive</code></td><td><code>TouchCollar</code></td><td><code>shy</code></td><td>衣领</td></tr>
+          <tr><td><code>left_shoulder</code></td><td><code>body</code></td><td><code>neutral</code></td><td><code>TouchShoulder</code></td><td><code>soft_smile</code></td><td>肩膀</td></tr>
+          <tr><td><code>right_shoulder</code></td><td><code>body</code></td><td><code>neutral</code></td><td><code>TouchShoulder</code></td><td><code>soft_smile</code></td><td>肩膀</td></tr>
+          <tr><td><code>left_upper_arm</code></td><td><code>body</code></td><td><code>neutral</code></td><td><code>TouchUpperArm</code></td><td><code>soft_smile</code></td><td>上臂</td></tr>
+          <tr><td><code>right_upper_arm</code></td><td><code>body</code></td><td><code>neutral</code></td><td><code>TouchUpperArm</code></td><td><code>soft_smile</code></td><td>上臂</td></tr>
+          <tr><td><code>left_forearm</code></td><td><code>body</code></td><td><code>neutral</code></td><td><code>TouchForearm</code></td><td><code>happy</code></td><td>前臂</td></tr>
+          <tr><td><code>right_forearm</code></td><td><code>body</code></td><td><code>neutral</code></td><td><code>TouchForearm</code></td><td><code>happy</code></td><td>前臂</td></tr>
+          <tr><td><code>left_wrist</code></td><td><code>body</code></td><td><code>affectionate</code></td><td><code>TouchWrist</code></td><td><code>happy</code></td><td>手腕</td></tr>
+          <tr><td><code>right_wrist</code></td><td><code>body</code></td><td><code>affectionate</code></td><td><code>TouchWrist</code></td><td><code>happy</code></td><td>手腕</td></tr>
+          <tr><td><code>left_hand</code></td><td><code>body</code></td><td><code>affectionate</code></td><td><code>TouchPalm</code></td><td><code>happy</code></td><td>手</td></tr>
+          <tr><td><code>right_hand</code></td><td><code>body</code></td><td><code>affectionate</code></td><td><code>TouchPalm</code></td><td><code>happy</code></td><td>手</td></tr>
+          <tr><td><code>blouse</code></td><td><code>garment</code></td><td><code>sensitive</code></td><td><code>TouchBlouse</code></td><td><code>confused</code></td><td>白衬衫</td></tr>
+          <tr><td><code>chest</code></td><td><code>body</code></td><td><code>private</code></td><td><code>TouchChest</code></td><td><code>shy</code></td><td>胸口</td></tr>
+          <tr><td><code>left_ribs</code></td><td><code>body</code></td><td><code>sensitive</code></td><td><code>TouchRibs</code></td><td><code>shy</code></td><td>侧腰上方</td></tr>
+          <tr><td><code>right_ribs</code></td><td><code>body</code></td><td><code>sensitive</code></td><td><code>TouchRibs</code></td><td><code>shy</code></td><td>侧腰上方</td></tr>
+          <tr><td><code>abdomen</code></td><td><code>body</code></td><td><code>sensitive</code></td><td><code>TouchAbdomen</code></td><td><code>shy</code></td><td>腹部</td></tr>
+          <tr><td><code>waist</code></td><td><code>body</code></td><td><code>sensitive</code></td><td><code>TouchWaist</code></td><td><code>shy</code></td><td>腰部</td></tr>
+          <tr><td><code>hip</code></td><td><code>body</code></td><td><code>private</code></td><td><code>TouchHip</code></td><td><code>shy</code></td><td>臀侧或裙腰后侧</td></tr>
+          <tr><td><code>skirt_front</code></td><td><code>garment</code></td><td><code>sensitive</code></td><td><code>TouchSkirt</code></td><td><code>confused</code></td><td>深色百褶裙</td></tr>
+          <tr><td><code>left_thigh</code></td><td><code>body</code></td><td><code>private</code></td><td><code>TouchThigh</code></td><td><code>shy</code></td><td>大腿</td></tr>
+          <tr><td><code>right_thigh</code></td><td><code>body</code></td><td><code>private</code></td><td><code>TouchThigh</code></td><td><code>shy</code></td><td>大腿</td></tr>
+          <tr><td><code>left_knee</code></td><td><code>body</code></td><td><code>neutral</code></td><td><code>TouchKnee</code></td><td><code>soft_smile</code></td><td>膝盖</td></tr>
+          <tr><td><code>right_knee</code></td><td><code>body</code></td><td><code>neutral</code></td><td><code>TouchKnee</code></td><td><code>soft_smile</code></td><td>膝盖</td></tr>
+          <tr><td><code>left_calf</code></td><td><code>body</code></td><td><code>neutral</code></td><td><code>TouchCalf</code></td><td><code>soft_smile</code></td><td>小腿</td></tr>
+          <tr><td><code>right_calf</code></td><td><code>body</code></td><td><code>neutral</code></td><td><code>TouchCalf</code></td><td><code>soft_smile</code></td><td>小腿</td></tr>
+          <tr><td><code>left_ankle</code></td><td><code>body</code></td><td><code>neutral</code></td><td><code>TouchAnkle</code></td><td><code>confused</code></td><td>脚踝</td></tr>
+          <tr><td><code>right_ankle</code></td><td><code>body</code></td><td><code>neutral</code></td><td><code>TouchAnkle</code></td><td><code>confused</code></td><td>脚踝</td></tr>
+          <tr><td><code>left_shoe</code></td><td><code>garment</code></td><td><code>neutral</code></td><td><code>TouchShoe</code></td><td><code>confused</code></td><td>鞋</td></tr>
+          <tr><td><code>right_shoe</code></td><td><code>garment</code></td><td><code>neutral</code></td><td><code>TouchShoe</code></td><td><code>confused</code></td><td>鞋</td></tr>
+        </tbody>
+      </table>
     </section>
 
     <section>

@@ -273,6 +273,18 @@ Produced on 2026-08-24:
 
 Stage 3J status: `RUNTIME OUTFIT PREFERENCE READY, TRUE OUTFIT SWAP STILL NO-GO`. Athena now persists `outfitId` separately from `appearancePresetId` and syncs it to the desktop pet. The sanitizer allows only runtime-selectable outfits from the wardrobe contract. At this stage only `classic_daily` is runtime-selectable because the other public outfits have no source packages yet.
 
+## Stage 3K Current Evidence
+
+Produced on 2026-08-24:
+
+- interaction matrix: `assets/avatar/su-shixia-live2d-v2/source/review/interaction-matrix-v1.json`;
+- interaction readiness audit: `docs/quality/su-shixia-interaction-readiness-audit.json`;
+- interaction matrix generator: `scripts/generate-su-shixia-interaction-matrix.js`;
+- interaction matrix verifier: `scripts/verify-su-shixia-interaction-matrix.js`;
+- npm command: `npm.cmd run test:live2d:su-shixia-interaction-matrix`.
+
+Stage 3K status: `SEMANTIC TOUCH MATRIX READY, ADVANCED GESTURES STILL NO-GO`. The matrix proves the current profile exposes 37 enabled touch zones across body, garment, and accessory layers, with bounded normal/private prompts, motion templates, and representative visual QA. It does not implement full gesture classification, orientation-specific hit maps, or private/adult asset packages.
+
 ## Acceptance Gates
 
 V2 cannot become the final public Cubism default until all are true:

@@ -14,6 +14,7 @@ function main() {
   const exportAudit = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-cubism-export-audit.json'));
   const runtimeProof = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-cubism-runtime-proof.json'));
   const wardrobeAudit = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-wardrobe-readiness-audit.json'));
+  const interactionAudit = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-interaction-readiness-audit.json'));
 
   const stages = [
     stage('requirements', 'go', [
@@ -53,6 +54,12 @@ function main() {
     ]),
     stage('interaction', 'go', [
       check('interaction-policy', manifest.production.interactionPolicyReady === true),
+      check('interaction-matrix-ready', manifest.production.interactionMatrixReady === true),
+      check('interaction-readiness-audit-ready', manifest.production.interactionReadinessAuditReady === true),
+      check('interaction-audit-go', interactionAudit.status === 'go'),
+      check('interaction-zones-covered', interactionAudit.zoneCount === manifest.production.liteRuntimeHitZoneCount),
+      check('interaction-private-zone-count', interactionAudit.privateOptInZoneCount >= 5),
+      check('interaction-visual-qa-representatives', interactionAudit.motionCoverage.representativeVisualQaMotions.every(motion => runtimeQa.checks.requiredMotionCases.includes(motion))),
       check('normal-boundary', manifest.production.normalModeBoundaryReady === true),
       check('private-opt-in-boundary', manifest.production.privateModeOptInBoundaryReady === true),
       check('persona-reply-delegation', profile.interactionPolicy.replyDelegatedToPersona === true),

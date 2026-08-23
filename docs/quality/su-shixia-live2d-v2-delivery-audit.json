@@ -183,6 +183,36 @@
           "detail": ""
         },
         {
+          "id": "interaction-matrix-ready",
+          "status": "pass",
+          "detail": ""
+        },
+        {
+          "id": "interaction-readiness-audit-ready",
+          "status": "pass",
+          "detail": ""
+        },
+        {
+          "id": "interaction-audit-go",
+          "status": "pass",
+          "detail": ""
+        },
+        {
+          "id": "interaction-zones-covered",
+          "status": "pass",
+          "detail": ""
+        },
+        {
+          "id": "interaction-private-zone-count",
+          "status": "pass",
+          "detail": ""
+        },
+        {
+          "id": "interaction-visual-qa-representatives",
+          "status": "pass",
+          "detail": ""
+        },
+        {
           "id": "normal-boundary",
           "status": "pass",
           "detail": ""

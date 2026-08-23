@@ -82,6 +82,8 @@ function main() {
   const runtimeProof = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-cubism-runtime-proof.json'));
   const wardrobeContract = readJson(path.join(PACKAGE_ROOT, manifest.sourceArt.wardrobeContract));
   const wardrobeAudit = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-wardrobe-readiness-audit.json'));
+  const interactionMatrix = readJson(path.join(PACKAGE_ROOT, manifest.sourceArt.interactionMatrix));
+  const interactionAudit = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-interaction-readiness-audit.json'));
 
   const githubScan = {
     version: 1,
@@ -276,6 +278,13 @@ function main() {
     </section>
 
     <section>
+      <h2>Interaction Matrix</h2>
+      <p class="note">The persona may generate replies, but the runtime owns zone permissions, motion allowlists, and mode boundaries.</p>
+      ${interactionSummaryTable(interactionMatrix, interactionAudit)}
+      ${interactionZoneTable(interactionMatrix.zones)}
+    </section>
+
+    <section>
       <h2>Open Manual Findings</h2>
       ${findingsTable([...(sourceReview.openFindings ?? []), ...(runtimeQa.manualReviewFindings ?? [])])}
     </section>
@@ -309,7 +318,7 @@ function main() {
 `;
 
   fs.mkdirSync(REVIEW_ROOT, { recursive: true });
-  fs.writeFileSync(DASHBOARD_PATH, html, 'utf8');
+  writeTextWithRetry(DASHBOARD_PATH, html);
   console.log(`SU_SHIXIA_REVIEW_DASHBOARD_GENERATED dashboard=${path.relative(ROOT, DASHBOARD_PATH).replace(/\\/g, '/')} githubRefs=${githubScan.repositories.length}`);
 }
 
@@ -370,6 +379,30 @@ function wardrobeTable(outfits) {
   return simpleTable(['Outfit', 'Label', 'Source Status', 'Cubism Parameter', 'Missing For Production'], rows, true);
 }
 
+function interactionSummaryTable(matrix, audit) {
+  return `<table>
+        <tbody>
+          <tr><th>Audit</th><td><code>${escapeHtml(audit.status)}</code></td></tr>
+          <tr><th>Zones</th><td><code>${matrix.coverage.totalZones}</code> total, <code>${matrix.coverage.privateOptInZones.length}</code> private opt-in capable</td></tr>
+          <tr><th>Target layers</th><td>${Object.entries(matrix.coverage.byTargetLayer).map(([key, value]) => `<code>${escapeHtml(key)}=${escapeHtml(value)}</code>`).join(' ')}</td></tr>
+          <tr><th>Sensitivity</th><td>${Object.entries(matrix.coverage.bySensitivity).map(([key, value]) => `<code>${escapeHtml(key)}=${escapeHtml(value)}</code>`).join(' ')}</td></tr>
+          <tr><th>Known No-Go</th><td>${Object.entries(audit.goNoGo).map(([key, value]) => `<code>${escapeHtml(key)}=${escapeHtml(value)}</code>`).join(' ')}</td></tr>
+        </tbody>
+      </table>`;
+}
+
+function interactionZoneTable(zones) {
+  const rows = zones.map(item => [
+    `<code>${escapeHtml(item.id)}</code>`,
+    `<code>${escapeHtml(item.targetLayer)}</code>`,
+    `<code>${escapeHtml(item.sensitivity)}</code>`,
+    `<code>${escapeHtml(item.motionGroup)}</code>`,
+    `<code>${escapeHtml(item.expressionId)}</code>`,
+    escapeHtml(item.bodyPart),
+  ]);
+  return simpleTable(['Zone', 'Layer', 'Sensitivity', 'Motion', 'Expression', 'Body Part'], rows, true);
+}
+
 function simpleTable(headers, rows, trustedRows = false) {
   return `<table>
         <thead><tr>${headers.map(item => `<th>${escapeHtml(item)}</th>`).join('')}</tr></thead>
@@ -395,6 +428,21 @@ function readJson(filePath) {
 function writeJson(filePath, value) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
+}
+
+function writeTextWithRetry(filePath, value) {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  let lastError;
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    try {
+      fs.writeFileSync(filePath, value, 'utf8');
+      return;
+    } catch (error) {
+      lastError = error;
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 60 + attempt * 90);
+    }
+  }
+  throw lastError;
 }
 
 main();
