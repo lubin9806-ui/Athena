@@ -225,6 +225,17 @@ Produced on 2026-08-24:
 
 Stage 3F status: `RUNTIME PROOF TEMPLATE READY, PROOF STILL NO-GO`. The template fixes the evidence schema for a future genuine Cubism run: renderer must be `cubism-web`, Lite fallback is disallowed, lip-sync must move and reset `ParamMouthOpenY`, visual deltas must cover expressions and motions, hot-zone policy must cover normal and private-opt-in modes, and manual review must resolve hands, lower body, turn behavior, and wardrobe limits. The template is deliberately `template_unverified` and fails the export audit until real captured evidence replaces it.
 
+## Stage 3G Current Evidence
+
+Produced on 2026-08-24:
+
+- total delivery audit script: `scripts/audit-su-shixia-live2d-delivery.js`;
+- total delivery audit verifier: `scripts/verify-su-shixia-live2d-delivery-audit.js`;
+- machine-readable delivery report: `docs/quality/su-shixia-live2d-v2-delivery-audit.json`;
+- npm command: `npm.cmd run test:live2d:su-shixia-delivery-audit`.
+
+Stage 3G status: `DELIVERY AUDIT READY, OVERALL NO-GO`. The report now aggregates the full chain instead of only export state. It marks requirements, Lite runtime, interaction, and Cubism Editor handoff as GO; appearance/wardrobe as PARTIAL; source/layering, genuine Cubism export, and distribution as NO-GO until human art review, true outfit source/drawables, real Cubism export/runtime proof, rights review, and Live2D license review exist.
+
 ## Acceptance Gates
 
 V2 cannot become the final public Cubism default until all are true:

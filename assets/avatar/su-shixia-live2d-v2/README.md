@@ -52,6 +52,7 @@ npm.cmd run test:live2d:su-shixia-runtime
 npm.cmd run test:live2d:su-shixia-cubism-proof-template
 npm.cmd run test:live2d:su-shixia-cubism-audit
 npm.cmd run test:live2d:su-shixia-cubism-required
+npm.cmd run test:live2d:su-shixia-delivery-audit
 ```
 
 The Lite runtime preview is allowed for local Athena integration and review. Runtime visual QA now proves nonblank transparent frames, visible motion deltas for the key preview motions, and visible appearance-preset differences. These presets recolor or hide existing layers only; they are not true clothing swaps. The A hair clip can be mapped to a real Cubism opacity parameter, but the color presets and clothing variations still need new source layers or runtime texture/drawable work before they can become genuine Cubism wardrobe controls. The contact sheets still show provisional automated art quality in hands, arms, lower body, wardrobe variety, and turn behavior.

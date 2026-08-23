@@ -1,0 +1,324 @@
+{
+  "version": 1,
+  "generatedAt": "2026-08-24",
+  "packageId": "su-shixia-live2d-v2",
+  "status": "no_go",
+  "summary": {
+    "requirements": "go",
+    "sourceAndLayering": "no_go",
+    "liteRuntime": "go",
+    "appearanceAndWardrobe": "partial",
+    "interaction": "go",
+    "cubismHandoff": "go",
+    "genuineCubismExport": "no_go",
+    "distribution": "no_go"
+  },
+  "stages": [
+    {
+      "id": "requirements",
+      "status": "go",
+      "checks": [
+        {
+          "id": "concept-baseline-approved",
+          "status": "pass",
+          "detail": ""
+        },
+        {
+          "id": "athena-default-variant",
+          "status": "pass",
+          "detail": ""
+        }
+      ]
+    },
+    {
+      "id": "source-and-layering",
+      "status": "no_go",
+      "checks": [
+        {
+          "id": "transparent-master",
+          "status": "pass",
+          "detail": ""
+        },
+        {
+          "id": "layered-baseline",
+          "status": "pass",
+          "detail": ""
+        },
+        {
+          "id": "parts-count",
+          "status": "pass",
+          "detail": ""
+        },
+        {
+          "id": "human-layer-review-approved",
+          "status": "fail",
+          "detail": "manual review remains required"
+        },
+        {
+          "id": "hidden-fill-review-approved",
+          "status": "fail",
+          "detail": "manual hidden-fill review remains required"
+        },
+        {
+          "id": "alignment-review-approved",
+          "status": "fail",
+          "detail": "alignment review remains required"
+        }
+      ]
+    },
+    {
+      "id": "lite-runtime",
+      "status": "go",
+      "checks": [
+        {
+          "id": "lite-runtime-ready",
+          "status": "pass",
+          "detail": ""
+        },
+        {
+          "id": "runtime-ready",
+          "status": "pass",
+          "detail": ""
+        },
+        {
+          "id": "layers",
+          "status": "pass",
+          "detail": ""
+        },
+        {
+          "id": "hot-zones",
+          "status": "pass",
+          "detail": ""
+        },
+        {
+          "id": "motions",
+          "status": "pass",
+          "detail": ""
+        },
+        {
+          "id": "visual-qa-ready",
+          "status": "pass",
+          "detail": ""
+        },
+        {
+          "id": "motion-frames-visible",
+          "status": "pass",
+          "detail": ""
+        },
+        {
+          "id": "motion-deltas-visible",
+          "status": "pass",
+          "detail": ""
+        }
+      ]
+    },
+    {
+      "id": "appearance-and-wardrobe",
+      "status": "partial",
+      "checks": [
+        {
+          "id": "appearance-preview-ready",
+          "status": "pass",
+          "detail": ""
+        },
+        {
+          "id": "appearance-qa-ready",
+          "status": "pass",
+          "detail": ""
+        },
+        {
+          "id": "appearance-preset-count",
+          "status": "pass",
+          "detail": ""
+        },
+        {
+          "id": "preview-only",
+          "status": "pass",
+          "detail": "current appearance presets are preview-only"
+        },
+        {
+          "id": "true-outfit-swap",
+          "status": "fail",
+          "detail": "true outfit source layers and Cubism bindings are not ready"
+        }
+      ]
+    },
+    {
+      "id": "interaction",
+      "status": "go",
+      "checks": [
+        {
+          "id": "interaction-policy",
+          "status": "pass",
+          "detail": ""
+        },
+        {
+          "id": "normal-boundary",
+          "status": "pass",
+          "detail": ""
+        },
+        {
+          "id": "private-opt-in-boundary",
+          "status": "pass",
+          "detail": ""
+        },
+        {
+          "id": "persona-reply-delegation",
+          "status": "pass",
+          "detail": ""
+        },
+        {
+          "id": "private-mode-opt-in",
+          "status": "pass",
+          "detail": ""
+        },
+        {
+          "id": "semantic-hot-zones",
+          "status": "pass",
+          "detail": ""
+        },
+        {
+          "id": "private-zone-boundaries",
+          "status": "pass",
+          "detail": ""
+        }
+      ]
+    },
+    {
+      "id": "cubism-handoff",
+      "status": "go",
+      "checks": [
+        {
+          "id": "editor-installed",
+          "status": "pass",
+          "detail": ""
+        },
+        {
+          "id": "handoff-ready",
+          "status": "pass",
+          "detail": ""
+        },
+        {
+          "id": "readiness-checklist",
+          "status": "pass",
+          "detail": ""
+        },
+        {
+          "id": "export-gate",
+          "status": "pass",
+          "detail": ""
+        },
+        {
+          "id": "motion-template-count",
+          "status": "pass",
+          "detail": ""
+        },
+        {
+          "id": "physics-template",
+          "status": "pass",
+          "detail": ""
+        },
+        {
+          "id": "headless-export-unavailable",
+          "status": "pass",
+          "detail": "manual Editor export remains required"
+        }
+      ]
+    },
+    {
+      "id": "genuine-cubism-export",
+      "status": "no_go",
+      "checks": [
+        {
+          "id": "export-audit-ready",
+          "status": "pass",
+          "detail": ""
+        },
+        {
+          "id": "runtime-proof-template-ready",
+          "status": "pass",
+          "detail": ""
+        },
+        {
+          "id": "runtime-proof-not-template",
+          "status": "fail",
+          "detail": "runtime proof is still a template"
+        },
+        {
+          "id": "cubism-export-ready",
+          "status": "fail",
+          "detail": "no genuine .moc3 export yet"
+        },
+        {
+          "id": "cubism-project-ready",
+          "status": "fail",
+          "detail": "no Cubism project committed/exported yet"
+        },
+        {
+          "id": "export-audit-go",
+          "status": "fail",
+          "detail": "export audit status=no_go"
+        }
+      ]
+    },
+    {
+      "id": "distribution",
+      "status": "no_go",
+      "checks": [
+        {
+          "id": "public-installer-allowed",
+          "status": "fail",
+          "detail": "public installer is intentionally blocked"
+        },
+        {
+          "id": "store-package-allowed",
+          "status": "fail",
+          "detail": "Store package is intentionally blocked"
+        },
+        {
+          "id": "source-release-excluded",
+          "status": "pass",
+          "detail": ""
+        },
+        {
+          "id": "rights-review",
+          "status": "fail",
+          "detail": "rights review remains required"
+        },
+        {
+          "id": "live2d-license-review",
+          "status": "fail",
+          "detail": "Live2D license review remains required"
+        }
+      ]
+    }
+  ],
+  "blockers": [
+    "source-and-layering:human-layer-review-approved",
+    "source-and-layering:hidden-fill-review-approved",
+    "source-and-layering:alignment-review-approved",
+    "appearance-and-wardrobe:true-outfit-swap",
+    "genuine-cubism-export:runtime-proof-not-template",
+    "genuine-cubism-export:cubism-export-ready",
+    "genuine-cubism-export:cubism-project-ready",
+    "genuine-cubism-export:export-audit-go",
+    "distribution:public-installer-allowed",
+    "distribution:store-package-allowed",
+    "distribution:rights-review",
+    "distribution:live2d-license-review"
+  ],
+  "goNoGo": {
+    "localLitePreview": "go",
+    "editorHandoff": "go",
+    "genuineCubismDefault": "no_go",
+    "trueWardrobe": "no_go",
+    "publicDistribution": "no_go"
+  },
+  "nextRequiredEvidence": [
+    "Human art review approval for source alignment, hands, lower body, hidden fill, and turn behavior.",
+    "Separate source layers/drawables for true clothing variants beyond preview tint presets.",
+    "Cubism Editor project and exported moc3/model3/physics/cdi/texture files.",
+    "Cubism Web runtime proof replacing the template_unverified proof JSON.",
+    "Rights review and Live2D license review before public distribution."
+  ]
+}
