@@ -1,6 +1,8 @@
 import type {
   AvatarCharacterProfile,
+  AvatarHotZone,
   AvatarHotZoneAction,
+  AvatarHotZoneGestureType,
   AvatarLayoutMode,
   AvatarPoint,
   AvatarRect,
@@ -18,7 +20,7 @@ export interface Live2DCanvasControllerOptions {
   className?: string;
   now?: () => string;
   onEvent?: AvatarRuntimeEventHandler;
-  onHotZoneAction?: (action: AvatarHotZoneAction, hotZoneId: string) => void;
+  onHotZoneAction?: (action: AvatarHotZoneAction, hotZoneId: string, gestureType: AvatarHotZoneGestureType) => void;
 }
 
 export class Live2DCanvasController {
@@ -35,9 +37,28 @@ export class Live2DCanvasController {
     pointerId: number;
     startX: number;
     startY: number;
+    startAt: number;
     offsetX: number;
     offsetY: number;
     moved: boolean;
+    pathLength: number;
+    lastX: number;
+    lastY: number;
+    hotZoneId: string | null;
+  } | null = null;
+  private touchState: {
+    pointerId: number;
+    startX: number;
+    startY: number;
+    startAt: number;
+    pathLength: number;
+    lastX: number;
+    lastY: number;
+    hotZoneId: string | null;
+  } | null = null;
+  private lastTap: {
+    hotZoneId: string;
+    at: number;
   } | null = null;
 
   constructor(private readonly options: Live2DCanvasControllerOptions) {
@@ -105,11 +126,19 @@ export class Live2DCanvasController {
     if (this.dragState?.pointerId === event.pointerId) {
       const deltaX = event.clientX - this.dragState.startX;
       const deltaY = event.clientY - this.dragState.startY;
+      this.dragState.pathLength += Math.hypot(event.clientX - this.dragState.lastX, event.clientY - this.dragState.lastY);
+      this.dragState.lastX = event.clientX;
+      this.dragState.lastY = event.clientY;
       if (Math.hypot(deltaX, deltaY) >= 4) this.dragState.moved = true;
       this.offsetX = this.dragState.offsetX + deltaX;
       this.offsetY = this.dragState.offsetY + deltaY;
       this.applyOffsets();
       return;
+    }
+    if (this.touchState?.pointerId === event.pointerId) {
+      this.touchState.pathLength += Math.hypot(event.clientX - this.touchState.lastX, event.clientY - this.touchState.lastY);
+      this.touchState.lastX = event.clientX;
+      this.touchState.lastY = event.clientY;
     }
     const rect = this.canvas.getBoundingClientRect();
     const point = normalizedPointer(event, rect);
@@ -118,47 +147,104 @@ export class Live2DCanvasController {
 
   private readonly handlePointerDown = (event: PointerEvent): void => {
     if (!this.loaded) return;
+    const hotZone = this.findHotZone(event.clientX, event.clientY);
     if (this.isDraggable()) {
       this.dragState = {
         pointerId: event.pointerId,
         startX: event.clientX,
         startY: event.clientY,
+        startAt: eventTime(event),
         offsetX: this.offsetX,
         offsetY: this.offsetY,
         moved: false,
+        pathLength: 0,
+        lastX: event.clientX,
+        lastY: event.clientY,
+        hotZoneId: hotZone?.id ?? null,
       };
       this.canvas.setPointerCapture(event.pointerId);
       return;
     }
-    this.triggerHotZone(event.clientX, event.clientY);
+    this.touchState = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      startAt: eventTime(event),
+      pathLength: 0,
+      lastX: event.clientX,
+      lastY: event.clientY,
+      hotZoneId: hotZone?.id ?? null,
+    };
+    this.canvas.setPointerCapture(event.pointerId);
   };
 
   private readonly handlePointerUp = (event: PointerEvent): void => {
-    if (this.dragState?.pointerId !== event.pointerId) return;
-    const moved = this.dragState.moved;
-    this.dragState = null;
+    if (this.dragState?.pointerId === event.pointerId) {
+      const dragState = this.dragState;
+      this.dragState = null;
+      if (this.canvas.hasPointerCapture(event.pointerId)) this.canvas.releasePointerCapture(event.pointerId);
+      const completedAt = eventTime(event);
+      this.triggerHotZone(event.clientX, event.clientY, classifyHotZoneGesture({
+        hotZoneId: dragState.hotZoneId,
+        currentHotZoneId: this.findHotZone(event.clientX, event.clientY)?.id ?? null,
+        startX: dragState.startX,
+        startY: dragState.startY,
+        endX: event.clientX,
+        endY: event.clientY,
+        startAt: dragState.startAt,
+        endAt: completedAt,
+        pathLength: dragState.pathLength,
+        draggable: true,
+        lastTap: this.lastTap,
+      }), completedAt);
+      return;
+    }
+    if (this.touchState?.pointerId !== event.pointerId) return;
+    const touchState = this.touchState;
+    this.touchState = null;
     if (this.canvas.hasPointerCapture(event.pointerId)) this.canvas.releasePointerCapture(event.pointerId);
-    if (!moved) this.triggerHotZone(event.clientX, event.clientY);
+    const completedAt = eventTime(event);
+    this.triggerHotZone(event.clientX, event.clientY, classifyHotZoneGesture({
+      hotZoneId: touchState.hotZoneId,
+      currentHotZoneId: this.findHotZone(event.clientX, event.clientY)?.id ?? null,
+      startX: touchState.startX,
+      startY: touchState.startY,
+      endX: event.clientX,
+      endY: event.clientY,
+      startAt: touchState.startAt,
+      endAt: completedAt,
+      pathLength: touchState.pathLength,
+      draggable: false,
+      lastTap: this.lastTap,
+    }), completedAt);
   };
 
   private readonly handlePointerCancel = (event: PointerEvent): void => {
-    if (this.dragState?.pointerId !== event.pointerId) return;
-    this.dragState = null;
+    if (this.dragState?.pointerId === event.pointerId) this.dragState = null;
+    if (this.touchState?.pointerId === event.pointerId) this.touchState = null;
   };
 
-  private triggerHotZone(clientX: number, clientY: number): void {
+  private triggerHotZone(clientX: number, clientY: number, gestureType: AvatarHotZoneGestureType = 'tap', completedAt = Date.now()): void {
+    const hotZone = this.findHotZone(clientX, clientY);
+    if (!hotZone) return;
+    if (gestureType === 'tap' || gestureType === 'repeat_tap') {
+      this.lastTap = { hotZoneId: hotZone.id, at: completedAt };
+    }
+    void this.runtime.dispatch({ type: 'hotZone.trigger', hotZoneId: hotZone.id }).then(action => {
+      if (!action) return;
+      return this.applyHotZoneVisualAction(action).then(() => {
+        this.options.onHotZoneAction?.(action, hotZone.id, gestureType);
+      });
+    });
+  }
+
+  private findHotZone(clientX: number, clientY: number): AvatarHotZone | null {
     const rect = this.canvas.getBoundingClientRect();
     const canvasPoint: AvatarPoint = { x: clientX - rect.left, y: clientY - rect.top };
     const hitAreas = this.options.host.hitTestCanvasPoint?.(canvasPoint) ?? [];
     const hotZone = this.options.profile.hotZones.find(zone => zone.enabled && zone.hitAreaName && hitAreas.includes(zone.hitAreaName))
       ?? this.options.profile.hotZones.find(zone => zone.enabled && zone.rect && pointInsideHotZone(canvasPoint, zone.rect, rect));
-    if (!hotZone) return;
-    void this.runtime.dispatch({ type: 'hotZone.trigger', hotZoneId: hotZone.id }).then(action => {
-      if (!action) return;
-      return this.applyHotZoneVisualAction(action).then(() => {
-        this.options.onHotZoneAction?.(action, hotZone.id);
-      });
-    });
+    return hotZone ?? null;
   }
 
   private async applyHotZoneVisualAction(action: AvatarHotZoneAction): Promise<void> {
@@ -220,6 +306,44 @@ function normalizedPointer(event: PointerEvent, rect: DOMRect): AvatarPoint {
     x: clamp(((event.clientX - rect.left) / Math.max(1, rect.width)) * 2 - 1, -1, 1),
     y: clamp(((event.clientY - rect.top) / Math.max(1, rect.height)) * 2 - 1, -1, 1),
   };
+}
+
+interface HotZoneGestureClassificationInput {
+  hotZoneId: string | null;
+  currentHotZoneId: string | null;
+  startX: number;
+  startY: number;
+  endX: number;
+  endY: number;
+  startAt: number;
+  endAt: number;
+  pathLength: number;
+  draggable: boolean;
+  lastTap: { hotZoneId: string; at: number } | null;
+}
+
+export function classifyHotZoneGesture(input: HotZoneGestureClassificationInput): AvatarHotZoneGestureType {
+  const travel = Math.hypot(input.endX - input.startX, input.endY - input.startY);
+  const duration = Math.max(0, input.endAt - input.startAt);
+  const hotZoneId = input.currentHotZoneId ?? input.hotZoneId;
+  if (input.draggable && travel >= 16) return 'drag';
+  if (travel >= 18 || input.pathLength >= 28) return 'stroke';
+  if (duration >= 600) return 'long_press';
+  if (
+    hotZoneId
+    && input.lastTap?.hotZoneId === hotZoneId
+    && input.endAt - input.lastTap.at > 0
+    && input.endAt - input.lastTap.at <= 450
+  ) {
+    return 'repeat_tap';
+  }
+  return 'tap';
+}
+
+function eventTime(event: PointerEvent): number {
+  return typeof event.timeStamp === 'number' && Number.isFinite(event.timeStamp)
+    ? event.timeStamp
+    : Date.now();
 }
 
 function clamp(value: number, min: number, max: number): number {

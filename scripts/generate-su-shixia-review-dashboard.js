@@ -145,6 +145,7 @@ function main() {
   const wardrobeAudit = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-wardrobe-readiness-audit.json'));
   const interactionMatrix = readJson(path.join(PACKAGE_ROOT, manifest.sourceArt.interactionMatrix));
   const interactionAudit = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-interaction-readiness-audit.json'));
+  const gestureProof = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-gesture-classifier-proof.json'));
   const runtimePolicyProof = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-runtime-policy-proof.json'));
   const hotZoneEventProof = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-hot-zone-event-proof.json'));
   const orientationContract = readJson(path.join(PACKAGE_ROOT, manifest.sourceArt.orientationContract));
@@ -363,6 +364,8 @@ function main() {
       <h2>Interaction Matrix</h2>
       <p class="note">The persona may generate replies, but the runtime owns zone permissions, motion allowlists, and mode boundaries.</p>
       ${interactionSummaryTable(interactionMatrix, interactionAudit)}
+      <h3>Gesture Classifier Proof</h3>
+      ${gestureProofTable(gestureProof)}
       <h3>Runtime Policy Proof</h3>
       ${runtimePolicyProofTable(runtimePolicyProof)}
       <h3>Hot Zone Event Proof</h3>
@@ -531,6 +534,19 @@ function interactionSummaryTable(matrix, audit) {
           <tr><th>Known No-Go</th><td>${Object.entries(audit.goNoGo).map(([key, value]) => `<code>${escapeHtml(key)}=${escapeHtml(value)}</code>`).join(' ')}</td></tr>
         </tbody>
       </table>`;
+}
+
+function gestureProofTable(proof) {
+  const rows = proof.cases.map(item => [
+    `<code>${escapeHtml(item.id)}</code>`,
+    `<code>${escapeHtml(item.zoneId)}</code>`,
+    `<code>${escapeHtml(item.actualGesture)}</code>`,
+    `<code>${escapeHtml(item.motionGroup)}</code>`,
+    `<code>${escapeHtml(item.expressionId)}</code>`,
+    escapeHtml(item.bodyPart),
+  ]);
+  return `${simpleTable(['Case', 'Zone', 'Gesture', 'Motion', 'Expression', 'Body Part'], rows, true)}
+      <p class="note">Gesture proof status: <code>${escapeHtml(proof.status)}</code>; gestures: ${proof.gestures.map(item => `<code>${escapeHtml(item)}</code>`).join(' ')}; gesture-specific Cubism animation: <code>no_go</code>.</p>`;
 }
 
 function runtimePolicyProofTable(proof) {

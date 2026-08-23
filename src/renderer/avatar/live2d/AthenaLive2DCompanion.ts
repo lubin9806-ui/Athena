@@ -8,6 +8,7 @@ import type {
   AvatarCharacterProfile,
   AvatarHotZone,
   AvatarHotZoneAction,
+  AvatarHotZoneGestureType,
   AvatarInteractionMode,
   AvatarLayoutMode,
 } from '../../../shared/types/avatar';
@@ -107,7 +108,7 @@ export class AthenaLive2DCompanion {
       profile,
       host: this.host,
       canvas: options.canvas,
-      onHotZoneAction: (action, hotZoneId) => this.handleHotZoneAction(action, hotZoneId),
+      onHotZoneAction: (action, hotZoneId, gestureType) => this.handleHotZoneAction(action, hotZoneId, gestureType),
     });
     this.lipSync = new AvatarRealtimeLipSyncController({
       settings: profile.lipSync,
@@ -268,13 +269,14 @@ export class AthenaLive2DCompanion {
     this.options.root.dataset.trueOutfitSwapReady = 'false';
   }
 
-  private handleHotZoneAction(action: AvatarHotZoneAction, hotZoneId: string): void {
+  private handleHotZoneAction(action: AvatarHotZoneAction, hotZoneId: string, gestureType: AvatarHotZoneGestureType): void {
     const hotZone = this.profile.hotZones.find(zone => zone.id === hotZoneId);
     const prompt = buildHotZoneReplyPrompt(
       findAthenaReplyPrompt(action),
       hotZone,
       this.profile.interactionPolicy,
       this.preferences.interactionMode,
+      gestureType,
     );
     this.lastNonIdleEventAt = Date.now();
     if (prompt) void this.options.onAthenaReply?.(prompt, hotZoneId);
@@ -369,6 +371,7 @@ export function buildHotZoneReplyPrompt(
   hotZone: AvatarHotZone | undefined,
   policy: AvatarCharacterProfile['interactionPolicy'],
   mode: AvatarInteractionMode,
+  gestureType: AvatarHotZoneGestureType = 'tap',
 ): string | null {
   if (!prompt) return null;
   const interaction = hotZone?.interaction;
@@ -379,6 +382,7 @@ export function buildHotZoneReplyPrompt(
     '运行时互动边界：',
     `- 当前模式：${effectiveMode}`,
     `- 触碰区域：${interaction?.bodyPart ?? hotZone?.label ?? 'unknown'}`,
+    `- 触碰方式：${gestureLabel(gestureType)}`,
     `- 区域敏感度：${interaction?.sensitivity ?? 'neutral'}`,
     `- 动作意图：${interaction?.motionIntent ?? '自然、简短、符合当前人格'}`,
     '- 回应文本交给当前苏时夏人格生成，但必须遵守以下边界。',
@@ -395,6 +399,22 @@ export function buildHotZoneReplyPrompt(
     lines.push(`- 公开包禁止素材类型：${policy.forbiddenPublicAssetTypes.join(', ')}。`);
   }
   return lines.join('\n');
+}
+
+function gestureLabel(type: AvatarHotZoneGestureType): string {
+  switch (type) {
+    case 'repeat_tap':
+      return '重复轻触';
+    case 'long_press':
+      return '停留长按';
+    case 'stroke':
+      return '轻微滑动或抚摸';
+    case 'drag':
+      return '拖拽移动';
+    case 'tap':
+    default:
+      return '轻触';
+  }
 }
 
 function isLayoutMode(value: unknown): value is AvatarLayoutMode {

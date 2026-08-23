@@ -26,6 +26,7 @@ function main() {
   assert.ok(report.coverage.motionGroups.includes('TouchHairClip'));
   assert.ok(report.coverage.expressions.includes('shy'));
   assert.ok(report.checks.every(item => item.status === 'pass'));
+  assert.ok(report.cases.every(item => item.gestureType === 'tap'));
   assert.equal(report.boundary.provesCanvasPointerToHotZoneAction, true);
   assert.equal(report.boundary.provesPersonaReplyCallback, true);
   assert.equal(report.boundary.provesCompiledControllerPath, true);
@@ -37,6 +38,7 @@ function main() {
   assert.equal(chest.motionGroup, 'TouchChest');
   assert.equal(chest.expressionId, 'shy');
   assert.equal(chest.promptTemplatePresent, true);
+  assert.equal(chest.gestureType, 'tap');
   assert.equal(chest.normalModePromptBoundary, true);
   assert.equal(chest.privateAttemptMode, 'private_opt_in');
 

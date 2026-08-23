@@ -223,6 +223,21 @@
           "detail": ""
         },
         {
+          "id": "gesture-classifier-v2-ready",
+          "status": "pass",
+          "detail": ""
+        },
+        {
+          "id": "gesture-classifier-proof-go",
+          "status": "pass",
+          "detail": ""
+        },
+        {
+          "id": "gesture-classifier-five-types",
+          "status": "pass",
+          "detail": ""
+        },
+        {
           "id": "runtime-policy-proof-ready",
           "status": "pass",
           "detail": ""

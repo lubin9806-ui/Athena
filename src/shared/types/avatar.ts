@@ -34,6 +34,13 @@ export type AvatarHotZoneSensitivity =
   | 'sensitive'
   | 'private';
 
+export type AvatarHotZoneGestureType =
+  | 'tap'
+  | 'repeat_tap'
+  | 'long_press'
+  | 'stroke'
+  | 'drag';
+
 export type AvatarHotZoneActionType =
   | 'none'
   | 'athenaReply'

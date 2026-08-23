@@ -19,6 +19,7 @@ function main() {
   assert.equal(manifest.sourceArt.wardrobeReadinessAudit, '../../../docs/quality/su-shixia-wardrobe-readiness-audit.json');
   assert.equal(manifest.sourceArt.interactionMatrix, 'source/review/interaction-matrix-v1.json');
   assert.equal(manifest.sourceArt.interactionReadinessAudit, '../../../docs/quality/su-shixia-interaction-readiness-audit.json');
+  assert.equal(manifest.sourceArt.gestureClassifierProof, '../../../docs/quality/su-shixia-gesture-classifier-proof.json');
   assert.equal(manifest.sourceArt.runtimePolicyProof, '../../../docs/quality/su-shixia-runtime-policy-proof.json');
   assert.equal(manifest.sourceArt.hotZoneEventProof, '../../../docs/quality/su-shixia-hot-zone-event-proof.json');
   assert.equal(manifest.sourceArt.orientationContract, 'source/review/orientation-contract-v1.json');
@@ -34,6 +35,7 @@ function main() {
   assert.equal(manifest.production.runtimeOutfitPreferenceReady, true);
   assert.equal(manifest.production.interactionMatrixReady, true);
   assert.equal(manifest.production.interactionReadinessAuditReady, true);
+  assert.equal(manifest.production.gestureClassifierV2Ready, true);
   assert.equal(manifest.production.runtimePolicyProofReady, true);
   assert.equal(manifest.production.hotZoneEventProofReady, true);
   assert.equal(manifest.production.orientationContractReady, true);
@@ -63,6 +65,8 @@ function main() {
   assert.ok(report.nextRequiredEvidence.some(item => item.includes('Profile/back source packages')));
   assert.ok(report.blockers.includes('genuine-cubism-export:cubism-export-ready'));
   assert.ok(report.stages.find(item => item.id === 'interaction').checks.some(item => item.id === 'interaction-audit-go' && item.status === 'pass'));
+  assert.ok(report.stages.find(item => item.id === 'interaction').checks.some(item => item.id === 'gesture-classifier-proof-go' && item.status === 'pass'));
+  assert.ok(report.stages.find(item => item.id === 'interaction').checks.some(item => item.id === 'gesture-classifier-five-types' && item.status === 'pass'));
   assert.ok(report.stages.find(item => item.id === 'interaction').checks.some(item => item.id === 'runtime-policy-proof-go' && item.status === 'pass'));
   assert.ok(report.stages.find(item => item.id === 'interaction').checks.some(item => item.id === 'hot-zone-event-proof-go' && item.status === 'pass'));
   assert.ok(report.stages.find(item => item.id === 'interaction').checks.some(item => item.id === 'hot-zone-callback-proof' && item.status === 'pass'));

@@ -17,6 +17,7 @@ function main() {
   const runtimeProof = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-cubism-runtime-proof.json'));
   const wardrobeAudit = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-wardrobe-readiness-audit.json'));
   const interactionAudit = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-interaction-readiness-audit.json'));
+  const gestureProof = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-gesture-classifier-proof.json'));
   const runtimePolicyProof = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-runtime-policy-proof.json'));
   const hotZoneEventProof = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-hot-zone-event-proof.json'));
   const orientationAudit = readJson(path.join(ROOT, 'docs', 'quality', 'su-shixia-orientation-readiness-audit.json'));
@@ -67,6 +68,9 @@ function main() {
       check('interaction-policy', manifest.production.interactionPolicyReady === true),
       check('interaction-matrix-ready', manifest.production.interactionMatrixReady === true),
       check('interaction-readiness-audit-ready', manifest.production.interactionReadinessAuditReady === true),
+      check('gesture-classifier-v2-ready', manifest.production.gestureClassifierV2Ready === true),
+      check('gesture-classifier-proof-go', gestureProof.status === 'go'),
+      check('gesture-classifier-five-types', ['tap', 'repeat_tap', 'long_press', 'stroke', 'drag'].every(gesture => gestureProof.gestures.includes(gesture))),
       check('runtime-policy-proof-ready', manifest.production.runtimePolicyProofReady === true),
       check('runtime-policy-proof-go', runtimePolicyProof.status === 'go'),
       check('hot-zone-event-proof-ready', manifest.production.hotZoneEventProofReady === true),

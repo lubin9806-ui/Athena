@@ -341,6 +341,19 @@ Produced on 2026-08-24:
 
 Stage 3P status: `MOTION AUTHORING PACKET READY, FINAL CUBISM MOTION POLISH STILL NO-GO`. The packet maps all 37 Cubism motion templates to GitHub-backed reference families, semantic touch zones, voice-sync requirements, stiffness-review notes, and true-turn boundaries. It gives the rigger a concrete motion checklist for idle, voice, face/head touch, hand/arm, clothing/torso, leg/foot, and turn-preview reactions. It does not prove final non-stiff Cubism playback, because that still requires Editor playback capture, mesh/deformer polish, real TTS blending, and human review.
 
+## Stage 3Q Current Evidence
+
+Produced on 2026-08-24:
+
+- gesture classifier proof: `docs/quality/su-shixia-gesture-classifier-proof.json`;
+- proof generator: `scripts/generate-su-shixia-gesture-classifier-proof.js`;
+- proof verifier: `scripts/verify-su-shixia-gesture-classifier-proof.js`;
+- runtime classifier: `src/renderer/avatar/live2d/Live2DCanvasController.ts`;
+- prompt handoff: `src/renderer/avatar/live2d/AthenaLive2DCompanion.ts`;
+- npm command: `npm.cmd run test:live2d:su-shixia-gesture-classifier`.
+
+Stage 3Q status: `GESTURE CLASSIFIER V2 READY, GESTURE-SPECIFIC CUBISM ANIMATION STILL NO-GO`. The compiled runtime now distinguishes `tap`, `repeat_tap`, `long_press`, `stroke`, and `drag`, then passes the gesture type into the persona prompt boundary. The proof covers face, hair clip, hand, skirt, and waist interactions. It does not prove separate polished Cubism animations for each gesture type; current visual actions still use the zone's existing motion group until authored Cubism curves and QA exist.
+
 ## Acceptance Gates
 
 V2 cannot become the final public Cubism default until all are true:
@@ -355,4 +368,4 @@ V2 cannot become the final public Cubism default until all are true:
 
 ## Immediate Next Step
 
-Review the Stage 3A-3P Lite runtime preview in chat-right and desktop-pet placements, including the motion and appearance contact sheets, art review packet, and motion authoring packet. In parallel, prepare the genuine Cubism rig from the reviewed PSD: mesh groups, deformers, parameter ranges, physics chains, authored `.motion3.json` curves, and future wardrobe visibility parameters. Profile and back packages follow the approved front-source method; adult-only private assets remain a separate later package boundary.
+Review the Stage 3A-3Q Lite runtime preview in chat-right and desktop-pet placements, including the motion and appearance contact sheets, art review packet, motion authoring packet, and gesture classifier proof. In parallel, prepare the genuine Cubism rig from the reviewed PSD: mesh groups, deformers, parameter ranges, physics chains, authored `.motion3.json` curves, and future wardrobe visibility parameters. Profile and back packages follow the approved front-source method; adult-only private assets remain a separate later package boundary.

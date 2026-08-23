@@ -10,6 +10,7 @@ const {
   getRuntimeSelectableSuShixiaOutfitIds,
   readAthenaLive2DPreferences,
 } = require('../dist/renderer/avatar/live2d/AthenaLive2DCompanion');
+const { classifyHotZoneGesture } = require('../dist/renderer/avatar/live2d/Live2DCanvasController');
 
 function read(relativePath) {
   return fs.readFileSync(path.join(ROOT, relativePath), 'utf8');
@@ -140,10 +141,25 @@ function main() {
   const chestZone = suShixiaProfile.hotZones.find(zone => zone.id === 'chest');
   const normalPrompt = buildHotZoneReplyPrompt('base prompt', chestZone, suShixiaProfile.interactionPolicy, 'normal');
   assert.ok(normalPrompt.includes('当前模式：normal'));
+  assert.ok(normalPrompt.includes('触碰方式：轻触'));
   assert.ok(normalPrompt.includes('不要升级为成人或露骨内容'));
-  const privatePrompt = buildHotZoneReplyPrompt('base prompt', chestZone, suShixiaProfile.interactionPolicy, 'private_opt_in');
+  const privatePrompt = buildHotZoneReplyPrompt('base prompt', chestZone, suShixiaProfile.interactionPolicy, 'private_opt_in', 'long_press');
   assert.ok(privatePrompt.includes('当前模式：private_opt_in'));
+  assert.ok(privatePrompt.includes('触碰方式：停留长按'));
   assert.ok(privatePrompt.includes('显式私密模式'));
+  assert.equal(classifyHotZoneGesture({
+    hotZoneId: 'face_cheek',
+    currentHotZoneId: 'face_cheek',
+    startX: 10,
+    startY: 10,
+    endX: 40,
+    endY: 12,
+    startAt: 100,
+    endAt: 220,
+    pathLength: 31,
+    draggable: false,
+    lastTap: null,
+  }), 'stroke');
 
   const html = read('src/renderer/index.html');
   const app = read('src/renderer/app.ts');
@@ -167,6 +183,7 @@ function main() {
     'live2d-official-haru',
     'appearancePresetId',
     'outfitId',
+    'gestureType',
     'getRuntimeSelectableSuShixiaOutfitIds',
     'setAppearancePreset',
   ]) {

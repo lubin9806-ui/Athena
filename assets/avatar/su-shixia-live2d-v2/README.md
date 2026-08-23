@@ -28,6 +28,7 @@ Included:
 - 37 semantic touch zones for hair, face, ears, neck, shoulders, arms, hands, clothing, torso, waist, skirt, legs, ankles, and shoes;
 - normal/private-opt-in interaction policy metadata so persona replies are model-generated but runtime-bounded;
 - interaction matrix and readiness audit for target layers, sensitivities, private-mode boundaries, motion coverage, and representative visual QA;
+- gesture classifier proof for tap, repeat tap, long press, stroke, and drag routing through the compiled Live2D canvas controller;
 - runtime policy proof generated from the compiled companion helper for normal/private hot-zone prompt boundaries;
 - hot-zone event proof for compiled canvas pointer hit-test, visual action, and persona callback routing;
 - orientation contract and readiness audit for full-turn planning, orientation-specific hit maps, and true multi-view source blockers;
@@ -68,6 +69,7 @@ npm.cmd run test:live2d:su-shixia-review-dashboard
 npm.cmd run test:live2d:su-shixia-wardrobe-contract
 npm.cmd run test:live2d:su-shixia-interaction-matrix
 npm.cmd run test:live2d:su-shixia-motion-authoring
+npm.cmd run test:live2d:su-shixia-gesture-classifier
 npm.cmd run test:live2d:su-shixia-runtime-policy
 npm.cmd run test:live2d:su-shixia-hot-zone-events
 npm.cmd run test:live2d:su-shixia-orientation-contract

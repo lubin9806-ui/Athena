@@ -21,6 +21,7 @@ function main() {
   assert.equal(manifest.sourceArt.motionAuthoringPacket, '../../../docs/quality/su-shixia-motion-authoring-packet.json');
   assert.equal(manifest.sourceArt.wardrobeContract, 'wardrobe/wardrobe-contract-v1.json');
   assert.equal(manifest.sourceArt.interactionMatrix, 'source/review/interaction-matrix-v1.json');
+  assert.equal(manifest.sourceArt.gestureClassifierProof, '../../../docs/quality/su-shixia-gesture-classifier-proof.json');
   assert.equal(manifest.sourceArt.runtimePolicyProof, '../../../docs/quality/su-shixia-runtime-policy-proof.json');
   assert.equal(manifest.sourceArt.hotZoneEventProof, '../../../docs/quality/su-shixia-hot-zone-event-proof.json');
   assert.equal(manifest.sourceArt.orientationContract, 'source/review/orientation-contract-v1.json');
@@ -30,6 +31,7 @@ function main() {
   assert.equal(manifest.production.motionAuthoringPacketReady, true);
   assert.equal(manifest.production.wardrobeContractReady, true);
   assert.equal(manifest.production.interactionMatrixReady, true);
+  assert.equal(manifest.production.gestureClassifierV2Ready, true);
   assert.equal(manifest.production.runtimePolicyProofReady, true);
   assert.equal(manifest.production.hotZoneEventProofReady, true);
   assert.equal(manifest.production.orientationContractReady, true);
@@ -87,6 +89,12 @@ function main() {
   assert.ok(html.includes('future_source_required'));
   assert.ok(html.includes('true outfit swap'));
   assert.ok(html.includes('Interaction Matrix'));
+  assert.ok(html.includes('Gesture Classifier Proof'));
+  assert.ok(html.includes('repeat_tap'));
+  assert.ok(html.includes('long_press'));
+  assert.ok(html.includes('stroke'));
+  assert.ok(html.includes('drag-waist'));
+  assert.ok(html.includes('gesture-specific Cubism animation'));
   assert.ok(html.includes('Runtime Policy Proof'));
   assert.ok(html.includes('compiled-helper-policy-coverage'));
   assert.ok(html.includes('publicPackagePrivateAssetsAllowed=false'));
@@ -95,7 +103,8 @@ function main() {
   assert.ok(html.includes('Cubism moc3 proof'));
   assert.ok(html.includes('face_cheek'));
   assert.ok(html.includes('TouchChest'));
-  assert.ok(html.includes('gestureClassifierV2=no_go'));
+  assert.ok(html.includes('gestureClassifierV2=go'));
+  assert.ok(html.includes('gestureSpecificCubismAnimation=no_go'));
   assert.ok(html.includes('Orientation Contract'));
   assert.ok(html.includes('front_three_quarter_left'));
   assert.ok(html.includes('profile_left'));

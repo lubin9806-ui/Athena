@@ -1,0 +1,143 @@
+{
+  "version": 1,
+  "generatedAt": "2026-08-24",
+  "packageId": "su-shixia-live2d-v2",
+  "status": "go",
+  "runtimeModule": "dist/renderer/avatar/live2d/Live2DCanvasController",
+  "promptModule": "dist/renderer/avatar/live2d/AthenaLive2DCompanion",
+  "gestures": [
+    "tap",
+    "repeat_tap",
+    "long_press",
+    "stroke",
+    "drag"
+  ],
+  "thresholds": {
+    "repeatTapMs": 450,
+    "longPressMs": 600,
+    "strokeTravelPx": 18,
+    "strokePathPx": 28,
+    "dragTravelPx": 16
+  },
+  "checks": [
+    {
+      "id": "all-gestures-covered",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "id": "all-gestures-match-expected",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "id": "all-cases-play-motion",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "id": "all-cases-set-expression",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "id": "all-prompts-include-gesture",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "id": "all-prompts-include-boundary",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "id": "stroke-updates-pointer",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "id": "drag-mode-covered",
+      "status": "pass",
+      "detail": ""
+    }
+  ],
+  "cases": [
+    {
+      "id": "tap-face",
+      "zoneId": "face_cheek",
+      "expectedGesture": "tap",
+      "actualGesture": "tap",
+      "layoutMode": "chat_right",
+      "bodyPart": "脸颊",
+      "sensitivity": "affectionate",
+      "motionGroup": "TouchFace",
+      "expressionId": "shy",
+      "promptIncludesGesture": true,
+      "promptIncludesBoundary": true,
+      "pointerMoveObserved": false
+    },
+    {
+      "id": "repeat-tap-hair-clip",
+      "zoneId": "hair_clip",
+      "expectedGesture": "repeat_tap",
+      "actualGesture": "repeat_tap",
+      "layoutMode": "chat_right",
+      "bodyPart": "银色 A 字发夹",
+      "sensitivity": "affectionate",
+      "motionGroup": "TouchHairClip",
+      "expressionId": "shy",
+      "promptIncludesGesture": true,
+      "promptIncludesBoundary": true,
+      "pointerMoveObserved": false
+    },
+    {
+      "id": "long-press-hand",
+      "zoneId": "left_hand",
+      "expectedGesture": "long_press",
+      "actualGesture": "long_press",
+      "layoutMode": "chat_right",
+      "bodyPart": "手",
+      "sensitivity": "affectionate",
+      "motionGroup": "TouchPalm",
+      "expressionId": "happy",
+      "promptIncludesGesture": true,
+      "promptIncludesBoundary": true,
+      "pointerMoveObserved": false
+    },
+    {
+      "id": "stroke-skirt",
+      "zoneId": "skirt_front",
+      "expectedGesture": "stroke",
+      "actualGesture": "stroke",
+      "layoutMode": "chat_right",
+      "bodyPart": "深色百褶裙",
+      "sensitivity": "sensitive",
+      "motionGroup": "TouchSkirt",
+      "expressionId": "confused",
+      "promptIncludesGesture": true,
+      "promptIncludesBoundary": true,
+      "pointerMoveObserved": true
+    },
+    {
+      "id": "drag-waist",
+      "zoneId": "waist",
+      "expectedGesture": "drag",
+      "actualGesture": "drag",
+      "layoutMode": "desktop_pet",
+      "bodyPart": "腰部",
+      "sensitivity": "sensitive",
+      "motionGroup": "TouchWaist",
+      "expressionId": "shy",
+      "promptIncludesGesture": true,
+      "promptIncludesBoundary": true,
+      "pointerMoveObserved": false
+    }
+  ],
+  "boundary": {
+    "provesCompiledGestureClassifier": true,
+    "provesPromptReceivesGestureType": true,
+    "provesGestureSpecificMotionSelection": false,
+    "proofDoesNotVerifyFinalCubismAnimationPolish": true,
+    "proofDoesNotEnablePrivateAssets": true
+  }
+}

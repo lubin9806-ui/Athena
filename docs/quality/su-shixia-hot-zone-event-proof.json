@@ -75,6 +75,11 @@
       "detail": ""
     },
     {
+      "id": "all-cases-classified-tap",
+      "status": "pass",
+      "detail": ""
+    },
+    {
       "id": "normal-mode-boundary-generated",
       "status": "pass",
       "detail": ""
@@ -106,6 +111,7 @@
       "hitTestAreas": [
         "Face"
       ],
+      "gestureType": "tap",
       "promptTemplatePresent": true,
       "normalModePromptBoundary": true,
       "privateAttemptMode": "normal"
@@ -125,6 +131,7 @@
       "hitTestAreas": [
         "LeftHand"
       ],
+      "gestureType": "tap",
       "promptTemplatePresent": true,
       "normalModePromptBoundary": true,
       "privateAttemptMode": "normal"
@@ -144,6 +151,7 @@
       "hitTestAreas": [
         "Chest"
       ],
+      "gestureType": "tap",
       "promptTemplatePresent": true,
       "normalModePromptBoundary": true,
       "privateAttemptMode": "private_opt_in"
@@ -163,6 +171,7 @@
       "hitTestAreas": [
         "LeftThigh"
       ],
+      "gestureType": "tap",
       "promptTemplatePresent": true,
       "normalModePromptBoundary": true,
       "privateAttemptMode": "private_opt_in"
@@ -182,6 +191,7 @@
       "hitTestAreas": [
         "HairClip"
       ],
+      "gestureType": "tap",
       "promptTemplatePresent": true,
       "normalModePromptBoundary": true,
       "privateAttemptMode": "normal"

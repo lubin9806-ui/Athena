@@ -98,6 +98,16 @@
       "detail": ""
     },
     {
+      "id": "gesture-classifier-v2-ready",
+      "status": "pass",
+      "detail": ""
+    },
+    {
+      "id": "gesture-proof-covers-five-types",
+      "status": "pass",
+      "detail": ""
+    },
+    {
       "id": "no-public-private-assets",
       "status": "pass",
       "detail": ""
@@ -135,7 +145,8 @@
     "semanticTouchMatrix": "go",
     "runtimePromptBoundary": "go",
     "immediateLiteVisualResponse": "go",
-    "gestureClassifierV2": "no_go",
+    "gestureClassifierV2": "go",
+    "gestureSpecificCubismAnimation": "no_go",
     "orientationSpecificHitMaps": "no_go",
     "privateAssetPackage": "no_go"
   }

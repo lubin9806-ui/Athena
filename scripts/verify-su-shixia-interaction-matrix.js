@@ -15,8 +15,10 @@ function main() {
 
   assert.equal(manifest.sourceArt.interactionMatrix, 'source/review/interaction-matrix-v1.json');
   assert.equal(manifest.sourceArt.interactionReadinessAudit, '../../../docs/quality/su-shixia-interaction-readiness-audit.json');
+  assert.equal(manifest.sourceArt.gestureClassifierProof, '../../../docs/quality/su-shixia-gesture-classifier-proof.json');
   assert.equal(manifest.production.interactionMatrixReady, true);
   assert.equal(manifest.production.interactionReadinessAuditReady, true);
+  assert.equal(manifest.production.gestureClassifierV2Ready, true);
 
   assert.equal(matrix.version, 1);
   assert.equal(matrix.packageId, 'su-shixia-live2d-v2');
@@ -40,6 +42,8 @@ function main() {
   assert.equal(matrix.runtimeBoundary.modelMaySelectArbitraryMotionFile, false);
   assert.equal(matrix.runtimeBoundary.modelMayBypassModePolicy, false);
   assert.equal(matrix.runtimeBoundary.publicPackageContainsPrivateAssets, false);
+  assert.equal(matrix.runtimeBoundary.gestureClassifierV2.status, 'go');
+  assert.deepEqual(matrix.runtimeBoundary.gestureClassifierV2.gestures, ['tap', 'repeat_tap', 'long_press', 'stroke', 'drag']);
 
   assert.equal(audit.version, 1);
   assert.equal(audit.status, 'go');
@@ -47,7 +51,8 @@ function main() {
   assert.equal(audit.goNoGo.semanticTouchMatrix, 'go');
   assert.equal(audit.goNoGo.runtimePromptBoundary, 'go');
   assert.equal(audit.goNoGo.immediateLiteVisualResponse, 'go');
-  assert.equal(audit.goNoGo.gestureClassifierV2, 'no_go');
+  assert.equal(audit.goNoGo.gestureClassifierV2, 'go');
+  assert.equal(audit.goNoGo.gestureSpecificCubismAnimation, 'no_go');
   assert.equal(audit.goNoGo.orientationSpecificHitMaps, 'no_go');
   assert.equal(audit.goNoGo.privateAssetPackage, 'no_go');
   assert.deepEqual(audit.blockers, []);

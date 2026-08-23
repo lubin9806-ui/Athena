@@ -61,6 +61,7 @@ function main() {
   const profile = readJson(path.join(PACKAGE_ROOT, 'profile.avatar.json'));
   const lite = readJson(path.join(PACKAGE_ROOT, 'model', 'su-shixia-live2d-v2-lite.model3.json')).AthenaLive2DLite;
   const runtimeQa = readJson(path.join(PACKAGE_ROOT, manifest.sourceArt.runtimeVisualQaReport));
+  const gestureProof = readOptionalJson(path.join(PACKAGE_ROOT, manifest.sourceArt.gestureClassifierProof ?? ''));
   const motionTemplateNames = new Set(
     fs.readdirSync(path.join(PACKAGE_ROOT, 'cubism-handoff', 'motions'))
       .filter(file => file.endsWith('.motion3.json'))
@@ -131,21 +132,26 @@ function main() {
       modelMayBypassModePolicy: false,
       publicPackageContainsPrivateAssets: false,
       immediateVisualResponseRequired: true,
+      gestureClassifierV2: {
+        status: gestureProof?.status === 'go' ? 'go' : 'proof_pending',
+        gestures: gestureProof?.gestures ?? ['tap', 'repeat_tap', 'long_press', 'stroke', 'drag'],
+        boundary: 'Gesture type is passed to the persona prompt; gesture-specific authored Cubism animation polish remains future work.',
+      },
       noGo: [
-        'Gesture classification is still tap-zone based; hold, stroke, drag, and repeated-tap classifiers remain future work.',
+        'Gesture classification distinguishes tap, repeat-tap, long-press, stroke, and drag; gesture-specific authored Cubism animation polish remains future work.',
         'True orientation-specific hit maps require profile/back source packages and Cubism deformation proof.',
         'Private/adult-only assets remain absent from the public package.',
       ],
     },
   };
 
-  const audit = buildAudit(manifest, matrix, lite, runtimeQa, motionTemplateNames);
+  const audit = buildAudit(manifest, matrix, lite, runtimeQa, motionTemplateNames, gestureProof);
   writeJson(MATRIX_PATH, matrix);
   writeJson(AUDIT_PATH, audit);
   console.log(`SU_SHIXIA_INTERACTION_MATRIX_GENERATED zones=${zones.length} status=${audit.status}`);
 }
 
-function buildAudit(manifest, matrix, lite, runtimeQa, motionTemplateNames) {
+function buildAudit(manifest, matrix, lite, runtimeQa, motionTemplateNames, gestureProof) {
   const zones = matrix.zones;
   const zoneIds = new Set(zones.map(zone => zone.id));
   const checks = [
@@ -165,6 +171,8 @@ function buildAudit(manifest, matrix, lite, runtimeQa, motionTemplateNames) {
     check('lite-motion-groups-present', zones.every(zone => zone.hasLiteMotion)),
     check('cubism-motion-templates-present', zones.every(zone => zone.hasCubismMotionTemplate)),
     check('representative-visual-qa-covered', REQUIRED_REPRESENTATIVE_MOTIONS.every(motion => runtimeQa.checks.requiredMotionCases.includes(motion))),
+    check('gesture-classifier-v2-ready', manifest.production.gestureClassifierV2Ready === true),
+    check('gesture-proof-covers-five-types', !gestureProof || ['tap', 'repeat_tap', 'long_press', 'stroke', 'drag'].every(gesture => gestureProof.gestures.includes(gesture))),
     check('no-public-private-assets', manifest.production.adultPackageIncluded === false),
     check('policy-normal-default', matrix.policy.defaultMode === 'normal'),
     check('policy-private-opt-in', matrix.policy.privateModeRequiresExplicitOptIn === true),
@@ -191,7 +199,8 @@ function buildAudit(manifest, matrix, lite, runtimeQa, motionTemplateNames) {
       semanticTouchMatrix: blockers.length === 0 ? 'go' : 'no_go',
       runtimePromptBoundary: 'go',
       immediateLiteVisualResponse: 'go',
-      gestureClassifierV2: 'no_go',
+      gestureClassifierV2: manifest.production.gestureClassifierV2Ready === true ? 'go' : 'no_go',
+      gestureSpecificCubismAnimation: 'no_go',
       orientationSpecificHitMaps: 'no_go',
       privateAssetPackage: 'no_go',
     },
@@ -248,6 +257,11 @@ function check(id, passed, detail = '') {
 
 function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+}
+
+function readOptionalJson(filePath) {
+  if (!filePath || !fs.existsSync(filePath)) return null;
+  return readJson(filePath);
 }
 
 function writeJson(filePath, value) {

@@ -1007,8 +1007,19 @@
     "modelMayBypassModePolicy": false,
     "publicPackageContainsPrivateAssets": false,
     "immediateVisualResponseRequired": true,
+    "gestureClassifierV2": {
+      "status": "go",
+      "gestures": [
+        "tap",
+        "repeat_tap",
+        "long_press",
+        "stroke",
+        "drag"
+      ],
+      "boundary": "Gesture type is passed to the persona prompt; gesture-specific authored Cubism animation polish remains future work."
+    },
     "noGo": [
-      "Gesture classification is still tap-zone based; hold, stroke, drag, and repeated-tap classifiers remain future work.",
+      "Gesture classification distinguishes tap, repeat-tap, long-press, stroke, and drag; gesture-specific authored Cubism animation polish remains future work.",
       "True orientation-specific hit maps require profile/back source packages and Cubism deformation proof.",
       "Private/adult-only assets remain absent from the public package."
     ]

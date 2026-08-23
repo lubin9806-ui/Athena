@@ -53,9 +53,9 @@ class FakeCanvas {
     return false;
   }
   remove() {}
-  async dispatchPointerDown(point) {
-    for (const handler of this.listeners.get('pointerdown') ?? []) {
-      handler({ pointerId: 1, clientX: point.x, clientY: point.y });
+  async dispatchPointer(type, point, timeStamp = 100) {
+    for (const handler of this.listeners.get(type) ?? []) {
+      handler({ pointerId: 1, clientX: point.x, clientY: point.y, timeStamp });
     }
     await waitForAsyncHandlers();
   }
@@ -112,7 +112,7 @@ async function main() {
     canvas,
     now: () => '2026-08-24T00:00:00.000Z',
     onEvent: event => events.push(event),
-    onHotZoneAction: (action, hotZoneId) => callbacks.push({ action, hotZoneId }),
+    onHotZoneAction: (action, hotZoneId, gestureType) => callbacks.push({ action, hotZoneId, gestureType }),
   });
   await controller.load();
 
@@ -122,7 +122,9 @@ async function main() {
     assert.ok(zone, `missing hot zone ${id}`);
     const before = host.calls.length;
     host.nextHitAreas = zone.hitAreaName ? [zone.hitAreaName] : [];
-    await canvas.dispatchPointerDown(centerOf(zone.rect, canvas));
+    const pointer = centerOf(zone.rect, canvas);
+    await canvas.dispatchPointer('pointerdown', pointer, 100);
+    await canvas.dispatchPointer('pointerup', pointer, 180);
     const afterCalls = host.calls.slice(before);
     const callback = callbacks.findLast(item => item.hotZoneId === id);
     assert.ok(callback, `missing callback for ${id}`);
@@ -139,6 +141,7 @@ async function main() {
       motionGroup: afterCalls.find(call => call.type === 'motion')?.motionGroup ?? null,
       expressionId: afterCalls.find(call => call.type === 'expression')?.expressionId ?? null,
       hitTestAreas: afterCalls.find(call => call.type === 'hitTest')?.hitAreas ?? [],
+      gestureType: callback.gestureType,
       promptTemplatePresent: Boolean(promptTemplate),
       normalModePromptBoundary: normalPrompt.includes('当前模式：normal'),
       privateAttemptMode: privatePrompt.includes('当前模式：private_opt_in') ? 'private_opt_in' : 'normal',
@@ -155,6 +158,7 @@ async function main() {
     check('all-cases-play-motion', cases.every(item => item.motionGroup)),
     check('all-cases-set-expression', cases.every(item => item.expressionId)),
     check('all-cases-have-prompt-template', cases.every(item => item.promptTemplatePresent)),
+    check('all-cases-classified-tap', cases.every(item => item.gestureType === 'tap')),
     check('normal-mode-boundary-generated', cases.every(item => item.normalModePromptBoundary)),
     check('private-zone-private-attempt-covered', cases.some(item => item.id === 'chest' && item.privateAttemptMode === 'private_opt_in')),
     check('controller-unloaded', host.calls.some(call => call.type === 'unload')),

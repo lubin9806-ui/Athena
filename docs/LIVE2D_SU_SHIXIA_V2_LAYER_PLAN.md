@@ -388,3 +388,14 @@ Produced on 2026-08-24:
 - npm command: `npm.cmd run test:live2d:su-shixia-motion-authoring`.
 
 Stage 3P status: `MOTION AUTHORING PACKET READY`. The packet joins the GitHub reference scan, interaction matrix, profile hot zones, and 37 Cubism `.motion3.json` templates into one authoring checklist. It groups motions into idle presence, voice speech, face/head touch, hand/arm gestures, garment/body reactions, legs/feet, and turn preview. It records duration, curve count, parameter IDs, linked touch zones, stiffness risk, voice-sync requirements, and next evidence for Cubism playback capture. This is a motion-production handoff, not final animation approval; high-risk reactions and `TurnPreview` still need real Editor polish and human review.
+
+## Stage 3Q Gesture Classifier
+
+Produced on 2026-08-24:
+
+- gesture classifier proof: `docs/quality/su-shixia-gesture-classifier-proof.json`;
+- proof generator: `scripts/generate-su-shixia-gesture-classifier-proof.js`;
+- proof verifier: `scripts/verify-su-shixia-gesture-classifier-proof.js`;
+- npm command: `npm.cmd run test:live2d:su-shixia-gesture-classifier`.
+
+Stage 3Q status: `GESTURE CLASSIFIER V2 READY`. The compiled `Live2DCanvasController` now waits for pointer-up classification and distinguishes tap, repeat tap, long press, stroke, and drag. `AthenaLive2DCompanion` includes the gesture label in the bounded persona prompt, so the model can reply differently while runtime still owns zone permission, cooldown, expression, and motion allowlists. This does not create separate gesture-specific Cubism animation files; that remains part of the future authored motion polish pass.
