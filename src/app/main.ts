@@ -44,7 +44,11 @@ const isModelSmokeTest = isSmokeTest && process.env.ATHENA_SMOKE_MODEL === '1';
 const isLive2dPetSmokeTest = RELEASE_FEATURES.live2d && isSmokeTest && process.env.ATHENA_SMOKE_LIVE2D_PET === '1';
 const smokeScreenshotPath = process.env.ATHENA_SMOKE_SCREENSHOT?.trim();
 const smokeCaptureRipple = isSmokeTest && process.env.ATHENA_SMOKE_CAPTURE_RIPPLE === '1';
-const smokeAttachmentUi = isSmokeTest && process.env.ATHENA_SMOKE_ATTACHMENTS === '1';
+const smokeAttachmentUi = isSmokeTest && (
+  process.env.ATHENA_SMOKE_ATTACHMENTS === '1'
+  || process.argv.includes('--smoke-attachments')
+  || app.commandLine.hasSwitch('smoke-attachments')
+);
 const smokeSelectId = isSmokeTest ? process.env.ATHENA_SMOKE_SELECT?.trim() || null : null;
 const smokeTheme = process.env.ATHENA_SMOKE_THEME === 'night'
   ? 'night'
@@ -1020,7 +1024,8 @@ function createWindow(): void {
               const main = document.getElementById('composer-main');
               const meta = document.getElementById('composer-meta');
               const input = document.getElementById('input-box');
-              if (!form || !tray || !main || !meta || !(input instanceof HTMLTextAreaElement)) return null;
+              const addButton = document.getElementById('chat-file-btn');
+              if (!form || !tray || !main || !meta || !(input instanceof HTMLTextAreaElement) || !(addButton instanceof HTMLButtonElement)) return null;
               if (window.innerWidth <= 860 && shell) {
                 shell.dataset.sidebar = 'closed';
                 await new Promise(resolve => setTimeout(resolve, 900));
@@ -1032,15 +1037,21 @@ function createWindow(): void {
               for (let index = 0; index < 5; index += 1) {
                 const item = document.createElement('div');
                 item.className = 'composer-attachment';
-                const image = document.createElement('img');
-                image.src = pixel;
+                item.dataset.kind = index === 0 ? 'image' : index === 1 ? 'audio' : 'document';
+                const preview = index === 0 ? document.createElement('img') : document.createElement('div');
+                if (preview instanceof HTMLImageElement) preview.src = pixel;
+                else {
+                  preview.className = 'composer-attachment-kind';
+                  preview.textContent = index === 1 ? '音频' : 'PDF';
+                }
                 const label = document.createElement('span');
-                label.textContent = 'long-attachment-name-' + (index + 1) + '.png';
+                label.className = 'composer-attachment-name';
+                label.textContent = 'long-attachment-name-' + (index + 1) + (index === 0 ? '.png' : index === 1 ? '.wav' : '.pdf');
                 const remove = document.createElement('button');
                 remove.className = 'composer-attachment-remove';
                 remove.type = 'button';
                 remove.textContent = 'x';
-                item.append(image, label, remove);
+                item.append(preview, label, remove);
                 tray.appendChild(item);
               }
               input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -1054,7 +1065,10 @@ function createWindow(): void {
                 tray: { top: trayRect.top, bottom: trayRect.bottom, height: trayRect.height },
                 main: { top: mainRect.top, bottom: mainRect.bottom, height: mainRect.height },
                 meta: { top: metaRect.top, bottom: metaRect.bottom, height: metaRect.height },
-                valid: trayRect.top >= formRect.top
+                attachmentKinds: tray.querySelectorAll('.composer-attachment-kind').length,
+                valid: /添加文件/.test(addButton.textContent || '')
+                  && tray.querySelectorAll('.composer-attachment-kind').length === 4
+                  && trayRect.top >= formRect.top
                   && trayRect.bottom <= mainRect.top + 1
                   && mainRect.bottom <= metaRect.top + 1
                   && metaRect.bottom <= formRect.bottom,

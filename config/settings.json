@@ -9,7 +9,7 @@
     "autoConnectModel": true
   },
   "appearance": {
-    "theme": "day",
+    "theme": "night",
     "animationLevel": "high",
     "glassEffects": true
   },
@@ -26,7 +26,7 @@
       "create": "off",
       "companion": "off",
       "reason": "off",
-      "execute": "off"
+      "execute": "full"
     },
     "maxToolRounds": 4,
     "commandTimeoutSeconds": 60,
@@ -79,6 +79,7 @@
     "networkConsent": {
       "remoteModel": true,
       "webSearch": true,
+      "imageGeneration": false,
       "onlineSpeechToText": false,
       "onlineTextToSpeech": false,
       "externalToolNetwork": true

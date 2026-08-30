@@ -86,6 +86,7 @@ declare global {
         routing?: AgentMessageRouteDecision;
       } | null>;
       chooseChatImages: (chatWindowId: number) => Promise<ChatAttachmentSnapshot[]>;
+      chooseChatFiles: (chatWindowId: number, maxFiles?: number) => Promise<ChatAttachmentSnapshot[]>;
       getChatAttachmentPreview: (chatWindowId: number, attachmentId: string) => Promise<string | null>;
       removePendingChatAttachment: (chatWindowId: number, attachmentId: string) => Promise<boolean>;
       chooseProjectDocuments: (chatWindowId: number) => Promise<ProjectDocumentRecord[]>;
@@ -995,7 +996,7 @@ const composerMoreBtn = mustGet<HTMLButtonElement>('composer-more-btn');
 const composerSecondaryTools = mustGet<HTMLElement>('composer-secondary-tools');
 const webSearchBtn = mustGet<HTMLButtonElement>('web-search-btn');
 const availableToolsBtn = mustGet<HTMLButtonElement>('available-tools-btn');
-const chatImageBtn = mustGet<HTMLButtonElement>('chat-image-btn');
+const chatFileBtn = mustGet<HTMLButtonElement>('chat-file-btn');
 const projectDocumentBtn = mustGet<HTMLButtonElement>('project-document-btn');
 const projectDocumentOcrBtn = mustGet<HTMLButtonElement>('project-document-ocr-btn');
 const composerAttachments = mustGet<HTMLElement>('composer-attachments');
@@ -1486,7 +1487,7 @@ async function sendAvatarInteraction(prompt: string, hotZoneId: string): Promise
 
 async function sendMessage(text: string): Promise<void> {
   const queuedAttachments = currentPendingAttachments();
-  const effectiveText = text.trim() || (queuedAttachments.length > 0 ? '请查看并理解这些图片。' : '');
+  const effectiveText = text.trim() || (queuedAttachments.length > 0 ? '请查看并理解这些附件。' : '');
   if (!effectiveText || isStreaming || isVoiceInputBusy()) return;
   if (!currentChatWindowId) await initializeChatWindows();
   const requestChatWindowId = currentChatWindowId;
@@ -1861,7 +1862,7 @@ function init(): void {
   inputBox.addEventListener('keydown', handleInputKeydown);
   inputBox.addEventListener('input', resizeInputBox);
   composerMoreBtn.addEventListener('click', () => toggleComposerTools());
-  chatImageBtn.addEventListener('click', () => void chooseChatImages());
+  chatFileBtn.addEventListener('click', () => void chooseChatFiles());
   projectDocumentBtn.addEventListener('click', () => void chooseProjectDocuments());
   projectDocumentOcrBtn.addEventListener('click', () => void chooseScannedProjectPdfs());
   window.addEventListener('resize', () => positionComposerTools());
@@ -4057,12 +4058,23 @@ function currentPendingAttachments(): ChatAttachmentSnapshot[] {
   return currentChatWindowId ? pendingChatAttachments.get(currentChatWindowId) || [] : [];
 }
 
-async function chooseChatImages(): Promise<void> {
+async function chooseChatFiles(): Promise<void> {
   if (!currentChatWindowId || isStreaming) return;
+  const availableSlots = 5 - currentPendingAttachments().length;
+  if (availableSlots <= 0) {
+    toggleComposerTools(false);
+    setStatus('一条消息最多添加 5 个附件', 'error');
+    window.setTimeout(restoreIdleStatus, 2400);
+    return;
+  }
   toggleComposerTools(false);
   try {
-    const selected = await window.athenaAPI.chooseChatImages(currentChatWindowId);
-    if (selected.length === 0) return;
+    setStatus('选择文件、图片或音频…', 'ready');
+    const selected = await window.athenaAPI.chooseChatFiles(currentChatWindowId, availableSlots);
+    if (selected.length === 0) {
+      restoreIdleStatus();
+      return;
+    }
     const current = currentPendingAttachments();
     const accepted = [...current, ...selected].slice(0, 5);
     const overflow = selected.filter(item => !accepted.some(candidate => candidate.id === item.id));
@@ -4072,9 +4084,11 @@ async function chooseChatImages(): Promise<void> {
     pendingChatAttachments.set(currentChatWindowId, accepted);
     renderComposerAttachments();
     inputBar.focus();
+    setStatus(`已添加 ${selected.length} 个附件`, 'ready');
+    window.setTimeout(restoreIdleStatus, 1800);
   } catch (error) {
-    setStatus(error instanceof Error ? error.message : '图片添加失败', 'error');
-    window.setTimeout(restoreIdleStatus, 2400);
+    setStatus(error instanceof Error ? error.message : '附件添加失败', 'error');
+    window.setTimeout(restoreIdleStatus, 3200);
   }
 }
 
@@ -4138,11 +4152,24 @@ function renderComposerAttachments(): void {
   for (const attachment of attachments) {
     const item = document.createElement('div');
     item.className = 'composer-attachment';
-    const image = document.createElement('img');
-    image.alt = '';
-    image.src = attachment.preview_data_url || '';
+    item.dataset.kind = attachment.kind;
+    let preview: HTMLElement;
+    if (attachment.kind === 'image') {
+      const image = document.createElement('img');
+      image.alt = '';
+      image.src = attachment.preview_data_url || '';
+      preview = image;
+    } else {
+      const badge = document.createElement('div');
+      badge.className = 'composer-attachment-kind';
+      badge.textContent = attachment.kind === 'audio' ? '音频' : composerAttachmentLabel(attachment.mime_type);
+      badge.setAttribute('aria-hidden', 'true');
+      preview = badge;
+    }
     const label = document.createElement('span');
+    label.className = 'composer-attachment-name';
     label.textContent = attachment.original_name;
+    label.title = `${attachment.original_name} · ${formatAttachmentBytes(attachment.bytes)}`;
     const remove = document.createElement('button');
     remove.type = 'button';
     remove.className = 'composer-attachment-remove';
@@ -4155,10 +4182,23 @@ function renderComposerAttachments(): void {
     icon.appendChild(use);
     remove.appendChild(icon);
     remove.addEventListener('click', () => void removePendingAttachment(attachment.id));
-    item.append(image, label, remove);
+    item.append(preview, label, remove);
     composerAttachments.appendChild(item);
   }
   resizeInputBox();
+}
+
+function composerAttachmentLabel(mimeType: string): string {
+  if (mimeType === 'application/pdf') return 'PDF';
+  if (mimeType.includes('wordprocessingml.document')) return 'DOCX';
+  if (mimeType === 'text/markdown') return 'MD';
+  return 'TXT';
+}
+
+function formatAttachmentBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 async function removePendingAttachment(attachmentId: string): Promise<void> {

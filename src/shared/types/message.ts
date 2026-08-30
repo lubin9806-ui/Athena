@@ -7,18 +7,29 @@ import type { WebSearchSummary } from './search';
 import type { ToolExecutionRecord } from './tools';
 import type { AgentExecutionSummary } from './agent';
 
-export type ChatAttachmentMimeType = 'image/png' | 'image/jpeg' | 'image/webp';
+export type ChatAttachmentKind = 'image' | 'document' | 'audio';
+export type ChatAttachmentMimeType =
+  | 'image/png'
+  | 'image/jpeg'
+  | 'image/webp'
+  | 'text/plain'
+  | 'text/markdown'
+  | 'application/pdf'
+  | 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  | 'audio/wav'
+  | 'audio/aiff'
+  | 'audio/flac';
 
 export interface ChatAttachment {
   id: string;
   window_id: number;
   message_id?: number;
-  kind: 'image';
+  kind: ChatAttachmentKind;
   mime_type: ChatAttachmentMimeType;
   original_name: string;
   bytes: number;
-  width: number;
-  height: number;
+  width?: number;
+  height?: number;
   sha256: string;
   status: 'pending' | 'attached';
   created_at: string;

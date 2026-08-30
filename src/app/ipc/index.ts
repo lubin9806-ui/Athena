@@ -72,6 +72,7 @@ const INVOKE_CHANNELS = [
   'chat:route',
   'chat:send',
   'attachment:chooseImages',
+  'attachment:chooseFiles',
   'attachment:preview',
   'attachment:removePending',
   'document:choose',
@@ -279,6 +280,30 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<vo
     });
     if (result.canceled || result.filePaths.length === 0) return [];
     return controller.importChatImages(chatWindowId, result.filePaths.slice(0, 5));
+  });
+
+  ipcMain.handle('attachment:chooseFiles', async (event, value: unknown) => {
+    if (!isTrustedSender(event) || !isRecord(value)) return [];
+    const chatWindowId = cleanPositiveInteger(value.chatWindowId);
+    const maxFiles = Math.max(1, Math.min(5, cleanPositiveInteger(value.maxFiles) || 5));
+    if (!chatWindowId) return [];
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: '添加到聊天',
+      properties: ['openFile', 'multiSelections'],
+      filters: [
+        { name: '支持的文件', extensions: ['png', 'jpg', 'jpeg', 'webp', 'txt', 'md', 'markdown', 'pdf', 'docx', 'wav', 'aiff', 'aif', 'flac'] },
+        { name: '图片', extensions: ['png', 'jpg', 'jpeg', 'webp'] },
+        { name: '文档', extensions: ['txt', 'md', 'markdown', 'pdf', 'docx'] },
+        { name: '音频', extensions: ['wav', 'aiff', 'aif', 'flac'] },
+      ],
+    });
+    if (result.canceled || result.filePaths.length === 0) return [];
+    const selected = result.filePaths.slice(0, maxFiles);
+    const attachments = await controller.importChatFiles(chatWindowId, selected, async sourcePath => {
+      if (!getAppSettings().voice.sttEnabled) return { ok: false, error: '请先在设置中开启本地语音识别，再添加音频。' };
+      return voice.transcribe(sourcePath);
+    });
+    return attachments;
   });
 
   ipcMain.handle('attachment:preview', async (event, value: unknown) => {

@@ -41,12 +41,12 @@ export interface ChatAttachmentSnapshot {
   id: string;
   window_id: number;
   message_id?: number;
-  kind: 'image';
-  mime_type: 'image/png' | 'image/jpeg' | 'image/webp';
+  kind: 'image' | 'document' | 'audio';
+  mime_type: string;
   original_name: string;
   bytes: number;
-  width: number;
-  height: number;
+  width?: number;
+  height?: number;
   sha256: string;
   status: 'pending' | 'attached';
   created_at: string;
@@ -139,21 +139,31 @@ export class ChatPanel {
     for (const attachment of attachments) {
       const figure = document.createElement('figure');
       figure.className = 'message-attachment';
-      const image = document.createElement('img');
-      image.alt = attachment.original_name;
-      image.loading = 'lazy';
-      image.decoding = 'async';
-      const preview = attachment.preview_data_url;
-      if (preview) image.src = preview;
-      else if (this.loadAttachmentPreview) {
-        void this.loadAttachmentPreview(attachment).then(source => {
-          if (source && image.isConnected) image.src = source;
-          else figure.dataset.unavailable = 'true';
-        }).catch(() => { figure.dataset.unavailable = 'true'; });
+      figure.dataset.kind = attachment.kind;
+      if (attachment.kind === 'image') {
+        const image = document.createElement('img');
+        image.alt = attachment.original_name;
+        image.loading = 'lazy';
+        image.decoding = 'async';
+        const preview = attachment.preview_data_url;
+        if (preview) image.src = preview;
+        else if (this.loadAttachmentPreview) {
+          void this.loadAttachmentPreview(attachment).then(source => {
+            if (source && image.isConnected) image.src = source;
+            else figure.dataset.unavailable = 'true';
+          }).catch(() => { figure.dataset.unavailable = 'true'; });
+        }
+        figure.appendChild(image);
+      } else {
+        const badge = document.createElement('div');
+        badge.className = 'message-attachment-badge';
+        badge.textContent = attachment.kind === 'audio' ? '音频' : attachmentLabel(attachment.mime_type);
+        badge.setAttribute('aria-hidden', 'true');
+        figure.appendChild(badge);
       }
       const caption = document.createElement('figcaption');
       caption.textContent = attachment.original_name;
-      figure.append(image, caption);
+      figure.appendChild(caption);
       gallery.appendChild(figure);
     }
     return gallery;
@@ -351,4 +361,11 @@ export class ChatPanel {
   private scrollToBottom(): void {
     this.container.scrollTop = this.container.scrollHeight;
   }
+}
+
+function attachmentLabel(mimeType: string): string {
+  if (mimeType === 'application/pdf') return 'PDF';
+  if (mimeType.includes('wordprocessingml.document')) return 'DOCX';
+  if (mimeType === 'text/markdown') return 'MD';
+  return 'TXT';
 }

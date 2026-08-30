@@ -360,14 +360,15 @@ function parseOpenAIToolCalls(value: unknown, fallbackPrefix: string): ModelTool
 
 function capabilitiesFor(provider: RemoteModelProvider, endpoint: string, model: string): ModelAdapterCapabilities {
   const isOpenAI = provider === 'openai';
+  const isDeepSeekVision = provider === 'deepseek' && supportsDeepSeekImageInput(model);
   let isDeepSeekStrict = false;
   try { isDeepSeekStrict = provider === 'deepseek' && /\/beta(?:\/|$)/i.test(new URL(endpoint).pathname); }
   catch { isDeepSeekStrict = false; }
   const knownTools = provider !== 'custom';
   return {
-    imageInputs: isOpenAI && supportsOpenAIImageInput(model),
+    imageInputs: (isOpenAI && supportsOpenAIImageInput(model)) || isDeepSeekVision,
     imageInputFormats: ['image/png', 'image/jpeg', 'image/webp'],
-    imageInputSource: isOpenAI ? 'static' : 'unsupported',
+    imageInputSource: isOpenAI || isDeepSeekVision ? 'static' : 'unsupported',
     nativeToolCalls: true,
     parallelToolCalls: knownTools,
     streamingToolCalls: true,
@@ -382,6 +383,10 @@ function capabilitiesFor(provider: RemoteModelProvider, endpoint: string, model:
 
 function supportsOpenAIImageInput(model: string): boolean {
   return /^(?:gpt-4o|gpt-4\.1|gpt-5|chatgpt|chat-latest)(?:[-.]|$)/i.test(model);
+}
+
+function supportsDeepSeekImageInput(model: string): boolean {
+  return model.trim().toLowerCase() === 'deepseek-v4-flash-vision-exp';
 }
 
 function supportsOpenAIJsonSchema(model: string): boolean {

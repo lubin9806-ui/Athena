@@ -303,7 +303,7 @@ function getAttachmentsForMessages(messageIds: number[]): Map<number, ChatAttach
     SELECT id, window_id, message_id, kind, mime_type, original_name, bytes, width, height, sha256, status, created_at
     FROM chat_attachments
     WHERE status = 'attached' AND message_id IN (${placeholders})
-    ORDER BY created_at ASC, id ASC
+    ORDER BY created_at ASC, rowid ASC
   `).all(...messageIds) as Array<ChatAttachment & { message_id: number }>;
   for (const row of rows) {
     const items = result.get(row.message_id) || [];

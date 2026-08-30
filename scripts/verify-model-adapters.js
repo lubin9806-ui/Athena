@@ -267,6 +267,30 @@ async function main() {
       deepseek.generate({ messages: [{ role: 'user', content: 'Describe it', images: [image] }] }),
       ModelCapabilityError,
     );
+    const deepseekVision = new LLMClient({
+      provider: 'deepseek',
+      remote: { deepseek: { baseUrl: `${host}/v1`, model: 'deepseek-v4-flash-vision-exp', temperature: 0.2, maxTokens: 400, numCtx: 8192 } },
+    }, () => 'sk-deepseek');
+    assert.equal(deepseekVision.capabilities.imageInputs, true, 'the official DeepSeek vision model must accept image inputs');
+    assert.equal(deepseekVision.capabilities.imageInputSource, 'static');
+    const deepseekVisionResponse = await deepseekVision.generate({
+      messages: [{ role: 'user', content: 'Describe this image', images: [image] }],
+    });
+    assert.equal(deepseekVisionResponse.content, 'I can see the image.');
+    const deepseekVisionRequest = requests.find(item => (
+      item.url === '/v1/chat/completions' && item.body.model === 'deepseek-v4-flash-vision-exp'
+    ));
+    assert.ok(deepseekVisionRequest, 'DeepSeek vision request must reach Chat Completions');
+    assert.equal(deepseekVisionRequest.body.messages[0].content[0].type, 'text');
+    assert.equal(deepseekVisionRequest.body.messages[0].content[1].type, 'image_url');
+    assert.ok(deepseekVisionRequest.body.messages[0].content[1].image_url.url.startsWith('data:image/png;base64,'));
+    assert.equal(deepseekVisionRequest.body.messages[0].content[1].image_url.detail, 'auto');
+    assert.equal(deepseekVisionRequest.body.max_tokens, 400);
+    const unverifiedDeepseekVisionAlias = new LLMClient({
+      provider: 'deepseek',
+      remote: { deepseek: { baseUrl: `${host}/v1`, model: 'deepseek-v4-flash-vision', temperature: 0.2, maxTokens: 400, numCtx: 8192 } },
+    }, () => 'sk-deepseek');
+    assert.equal(unverifiedDeepseekVisionAlias.capabilities.imageInputs, false, 'unverified DeepSeek model aliases must remain closed');
     await deepseek.chatWithTools([{ role: 'user', content: 'Weather?' }], [weatherTool], { toolChoice: { name: 'get_weather' } });
     const deepseekRequest = requests.filter(item => item.url === '/v1/chat/completions').at(-1).body;
     assert.equal(deepseekRequest.max_tokens, 400);

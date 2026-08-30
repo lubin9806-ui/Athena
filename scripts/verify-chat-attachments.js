@@ -74,6 +74,42 @@ try {
   assert.ok(service.getPreview(windowB.id, freshAtBoundary.id));
   assert.equal(service.removePending(windowB.id, freshAtBoundary.id), true);
 
+  const textSource = path.join(tempDir, 'notes.md');
+  fs.writeFileSync(textSource, '# Athena\n\nThis is a chat attachment.', 'utf8');
+  const wavSource = path.join(tempDir, 'voice.wav');
+  const wavHeader = Buffer.alloc(44);
+  wavHeader.write('RIFF', 0, 'ascii');
+  wavHeader.writeUInt32LE(36, 4);
+  wavHeader.write('WAVE', 8, 'ascii');
+  wavHeader.write('fmt ', 12, 'ascii');
+  wavHeader.writeUInt32LE(16, 16);
+  wavHeader.writeUInt16LE(1, 20);
+  wavHeader.writeUInt16LE(1, 22);
+  wavHeader.writeUInt32LE(16_000, 24);
+  wavHeader.writeUInt32LE(32_000, 28);
+  wavHeader.writeUInt16LE(2, 32);
+  wavHeader.writeUInt16LE(16, 34);
+  wavHeader.write('data', 36, 'ascii');
+  wavHeader.writeUInt32LE(0, 40);
+  fs.writeFileSync(wavSource, wavHeader);
+  const [documentAttachment, audioAttachment] = service.importPreparedFiles(windowB.id, [
+    { sourcePath: textSource, kind: 'document', mimeType: 'text/markdown', contentText: '# Athena\n\nThis is a chat attachment.' },
+    { sourcePath: wavSource, kind: 'audio', mimeType: 'audio/wav', contentText: '这是一段本地音频转写。' },
+  ]);
+  assert.equal(documentAttachment.kind, 'document');
+  assert.equal(audioAttachment.kind, 'audio');
+  assert.equal(documentAttachment.width, undefined);
+  assert.equal(service.getPreview(windowB.id, documentAttachment.id), null);
+  assert.deepEqual(service.resolveModelImages(windowB.id, [documentAttachment.id, audioAttachment.id]), []);
+  const textContext = service.resolveTextContext(windowB.id, [documentAttachment.id, audioAttachment.id]);
+  assert.deepEqual(textContext.map(item => item.kind), ['document', 'audio']);
+  assert.match(textContext[0].text, /chat attachment/);
+  assert.match(textContext[1].text, /本地音频转写/);
+  const fileMessage = memory.saveChatMessage(windowB.id, 'user', 'Read these files', undefined, 'companion');
+  service.attachToMessage(windowB.id, fileMessage.id, [documentAttachment.id, audioAttachment.id]);
+  const fileHistory = memory.getChatWindowMessages(windowB.id, 10);
+  assert.deepEqual(fileHistory.at(-1).attachments.map(item => item.kind), ['document', 'audio']);
+
   const [escapeAttempt] = service.importImages(windowB.id, [source]);
   const escapeModelImage = service.resolveModelImages(windowB.id, [escapeAttempt.id])[0];
   memory.getDatabase().prepare('UPDATE chat_attachments SET storage_path = ? WHERE id = ?').run(source, escapeAttempt.id);
@@ -83,8 +119,8 @@ try {
   assert.equal(service.removePending(windowB.id, escapeAttempt.id), true);
 
   const schemaVersion = Number(memory.getDatabase().pragma('user_version', { simple: true }));
-  assert.equal(schemaVersion, 14);
-  console.log('ATHENA_CHAT_ATTACHMENTS_OK formats=png,jpeg,webp max=5 isolation=window integrity=sha256 cleanup=temporary,stale');
+  assert.equal(schemaVersion, 15);
+  console.log('ATHENA_CHAT_ATTACHMENTS_OK formats=png,jpeg,webp,txt,md,pdf,docx,wav,aiff,flac max=5 isolation=window integrity=sha256 cleanup=temporary,stale');
 } catch (error) {
   console.error(error);
   exitCode = 1;

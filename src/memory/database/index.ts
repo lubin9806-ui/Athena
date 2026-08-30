@@ -7,7 +7,7 @@ import { ensureSufficientDiskSpace } from '../../core/runtime/DiskSpaceGuard';
 
 let db: Database.Database | null = null;
 let resolvedDbPath: string | null = null;
-export const DATABASE_SCHEMA_VERSION = 14;
+export const DATABASE_SCHEMA_VERSION = 15;
 const MIGRATION_BACKUP_RETENTION = 5;
 
 export interface MemoryStats {
@@ -210,13 +210,19 @@ function runMigrations(database: Database.Database, currentVersion: number): voi
       window_id INTEGER NOT NULL REFERENCES chat_windows(id) ON DELETE CASCADE,
       message_id INTEGER REFERENCES chat_messages(id) ON DELETE CASCADE,
       project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-      kind TEXT NOT NULL CHECK(kind IN ('image')),
-      mime_type TEXT NOT NULL CHECK(mime_type IN ('image/png', 'image/jpeg', 'image/webp')),
+      kind TEXT NOT NULL CHECK(kind IN ('image', 'document', 'audio')),
+      mime_type TEXT NOT NULL CHECK(mime_type IN (
+        'image/png', 'image/jpeg', 'image/webp',
+        'text/plain', 'text/markdown', 'application/pdf',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'audio/wav', 'audio/aiff', 'audio/flac'
+      )),
       original_name TEXT NOT NULL,
       storage_path TEXT NOT NULL UNIQUE,
-      bytes INTEGER NOT NULL CHECK(bytes > 0 AND bytes <= 10485760),
-      width INTEGER NOT NULL CHECK(width > 0 AND width <= 16384),
-      height INTEGER NOT NULL CHECK(height > 0 AND height <= 16384),
+      bytes INTEGER NOT NULL CHECK(bytes > 0 AND bytes <= 26214400),
+      width INTEGER CHECK(width IS NULL OR (width > 0 AND width <= 16384)),
+      height INTEGER CHECK(height IS NULL OR (height > 0 AND height <= 16384)),
+      content_text TEXT,
       sha256 TEXT NOT NULL CHECK(length(sha256) = 64),
       status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'attached')),
       created_at DATETIME DEFAULT (datetime('now', 'localtime')),
@@ -555,6 +561,49 @@ function runMigrations(database: Database.Database, currentVersion: number): voi
       database.exec("ALTER TABLE messages ADD COLUMN mode TEXT CHECK(mode IN ('create', 'companion', 'reason', 'execute'))");
     }
     database.exec('CREATE INDEX IF NOT EXISTS idx_messages_mode_created_at ON messages(mode, created_at)');
+    const attachmentColumns = database.prepare('PRAGMA table_info(chat_attachments)').all() as Array<{ name: string }>;
+    if (!attachmentColumns.some(column => column.name === 'content_text')) {
+      database.exec(`
+        DROP INDEX IF EXISTS idx_chat_attachments_window_status;
+        DROP INDEX IF EXISTS idx_chat_attachments_message;
+        DROP INDEX IF EXISTS idx_chat_attachments_project;
+        ALTER TABLE chat_attachments RENAME TO chat_attachments_before_v15;
+        CREATE TABLE chat_attachments (
+          id TEXT PRIMARY KEY,
+          window_id INTEGER NOT NULL REFERENCES chat_windows(id) ON DELETE CASCADE,
+          message_id INTEGER REFERENCES chat_messages(id) ON DELETE CASCADE,
+          project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+          kind TEXT NOT NULL CHECK(kind IN ('image', 'document', 'audio')),
+          mime_type TEXT NOT NULL CHECK(mime_type IN (
+            'image/png', 'image/jpeg', 'image/webp',
+            'text/plain', 'text/markdown', 'application/pdf',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'audio/wav', 'audio/aiff', 'audio/flac'
+          )),
+          original_name TEXT NOT NULL,
+          storage_path TEXT NOT NULL UNIQUE,
+          bytes INTEGER NOT NULL CHECK(bytes > 0 AND bytes <= 26214400),
+          width INTEGER CHECK(width IS NULL OR (width > 0 AND width <= 16384)),
+          height INTEGER CHECK(height IS NULL OR (height > 0 AND height <= 16384)),
+          content_text TEXT,
+          sha256 TEXT NOT NULL CHECK(length(sha256) = 64),
+          status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'attached')),
+          created_at DATETIME DEFAULT (datetime('now', 'localtime')),
+          CHECK((status = 'pending' AND message_id IS NULL) OR (status = 'attached' AND message_id IS NOT NULL))
+        );
+        INSERT INTO chat_attachments (
+          id, window_id, message_id, project_id, kind, mime_type, original_name,
+          storage_path, bytes, width, height, content_text, sha256, status, created_at
+        )
+        SELECT id, window_id, message_id, project_id, kind, mime_type, original_name,
+               storage_path, bytes, width, height, NULL, sha256, status, created_at
+        FROM chat_attachments_before_v15;
+        DROP TABLE chat_attachments_before_v15;
+        CREATE INDEX idx_chat_attachments_window_status ON chat_attachments(window_id, status, created_at);
+        CREATE INDEX idx_chat_attachments_message ON chat_attachments(message_id, created_at);
+        CREATE INDEX idx_chat_attachments_project ON chat_attachments(project_id, created_at);
+      `);
+    }
     const chatWindowColumns = database.prepare('PRAGMA table_info(chat_windows)').all() as Array<{ name: string }>;
     database.prepare(`
       INSERT INTO projects (title, instructions, memory_state)

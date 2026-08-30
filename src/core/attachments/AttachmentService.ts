@@ -3,12 +3,14 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { nativeImage } from 'electron';
 import { getChatWindow, getDatabase, getDatabaseFilePath } from '../../memory';
-import type { ChatAttachment, ChatAttachmentMimeType } from '../../shared/types';
+import type { ChatAttachment, ChatAttachmentKind, ChatAttachmentMimeType } from '../../shared/types';
 import type { ModelImageInput } from '../ai/model';
 import { detectImageMimeType } from '../ai/model/ModelImageLoader';
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
-const MAX_IMAGES_PER_MESSAGE = 5;
+const MAX_FILE_BYTES = 25 * 1024 * 1024;
+const MAX_ATTACHMENTS_PER_MESSAGE = 5;
+const MAX_ATTACHMENT_TEXT_CHARS = 140_000;
 const MAX_IMAGE_EDGE = 16_384;
 const MAX_IMAGE_PIXELS = 64 * 1024 * 1024;
 const PENDING_RETENTION_MS = 24 * 60 * 60 * 1000;
@@ -18,16 +20,33 @@ interface AttachmentRow {
   window_id: number;
   message_id: number | null;
   project_id: number;
-  kind: 'image';
+  kind: ChatAttachmentKind;
   mime_type: ChatAttachmentMimeType;
   original_name: string;
   storage_path: string;
   bytes: number;
-  width: number;
-  height: number;
+  width: number | null;
+  height: number | null;
+  content_text: string | null;
   sha256: string;
   status: 'pending' | 'attached';
   created_at: string;
+}
+
+export interface PreparedChatAttachment {
+  sourcePath: string;
+  kind: ChatAttachmentKind;
+  mimeType?: ChatAttachmentMimeType;
+  contentText?: string;
+  sourceSha256?: string;
+}
+
+export interface ChatAttachmentTextContext {
+  id: string;
+  name: string;
+  kind: 'document' | 'audio';
+  mimeType: ChatAttachmentMimeType;
+  text: string;
 }
 
 export class AttachmentService {
@@ -43,7 +62,7 @@ export class AttachmentService {
     if (!chatWindow?.project_id || chatWindow.deleted_at) throw new Error('Attachment chat window is not available');
     const uniquePaths = Array.from(new Set(sourcePaths.map(source => path.resolve(source))));
     if (uniquePaths.length === 0) return [];
-    if (uniquePaths.length > MAX_IMAGES_PER_MESSAGE) throw new Error(`A message can contain at most ${MAX_IMAGES_PER_MESSAGE} images`);
+    if (uniquePaths.length > MAX_ATTACHMENTS_PER_MESSAGE) throw new Error(`一条消息最多添加 ${MAX_ATTACHMENTS_PER_MESSAGE} 个附件。`);
 
     const imported: AttachmentRow[] = [];
     try {
@@ -55,17 +74,53 @@ export class AttachmentService {
     }
   }
 
+  importPreparedFiles(windowId: number, inputs: PreparedChatAttachment[]): ChatAttachment[] {
+    const chatWindow = getChatWindow(windowId);
+    if (!chatWindow?.project_id || chatWindow.deleted_at) throw new Error('当前聊天不可添加附件。');
+    const unique = Array.from(new Map(inputs.map(input => [path.resolve(input.sourcePath), { ...input, sourcePath: path.resolve(input.sourcePath) }])).values());
+    if (unique.length === 0) return [];
+    if (unique.length > MAX_ATTACHMENTS_PER_MESSAGE) throw new Error(`一条消息最多添加 ${MAX_ATTACHMENTS_PER_MESSAGE} 个附件。`);
+
+    const imported: AttachmentRow[] = [];
+    try {
+      for (const input of unique) {
+        imported.push(input.kind === 'image'
+          ? this.importImage(chatWindow.id, chatWindow.project_id, input.sourcePath)
+          : this.importTextBackedFile(chatWindow.id, chatWindow.project_id, input));
+      }
+      return imported.map(row => this.toPublic(row, true));
+    } catch (error) {
+      for (const row of imported) this.deleteRowAndFile(row);
+      throw error;
+    }
+  }
+
   resolveModelImages(windowId: number, attachmentIds: string[]): ModelImageInput[] {
     const rows = this.requireOwnedRows(windowId, attachmentIds, ['pending', 'attached']);
-    return rows.map(row => ({
+    return rows.filter(row => row.kind === 'image').map(row => ({
       id: row.id,
       name: row.original_name,
-      mimeType: row.mime_type,
+      mimeType: row.mime_type as ModelImageInput['mimeType'],
       filePath: this.requireManagedPath(row.storage_path),
       sha256: row.sha256,
       bytes: row.bytes,
       detail: 'auto',
     }));
+  }
+
+  resolveTextContext(windowId: number, attachmentIds: string[]): ChatAttachmentTextContext[] {
+    const rows = this.requireOwnedRows(windowId, attachmentIds, ['pending', 'attached']);
+    return rows
+      .filter((row): row is AttachmentRow & { kind: 'document' | 'audio'; content_text: string } => (
+        row.kind !== 'image' && Boolean(row.content_text?.trim())
+      ))
+      .map(row => ({
+        id: row.id,
+        name: row.original_name,
+        kind: row.kind,
+        mimeType: row.mime_type,
+        text: row.content_text,
+      }));
   }
 
   attachToMessage(windowId: number, messageId: number, attachmentIds: string[]): ChatAttachment[] {
@@ -89,14 +144,14 @@ export class AttachmentService {
       SELECT ${attachmentFields()}
       FROM chat_attachments
       WHERE message_id = ? AND status = 'attached'
-      ORDER BY created_at ASC, id ASC
+      ORDER BY created_at ASC, rowid ASC
     `).all(messageId) as AttachmentRow[];
     return rows.map(row => this.toPublic(row, false));
   }
 
   getPreview(windowId: number, attachmentId: string): string | null {
     const row = this.getOwnedRow(windowId, cleanAttachmentId(attachmentId));
-    if (!row) return null;
+    if (!row || row.kind !== 'image') return null;
     const bytes = fs.readFileSync(this.requireManagedPath(row.storage_path));
     if (bytes.length !== row.bytes || detectImageMimeType(bytes) !== row.mime_type
       || crypto.createHash('sha256').update(bytes).digest('hex') !== row.sha256) return null;
@@ -191,13 +246,50 @@ export class AttachmentService {
     return this.getOwnedRow(windowId, id) as AttachmentRow;
   }
 
+  private importTextBackedFile(windowId: number, projectId: number, input: PreparedChatAttachment): AttachmentRow {
+    if (input.kind === 'image') throw new Error('图片附件必须经过图片验证。');
+    const sourceStat = fs.lstatSync(input.sourcePath);
+    if (!sourceStat.isFile() || sourceStat.isSymbolicLink()) throw new Error('附件必须是普通文件。');
+    if (sourceStat.size <= 0 || sourceStat.size > MAX_FILE_BYTES) throw new Error('文档或音频附件必须在 1 字节到 25 MB 之间。');
+    const bytes = fs.readFileSync(input.sourcePath);
+    if (bytes.length !== sourceStat.size) throw new Error('附件在读取过程中发生了变化。');
+    const mimeType = detectNonImageMimeType(input.sourcePath, bytes);
+    if (input.mimeType && mimeType !== input.mimeType) throw new Error('附件格式与解析结果不一致。');
+    if ((input.kind === 'audio') !== mimeType.startsWith('audio/')) throw new Error('附件类型与文件格式不一致。');
+    const sha256 = crypto.createHash('sha256').update(bytes).digest('hex');
+    if (input.sourceSha256 && sha256 !== input.sourceSha256) throw new Error('附件在解析过程中发生了变化，请重新添加。');
+    const contentText = input.contentText?.trim() || '';
+    if (!contentText) throw new Error(input.kind === 'audio' ? '音频中没有识别到可用文字。' : '文档中没有可读取的文字。');
+    if (contentText.length > MAX_ATTACHMENT_TEXT_CHARS) throw new Error('附件提取的文字超过聊天安全上限。');
+
+    const id = crypto.randomUUID();
+    const targetDir = path.join(this.root, `window-${windowId}`);
+    fs.mkdirSync(targetDir, { recursive: true });
+    this.requireManagedDirectory(targetDir);
+    const targetPath = path.join(targetDir, `${id}.${extensionFor(mimeType)}`);
+    fs.writeFileSync(targetPath, bytes, { flag: 'wx' });
+    const originalName = cleanOriginalName(path.basename(input.sourcePath));
+    try {
+      getDatabase().prepare(`
+        INSERT INTO chat_attachments (
+          id, window_id, project_id, kind, mime_type, original_name, storage_path,
+          bytes, width, height, content_text, sha256, status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?, 'pending')
+      `).run(id, windowId, projectId, input.kind, mimeType, originalName, targetPath, bytes.length, contentText, sha256);
+    } catch (error) {
+      this.removeManagedFile(targetPath, true);
+      throw error;
+    }
+    return this.getOwnedRow(windowId, id) as AttachmentRow;
+  }
+
   private requireOwnedRows(
     windowId: number,
     attachmentIds: string[],
     allowedStatuses: AttachmentRow['status'][] = ['pending'],
   ): AttachmentRow[] {
     const ids = Array.from(new Set(attachmentIds.map(cleanAttachmentId).filter(Boolean)));
-    if (ids.length !== attachmentIds.length || ids.length > MAX_IMAGES_PER_MESSAGE) throw new Error('Invalid attachment selection');
+    if (ids.length !== attachmentIds.length || ids.length > MAX_ATTACHMENTS_PER_MESSAGE) throw new Error('Invalid attachment selection');
     const rows = ids.map(id => this.getOwnedRow(windowId, id)).filter((row): row is AttachmentRow => Boolean(row));
     if (rows.length !== ids.length || rows.some(row => !allowedStatuses.includes(row.status))) {
       throw new Error('One or more attachments are unavailable or belong to another chat window');
@@ -226,8 +318,8 @@ export class AttachmentService {
       mime_type: row.mime_type,
       original_name: row.original_name,
       bytes: row.bytes,
-      width: row.width,
-      height: row.height,
+      ...(row.width ? { width: row.width } : {}),
+      ...(row.height ? { height: row.height } : {}),
       sha256: row.sha256,
       status: row.status,
       created_at: row.created_at,
@@ -300,7 +392,7 @@ function attachmentFields(alias = ''): string {
   const prefix = alias ? `${alias}.` : '';
   return [
     'id', 'window_id', 'message_id', 'project_id', 'kind', 'mime_type', 'original_name',
-    'storage_path', 'bytes', 'width', 'height', 'sha256', 'status', 'created_at',
+    'storage_path', 'bytes', 'width', 'height', 'content_text', 'sha256', 'status', 'created_at',
   ].map(field => `${prefix}${field} AS ${field}`).join(', ');
 }
 
@@ -310,13 +402,37 @@ function cleanAttachmentId(value: string): string {
 
 function cleanOriginalName(value: string): string {
   const cleaned = value.replace(/[\u0000-\u001f<>:"/\\|?*]/g, '_').trim();
-  return (cleaned || 'image').slice(0, 180);
+  return (cleaned || 'attachment').slice(0, 180);
 }
 
 function extensionFor(mimeType: ChatAttachmentMimeType): string {
   if (mimeType === 'image/jpeg') return 'jpg';
   if (mimeType === 'image/webp') return 'webp';
-  return 'png';
+  if (mimeType === 'image/png') return 'png';
+  if (mimeType === 'text/plain') return 'txt';
+  if (mimeType === 'text/markdown') return 'md';
+  if (mimeType === 'application/pdf') return 'pdf';
+  if (mimeType.includes('wordprocessingml.document')) return 'docx';
+  if (mimeType === 'audio/wav') return 'wav';
+  if (mimeType === 'audio/aiff') return 'aiff';
+  return 'flac';
+}
+
+function detectNonImageMimeType(filePath: string, bytes: Buffer): ChatAttachmentMimeType {
+  const extension = path.extname(filePath).toLowerCase();
+  if (extension === '.pdf' && bytes.subarray(0, 5).toString('ascii') === '%PDF-') return 'application/pdf';
+  if (extension === '.docx' && bytes[0] === 0x50 && bytes[1] === 0x4b) {
+    return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+  }
+  if (extension === '.txt' || extension === '.md' || extension === '.markdown') {
+    if (bytes.includes(0)) throw new Error('文本附件看起来是二进制文件。');
+    return extension === '.txt' ? 'text/plain' : 'text/markdown';
+  }
+  if (extension === '.wav' && bytes.subarray(0, 4).toString('ascii') === 'RIFF' && bytes.subarray(8, 12).toString('ascii') === 'WAVE') return 'audio/wav';
+  if ((extension === '.aiff' || extension === '.aif') && bytes.subarray(0, 4).toString('ascii') === 'FORM'
+    && ['AIFF', 'AIFC'].includes(bytes.subarray(8, 12).toString('ascii'))) return 'audio/aiff';
+  if (extension === '.flac' && bytes.subarray(0, 4).toString('ascii') === 'fLaC') return 'audio/flac';
+  throw new Error('仅支持 PNG、JPG、WebP、TXT、Markdown、PDF、DOCX、WAV、AIFF 和 FLAC。');
 }
 
 function toSqliteLocalDateTime(value: Date): string {

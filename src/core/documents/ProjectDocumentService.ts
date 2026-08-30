@@ -29,6 +29,7 @@ const MAX_PDF_PAGES = 300;
 const MAX_OCR_PDF_PAGES = 20;
 const MAX_OCR_PDFS_PER_IMPORT = 3;
 const MAX_EXTRACTED_CHARS = 1_500_000;
+const MAX_CHAT_ATTACHMENT_CHARS = 120_000;
 const MAX_CHUNKS = 1_000;
 const CHUNK_TARGET_CHARS = 1_600;
 const CHUNK_OVERLAP_CHARS = 180;
@@ -48,6 +49,12 @@ interface ExtractedDocument {
 export interface ProjectDocumentServiceOptions {
   root?: string;
   ocr?: LocalOcrService;
+}
+
+export interface ChatDocumentExtraction {
+  mimeType: SupportedMime;
+  text: string;
+  sha256: string;
 }
 
 export class ProjectDocumentService {
@@ -255,6 +262,36 @@ function snapshotExtraction(
 
 export function resolveProjectDocumentRoot(): string {
   return path.resolve(process.env.ATHENA_DOCUMENT_DIR || path.join(path.dirname(getDatabaseFilePath()), 'documents'));
+}
+
+export async function extractChatDocument(sourcePath: string): Promise<ChatDocumentExtraction> {
+  const resolved = path.resolve(sourcePath);
+  const stat = fs.lstatSync(resolved);
+  if (!stat.isFile() || stat.isSymbolicLink()) throw new Error('Document source must be a regular file.');
+  if (stat.size <= 0 || stat.size > MAX_DOCUMENT_BYTES) throw new Error('Documents must be between 1 byte and 25 MB.');
+  const bytes = fs.readFileSync(resolved);
+  if (bytes.length !== stat.size) throw new Error('Document changed while it was being read.');
+  const mimeType = detectDocumentMime(resolved, bytes);
+  if (mimeType.endsWith('wordprocessingml.document') && bytes.length > MAX_DOCX_BYTES) throw new Error('DOCX files are limited to 10 MB.');
+  const extracted = await extractDocument(mimeType, bytes, undefined, { ocrMissingPages: false });
+  const rendered = extracted.sections
+    .map(section => {
+      const locator = section.page ? `第 ${section.page} 页` : `第 ${section.section || 1} 节`;
+      return `[${locator}]\n${normalizeExtractedText(section.text)}`;
+    })
+    .filter(Boolean)
+    .join('\n\n');
+  if (!rendered.trim()) {
+    throw new Error(mimeType === 'application/pdf' ? 'PDF 没有可读取的文本，请先使用 OCR。' : '文档没有可读取的文本。');
+  }
+  const truncated = rendered.length > MAX_CHAT_ATTACHMENT_CHARS;
+  return {
+    mimeType,
+    sha256: crypto.createHash('sha256').update(bytes).digest('hex'),
+    text: truncated
+      ? `${rendered.slice(0, MAX_CHAT_ATTACHMENT_CHARS)}\n\n[附件内容过长，已截取前 ${MAX_CHAT_ATTACHMENT_CHARS} 个字符]`
+      : rendered,
+  };
 }
 
 async function extractDocument(
