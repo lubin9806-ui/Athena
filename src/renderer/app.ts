@@ -5944,7 +5944,7 @@ function modeThinkingText(mode: AthenaMode): string {
 }
 
 function modeHintText(mode: AthenaMode): string {
-  if (mode === 'create') return '创作模式 · 发散并落地';
+  if (mode === 'create') return '创作模式 · 开放创作';
   if (mode === 'reason') return '推理模式 · 核验后判断';
   if (mode === 'execute') return '执行模式 · 调用工具完成任务';
   return '陪伴模式 · 自然地聊';

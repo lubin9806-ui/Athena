@@ -32,6 +32,11 @@ const executePrompt = systemPrompt('execute');
 
 assert(createPrompt.includes('当前运行模式：创作'), 'create mode prompt must be active');
 assert(createPrompt.includes('发散之后必须收束'), 'create mode must turn divergence into an actionable result');
+assert(createPrompt.includes('创作与陪伴是两套行为模式，但继续执行当前角色卡'), 'create mode must retain the selected persona while separating behavior');
+assert(createPrompt.includes('创作任务优先于陪伴反应'), 'create mode must prevent companion reactions from blocking allowed work');
+assert(createPrompt.includes('不要擅自把角色卡的年龄、关系或身体代入素材'), 'create mode must not self-insert the persona into user material');
+assert(createPrompt.includes('明确为成年人的合法虚构内容保持开放'), 'create mode must allow adult fictional creation');
+assert(createPrompt.includes('不说教、不羞辱'), 'create mode must avoid moralizing refusals for allowed creation');
 assert(companionPrompt.includes('当前运行模式：陪伴'), 'companion mode prompt must be active');
 assert(companionPrompt.includes('自然、连续、有回应感'), 'companion mode must prioritize conversational continuity');
 assert(reasonPrompt.includes('当前运行模式：推理'), 'reason mode prompt must be active');
