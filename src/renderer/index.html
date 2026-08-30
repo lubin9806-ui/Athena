@@ -165,8 +165,8 @@
           <button class="presence-action" type="button" data-prompt-mode="reason" data-prompt="检查我的推理里有没有遗漏或矛盾">检查遗漏与矛盾</button>
         </div>
       </div>
-      <div id="live2d-companion" data-enabled="true" data-state="idle" data-layout="chat_right" aria-label="Athena Live2D 伴侣">
-        <canvas id="live2d-companion-canvas" width="420" height="680" aria-label="Athena Live2D 模型"></canvas>
+      <div id="live2d-companion" data-enabled="false" data-state="disabled" data-layout="chat_right" aria-hidden="true" hidden>
+        <canvas id="live2d-companion-canvas" width="420" height="680" aria-hidden="true" hidden></canvas>
       </div>
       <section id="chat-container" aria-label="聊天记录"></section>
     </section>
@@ -760,25 +760,26 @@
               <span>开启层次与模糊效果</span>
             </label>
             <label class="settings-toggle">
-              <input id="setting-live2d-enabled" type="checkbox" />
-              <span>显示 Live2D 伴侣</span>
+              <input id="setting-live2d-enabled" type="checkbox" disabled />
+              <span>Live2D 伴侣（测试版暂停提供）</span>
             </label>
-            <label class="settings-field">
+            <div class="settings-note">当前模型与动作质量未达到发布标准，本安装包已禁用并剔除 Live2D 运行时与角色资源。</div>
+            <label class="settings-field" hidden>
               <span>Live2D 位置</span>
-              <select id="setting-live2d-layout">
+              <select id="setting-live2d-layout" disabled>
                 <option value="chat_right">聊天区右侧</option>
                 <option value="chat_background">聊天背景</option>
                 <option value="draggable_overlay">可拖拽悬浮层</option>
                 <option value="desktop_pet">桌宠模式</option>
               </select>
             </label>
-            <label class="settings-field live2d-range-field">
+            <label class="settings-field live2d-range-field" hidden>
               <span>Live2D 大小</span>
-              <input id="setting-live2d-scale" type="range" min="0.55" max="1.45" step="0.05" />
+              <input id="setting-live2d-scale" type="range" min="0.55" max="1.45" step="0.05" disabled />
             </label>
-            <label class="settings-field live2d-range-field">
+            <label class="settings-field live2d-range-field" hidden>
               <span>Live2D 透明度</span>
-              <input id="setting-live2d-opacity" type="range" min="0.3" max="1" step="0.05" />
+              <input id="setting-live2d-opacity" type="range" min="0.3" max="1" step="0.05" disabled />
             </label>
             <label class="settings-field">
               <span>动画强度</span>

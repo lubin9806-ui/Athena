@@ -148,13 +148,18 @@ function authenticode(filePath) {
     return { status: 'PlatformUnsupported', valid: false, subject: null, thumbprint: null, timestampSubject: null };
   }
   const literal = filePath.replace(/'/g, "''");
-  const command = `[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; $signature = Get-AuthenticodeSignature -LiteralPath '${literal}'; [pscustomobject]@{ Status = [string]$signature.Status; StatusMessage = [string]$signature.StatusMessage; Subject = if ($signature.SignerCertificate) { $signature.SignerCertificate.Subject } else { $null }; Thumbprint = if ($signature.SignerCertificate) { $signature.SignerCertificate.Thumbprint } else { $null }; TimestampSubject = if ($signature.TimeStamperCertificate) { $signature.TimeStamperCertificate.Subject } else { $null } } | ConvertTo-Json -Compress`;
+  const command = `& { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8; $signature = Get-AuthenticodeSignature -LiteralPath '${literal}'; [pscustomobject]@{ Status = [string]$signature.Status; StatusMessage = [string]$signature.StatusMessage; Subject = if ($signature.SignerCertificate) { $signature.SignerCertificate.Subject } else { $null }; Thumbprint = if ($signature.SignerCertificate) { $signature.SignerCertificate.Thumbprint } else { $null }; TimestampSubject = if ($signature.TimeStamperCertificate) { $signature.TimeStamperCertificate.Subject } else { $null } } | ConvertTo-Json -Compress }`;
+  const powershellEnvironment = { ...process.env };
+  for (const key of Object.keys(powershellEnvironment)) {
+    if (key.toLowerCase() === 'psmodulepath') delete powershellEnvironment[key];
+  }
   const result = spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', command], {
     cwd: ROOT,
     encoding: 'utf8',
     windowsHide: true,
+    env: powershellEnvironment,
   });
-  if (result.status !== 0) {
+  if (result.status !== 0 || result.stderr?.trim()) {
     return { status: 'InspectionFailed', valid: false, subject: null, thumbprint: null, timestampSubject: null };
   }
   const parsed = JSON.parse(result.stdout.trim());

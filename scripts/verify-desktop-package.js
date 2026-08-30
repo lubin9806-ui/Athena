@@ -53,7 +53,21 @@ function main() {
   assert.equal(packagedMetadata.version, pkg.version, 'Packaged application version does not match package.json.');
   assert(entries.includes('dist/core/update/DesktopUpdater.js'), 'Packaged application is missing DesktopUpdater.');
   assert(entries.includes('dist/core/update/UpdatePolicy.js'), 'Packaged application is missing UpdatePolicy.');
+  assert(entries.includes('dist/shared/releaseFeatures.js'), 'Packaged application is missing its release feature policy.');
+  const releaseFeatures = asar.extractFile(asarPath, path.join('dist', 'shared', 'releaseFeatures.js')).toString('utf8');
+  assert.match(releaseFeatures, /live2d:\s*false/, 'Packaged release feature policy must keep Live2D disabled.');
   assert(!entries.includes('config/settings.json'), 'Packaged application contains developer or user settings.');
+  assert(!entries.includes('config/model.json'), 'Packaged application contains a developer model/API configuration.');
+  assert(!entries.some(value => value.startsWith('config/personas/')), 'Packaged application contains user-imported persona cards.');
+  assert(!entries.some(value => value.startsWith('config/private/')), 'Packaged application contains private configuration.');
+  assert(!entries.some(value => value.startsWith('personality/private/')), 'Packaged application contains a private persona card.');
+  assert(!entries.some(value => value.startsWith('assets/avatar/')), 'Packaged application contains disabled avatar assets.');
+  assert(!entries.some(value => value.startsWith('assets/vendor/live2d/')), 'Packaged application contains the disabled Live2D vendor runtime.');
+  assert(!entries.some(value => value.startsWith('dist/app/avatar/')), 'Packaged application contains the disabled desktop-pet runtime.');
+  assert(!entries.includes('dist/app/live2d-preload.js'), 'Packaged application contains the disabled Live2D preload.');
+  assert(!entries.some(value => value.startsWith('dist/renderer/avatar/')), 'Packaged application contains the disabled renderer avatar runtime.');
+  assert(!entries.some(value => /(^|\/)live2d-(?:pet|preview)(?:\.|\/)/i.test(value)), 'Packaged application contains a Live2D preview or pet entry point.');
+  assert(!entries.some(value => value.startsWith('node_modules/untitled-pixi-live2d-engine/')), 'Packaged application contains the disabled Live2D engine dependency.');
   assert.equal(entries.filter(value => value.endsWith('.map')).length, 0, 'Packaged application contains source maps.');
   assert.equal(entries.filter(value => value.endsWith('.d.ts')).length, 0, 'Packaged application contains declarations.');
 
@@ -97,7 +111,7 @@ function main() {
   if (!updateConfig.enabled) blockers.push('PRODUCTION_UPDATE_FEED_DISABLED');
   if (ownedArtifacts.some(item => !item.signedAndTimestamped)) blockers.push('AUTHENTICODE_OR_TIMESTAMP_INVALID');
 
-  console.log(`ATHENA_DESKTOP_PACKAGE_OK version=${pkg.version} channel=${buildInfo.channel} entries=${entries.length} settings=excluded maps=0`);
+  console.log(`ATHENA_DESKTOP_PACKAGE_OK version=${pkg.version} channel=${buildInfo.channel} entries=${entries.length} settings=excluded modelConfig=excluded personas=public-default memory=empty live2d=disabled maps=0`);
   for (const artifact of ownedArtifacts) {
     console.log(`ATHENA_DESKTOP_ARTIFACT file=${artifact.file} bytes=${artifact.bytes} sha256=${artifact.sha256} authenticode=${artifact.authenticode}`);
   }

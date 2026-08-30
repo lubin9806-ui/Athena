@@ -16,7 +16,7 @@ import { initializeDesktopUpdater } from '../core/update/DesktopUpdater';
 import { describeSteamCloudAvailability, initializeSteamPlatform } from '../core/steam/SteamPlatform';
 import { isSteamExternalNavigationAllowed } from '../core/steam/SteamSkuPolicy';
 import { isMicrosoftStoreSku } from '../core/store/MicrosoftStoreSku';
-import { DesktopPetWindow } from './avatar/DesktopPetWindow';
+import { RELEASE_FEATURES } from '../shared/releaseFeatures';
 
 installLoggingPipeGuards();
 installCrashDiagnostics();
@@ -31,7 +31,8 @@ let mainWindowReady = false;
 let unresponsiveTimer: ReturnType<typeof setTimeout> | null = null;
 let unresponsiveDialogOpen = false;
 let rendererRecoveryDialogOpen = false;
-let desktopPetWindow: DesktopPetWindow | null = null;
+interface DesktopPetController { dispose(): void }
+let desktopPetWindow: DesktopPetController | null = null;
 const rendererRecovery = new RendererRecoveryPolicy(2, 60_000);
 const singleInstanceActivation = new SingleInstanceActivationQueue();
 const isSmokeTest = process.argv.includes('--smoke-test') || process.env.ATHENA_SMOKE_TEST === '1';
@@ -40,7 +41,7 @@ const isSteamBuild = steamPlatform.state.sku === 'steam';
 const isMicrosoftStoreBuild = isMicrosoftStoreSku();
 const isVoiceSmokeTest = isSmokeTest && process.env.ATHENA_SMOKE_VOICE === '1';
 const isModelSmokeTest = isSmokeTest && process.env.ATHENA_SMOKE_MODEL === '1';
-const isLive2dPetSmokeTest = isSmokeTest && process.env.ATHENA_SMOKE_LIVE2D_PET === '1';
+const isLive2dPetSmokeTest = RELEASE_FEATURES.live2d && isSmokeTest && process.env.ATHENA_SMOKE_LIVE2D_PET === '1';
 const smokeScreenshotPath = process.env.ATHENA_SMOKE_SCREENSHOT?.trim();
 const smokeCaptureRipple = isSmokeTest && process.env.ATHENA_SMOKE_CAPTURE_RIPPLE === '1';
 const smokeAttachmentUi = isSmokeTest && process.env.ATHENA_SMOKE_ATTACHMENTS === '1';
@@ -1243,14 +1244,18 @@ function createWindow(): void {
 
   shutdownServices = registerIpcHandlers(mainWindow);
   desktopPetWindow?.dispose();
-  desktopPetWindow = new DesktopPetWindow({
-    mainWindow: createdWindow,
-    preloadPath: path.join(__dirname, 'live2d-preload.js'),
-    rendererPath: path.join(__dirname, '../renderer/live2d-pet.html'),
-    iconPath: path.join(__dirname, '../../resources/su-shixia-icon.png'),
-    smokeTest: isSmokeTest,
-    shouldClose: () => isQuitting,
-  });
+  desktopPetWindow = null;
+  if (RELEASE_FEATURES.live2d) {
+    const { DesktopPetWindow } = require('./avatar/DesktopPetWindow') as typeof import('./avatar/DesktopPetWindow');
+    desktopPetWindow = new DesktopPetWindow({
+      mainWindow: createdWindow,
+      preloadPath: path.join(__dirname, 'live2d-preload.js'),
+      rendererPath: path.join(__dirname, '../renderer/live2d-pet.html'),
+      iconPath: path.join(__dirname, '../../resources/su-shixia-icon.png'),
+      smokeTest: isSmokeTest,
+      shouldClose: () => isQuitting,
+    });
+  }
 
   mainWindow.center();
 

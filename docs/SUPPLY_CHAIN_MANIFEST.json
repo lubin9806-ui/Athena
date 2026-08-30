@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-08-22T18:40:56.103Z",
+  "generatedAt": "2026-08-30T02:30:27.363Z",
   "project": {
     "name": "athena",
     "version": "0.9.6-beta.1",
@@ -52,22 +52,6 @@
       "license": "MIT",
       "repository": "git+https://github.com/Brooooooklyn/canvas.git",
       "homepage": null
-    },
-    {
-      "name": "@pixi/colord",
-      "version": "2.9.6",
-      "resolved": "https://registry.npmmirror.com/@pixi/colord/-/colord-2.9.6.tgz",
-      "license": "MIT",
-      "repository": "omgovich/colord",
-      "homepage": null
-    },
-    {
-      "name": "@pixi/sound",
-      "version": "6.0.1",
-      "resolved": "https://registry.npmmirror.com/@pixi/sound/-/sound-6.0.1.tgz",
-      "license": "MIT",
-      "repository": "git+https://github.com/pixijs/sound.git",
-      "homepage": "https://github.com/pixijs/sound#readme"
     },
     {
       "name": "@pixiv/three-vrm-core",
@@ -198,14 +182,6 @@
       "homepage": "https://github.com/naptha/tessdata"
     },
     {
-      "name": "@types/earcut",
-      "version": "3.0.0",
-      "resolved": "https://registry.npmmirror.com/@types/earcut/-/earcut-3.0.0.tgz",
-      "license": "MIT",
-      "repository": "https://github.com/DefinitelyTyped/DefinitelyTyped.git",
-      "homepage": "https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/earcut"
-    },
-    {
       "name": "@types/node",
       "version": "20.19.43",
       "resolved": null,
@@ -220,14 +196,6 @@
       "license": "MIT",
       "repository": "https://github.com/DefinitelyTyped/DefinitelyTyped.git",
       "homepage": "https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/node"
-    },
-    {
-      "name": "@webgpu/types",
-      "version": "0.1.72",
-      "resolved": "https://registry.npmmirror.com/@webgpu/types/-/types-0.1.72.tgz",
-      "license": "BSD-3-Clause",
-      "repository": "gpuweb/types",
-      "homepage": "https://github.com/gpuweb/types"
     },
     {
       "name": "@xmldom/xmldom",
@@ -478,14 +446,6 @@
       "homepage": null
     },
     {
-      "name": "earcut",
-      "version": "3.2.3",
-      "resolved": "https://registry.npmmirror.com/earcut/-/earcut-3.2.3.tgz",
-      "license": "ISC",
-      "repository": "git://github.com/mapbox/earcut.git",
-      "homepage": null
-    },
-    {
       "name": "electron-updater",
       "version": "6.8.9",
       "resolved": "https://registry.npmmirror.com/electron-updater/-/electron-updater-6.8.9.tgz",
@@ -531,14 +491,6 @@
       "resolved": "https://registry.npmjs.org/entities/-/entities-7.0.1.tgz",
       "license": "BSD-2-Clause",
       "repository": "https://github.com/fb55/entities.git",
-      "homepage": null
-    },
-    {
-      "name": "eventemitter3",
-      "version": "5.0.4",
-      "resolved": "https://registry.npmmirror.com/eventemitter3/-/eventemitter3-5.0.4.tgz",
-      "license": "MIT",
-      "repository": "git://github.com/primus/eventemitter3.git",
       "homepage": null
     },
     {
@@ -604,14 +556,6 @@
       "license": "MIT",
       "repository": "https://github.com/jprichardson/node-fs-extra",
       "homepage": "https://github.com/jprichardson/node-fs-extra"
-    },
-    {
-      "name": "gifuct-js",
-      "version": "2.1.2",
-      "resolved": "https://registry.npmmirror.com/gifuct-js/-/gifuct-js-2.1.2.tgz",
-      "license": "MIT",
-      "repository": "https://github.com/matt-way/gifuct-js.git",
-      "homepage": "https://github.com/matt-way/gifuct-js"
     },
     {
       "name": "github-from-package",
@@ -718,28 +662,12 @@
       "homepage": "https://github.com/isaacs/isexe#readme"
     },
     {
-      "name": "ismobilejs",
-      "version": "1.1.1",
-      "resolved": "https://registry.npmmirror.com/ismobilejs/-/ismobilejs-1.1.1.tgz",
-      "license": "MIT",
-      "repository": "https://github.com/kaimallea/isMobile.git",
-      "homepage": "https://github.com/kaimallea/isMobile"
-    },
-    {
       "name": "jose",
       "version": "6.2.8",
       "resolved": "https://registry.npmjs.org/jose/-/jose-6.2.8.tgz",
       "license": "MIT",
       "repository": "panva/jose",
       "homepage": "https://github.com/panva/jose"
-    },
-    {
-      "name": "js-binary-schema-parser",
-      "version": "2.0.3",
-      "resolved": "https://registry.npmmirror.com/js-binary-schema-parser/-/js-binary-schema-parser-2.0.3.tgz",
-      "license": "MIT",
-      "repository": "https://github.com/matt-way/jsBinarySchemaParser.git",
-      "homepage": "https://github.com/matt-way/jsBinarySchemaParser"
     },
     {
       "name": "js-yaml",
@@ -934,14 +862,6 @@
       "homepage": "https://github.com/nodeca/pako"
     },
     {
-      "name": "parse-svg-path",
-      "version": "0.2.0",
-      "resolved": "https://registry.npmmirror.com/parse-svg-path/-/parse-svg-path-0.2.0.tgz",
-      "license": "MIT",
-      "repository": "git://github.com/jkroso/parse-svg-path.git",
-      "homepage": null
-    },
-    {
       "name": "parse5-htmlparser2-tree-adapter",
       "version": "7.1.0",
       "resolved": "https://registry.npmmirror.com/parse5-htmlparser2-tree-adapter/-/parse5-htmlparser2-tree-adapter-7.1.0.tgz",
@@ -988,14 +908,6 @@
       "license": "Apache-2.0",
       "repository": "git+https://github.com/mozilla/pdf.js.git",
       "homepage": "https://mozilla.github.io/pdf.js/"
-    },
-    {
-      "name": "pixi.js",
-      "version": "8.20.0",
-      "resolved": "https://registry.npmmirror.com/pixi.js/-/pixi.js-8.20.0.tgz",
-      "license": "MIT",
-      "repository": "https://github.com/pixijs/pixijs.git",
-      "homepage": "http://pixijs.com/"
     },
     {
       "name": "pkce-challenge",
@@ -1238,14 +1150,6 @@
       "homepage": "https://threejs.org/"
     },
     {
-      "name": "tiny-lru",
-      "version": "11.4.7",
-      "resolved": "https://registry.npmmirror.com/tiny-lru/-/tiny-lru-11.4.7.tgz",
-      "license": "BSD-3-Clause",
-      "repository": "git://github.com/avoidwork/tiny-lru.git",
-      "homepage": "https://github.com/avoidwork/tiny-lru"
-    },
-    {
       "name": "tiny-typed-emitter",
       "version": "2.1.0",
       "resolved": "https://registry.npmmirror.com/tiny-typed-emitter/-/tiny-typed-emitter-2.1.0.tgz",
@@ -1308,14 +1212,6 @@
       "license": "MIT",
       "repository": "git+https://github.com/RyanZim/universalify.git",
       "homepage": "https://github.com/RyanZim/universalify#readme"
-    },
-    {
-      "name": "untitled-pixi-live2d-engine",
-      "version": "1.3.5",
-      "resolved": "https://registry.npmmirror.com/untitled-pixi-live2d-engine/-/untitled-pixi-live2d-engine-1.3.5.tgz",
-      "license": "MIT",
-      "repository": "https://github.com/Untitled-Story/untitled-pixi-live2d-engine.git",
-      "homepage": "https://github.com/Untitled-Story/untitled-pixi-live2d-engine"
     },
     {
       "name": "util-deprecate",
@@ -1466,7 +1362,7 @@
     }
   ],
   "localOllamaRuntime": {
-    "installedVersion": "0.32.14",
+    "installedVersion": "0.33.1",
     "defaultModel": {
       "runtimeTag": "qwen2.5:14b",
       "localOllamaId": "7cdf5a0187d5",
@@ -34606,6 +34502,11 @@
     ],
     "nonBundledConceptAssets": [
       {
+        "path": "docs/concepts/SU_SHIXIA_LIVE2D_V2_CONCEPT_INDEX.md",
+        "bytes": 1442,
+        "sha256": "36E9789ADDC59A5D7611755FE23BE14E46E4F985438E905E7B3A437512932EEE"
+      },
+      {
         "path": "docs/concepts/athena-agora-glass.png",
         "bytes": 1591324,
         "sha256": "0A5798AC8FEBF401272201E915B5FF7D893DF13E7C238EF64AB8D182D83453B9"
@@ -34959,6 +34860,41 @@
         "path": "docs/concepts/athena-water-ice-pressure-response.png",
         "bytes": 311864,
         "sha256": "B9D2CED2EB1EFEFD2E6EFFDE3B55340FC3BC96009714BF7144E3BD318DEC91F2"
+      },
+      {
+        "path": "docs/concepts/su-shixia-live2d-v2-default-turnaround-v1.png",
+        "bytes": 1294312,
+        "sha256": "0773A245B0C595DA4078450C3921933C94705FFFB389645536ECAF8546C23A63"
+      },
+      {
+        "path": "docs/concepts/su-shixia-live2d-v2-expressions-v1.png",
+        "bytes": 2237286,
+        "sha256": "F8531DDB303AC26F4958F1207DD52B106C0556F5ED2B1A85224E6535E9D42CD1"
+      },
+      {
+        "path": "docs/concepts/su-shixia-live2d-v2-four-outfits-v2.png",
+        "bytes": 1738182,
+        "sha256": "25BE1D01DC30393DFFF58C8342B85CC011FA1280DEC7E9B204439A321A76D977"
+      },
+      {
+        "path": "docs/concepts/su-shixia-live2d-v2-four-outfits-v3-soft.png",
+        "bytes": 1697279,
+        "sha256": "B13242A9F697D8E92EFD9C70537815998C9133873790E2CB2AC4C97EE8186450"
+      },
+      {
+        "path": "docs/concepts/su-shixia-live2d-v2-mouth-shapes-v1.png",
+        "bytes": 1947482,
+        "sha256": "98788C799B68635288D1B43B5F41D22EC2EE9D74E3851C1CEFA24A7E1C5A902D"
+      },
+      {
+        "path": "docs/concepts/su-shixia-live2d-v2-outfit-comparison-v1.png",
+        "bytes": 1683891,
+        "sha256": "2DD9AF6399681F14B1D0176F2FB179FEDB20C5C2634AE1934C723058AFE5A952"
+      },
+      {
+        "path": "docs/concepts/su-shixia-live2d-v2-turn-touch-storyboard-v1.png",
+        "bytes": 1594586,
+        "sha256": "BA15041EA18855D17589EAD6ACBC4BF3F5575FA8CCFD05EE0F3D3D9BF09949BC"
       }
     ],
     "requiredHumanSignoffs": [
@@ -34994,13 +34930,13 @@
   "buildArtifacts": [
     {
       "path": "release/Athena Setup 0.9.6-beta.1.exe",
-      "bytes": 504617492,
-      "sha256": "6B394AF215E039BDFFE75C56985755D846A86CFBC4D3271E76B3E016A1B1F878"
+      "bytes": 507756584,
+      "sha256": "8092A312FC4E7414151967789647EDA69919FA0FB9DFBBA031391DC73504BF72"
     },
     {
       "path": "release/win-unpacked/Athena.exe",
       "bytes": 232771072,
-      "sha256": "45CBBEED08E534AEBDF537B94BB1E2A16A14DC265597E92B7636A4DC54D8887F"
+      "sha256": "68947820AD734EB1C3243F2C7C039096B6162FFF58ADE5F83E8F398CC8EA2ACE"
     }
   ],
   "packagingDecisions": [

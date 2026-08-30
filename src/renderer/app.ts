@@ -9,9 +9,58 @@ import { MotionSystem, type AthenaSpace } from './ui/MotionSystem';
 import { SelectControlManager } from './ui/SelectControl';
 import { ThemeController } from './ui/ThemeController';
 import { MicrophoneRecorder } from './voice/MicrophoneRecorder';
-import { AthenaLive2DCompanion, emotionFromLabel } from './avatar/live2d/AthenaLive2DCompanion';
 import type { AvatarLayoutMode } from '../shared/types/avatar';
 import type { AthenaAvatarEvent } from './avatar/AvatarRuntime';
+import type { EmotionType } from '../shared/types/emotion';
+import { RELEASE_FEATURES } from '../shared/releaseFeatures';
+
+interface DisabledLive2DPreferences {
+  enabled: false;
+  layout: AvatarLayoutMode;
+  scale: number;
+  opacity: number;
+  outfitId: string;
+}
+
+class DisabledLive2DCompanion {
+  private readonly preferences: DisabledLive2DPreferences = {
+    enabled: false,
+    layout: 'chat_right',
+    scale: 1,
+    opacity: 1,
+    outfitId: 'disabled',
+  };
+
+  constructor(options: { root: HTMLElement; canvas: HTMLCanvasElement }) {
+    options.root.dataset.enabled = 'false';
+    options.root.dataset.state = 'disabled';
+    options.root.hidden = true;
+    options.canvas.hidden = true;
+  }
+
+  get isEnabled(): boolean { return false; }
+  get settings(): DisabledLive2DPreferences { return { ...this.preferences }; }
+  async load(): Promise<void> {}
+  async dispatch(_event: AthenaAvatarEvent): Promise<void> {}
+  async setEmotionLabel(_label?: string, _intensity = 1): Promise<void> {}
+  async attachAudio(_audio: HTMLAudioElement): Promise<void> {}
+  async stopAudioTracking(): Promise<void> {}
+  async updatePreferences(_patch: Partial<{ enabled: boolean; layout: AvatarLayoutMode; scale: number; opacity: number; outfitId: string }>): Promise<void> {}
+  async destroy(): Promise<void> {}
+}
+
+function emotionFromLabel(label?: string): EmotionType {
+  const value = label?.trim().toLowerCase() ?? '';
+  if (/开心|高兴|愉快|happy/.test(value)) return 'happy';
+  if (/思考|沉思|认真|thought/.test(value)) return 'thoughtful';
+  if (/害羞|腆腆|shy/.test(value)) return 'shy';
+  if (/疑惑|困惑|不解|confus/.test(value)) return 'confused';
+  if (/期待|兴奋|惊喜|excited/.test(value)) return 'excited';
+  if (/困|疲惫|疲倦|tired|sleep/.test(value)) return 'tired';
+  if (/调皮|俏皮|playful/.test(value)) return 'playful';
+  if (/温柔|柔和|安慰|soft/.test(value)) return 'soft';
+  return 'peaceful';
+}
 
 type DesktopPetEvent = AthenaAvatarEvent
   | { type: 'lipSync.update'; value: number }
@@ -918,15 +967,9 @@ const chatPanel = new ChatPanel(
   mustGet<HTMLElement>('chat-container'),
   attachment => window.athenaAPI.getChatAttachmentPreview(attachment.window_id, attachment.id),
 );
-const live2dCompanion = new AthenaLive2DCompanion({
+const live2dCompanion = new DisabledLive2DCompanion({
   root: mustGet<HTMLElement>('live2d-companion'),
   canvas: mustGet<HTMLCanvasElement>('live2d-companion-canvas'),
-  onAthenaReply: (prompt, hotZoneId) => sendAvatarInteraction(prompt, hotZoneId),
-  onError: error => console.error('Live2D companion unavailable', error),
-  onLipSyncValue: value => window.athenaAPI.sendDesktopPetEvent({ type: 'lipSync.update', value }),
-  onSpeakingChange: speaking => window.athenaAPI.sendDesktopPetEvent({
-    type: speaking ? 'voice.speaking.start' : 'voice.speaking.end',
-  }),
 });
 const inputForm = mustGet<HTMLFormElement>('input-form');
 const inputBox = mustGet<HTMLTextAreaElement>('input-box');
@@ -1354,24 +1397,31 @@ function skipStartupIntro(): void {
 
 function syncLive2dSettingsControls(): void {
   const preferences = live2dCompanion.settings;
-  settingLive2dEnabled.checked = preferences.enabled;
+  settingLive2dEnabled.checked = RELEASE_FEATURES.live2d && preferences.enabled;
+  settingLive2dEnabled.disabled = true;
   settingLive2dLayout.value = preferences.layout;
+  settingLive2dLayout.disabled = true;
   settingLive2dScale.value = String(preferences.scale);
+  settingLive2dScale.disabled = true;
   settingLive2dOpacity.value = String(preferences.opacity);
+  settingLive2dOpacity.disabled = true;
 }
 
 async function dispatchLive2dEvent(event: AthenaAvatarEvent): Promise<void> {
+  if (!RELEASE_FEATURES.live2d) return;
   window.athenaAPI.sendDesktopPetEvent(event);
   await live2dCompanion.dispatch(event);
 }
 
 async function setLive2dEmotion(label?: string, intensity = 1): Promise<void> {
+  if (!RELEASE_FEATURES.live2d) return;
   const event: AthenaAvatarEvent = { type: 'emotion.update', emotion: emotionFromLabel(label), intensity };
   window.athenaAPI.sendDesktopPetEvent(event);
   await live2dCompanion.setEmotionLabel(label, intensity);
 }
 
 async function syncDesktopPetWindow(): Promise<void> {
+  if (!RELEASE_FEATURES.live2d) return;
   const preferences = live2dCompanion.settings;
   window.athenaAPI.sendDesktopPetEvent({
     type: 'preferences.update',
@@ -1386,6 +1436,7 @@ async function syncDesktopPetWindow(): Promise<void> {
 async function updateLive2dPreferences(
   patch: Partial<{ enabled: boolean; layout: AvatarLayoutMode; scale: number; opacity: number; outfitId: string }>,
 ): Promise<void> {
+  if (!RELEASE_FEATURES.live2d) return;
   await live2dCompanion.updatePreferences(patch);
   await syncDesktopPetWindow();
 }
@@ -1597,10 +1648,12 @@ function init(): void {
   inputForm.dataset.voiceState = 'idle';
   voiceFeedback.dataset.visible = 'false';
   syncLive2dSettingsControls();
-  void live2dCompanion.load().then(() => syncDesktopPetWindow());
-  window.athenaAPI.onDesktopPetInteraction(({ prompt, hotZoneId }) => {
-    void sendAvatarInteraction(prompt, hotZoneId);
-  });
+  if (RELEASE_FEATURES.live2d) {
+    void live2dCompanion.load().then(() => syncDesktopPetWindow());
+    window.athenaAPI.onDesktopPetInteraction(({ prompt, hotZoneId }) => {
+      void sendAvatarInteraction(prompt, hotZoneId);
+    });
+  }
   void initializeSettings();
   inputBar.onSubmit(sendMessage, () => currentPendingAttachments().length > 0);
   projectSelect.addEventListener('change', () => {
@@ -5726,7 +5779,7 @@ async function speakLastAssistantMessage(): Promise<void> {
     stopCurrentAudio();
     showVoiceFeedback('正在朗读回复 · 系统默认输出设备');
     setStatus('正在朗读', 'working');
-    if (live2dCompanion.isEnabled) {
+    if (RELEASE_FEATURES.live2d && live2dCompanion.isEnabled) {
       await playAudioInRenderer(result.audioPath);
     } else {
       const playback = await window.athenaAPI.playAudioFile(result.audioPath);
