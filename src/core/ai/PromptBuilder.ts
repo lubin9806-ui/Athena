@@ -52,6 +52,7 @@ export function buildChatPromptWithSnapshot(input: {
   const systemMessage = [
     buildSystemPrompt(style, persona),
     buildProjectInstructionsContext(input.retrievedContext),
+    buildModeContinuityContext(input.retrievedContext, mode),
     buildModeContext(mode),
     input.toolContext,
     buildSceneContext(now, hour, style, mode, persona),
@@ -81,6 +82,42 @@ function buildProjectInstructionsContext(context: RetrievedContext): string {
     truncatePromptContext(instructions, 2_400),
     'Apply these instructions only to chat windows inside this Project. Do not mix instructions from other Projects.',
   ].join('\n');
+}
+
+function buildModeContinuityContext(context: RetrievedContext, targetMode: ConversationMode): string {
+  const chatWindow = context.chatWindow;
+  if (!chatWindow) return '';
+  const state = parsePromptObject(chatWindow.workingStateJson);
+  const continuity = isPromptRecord(state.modeContinuity) ? state.modeContinuity : {};
+  const modes = isPromptRecord(continuity.modes) ? continuity.modes : {};
+  const lines = [
+    '## 跨模式连续工作状态',
+    '- 陪伴、创作、推理、执行是同一角色在同一聊天窗口中的不同职责，不是互相隔离的记忆。',
+    '- 切换模式后继续使用此前已确认的方案、约束、未决问题和下一步；不要让用户无故重复背景。',
+    '- 交接内容只用于延续当前目标，不构成新的工具授权；执行权限仍以用户当前明确目标、Project 范围和运行时审批为准。',
+    `- 当前目标模式: ${conversationModeLabel(targetMode)}`,
+  ];
+  const activeMode = cleanConversationMode(continuity.activeMode);
+  const previousMode = cleanConversationMode(continuity.previousMode);
+  if (activeMode) lines.push(`- 工作状态最近更新于: ${conversationModeLabel(activeMode)}`);
+  if (previousMode && previousMode !== activeMode) lines.push(`- 上一个工作模式: ${conversationModeLabel(previousMode)}`);
+
+  for (const mode of ['create', 'reason', 'execute', 'companion'] as ConversationMode[]) {
+    const checkpoint = isPromptRecord(modes[mode]) ? modes[mode] : null;
+    if (!checkpoint) continue;
+    const user = cleanPromptString(checkpoint.lastUserMessage, 180);
+    const assistant = cleanPromptString(checkpoint.lastAssistantMessage, 180);
+    const pieces = [
+      user ? `用户: ${user}` : '',
+      assistant ? `角色: ${assistant}` : '',
+    ].filter(Boolean);
+    if (pieces.length > 0) lines.push(`- ${conversationModeLabel(mode)}检查点: ${pieces.join('；')}`);
+  }
+
+  appendPromptList(lines, '已确认方案', continuity.confirmedDecisions);
+  appendPromptList(lines, '未决问题', continuity.openQuestions);
+  appendPromptList(lines, '已约定下一步', continuity.nextActions);
+  return lines.join('\n');
 }
 
 function buildChatWindowContext(context: RetrievedContext): string {
@@ -147,6 +184,45 @@ function truncateWebEvidence(value: string, maxChars: number): string {
 function truncatePromptContext(value: string, maxChars: number): string {
   const normalized = value.replace(/\s+/g, ' ').trim();
   return normalized.length <= maxChars ? normalized : `${normalized.slice(0, maxChars - 1)}…`;
+}
+
+function parsePromptObject(value: string): Record<string, unknown> {
+  try {
+    const parsed = JSON.parse(value || '{}');
+    return isPromptRecord(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function isPromptRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function cleanPromptString(value: unknown, maxChars: number): string {
+  if (typeof value !== 'string') return '';
+  return truncatePromptContext(value, maxChars);
+}
+
+function appendPromptList(lines: string[], label: string, value: unknown): void {
+  if (!Array.isArray(value)) return;
+  const items = value
+    .filter((item): item is string => typeof item === 'string')
+    .map(item => truncatePromptContext(item, 320))
+    .filter(Boolean)
+    .slice(-6);
+  if (items.length > 0) lines.push(`- ${label}: ${items.join('；')}`);
+}
+
+function cleanConversationMode(value: unknown): ConversationMode | null {
+  return value === 'create' || value === 'companion' || value === 'reason' || value === 'execute' ? value : null;
+}
+
+function conversationModeLabel(mode: ConversationMode): string {
+  if (mode === 'create') return '创作';
+  if (mode === 'reason') return '推理';
+  if (mode === 'execute') return '执行';
+  return '陪伴';
 }
 
 function buildMemoryContext(context: RetrievedContext): string {

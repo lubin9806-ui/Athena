@@ -7,6 +7,7 @@ import { getModelCredentialStatus, resolveModelCredential } from '../ai/Credenti
 import { canRouteModelRequest } from '../ai/ModelNetworkPolicy';
 import { Conversation } from '../ai/Conversation';
 import { EmotionEngine } from '../ai/Emotion';
+import { buildChatPrompt } from '../ai/PromptBuilder';
 import { getAppSettings, resolveToolSettingsForMode, shouldSaveHistory } from '../config/SettingsStore';
 import { WebSearchService } from '../web/WebSearchService';
 import {
@@ -536,6 +537,22 @@ export class AthenaController {
       this.attachments.attachToMessage(chatWindow.id, savedUser.chatMessageId, attachmentIds);
     }
     this.persistExtractedMemory(goal, savedUser.messageId, chatWindow.id);
+    const settings = getAppSettings();
+    const retrievedForExecution = buildRetrievedContext(
+      goal,
+      settings.memory,
+      settings.conversation.saveHistory,
+      'execute',
+      chatWindow.id,
+      savedUser.chatMessageId,
+      false,
+    );
+    const executionRuntimePrompt = buildChatPrompt({
+      userMessage: goal,
+      recentMessages: [],
+      retrievedContext: { ...retrievedForExecution, recentMessages: [] },
+      mode: 'execute',
+    }).find(message => message.role === 'system')?.content || '';
     const task = this.projectWorkspace.createTask({
       projectId,
       chatWindowId: chatWindow.id,
@@ -546,7 +563,7 @@ export class AthenaController {
         reason: `${tool.label} is available under the current execute-mode permission tier`,
       })),
     });
-    const executionMessages = this.projectWorkspace.buildExecutionMessages(task.id);
+    const executionMessages = this.projectWorkspace.buildExecutionMessages(task.id, executionRuntimePrompt);
     const current = executionMessages[executionMessages.length - 1];
     if (attachmentText.length > 0) current.content = withChatAttachmentContext(current.content, attachmentText);
     if (modelImages.length > 0) {

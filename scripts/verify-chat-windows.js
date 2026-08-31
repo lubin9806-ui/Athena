@@ -45,6 +45,48 @@ try {
   assert.ok(!messagesA.some((content) => content.includes('B-only')), 'window A must not contain window B messages');
   assert.ok(!messagesB.some((content) => content.includes('方案一') || content.includes('A-only')), 'window B must not contain window A messages');
 
+  const continuityWindow = memory.createChatWindow({ title: 'Cross-mode continuity', mode: 'create' });
+  memory.saveChatMessage(continuityWindow.id, 'user', '我决定采用方案一：暖色电影感视觉。', undefined, 'create');
+  memory.saveChatMessage(continuityWindow.id, 'assistant', '创作方案已整理。下一步：完成首页视觉稿并保留暖色电影感。', undefined, 'create');
+  memory.saveChatMessage(continuityWindow.id, 'user', '切到推理模式检查这个方案。', undefined, 'reason');
+  memory.saveChatMessage(continuityWindow.id, 'assistant', '整体方向成立。待确认：最终导出分辨率。', undefined, 'reason');
+  memory.saveChatMessage(continuityWindow.id, 'user', '按刚才聊好的方案继续执行。', undefined, 'execute');
+  const continuityState = JSON.parse(memory.getChatWindow(continuityWindow.id).working_state_json).modeContinuity;
+  assert.equal(continuityState.version, 1, 'cross-mode continuity state must be versioned');
+  assert.equal(continuityState.activeMode, 'execute');
+  assert.equal(continuityState.previousMode, 'reason');
+  assert.ok(continuityState.transitions.some(item => item.from === 'create' && item.to === 'reason'), 'create-to-reason transition must persist');
+  assert.ok(continuityState.transitions.some(item => item.from === 'reason' && item.to === 'execute'), 'reason-to-execute transition must persist');
+  assert.match(continuityState.modes.create.lastAssistantMessage, /暖色电影感/);
+  assert.match(continuityState.modes.reason.lastAssistantMessage, /导出分辨率/);
+  assert.match(continuityState.confirmedDecisions.join('\n'), /采用方案一/);
+  assert.match(continuityState.nextActions.join('\n'), /完成首页视觉稿/);
+  assert.match(continuityState.openQuestions.join('\n'), /最终导出分辨率/);
+
+  const continuityContext = memory.retrieveContext({
+    query: '继续执行',
+    recentMessageCount: 20,
+    maxProfileFacts: 0,
+    maxEvents: 0,
+    maxProjectNotes: 0,
+    chatWindowId: continuityWindow.id,
+  });
+  const continuityPrompt = buildChatPrompt({
+    userMessage: '继续执行',
+    recentMessages: continuityContext.recentMessages,
+    retrievedContext: continuityContext,
+    mode: 'execute',
+  }).map(message => message.content).join('\n');
+  assert.match(continuityPrompt, /跨模式连续工作状态/);
+  assert.match(continuityPrompt, /创作检查点/);
+  assert.match(continuityPrompt, /已确认方案: .*采用方案一/);
+  assert.match(continuityPrompt, /未决问题: .*最终导出分辨率/);
+  assert.match(continuityPrompt, /\[创作模式\]/, 'recent creation history must retain its mode label');
+  assert.match(continuityPrompt, /\[推理模式\]/, 'recent reasoning history must retain its mode label');
+  assert.match(rendererSource, /workingState\.modeContinuity\?\.confirmedDecisions/, 'window memory panel must surface cross-mode confirmed decisions');
+  assert.match(rendererSource, /workingState\.modeContinuity\?\.nextActions/, 'window memory panel must surface cross-mode next actions');
+  assert.match(rendererSource, /workingState\.modeContinuity\?\.openQuestions/, 'window memory panel must surface cross-mode open questions');
+
   const stateA = memory.getChatWindow(windowA.id);
   assert.equal(stateA.messageCount, 2);
   assert.ok(stateA.summary.includes('user: 我选择方案一'), 'rolling summary must retain first user selection');

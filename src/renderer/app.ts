@@ -326,6 +326,14 @@ interface ChatWindowWorkingState {
   pendingTodos?: string[];
   pinnedFacts?: ChatWindowPinnedFact[];
   messageCount?: number;
+  modeContinuity?: {
+    version?: number;
+    activeMode?: AthenaMode;
+    previousMode?: AthenaMode;
+    confirmedDecisions?: string[];
+    openQuestions?: string[];
+    nextActions?: string[];
+  };
 }
 
 interface ContextSnapshotDebugItem {
@@ -3691,11 +3699,14 @@ function deriveWindowInsights(
       workingState.lastUserSelection ? `已选择 ${workingState.lastUserSelection}` : '',
     ),
     conclusions: uniqueTexts([
+      ...arrayStrings(workingState.modeContinuity?.confirmedDecisions),
       ...arrayStrings(workingState.confirmedConclusions),
       ...arrayStrings(workingState.conclusions),
       ...extractLabeledList([...assistantMessages, ...userMessages], ['已确认', '确认', '结论']),
     ]).slice(0, 6),
     todos: uniqueTexts([
+      ...arrayStrings(workingState.modeContinuity?.nextActions),
+      ...arrayStrings(workingState.modeContinuity?.openQuestions).map(item => `待确认：${item.replace(/^(?:待确认|需要确认|尚未确定|还没确定|未决问题)\s*[:：]?\s*/i, '')}`),
       ...arrayStrings(workingState.todos),
       ...arrayStrings(workingState.pendingTodos),
       ...extractTodoList(userMessages),

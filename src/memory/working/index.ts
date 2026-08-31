@@ -37,6 +37,8 @@ const MAX_CHAT_WINDOW_PREVIEW_CHARS = 120;
 const MAX_WORKING_STATE_VALUE_CHARS = 120;
 const MAX_PINNED_FACTS_PER_WINDOW = 24;
 const MAX_PINNED_FACT_CHARS = 240;
+const MAX_MODE_TRANSITIONS = 12;
+const MAX_MODE_HANDOFF_ITEMS = 12;
 const CHAT_WINDOW_MODES = new Set<ConversationMode>(['create', 'companion', 'reason', 'execute']);
 
 export function saveMessage(role: MessageRole, content: string, emotion?: string, mode?: ConversationMode): Message {
@@ -603,6 +605,8 @@ function buildChatWindowWorkingState(
   update: { id: number; role: MessageRole; content: string; mode: ConversationMode; messageCount: number },
 ): string {
   const state = parseWorkingState(existingJson);
+  const previousMode = cleanChatWindowMode(state.lastMode);
+  state.modeContinuity = updateModeContinuityState(state.modeContinuity, previousMode, update);
   state.lastMessageId = update.id;
   state.lastRole = update.role;
   state.lastMode = update.mode;
@@ -618,6 +622,53 @@ function buildChatWindowWorkingState(
   return JSON.stringify(state);
 }
 
+function updateModeContinuityState(
+  existing: unknown,
+  previousMode: ConversationMode | null,
+  update: { id: number; role: MessageRole; content: string; mode: ConversationMode; messageCount: number },
+): Record<string, unknown> {
+  const continuity = isRecord(existing) ? { ...existing } : {};
+  const modes = isRecord(continuity.modes) ? { ...continuity.modes } : {};
+  const checkpoint = isRecord(modes[update.mode]) ? { ...modes[update.mode] as Record<string, unknown> } : {};
+  const now = new Date().toISOString();
+
+  checkpoint.lastMessageId = update.id;
+  checkpoint.lastRole = update.role;
+  checkpoint.lastMessagePreview = truncateChatWindowText(update.content, MAX_WORKING_STATE_VALUE_CHARS);
+  checkpoint.messageCount = nonNegativeInteger(checkpoint.messageCount) + 1;
+  checkpoint.updatedAt = now;
+  if (update.role === 'user') checkpoint.lastUserMessage = truncateChatWindowText(update.content, MAX_WORKING_STATE_VALUE_CHARS);
+  if (update.role === 'assistant') checkpoint.lastAssistantMessage = truncateChatWindowText(update.content, MAX_WORKING_STATE_VALUE_CHARS);
+  modes[update.mode] = checkpoint;
+
+  const transitions = readRecordArray(continuity.transitions);
+  if (previousMode && previousMode !== update.mode) {
+    transitions.push({ from: previousMode, to: update.mode, atMessageId: update.id, createdAt: now });
+  }
+
+  const confirmedDecisions = readStringList(continuity.confirmedDecisions);
+  const openQuestions = readStringList(continuity.openQuestions);
+  const nextActions = readStringList(continuity.nextActions);
+  if (update.role === 'user') {
+    appendUnique(confirmedDecisions, extractConfirmedDecision(update.content));
+  }
+  appendUnique(openQuestions, extractOpenQuestion(update.content));
+  appendUnique(nextActions, extractNextAction(update.content));
+
+  return {
+    version: 1,
+    activeMode: update.mode,
+    previousMode: previousMode && previousMode !== update.mode ? previousMode : continuity.previousMode,
+    lastTransitionMessageId: previousMode && previousMode !== update.mode ? update.id : continuity.lastTransitionMessageId,
+    transitions: transitions.slice(-MAX_MODE_TRANSITIONS),
+    modes,
+    confirmedDecisions: confirmedDecisions.slice(-MAX_MODE_HANDOFF_ITEMS),
+    openQuestions: openQuestions.slice(-MAX_MODE_HANDOFF_ITEMS),
+    nextActions: nextActions.slice(-MAX_MODE_HANDOFF_ITEMS),
+    updatedAt: now,
+  };
+}
+
 function parseWorkingState(value: string): Record<string, unknown> {
   try {
     const parsed = JSON.parse(value || '{}');
@@ -625,6 +676,50 @@ function parseWorkingState(value: string): Record<string, unknown> {
   } catch {
     return {};
   }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function readRecordArray(value: unknown): Record<string, unknown>[] {
+  return Array.isArray(value) ? value.filter(isRecord).map(item => ({ ...item })) : [];
+}
+
+function readStringList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item): item is string => typeof item === 'string')
+    .map(item => truncateChatWindowText(item, 500))
+    .filter(Boolean)
+    .slice(-MAX_MODE_HANDOFF_ITEMS);
+}
+
+function appendUnique(values: string[], value: string): void {
+  if (!value || values.includes(value)) return;
+  values.push(value);
+}
+
+function extractConfirmedDecision(content: string): string {
+  const normalized = truncateChatWindowText(content, 500);
+  const match = normalized.match(/(?:我(?:决定|确认|选择|采用|选定|同意)|就按|确定用|方案(?:就)?定为)\s*[:：]?\s*(.{2,320})/i);
+  return match ? truncateChatWindowText(match[0], 500) : '';
+}
+
+function extractOpenQuestion(content: string): string {
+  const normalized = truncateChatWindowText(content, 500);
+  const match = normalized.match(/(?:待确认|需要确认|尚未确定|还没确定|未决问题|open question)\s*[:：]?\s*(.{2,320})/i);
+  return match ? truncateChatWindowText(match[0], 500) : '';
+}
+
+function extractNextAction(content: string): string {
+  const normalized = truncateChatWindowText(content, 500);
+  const match = normalized.match(/(?:下一步|接下来|后续动作|待办|next step)\s*[:：]?\s*(.{2,320})/i);
+  return match ? truncateChatWindowText(match[0], 500) : '';
+}
+
+function nonNegativeInteger(value: unknown): number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : 0;
 }
 
 function parseJsonObject(value: string): Record<string, unknown> {

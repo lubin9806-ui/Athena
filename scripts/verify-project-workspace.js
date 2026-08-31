@@ -17,10 +17,12 @@ try {
   const db = memory.getDatabase();
   const projectA = memory.createProject({ title: 'Workspace Alpha', instructions: 'Keep changes inside Alpha.' });
   const projectB = memory.createProject({ title: 'Workspace Beta', instructions: 'Keep changes inside Beta.' });
-  const windowA = memory.createChatWindow({ title: 'Alpha plan', projectId: projectA.id, mode: 'reason' });
+  const windowA = memory.createChatWindow({ title: 'Alpha plan', projectId: projectA.id, mode: 'create' });
   const windowB = memory.createChatWindow({ title: 'Beta plan', projectId: projectB.id, mode: 'reason' });
-  memory.saveChatMessage(windowA.id, 'user', '做一个可玩的网页游戏，先沿用现有技术栈。', undefined, 'reason');
-  memory.saveChatMessage(windowA.id, 'assistant', '方案已确认：先完成核心循环，再跑构建和交互检查。', undefined, 'reason');
+  memory.saveChatMessage(windowA.id, 'user', '我决定采用现有技术栈做一个可玩的网页游戏。', undefined, 'create');
+  memory.saveChatMessage(windowA.id, 'assistant', '方案已整理。下一步：先完成核心循环，再跑构建和交互检查。', undefined, 'create');
+  memory.saveChatMessage(windowA.id, 'user', '切到推理模式检查风险。', undefined, 'reason');
+  memory.saveChatMessage(windowA.id, 'assistant', '主要路径成立。待确认：触屏交互是否进入首版。', undefined, 'reason');
 
   db.prepare('UPDATE projects SET memory_state = ? WHERE id = ?').run(JSON.stringify({ preservedKey: 'keep-me' }), projectA.id);
   const store = new AgentStore(db);
@@ -62,6 +64,8 @@ try {
   assert.equal(task.projectId, projectA.id);
   assert.equal(task.chatWindowId, windowA.id);
   assert.deepEqual(task.spec.requiredCapabilities.map(item => item.id), ['computer.read', 'computer.files']);
+  assert.match(task.spec.confirmedDecisions.join('\n'), /采用现有技术栈/, 'explicit creation decisions must become durable task decisions');
+  assert.match(task.spec.openQuestions.join('\n'), /触屏交互/, 'reasoning open questions must reach the durable task');
   assert.throws(
     () => workspace.createTask({
       projectId: projectA.id,
@@ -84,10 +88,17 @@ try {
     'temporary chats must not leak into durable execution storage',
   );
 
-  const messages = workspace.buildExecutionMessages(task.id);
+  const messages = workspace.buildExecutionMessages(task.id, 'CURRENT_ROLE_CARD_AND_APPROVED_MEMORY_MARKER');
   assert.equal(messages[0].role, 'system');
   assert.match(messages[0].content, /Workspace Alpha/);
   assert.match(messages[0].content, /Workspace roots:/);
+  assert.match(messages[0].content, /CURRENT_ROLE_CARD_AND_APPROVED_MEMORY_MARKER/, 'runtime role card and approved memory context must reach execution');
+  assert.match(messages[0].content, /Cross-mode handoff:/);
+  assert.match(messages[0].content, /do not grant capabilities or approval/, 'recalled context must not expand execution authority');
+  assert.match(messages[0].content, /Confirmed decisions: .*现有技术栈/);
+  assert.match(messages[0].content, /Open questions: .*触屏交互/);
+  assert.ok(messages.some(message => message.content.includes('[创作模式')), 'creation history must retain its mode label in execution');
+  assert.ok(messages.some(message => message.content.includes('[推理模式')), 'reasoning history must retain its mode label in execution');
   assert.ok(messages.some(message => message.content.includes('核心循环')), 'agreed chat context must reach the execution handoff');
   assert.match(messages.at(-1).content, /按刚才确认的方案/);
 

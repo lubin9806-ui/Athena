@@ -191,7 +191,7 @@ function buildCandidates(input: ManagedContextInput): ContextCandidate[] {
       id: String(message.id),
       label: `${message.role} message #${message.id}`,
       priority: 80 + index / 100,
-      content: message.content,
+      content: message.mode ? `[${modeLabel(message.mode)}模式]\n${message.content}` : message.content,
       placement: 'history',
       role: message.role === 'assistant' ? 'assistant' : 'user',
       order: order += 1,
@@ -347,7 +347,7 @@ function buildCandidates(input: ManagedContextInput): ContextCandidate[] {
       priority: 20,
       content: [
         '## Older history snippets',
-        ...oldHistory.map(message => `- #${message.id} ${message.role}: ${truncateForSnippet(message.content, 220)}`),
+        ...oldHistory.map(message => `- #${message.id} ${message.role}${message.mode ? ` [${modeLabel(message.mode)}模式]` : ''}: ${truncateForSnippet(message.content, 220)}`),
       ].join('\n'),
       placement: 'system',
       order: order += 1,
@@ -419,4 +419,11 @@ function normalizeContextText(value: string): string {
     .replace(/[ \t]+/g, ' ')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
+}
+
+function modeLabel(mode: ConversationMode): string {
+  if (mode === 'create') return '创作';
+  if (mode === 'reason') return '推理';
+  if (mode === 'execute') return '执行';
+  return '陪伴';
 }
