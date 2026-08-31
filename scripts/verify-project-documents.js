@@ -198,7 +198,7 @@ async function run() {
     memory.getDatabase().prepare('UPDATE project_documents SET storage_path = ? WHERE id = ?').run(tamperRecord.storage_path, tamperDocument.id);
     assert.equal(service.delete(alpha.id, tamperDocument.id), true);
     assert.deepEqual(memory.getDatabase().pragma('foreign_key_check'), []);
-    assert.equal(memory.getDatabase().pragma('user_version', { simple: true }), 14);
+    assert.equal(memory.getDatabase().pragma('user_version', { simple: true }), 15);
 
     const controllerSource = fs.readFileSync(path.join(root, 'src', 'core', 'controller', 'AthenaController.ts'), 'utf8');
     assert.match(controllerSource, /Temporary Chat cannot create persistent Project documents/);

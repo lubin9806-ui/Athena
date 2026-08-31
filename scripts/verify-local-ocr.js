@@ -86,7 +86,7 @@ async function run() {
     assert.match(sourceCode, /cacheMethod:\s*'readOnly'/);
     assert.match(sourceCode, /@tesseract\.js-data\/chi_sim/);
     assert.doesNotMatch(sourceCode, /https?:\/\//);
-    assert.equal(memory.getDatabase().pragma('user_version', { simple: true }), 14);
+    assert.equal(memory.getDatabase().pragma('user_version', { simple: true }), 15);
     console.log('ATHENA_LOCAL_OCR_OK engine=tesseract.js languages=chi_sim,eng network=none isolation=chat cancellation=abort skills=builtin');
     bridge.shutdown();
   } catch (error) {
