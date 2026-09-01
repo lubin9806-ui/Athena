@@ -100,7 +100,15 @@ const {
     }),
   });
   assert.deepEqual(bridge.refresh(), ['create_document_artifact', 'edit_image_artifact', 'generate_image_artifact']);
-  assert.equal(registry.list().find(tool => tool.name === 'generate_image_artifact').supportsIdempotencyKey, false);
+  const imageTool = registry.list().find(tool => tool.name === 'generate_image_artifact');
+  const editImageTool = registry.list().find(tool => tool.name === 'edit_image_artifact');
+  assert.equal(imageTool.supportsIdempotencyKey, false);
+  assert.match(imageTool.description, /adult fictional and synthetic subjects/);
+  assert.match(imageTool.description, /photorealistic/);
+  assert.match(imageTool.description, /petite, youthful-looking, anime-styled, long-lived species/);
+  assert.match(imageTool.description, /Do not infer fictional age from appearance/);
+  assert.match(imageTool.description, /provider may still enforce its own platform rules/i);
+  assert.match(editImageTool.description, /user-declared fictional, synthetic, or AI-generated adult subject/);
 
   const document = await execute(registry, 'create_document_artifact', {
     title: 'Local report', format: 'markdown', filename: 'report', sections: [{ heading: 'Result', body: 'Done.' }],

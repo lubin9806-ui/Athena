@@ -95,6 +95,10 @@ try {
   assert.match(messages[0].content, /CURRENT_ROLE_CARD_AND_APPROVED_MEMORY_MARKER/, 'runtime role card and approved memory context must reach execution');
   assert.match(messages[0].content, /Cross-mode handoff:/);
   assert.match(messages[0].content, /do not grant capabilities or approval/, 'recalled context must not expand execution authority');
+  assert.match(messages[0].content, /Photorealistic style alone is not evidence/, 'execution must not infer a real person from photorealistic AI style');
+  assert.match(messages[0].content, /non-consensual plot elements, injury, blood, violence, horror, or death/, 'execution must retain the open adult-fiction handoff');
+  assert.match(messages[0].content, /Determine fictional age from the user declaration and written canon/, 'execution must use declared fictional age instead of visual guessing');
+  assert.match(messages[0].content, /Do not invent an additional content-policy category/, 'execution must not invent a broad refusal category');
   assert.match(messages[0].content, /Confirmed decisions: .*现有技术栈/);
   assert.match(messages[0].content, /Open questions: .*触屏交互/);
   assert.ok(messages.some(message => message.content.includes('[创作模式')), 'creation history must retain its mode label in execution');
