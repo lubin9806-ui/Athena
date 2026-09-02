@@ -221,6 +221,33 @@ test('model gateway minimizes retention, meters quota, blocks abuse and supports
     const appeal = fx.services.model.appeal(context, abuse.id, 'This was a controlled security research false positive.');
     assert.equal(appeal.state, 'appealed');
     assert.equal(appeal.escalation, 'manual-review-required');
+    await assert.rejects(() => fx.services.model.infer(context, { prompt: 'touch the local filesystem', mode: 'execute' }),
+      (error) => error.code === 'invalid-mode');
+    const withHistory = await fx.services.model.infer(context, {
+      prompt: 'Continue the poem.',
+      mode: 'companion',
+      history: [{ role: 'user', content: 'Write a short poem.' }, { role: 'assistant', content: 'A fixture stanza.' }],
+    });
+    assert.match(withHistory.text, /history=2/);
+  } finally { await fx.close(); }
+});
+
+test('search proxy is first-party, untrusted, query-minimized and Execute-free', async () => {
+  const fx = fixture();
+  try {
+    const account = register(fx.services, 'search');
+    const context = fx.services.auth.authenticate(account.accessToken);
+    const query = 'unique-search-marker-9c2e';
+    const result = await fx.services.search.query(context, { query, maxResults: 2 });
+    assert.equal(result.provider, 'local-fixture');
+    assert.equal(result.untrustedExternalEvidence, true);
+    assert.equal(result.retained.query, false);
+    assert.equal(result.results.length, 2);
+    assert.equal(result.results[0].url.startsWith('https://example.test/'), true);
+    const audit = JSON.stringify(fx.services.store.db.prepare('SELECT * FROM audit_events WHERE tenant_id=?').all(account.tenantId));
+    assert.equal(audit.includes(query), false);
+    await assert.rejects(() => fx.services.search.query(context, { query: 'x', maxResults: 2 }),
+      (error) => error.code === 'invalid-query');
   } finally { await fx.close(); }
 });
 

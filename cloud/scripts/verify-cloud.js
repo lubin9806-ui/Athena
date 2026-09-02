@@ -27,11 +27,14 @@ for (const forbidden of [
   /src[\\/]core[\\/]tools/,
   /database[\\/]athena\.db/,
   /\/v1\/(computer|desktop|terminal|tools)/,
+  /sogou|duckduckgo|bing\.com/i,
 ]) {
   if (forbidden.test(source)) throw new Error(`Cloud boundary contains forbidden Desktop coupling: ${forbidden}`);
 }
 if (!source.includes("AES-256-GCM") && !source.includes("aes-256-gcm")) throw new Error('At-rest encryption implementation was not found.');
 if (!source.includes('tenant_id=?')) throw new Error('Tenant-scoped query pattern was not found.');
+if (!source.includes('/v1/search/query')) throw new Error('Mobile search proxy route is missing.');
+if (!source.includes("['create', 'companion', 'reason']")) throw new Error('Model gateway must keep Execute excluded.');
 
 assertProductionFailsClosed();
 const policies = JSON.parse(fs.readFileSync(path.join(root, 'config', 'provider-policies.json'), 'utf8'));

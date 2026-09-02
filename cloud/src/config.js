@@ -21,6 +21,7 @@ function loadConfig(overrides = {}) {
     cloudProvider: overrides.cloudProvider || process.env.ATHENA_CLOUD_PROVIDER || 'local',
     billingAdapter: overrides.billingAdapter || process.env.ATHENA_CLOUD_BILLING_ADAPTER || 'local-no-charge',
     modelProvider: overrides.modelProvider || process.env.ATHENA_CLOUD_MODEL_PROVIDER || 'local-fixture',
+    searchProvider: overrides.searchProvider || process.env.ATHENA_CLOUD_SEARCH_PROVIDER || 'local-fixture',
     accessTtlMs: Number(overrides.accessTtlMs || 15 * 60 * 1000),
     refreshTtlMs: Number(overrides.refreshTtlMs || 30 * 24 * 60 * 60 * 1000),
     rateLimitPerMinute: Number(overrides.rateLimitPerMinute || 120),
@@ -54,6 +55,7 @@ function validateConfig(config) {
     if (config.cloudProvider === 'local') blockers.push('cloud provider decision');
     if (config.billingAdapter === 'local-no-charge') blockers.push('billing/tax adapter decision');
     if (config.modelProvider === 'local-fixture') blockers.push('model provider terms decision');
+    if (config.searchProvider === 'local-fixture') blockers.push('search provider terms decision');
     if (blockers.length) throw new Error(`Production Cloud configuration blocked: ${blockers.join(', ')}.`);
   }
 }

@@ -6,6 +6,7 @@ const { CloudDatabase } = require('./database');
 const { CloudError, assert } = require('./errors');
 const {
   AuthService, SyncService, RateLimiter, ModelGateway, EntitlementService, LocalFixtureModelProvider,
+  SearchGateway, LocalFixtureSearchProvider,
 } = require('./services');
 const { IdempotencyService, DataRightsService, BackupService, Metrics } = require('./lifecycle');
 const { randomId } = require('./crypto');
@@ -20,6 +21,7 @@ function createCloudApp(config, adapters = {}) {
     sync,
     rate: new RateLimiter(config),
     model: new ModelGateway(store, config, sync, adapters.modelProvider || new LocalFixtureModelProvider()),
+    search: new SearchGateway(store, config, adapters.searchProvider || new LocalFixtureSearchProvider()),
     entitlements: new EntitlementService(store, config, adapters.billingAdapter || new LocalNoChargeBillingAdapter()),
     deployment: adapters.deploymentAdapter || new LocalDeploymentAdapter(config.region, 'local-2'),
     idempotency: new IdempotencyService(store),
@@ -141,9 +143,15 @@ async function route(request, services, config) {
   }
 
   if (method === 'POST' && path === '/v1/model/responses') {
-    const body = await readJson(request, config.maxBodyBytes); exactKeys(body, ['prompt', 'mode']);
+    const body = await readJson(request, config.maxBodyBytes); exactKeys(body, ['prompt', 'mode', 'history']);
     const result = await services.idempotency.execute(context.tenantId, `POST:${path}`, request.headers['idempotency-key'], body,
       () => services.model.infer(context, body));
+    return { status: result.statusCode, body: result.body, headers: { 'idempotency-replayed': String(result.replayed) } };
+  }
+  if (method === 'POST' && path === '/v1/search/query') {
+    const body = await readJson(request, config.maxBodyBytes); exactKeys(body, ['query', 'maxResults']);
+    const result = await services.idempotency.execute(context.tenantId, `POST:${path}`, request.headers['idempotency-key'], body,
+      () => services.search.query(context, body));
     return { status: result.statusCode, body: result.body, headers: { 'idempotency-replayed': String(result.replayed) } };
   }
   const appealMatch = path.match(/^\/v1\/abuse\/([a-z0-9_]+)\/appeal$/i);

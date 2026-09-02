@@ -21,6 +21,7 @@ Athena 当前工程版本为 **Desktop 0.9 Private Beta candidate (`0.9.6-beta.1
 
 ## 技术说明
 
+- `ANDROID_COMPANION_PLAN.md`：窗口 10 Android Companion ADR 与分阶段计划。允许对本地 Cloud fixture 隔离开发；不覆盖 Cloud/Mobile 生产 No-Go，也不等于 Play 提交。
 - `architecture.md`：当前 Electron/IPC/路径/打包主链路。
 - `api.md`：内部 API 入口说明。
 - `prompt.md`：系统提示词组装入口。

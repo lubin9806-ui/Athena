@@ -20,7 +20,8 @@ Production transport is HTTPS only. The local fixture permits HTTP only on loopb
 | `GET /v1/sync/records/{resourceId}` | Bearer | Read one tenant/user-scoped record |
 | `PUT /v1/sync/records/{resourceId}` | Bearer + idempotency key | Create, update or tombstone one record |
 | `GET /v1/sync/changes?cursor=&limit=` | Bearer | Ordered incremental change feed |
-| `POST /v1/model/responses` | Bearer + idempotency key | Create/Companion/Reason inference only |
+| `POST /v1/model/responses` | Bearer + idempotency key | Create/Companion/Reason inference only; optional `history` of `{role,content}` |
+| `POST /v1/search/query` | Bearer + idempotency key | First-party search proxy; local fixture only until a production-eligible provider is selected |
 | `POST /v1/abuse/{caseId}/appeal` | Bearer | Submit encrypted appeal for manual review |
 | `GET /v1/entitlements` | Bearer | Read quota/entitlement state |
 | `POST /v1/data/exports` | Bearer | Create encrypted account export |

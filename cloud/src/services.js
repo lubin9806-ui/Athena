@@ -363,6 +363,7 @@ class ModelGateway {
   async infer(context, input) {
     assert(typeof input.prompt === 'string' && input.prompt.length >= 1 && input.prompt.length <= 32000, 400, 'invalid-prompt', 'Prompt is invalid.');
     assert(['create', 'companion', 'reason'].includes(input.mode), 400, 'invalid-mode', 'Cloud model gateway excludes Execute mode.');
+    const history = normalizeHistory(input.history);
     const safety = classifyContent(input.prompt);
     if (safety.blocked) {
       const caseId = randomId('abuse');
@@ -373,14 +374,16 @@ class ModelGateway {
       this.store.appendAudit(context.tenantId, context.userId, 'model.block', caseId, 'blocked', { category: safety.category });
       throw new CloudError(422, 'content-blocked', 'Request was blocked by the local safety baseline.', { caseId, appealAllowed: true });
     }
-    const estimatedInput = estimateTokens(input.prompt);
+    const estimatedInput = estimateTokens(input.prompt) + history.reduce((sum, item) => sum + estimateTokens(item.content), 0);
     const month = new Date().toISOString().slice(0, 7);
     const current = this.db.prepare('SELECT model_tokens FROM usage_monthly WHERE tenant_id=? AND month=?').get(context.tenantId, month)?.model_tokens || 0;
     assert(current + estimatedInput <= this.config.monthlyModelTokenQuota, 429, 'quota-exhausted', 'Monthly model token quota is exhausted.');
     const started = Date.now();
     let result;
     try {
-      result = await this.provider.infer({ prompt: input.prompt, mode: input.mode, requestId: randomId('req') });
+      result = await this.provider.infer({
+        prompt: input.prompt, mode: input.mode, history, requestId: randomId('req'),
+      });
     } catch {
       this.store.appendAudit(context.tenantId, context.userId, 'model.infer', this.provider.id, 'failure', { durationMs: Date.now() - started });
       throw new CloudError(503, 'model-unavailable', 'Model provider is unavailable. Retry later.');
@@ -409,8 +412,77 @@ class ModelGateway {
 
 class LocalFixtureModelProvider {
   constructor() { this.id = 'local-fixture'; }
-  async infer({ prompt, mode }) {
-    return { text: `[${mode}] ${prompt.slice(0, 200)}` };
+  async infer({ prompt, mode, history = [] }) {
+    const prior = history.length ? ` history=${history.length}` : '';
+    return { text: `[${mode}${prior}] ${prompt.slice(0, 200)}` };
+  }
+}
+
+class SearchGateway {
+  constructor(store, config, provider) {
+    this.store = store;
+    this.config = config;
+    this.provider = provider || new LocalFixtureSearchProvider();
+    const policyPath = path.join(__dirname, '..', 'config', 'provider-policies.json');
+    const policies = JSON.parse(fs.readFileSync(policyPath, 'utf8'));
+    this.policy = (policies.searchProviders || []).find((item) => item.id === config.searchProvider);
+    if (!this.policy) throw new Error(`Search provider policy is missing for ${config.searchProvider}.`);
+    if (config.environment === 'production' && !this.policy.productionEligible) {
+      throw new Error('Configured search provider is not production eligible.');
+    }
+  }
+
+  async query(context, input) {
+    assert(typeof input.query === 'string' && input.query.trim().length >= 2 && input.query.length <= 300, 400, 'invalid-query', 'Search query is invalid.');
+    const maxResults = input.maxResults == null ? 5 : input.maxResults;
+    assert(Number.isInteger(maxResults) && maxResults >= 1 && maxResults <= 8, 400, 'invalid-max-results', 'maxResults must be between 1 and 8.');
+    const safety = classifyContent(input.query);
+    if (safety.blocked) {
+      throw new CloudError(422, 'content-blocked', 'Request was blocked by the local safety baseline.', { appealAllowed: true });
+    }
+    const started = Date.now();
+    let result;
+    try {
+      result = await this.provider.search({ query: input.query.trim(), maxResults, requestId: randomId('req') });
+    } catch {
+      this.store.appendAudit(context.tenantId, context.userId, 'search.query', this.provider.id, 'failure', { durationMs: Date.now() - started });
+      throw new CloudError(503, 'search-unavailable', 'Search provider is unavailable. Retry later.');
+    }
+    this.store.appendAudit(context.tenantId, context.userId, 'search.query', this.provider.id, 'success', {
+      resultCount: Array.isArray(result.results) ? result.results.length : 0,
+      durationMs: Date.now() - started,
+      queryRetention: 'none',
+    });
+    return {
+      query: input.query.trim(),
+      provider: this.provider.id,
+      untrustedExternalEvidence: true,
+      results: result.results,
+      retained: { query: false },
+    };
+  }
+}
+
+class LocalFixtureSearchProvider {
+  constructor() { this.id = 'local-fixture'; }
+  async search({ query, maxResults }) {
+    const retrievedAt = new Date().toISOString();
+    return {
+      results: [
+        {
+          title: `Fixture source for ${query.slice(0, 80)}`,
+          url: 'https://example.test/athena-search-fixture',
+          snippet: 'Local unsigned search fixture. This is not a commercial search SLA and does not scrape third-party HTML.',
+          retrievedAt,
+        },
+        {
+          title: 'Athena Cloud search proxy',
+          url: 'https://example.test/cloud-search-proxy',
+          snippet: 'Mobile clients must call Cloud /v1/search/query. They must not scrape third-party HTML search pages.',
+          retrievedAt,
+        },
+      ].slice(0, maxResults),
+    };
   }
 }
 
@@ -441,6 +513,17 @@ class EntitlementService {
     this.store.appendAudit(context.tenantId, context.userId, 'entitlement.transition', context.tenantId, 'success', { nextState, charged: result.charged });
     return this.get(context);
   }
+}
+
+function normalizeHistory(value) {
+  if (value == null) return [];
+  assert(Array.isArray(value) && value.length <= 20, 400, 'invalid-history', 'History must be at most 20 messages.');
+  return value.map((item) => {
+    assert(item && typeof item === 'object' && !Array.isArray(item), 400, 'invalid-history', 'History items must be objects.');
+    assert(['user', 'assistant'].includes(item.role), 400, 'invalid-history', 'History roles must be user or assistant.');
+    assert(typeof item.content === 'string' && item.content.length >= 1 && item.content.length <= 8000, 400, 'invalid-history', 'History content is invalid.');
+    return { role: item.role, content: item.content };
+  });
 }
 
 function classifyContent(prompt) {
@@ -493,5 +576,5 @@ function validateResourceId(value) { assert(typeof value === 'string' && /^[a-z0
 
 module.exports = {
   AuthService, SyncService, RateLimiter, ModelGateway, LocalFixtureModelProvider, UnavailableModelProvider,
-  EntitlementService, compareVectors, classifyContent, estimateTokens,
+  SearchGateway, LocalFixtureSearchProvider, EntitlementService, compareVectors, classifyContent, estimateTokens,
 };

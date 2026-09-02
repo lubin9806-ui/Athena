@@ -16,6 +16,21 @@
       "reviewStatus": "local-only"
     }
   ],
+  "searchProviders": [
+    {
+      "id": "local-fixture",
+      "purpose": "Deterministic local search fixture for first-party Mobile clients. Does not contact the public web and does not scrape HTML.",
+      "productionEligible": false,
+      "dataSent": ["current search query"],
+      "queryRetention": "none",
+      "trainingUse": "none",
+      "processingRegions": ["local-1"],
+      "termsUrl": null,
+      "dpaUrl": null,
+      "reviewedAt": "2026-09-02",
+      "reviewStatus": "local-only"
+    }
+  ],
   "productionDecision": null,
   "rule": "A provider is blocked in production until terms, DPA, regions, retention, training use, subprocessors and deletion behavior are reviewed and recorded."
 }
