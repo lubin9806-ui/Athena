@@ -27,7 +27,7 @@ function runElectron(label, script) {
   if (result.status !== 0) process.exit(result.status || 1);
 }
 
-function effectiveBuilderConfig(signed) {
+function effectiveBuilderConfig(signed, updateUrl, channel, publisher) {
   const sourcePath = path.join(ROOT, 'electron-builder.yml');
   let contents = fs.readFileSync(sourcePath, 'utf8');
   if (!contents.includes('signAndEditExecutable: true')) {
@@ -35,6 +35,7 @@ function effectiveBuilderConfig(signed) {
   }
   if (!signed) contents = contents.replace('signAndEditExecutable: true', 'signAndEditExecutable: false');
   if (signed) contents = `forceCodeSigning: true\n${contents}`;
+  contents = `${contents.trimEnd()}\npublish:\n  provider: generic\n  url: ${JSON.stringify(updateUrl)}\n  channel: ${JSON.stringify(channel)}\n  publisherName:\n    - ${JSON.stringify(publisher)}\n  updaterCacheDirName: athena-updater\n`;
   const target = path.join(ROOT, '.build', 'electron-builder.effective.yml');
   fs.mkdirSync(path.dirname(target), { recursive: true });
   fs.writeFileSync(target, contents, 'utf8');
@@ -69,26 +70,28 @@ function main() {
   prepareRelease();
   process.argv = originalArgv;
 
-  const config = effectiveBuilderConfig(signed);
   const version = packageMetadata().version;
+  const channel = releaseChannel(version);
   writeJson(path.join(ROOT, '.build', 'update-config.json'), {
     schemaVersion: 1,
     enabled: signed && Boolean(approvedUpdateBaseUrl),
     baseUrl: signed ? approvedUpdateBaseUrl || '' : '',
-    channel: releaseChannel(version),
+    channel,
     checkIntervalHours: 6,
   });
-  const escapedPublisher = (signingPublisher || 'UNSIGNED ENGINEERING EVIDENCE').replace(/'/g, "''");
+  const publisher = signingPublisher || 'UNSIGNED ENGINEERING EVIDENCE';
+  const escapedPublisher = publisher.replace(/'/g, "''");
   const updateUrl = signed ? approvedUpdateBaseUrl || '' : 'https://updates.invalid/athena-disabled';
   fs.writeFileSync(path.join(ROOT, '.build', 'app-update.yml'), [
     'provider: generic',
     `url: '${updateUrl}'`,
-    `channel: ${releaseChannel(version)}`,
+    `channel: ${channel}`,
     'publisherName:',
     `  - '${escapedPublisher}'`,
     'updaterCacheDirName: athena-updater',
     '',
   ].join('\n'), 'utf8');
+  const config = effectiveBuilderConfig(signed, updateUrl, channel, publisher);
   run('clean', path.join(ROOT, 'scripts', 'clean-dist.js'));
   run('typecheck', path.join(ROOT, 'node_modules', 'typescript', 'bin', 'tsc'));
   runElectron('seed-database', path.join(ROOT, 'scripts', 'create-seed-database.js'));
