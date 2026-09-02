@@ -94,6 +94,21 @@ contextBridge.exposeInMainWorld('athenaAPI', {
   openOllamaDownload: () => ipcRenderer.invoke('model:openOllamaDownload'),
   installBundledOllama: () => ipcRenderer.invoke('model:installBundledOllama'),
   pullOllamaModel: (model: string) => ipcRenderer.invoke('model:pullOllamaModel', model),
+  listImageProviders: () => ipcRenderer.invoke('image:listProviders'),
+  getLocalImageRuntimeStatus: () => ipcRenderer.invoke('image:runtimeStatus'),
+  listLocalImageRuntimeVariants: () => ipcRenderer.invoke('image:runtimeVariants'),
+  installLocalImageRuntime: (variant: string) => ipcRenderer.invoke('image:installRuntime', variant),
+  onLocalImageRuntimeInstallProgress: (callback: (progress: any) => void) => {
+    const handler = (_: any, progress: any) => callback(progress);
+    ipcRenderer.on('image:runtimeInstallProgress', handler);
+    return () => ipcRenderer.removeListener('image:runtimeInstallProgress', handler);
+  },
+  discoverLocalImageResources: () => ipcRenderer.invoke('image:discoverLocal'),
+  chooseLocalImageRuntime: () => ipcRenderer.invoke('image:chooseRuntime'),
+  chooseLocalImageModel: () => ipcRenderer.invoke('image:chooseModel'),
+  getImageCredentialStatus: (provider: string) => ipcRenderer.invoke('image:credentialStatus', provider),
+  setImageCredential: (provider: string, apiKey: string) => ipcRenderer.invoke('image:setCredential', provider, apiKey),
+  clearImageCredential: (provider: string) => ipcRenderer.invoke('image:clearCredential', provider),
   listMemories: (options: any) => ipcRenderer.invoke('memory:list', options),
   deleteMemory: (kind: string, id: number) => ipcRenderer.invoke('memory:delete', kind, id),
   updateMemory: (kind: string, id: number, patch: any) => ipcRenderer.invoke('memory:update', kind, id, patch),

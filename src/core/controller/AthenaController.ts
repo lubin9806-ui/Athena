@@ -3,7 +3,6 @@ import { nativeImage } from 'electron';
 import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
-import { getModelCredentialStatus, resolveModelCredential } from '../ai/CredentialStore';
 import { canRouteModelRequest } from '../ai/ModelNetworkPolicy';
 import { Conversation } from '../ai/Conversation';
 import { EmotionEngine } from '../ai/Emotion';
@@ -26,7 +25,9 @@ import {
   ArtifactWorkspaceService,
   DocumentArtifactService,
   ElectronPdfRenderer,
-  OpenAIImageGenerationProvider,
+  ImageGenerationRouter,
+  parseDirectImageGenerationIntent,
+  type DirectImageGenerationIntent,
 } from '../artifacts';
 import { AttachmentService, type ChatAttachmentTextContext, type PreparedChatAttachment } from '../attachments';
 import { extractChatDocument, ProjectDocumentService } from '../documents';
@@ -118,6 +119,7 @@ export class AthenaController {
   private readonly mcpIntegrations: McpIntegrationHost;
   private readonly researchTools: ResearchAgentToolBridge;
   private readonly artifactTools: ArtifactAgentToolBridge;
+  private readonly imageRouter: ImageGenerationRouter;
   private readonly ocr: LocalOcrService;
   private readonly ocrTools: OcrAgentToolBridge;
   private readonly attachments: AttachmentService;
@@ -160,6 +162,14 @@ export class AthenaController {
       canInspectProject: () => this.resolveAgentToolSettings().permissionLevel !== 'off',
       resolveProjectRoots: runId => this.resolveProjectRootsForRun(runId),
     });
+    this.imageRouter = new ImageGenerationRouter({
+      settingsResolver: () => getAppSettings().imageGeneration,
+      decodeValidator: bytes => {
+        const image = nativeImage.createFromBuffer(bytes);
+        if (image.isEmpty()) throw new Error('Generated image could not be decoded by Electron');
+        return image.getSize();
+      },
+    });
     this.artifactTools = new ArtifactAgentToolBridge({
       registry: this.agentTools,
       workspace: new ArtifactWorkspaceService({
@@ -167,17 +177,10 @@ export class AthenaController {
         resolveProjectRoots: runId => this.resolveProjectRootsForRun(runId),
       }),
       documents: new DocumentArtifactService(new ElectronPdfRenderer()),
-      images: new OpenAIImageGenerationProvider({
-        credentialResolver: () => resolveModelCredential('openai'),
-        decodeValidator: bytes => {
-          const image = nativeImage.createFromBuffer(bytes);
-          if (image.isEmpty()) throw new Error('Generated image could not be decoded by Electron');
-          return image.getSize();
-        },
-      }),
+      images: this.imageRouter,
       canWriteArtifacts: () => ['files', 'full'].includes(this.resolveAgentToolSettings().permissionLevel),
-      canGenerateImages: () => canUseNetworkCapability('imageGeneration'),
-      hasImageCredential: () => getModelCredentialStatus('openai').configured,
+      canGenerateImages: () => !isSteamSku() && (!this.imageRouter.isNetworkProvider() || canUseNetworkCapability('imageGeneration')),
+      hasImageCredential: () => this.imageRouter.isAvailable(),
       resolveReferenceImages: (runId, attachmentIds) => {
         const run = this.agentStore.getRun(runId);
         const task = run ? this.agentStore.getTask(run.taskId) : null;
@@ -219,6 +222,11 @@ export class AthenaController {
     this.emotion.setBaseEmotion(new Date().getHours());
     const settings = getAppSettings();
     this.applyToolPermission(settings.tools, settings.conversation.activeMode);
+    if (settings.imageGeneration.provider === 'local' && settings.imageGeneration.local.autoDiscover) {
+      void this.imageRouter.refreshLocalDiscovery().then(() => this.artifactTools.refresh()).catch(error => {
+        logger.warn(`Local image discovery failed: ${error instanceof Error ? error.message : String(error)}`);
+      });
+    }
     this.initialized = true;
     this.scheduleDailyMemoryMaintenance();
     this.scheduleStartupMaintenance();
@@ -258,6 +266,13 @@ export class AthenaController {
     const savedUser = this.saveConversationMessage('user', userMessage, undefined, mode, chatWindowId);
     if (savedUser.chatMessageId && attachmentIds.length > 0) {
       this.attachments.attachToMessage(chatWindowId, savedUser.chatMessageId, attachmentIds);
+    }
+
+    const imageIntent = parseDirectImageGenerationIntent(userMessage);
+    if (imageIntent) {
+      const directImage = await this.processDirectImageRequest(imageIntent, mode, chatWindowId, options);
+      if (effectiveSaveHistory) this.persistExtractedMemory(userMessage, savedUser.messageId, chatWindowId);
+      return directImage;
     }
 
     const localCommand = attachmentIds.length === 0 ? this.processLocalCommand(userMessage, mode, chatWindowId) : null;
@@ -366,6 +381,81 @@ export class AthenaController {
     return response;
   }
 
+  private async processDirectImageRequest(
+    intent: DirectImageGenerationIntent,
+    mode: ConversationMode,
+    chatWindowId: number,
+    options?: ProcessMessageOptions,
+  ): Promise<ChatResponse> {
+    const descriptor = this.imageRouter.selectedDescriptor();
+    const emotionFor = (content: string) => this.emotion.analyzeResponse(content);
+    const reply = (content: string): ChatResponse => {
+      const emotion = emotionFor(content);
+      this.saveConversationMessage('assistant', content, emotion.type, mode, chatWindowId);
+      return { content, emotion };
+    };
+    if (isSteamSku()) return reply('当前 Steam 版本没有开放生图能力。');
+    if (this.imageRouter.isNetworkProvider() && !canUseNetworkCapability('imageGeneration')) {
+      return reply(consentRequiredMessage('imageGeneration'));
+    }
+    if (!this.imageRouter.isNetworkProvider()) {
+      await this.imageRouter.refreshLocalDiscovery().catch(() => null);
+    }
+    if (!this.imageRouter.isAvailable()) {
+      return reply(`当前选择的“${descriptor.label}”尚未就绪。请在设置 → 图像生成中连接本地引擎和模型，或配置该云端通道。`);
+    }
+    if (this.imageRouter.isNetworkProvider()) {
+      options?.onToolStatus?.({ phase: 'confirming', message: `等待确认：${descriptor.label} 生图`, toolName: 'generate_image', toolLabel: descriptor.label });
+      const approved = options?.onToolConfirm ? await options.onToolConfirm({
+        toolName: 'generate_image',
+        toolLabel: `${descriptor.label} 生图`,
+        risk: 'external-network',
+        explanation: '本次提示词将发送给当前选择的云端生图服务，并可能产生费用。Athena 不会自动切换到其他服务。',
+        inputPreview: `Provider: ${descriptor.label}\n尺寸: ${intent.size}\n质量: ${intent.quality}\n提示词字符数: ${intent.prompt.length}`,
+      }) : false;
+      if (!approved) {
+        options?.onToolStatus?.({ phase: 'cancelled', message: '云端生图已取消', toolName: 'generate_image', toolLabel: descriptor.label });
+        return reply('已取消这次云端生图，没有发送提示词，也不会产生本次调用费用。');
+      }
+    }
+    options?.onToolStatus?.({ phase: 'running', message: `正在通过 ${descriptor.label} 生图`, toolName: 'generate_image', toolLabel: descriptor.label });
+    const startedAt = Date.now();
+    try {
+      const generated = await this.imageRouter.generate({
+        prompt: intent.prompt,
+        size: intent.size,
+        quality: intent.quality,
+        outputFormat: 'png',
+      }, AbortSignal.timeout(10 * 60_000));
+      const content = `已通过 ${descriptor.label} 生成 ${generated.width}×${generated.height} 图片。`;
+      const emotion = emotionFor(content);
+      const saved = this.saveConversationMessage('assistant', content, emotion.type, mode, chatWindowId);
+      if (!saved.chatMessageId) throw new Error('生成图片无法绑定到聊天消息。');
+      const extension = generated.format === 'jpeg' ? 'jpg' : generated.format;
+      const attachment = this.attachments.createGeneratedImage(
+        chatWindowId,
+        saved.chatMessageId,
+        generated.bytes,
+        `athena-${new Date().toISOString().replace(/[:.]/g, '-')}.${extension}`,
+      );
+      recordDataActivity('tool', 'conversation-image-generation', {
+        mode,
+        provider: generated.provider,
+        model: generated.model,
+        width: generated.width,
+        height: generated.height,
+        durationMs: Date.now() - startedAt,
+      });
+      options?.onToolStatus?.({ phase: 'completed', message: '图片已生成并保存到当前聊天', toolName: 'generate_image', toolLabel: descriptor.label });
+      options?.onToolStatus?.({ phase: 'done', message: '生图完成' });
+      return { content, emotion, attachments: [attachment] };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      options?.onToolStatus?.({ phase: 'failed', message: `生图失败：${message}`, toolName: 'generate_image', toolLabel: descriptor.label });
+      return reply(`这次生图没有完成：${message}`);
+    }
+  }
+
   async routeMessage(
     userMessage: string,
     requestedMode: ConversationMode,
@@ -451,6 +541,10 @@ export class AthenaController {
       permissionLevel: resolved.permissionLevel,
       tools: this.conversation.getToolCatalog(resolved),
     };
+  }
+
+  async discoverLocalImageResources() {
+    return this.imageRouter.refreshLocalDiscovery();
   }
 
   cancelCurrentExecution(): number {

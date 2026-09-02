@@ -75,12 +75,13 @@ export interface ChatRequest {
   message: string;
 }
 
-export type AgentMessageRoute = 'conversation' | 'web_research' | 'durable_execution';
+export type AgentMessageRoute = 'conversation' | 'image_generation' | 'web_research' | 'durable_execution';
 export type AgentMessageRouteConfidence = 'high' | 'medium';
 export type AgentMessageRoutingMethod = 'rules' | 'model' | 'rules_fallback';
 export type AgentMessageRouteReason =
   | 'selected-execution-mode'
   | 'forced-web-search'
+  | 'image-generation'
   | 'explicit-web-research'
   | 'fresh-information'
   | 'explicit-execution-handoff'
@@ -106,6 +107,7 @@ export interface AgentMessageRouteDecision {
 export interface ChatResponse {
   content: string;
   emotion: Emotion;
+  attachments?: ChatAttachment[];
   webSearch?: WebSearchSummary;
   memoryContext?: {
     recalledEvents: MemoryEvent[];

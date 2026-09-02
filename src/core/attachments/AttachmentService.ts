@@ -74,6 +74,39 @@ export class AttachmentService {
     }
   }
 
+  createGeneratedImage(windowId: number, messageId: number, bytes: Buffer, originalName: string): ChatAttachment {
+    const chatWindow = getChatWindow(windowId);
+    if (!chatWindow?.project_id || chatWindow.deleted_at) throw new Error('Generated-image chat window is not available');
+    const message = getDatabase().prepare('SELECT id FROM chat_messages WHERE id = ? AND window_id = ?').get(messageId, windowId);
+    if (!message) throw new Error('Generated-image target message does not belong to the active chat window');
+    const inspected = inspectAttachmentImage(bytes);
+    const id = crypto.randomUUID();
+    const targetDir = path.join(this.root, `window-${windowId}`);
+    fs.mkdirSync(targetDir, { recursive: true });
+    this.requireManagedDirectory(targetDir);
+    const targetPath = path.join(targetDir, `${id}.${extensionFor(inspected.mimeType)}`);
+    fs.writeFileSync(targetPath, bytes, { flag: 'wx' });
+    const sha256 = crypto.createHash('sha256').update(bytes).digest('hex');
+    try {
+      getDatabase().prepare(`
+        INSERT INTO chat_attachments (
+          id, window_id, message_id, project_id, kind, mime_type, original_name, storage_path,
+          bytes, width, height, sha256, status
+        ) VALUES (?, ?, ?, ?, 'image', ?, ?, ?, ?, ?, ?, ?, 'attached')
+      `).run(
+        id, windowId, messageId, chatWindow.project_id, inspected.mimeType,
+        cleanOriginalName(originalName), targetPath, bytes.length,
+        inspected.width, inspected.height, sha256,
+      );
+    } catch (error) {
+      this.removeManagedFile(targetPath, true);
+      throw error;
+    }
+    const row = this.getOwnedRow(windowId, id);
+    if (!row) throw new Error('Generated image attachment was not persisted');
+    return this.toPublic(row, true);
+  }
+
   importPreparedFiles(windowId: number, inputs: PreparedChatAttachment[]): ChatAttachment[] {
     const chatWindow = getChatWindow(windowId);
     if (!chatWindow?.project_id || chatWindow.deleted_at) throw new Error('当前聊天不可添加附件。');
@@ -214,14 +247,8 @@ export class AttachmentService {
     if (!sourceStat.isFile() || sourceStat.isSymbolicLink()) throw new Error('Attachment source must be a regular file');
     if (sourceStat.size <= 0 || sourceStat.size > MAX_IMAGE_BYTES) throw new Error('Image attachments must be between 1 byte and 10 MB');
     const bytes = fs.readFileSync(sourcePath);
-    const mimeType = detectImageMimeType(bytes);
-    if (!mimeType) throw new Error('Only PNG, JPEG, and WebP image attachments are supported');
-    const image = nativeImage.createFromBuffer(bytes);
-    if (image.isEmpty()) throw new Error('The selected image could not be decoded');
-    const size = image.getSize();
-    if (size.width <= 0 || size.height <= 0 || size.width > MAX_IMAGE_EDGE || size.height > MAX_IMAGE_EDGE || size.width * size.height > MAX_IMAGE_PIXELS) {
-      throw new Error('The selected image dimensions exceed the safe attachment limit');
-    }
+    const inspected = inspectAttachmentImage(bytes);
+    const mimeType = inspected.mimeType;
 
     const id = crypto.randomUUID();
     const extension = extensionFor(mimeType);
@@ -238,7 +265,7 @@ export class AttachmentService {
           id, window_id, project_id, kind, mime_type, original_name, storage_path,
           bytes, width, height, sha256, status
         ) VALUES (?, ?, ?, 'image', ?, ?, ?, ?, ?, ?, ?, 'pending')
-      `).run(id, windowId, projectId, mimeType, originalName, targetPath, bytes.length, size.width, size.height, sha256);
+      `).run(id, windowId, projectId, mimeType, originalName, targetPath, bytes.length, inspected.width, inspected.height, sha256);
     } catch (error) {
       this.removeManagedFile(targetPath, true);
       throw error;
@@ -403,6 +430,19 @@ function cleanAttachmentId(value: string): string {
 function cleanOriginalName(value: string): string {
   const cleaned = value.replace(/[\u0000-\u001f<>:"/\\|?*]/g, '_').trim();
   return (cleaned || 'attachment').slice(0, 180);
+}
+
+function inspectAttachmentImage(bytes: Buffer): { mimeType: ChatAttachmentMimeType; width: number; height: number } {
+  if (bytes.length <= 0 || bytes.length > MAX_IMAGE_BYTES) throw new Error('Image attachments must be between 1 byte and 10 MB');
+  const mimeType = detectImageMimeType(bytes);
+  if (!mimeType) throw new Error('Only PNG, JPEG, and WebP image attachments are supported');
+  const image = nativeImage.createFromBuffer(bytes);
+  if (image.isEmpty()) throw new Error('The selected image could not be decoded');
+  const size = image.getSize();
+  if (size.width <= 0 || size.height <= 0 || size.width > MAX_IMAGE_EDGE || size.height > MAX_IMAGE_EDGE || size.width * size.height > MAX_IMAGE_PIXELS) {
+    throw new Error('The selected image dimensions exceed the safe attachment limit');
+  }
+  return { mimeType, width: size.width, height: size.height };
 }
 
 function extensionFor(mimeType: ChatAttachmentMimeType): string {

@@ -8,6 +8,7 @@ files:
   - dist/**/*
   - resources/**/*
   - "!resources/OllamaSetup.exe"
+  - "!resources/image-runtime/**/*"
   - config/**/*
   - "!config/settings.json"
   - "!config/model.json"
@@ -45,6 +46,8 @@ extraResources:
       - "!seeds/**"
   - from: resources/voice-runtime
     to: voice
+  - from: resources/image-runtime
+    to: image-runtime
 win:
   target: nsis
   icon: resources/su-shixia.ico

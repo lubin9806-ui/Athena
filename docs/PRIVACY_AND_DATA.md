@@ -12,7 +12,7 @@
 | 搜索查询 | SQLite `data_activity_records` 的最小活动记录 | 同意后发往 Sogou/Bing/DuckDuckGo 和结果网页 | 历史关闭时不记录；历史保留期自动清理；一键清除删除 |
 | 语音文件 | `%TEMP%\athena\voice` 或 `ATHENA_VOICE_TEMP_DIR` | Desktop 当前 Whisper STT 与 Windows SAPI TTS 均在本机处理 | 录音转写后删除；WAV TTS 缓存按小时清理；一键清除删除 |
 | 工具记录 | SQLite 最小活动记录；执行面板内存态详细记录 | 外部 HTTP/TCP 需外网工具同意和逐次确认；localhost 不算外部网络 | 历史关闭时不记录；历史保留期自动清理；当前窗口执行记录不持久化 |
-| 任务产物文件 | 当前 Project 根目录下的 `.athena/artifacts/<task-id>` | 文档生成完全本地；生图仅在独立同意与逐次审批后向 OpenAI 发送提示词 | 任务数据库记录可一键清除；实际文件由用户在 Project 中保留或删除 |
+| 任务产物文件 | 当前 Project 根目录下的 `.athena/artifacts/<task-id>` | 文档生成完全本地；本地生图不外发，云端生图仅在独立同意与逐次审批后向当前所选 Provider 发送提示词 | 任务数据库记录可一键清除；实际文件由用户在 Project 中保留或删除 |
 | 日志/崩溃诊断 | stdout/stderr；`%TEMP%\athena\diagnostics\crash-diagnostics.jsonl` | 不自动上传 | 诊断脱敏、单文件 1 MB、最多 3 个轮转文件；隐私中心可导出无聊天内容的支持包或只删除已知诊断文件 |
 | 临时文件 | 语音缓存、导出目录、数据库迁移备份 | 不自动上传 | 语音缓存自动清理；迁移备份用于失败恢复；导出文件由用户管理 |
 
@@ -24,7 +24,7 @@
 |---|---|---|---|
 | 远程模型服务 | 当前请求、系统提示、相关对话、检索到的记忆上下文和工具规划内容 | 用户明确选择并配置的 OpenAI、DeepSeek、Athena Cloud 或自定义 API 地址 | `privacy.networkConsent.remoteModel` |
 | 联网搜索和网页深读 | 搜索词、结果 URL、网页请求元数据 | Sogou、Bing、DuckDuckGo、结果网页域名 | `privacy.networkConsent.webSearch` |
-| OpenAI 生图服务 | 用户逐次批准的生图提示词和输出设置 | `https://api.openai.com/v1/images/generations` | `privacy.networkConsent.imageGeneration` |
+| 云端生图服务 | 用户逐次批准的提示词、输出设置；编辑时还包括明确选择的参考图 | 用户在设置中明确选择的 OpenAI、Google、Stability、BFL、火山方舟、通义万相、Replicate、fal.ai 或自定义 API 地址 | `privacy.networkConsent.imageGeneration`；Athena 本地引擎不需要该联网授权 |
 | 在线语音识别 | 当前没有 provider/入口 | 不发送 | 未来适配器必须复用 `privacy.networkConsent.onlineSpeechToText`，不能从本地失败静默回退 |
 | 在线语音合成 | 当前没有 provider/入口 | 不发送 | 未来适配器必须复用 `privacy.networkConsent.onlineTextToSpeech`，不能从本地失败静默回退 |
 | 执行模式外部网络工具 | 用户确认的 HTTP/TCP 目标、请求头和正文 | 用户指定的外部网络地址 | `privacy.networkConsent.externalToolNetwork` |

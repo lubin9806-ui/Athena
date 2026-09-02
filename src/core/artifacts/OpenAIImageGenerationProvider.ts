@@ -1,4 +1,5 @@
 import { createHash } from 'crypto';
+import type { ImageProviderId } from '../../shared/types';
 
 export type ImageOutputFormat = 'png' | 'jpeg' | 'webp';
 export type ImageQuality = 'low' | 'medium' | 'high' | 'auto';
@@ -29,7 +30,7 @@ export interface GeneratedImage {
   format: ImageOutputFormat;
   width: number;
   height: number;
-  provider: 'openai';
+  provider: ImageProviderId;
   model: string;
   requestId: string | null;
   usage?: Record<string, unknown>;
@@ -38,6 +39,7 @@ export interface GeneratedImage {
 export interface ImageGenerationProvider {
   generate(request: ImageGenerationRequest, signal: AbortSignal): Promise<GeneratedImage>;
   edit?(request: ImageEditRequest, signal: AbortSignal): Promise<GeneratedImage>;
+  supportsEditing?(): boolean;
 }
 
 export interface OpenAIImageGenerationProviderOptions {

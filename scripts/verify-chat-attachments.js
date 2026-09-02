@@ -49,6 +49,16 @@ try {
   assert.equal(history[0].attachments.length, 1);
   assert.equal(history[0].attachments[0].id, pending.id);
 
+  const generatedMessage = memory.saveChatMessage(windowA.id, 'assistant', 'Generated locally', 'happy', 'create');
+  const generatedAttachment = service.createGeneratedImage(windowA.id, generatedMessage.id, PNG_1X1, 'athena-generated.png');
+  assert.equal(generatedAttachment.status, 'attached');
+  assert.equal(generatedAttachment.width, 1);
+  assert.equal(generatedAttachment.height, 1);
+  assert.ok(generatedAttachment.preview_data_url.startsWith('data:image/png;base64,'));
+  const generatedHistory = memory.getChatWindowMessages(windowA.id, 10);
+  assert.equal(generatedHistory.at(-1).role, 'assistant');
+  assert.equal(generatedHistory.at(-1).attachments[0].id, generatedAttachment.id);
+
   const storedPath = modelImage.filePath;
   fs.appendFileSync(storedPath, Buffer.from([0]));
   assert.throws(() => loadModelImageBase64(modelImage), /size no longer matches/);
@@ -120,7 +130,7 @@ try {
 
   const schemaVersion = Number(memory.getDatabase().pragma('user_version', { simple: true }));
   assert.equal(schemaVersion, 15);
-  console.log('ATHENA_CHAT_ATTACHMENTS_OK formats=png,jpeg,webp,txt,md,pdf,docx,wav,aiff,flac max=5 isolation=window integrity=sha256 cleanup=temporary,stale');
+  console.log('ATHENA_CHAT_ATTACHMENTS_OK formats=png,jpeg,webp,txt,md,pdf,docx,wav,aiff,flac generated=assistant-chat max=5 isolation=window integrity=sha256 cleanup=temporary,stale');
 } catch (error) {
   console.error(error);
   exitCode = 1;

@@ -9,6 +9,12 @@ import type {
   AppSettings,
   DataSettings,
   GeneralSettings,
+  ImageCloudFallback,
+  ImageCloudProvider,
+  ImageGenerationSettings,
+  ImageProviderId,
+  LocalImageBackend,
+  LocalImageProfile,
   InitiativeLevel,
   MemorySettings,
   MemoryImportContentMode,
@@ -106,6 +112,33 @@ export const DEFAULT_SETTINGS: AppSettings = {
     ttsVoice: '',
     silenceAutoStop: true,
   },
+  imageGeneration: {
+    provider: 'local',
+    cloudFallback: 'never',
+    local: {
+      engine: 'auto',
+      autoDiscover: true,
+      runtimePath: '',
+      modelPath: '',
+      comfyuiBaseUrl: 'http://127.0.0.1:8188',
+      comfyuiCheckpoint: '',
+      backend: 'auto',
+      profile: 'fast',
+      steps: 4,
+      cfgScale: 1,
+    },
+    remote: {
+      openai: { baseUrl: 'https://api.openai.com/v1/images', model: 'gpt-image-2' },
+      google: { baseUrl: 'https://generativelanguage.googleapis.com/v1beta/interactions', model: 'gemini-3.1-flash-lite-image' },
+      stability: { baseUrl: 'https://api.stability.ai/v2beta/stable-image/generate/core', model: 'stable-image-core' },
+      bfl: { baseUrl: 'https://api.bfl.ai/v1', model: 'flux-2-klein-4b' },
+      volcengine: { baseUrl: 'https://ark.cn-beijing.volces.com/api/v3/images/generations', model: 'doubao-seedream-4-0-250828' },
+      dashscope: { baseUrl: 'https://dashscope.aliyuncs.com/api/v1/services/aigc/text2image/image-synthesis', model: 'wanx-v1' },
+      replicate: { baseUrl: 'https://api.replicate.com/v1/models', model: 'black-forest-labs/flux-schnell' },
+      fal: { baseUrl: 'https://queue.fal.run', model: 'fal-ai/flux/schnell' },
+      custom: { baseUrl: '', model: '' },
+    },
+  },
   data: {
     confirmBeforeDelete: true,
     historyRetentionDays: 0,
@@ -185,6 +218,12 @@ const WEB_SEARCH_MODES = new Set<WebSearchMode>(['auto', 'manual']);
 const TOOL_PERMISSION_LEVELS = new Set<ToolPermissionLevel>(['off', 'read', 'files', 'full']);
 const MODEL_PROVIDERS = new Set<ModelProvider>(['ollama', 'openai', 'deepseek', 'athena-cloud', 'custom']);
 const MEMORY_IMPORT_CONTENT_MODES = new Set<MemoryImportContentMode>(['normal', 'adult']);
+const IMAGE_PROVIDERS = new Set<ImageProviderId>(['local', 'openai', 'google', 'stability', 'bfl', 'volcengine', 'dashscope', 'replicate', 'fal', 'custom']);
+const IMAGE_CLOUD_PROVIDERS: ImageCloudProvider[] = ['openai', 'google', 'stability', 'bfl', 'volcengine', 'dashscope', 'replicate', 'fal', 'custom'];
+const IMAGE_LOCAL_BACKENDS = new Set<LocalImageBackend>(['auto', 'cuda', 'vulkan', 'cpu']);
+const IMAGE_LOCAL_ENGINES = new Set<ImageGenerationSettings['local']['engine']>(['auto', 'athena', 'comfyui']);
+const IMAGE_LOCAL_PROFILES = new Set<LocalImageProfile>(['fast', 'balanced', 'quality', 'custom']);
+const IMAGE_CLOUD_FALLBACKS = new Set<ImageCloudFallback>(['never', 'ask']);
 const TOOL_PERMISSION_RANK: Record<ToolPermissionLevel, number> = { off: 0, read: 1, files: 2, full: 3 };
 
 export function getSettingsBundle(): SettingsBundle {
@@ -315,6 +354,18 @@ function mergeAppSettings(current: AppSettings, patch?: SettingsPatch['settings'
       ...current.voice,
       ...patch.voice,
     },
+    imageGeneration: {
+      ...current.imageGeneration,
+      ...patch.imageGeneration,
+      local: {
+        ...current.imageGeneration.local,
+        ...patch.imageGeneration?.local,
+      },
+      remote: Object.fromEntries(IMAGE_CLOUD_PROVIDERS.map(provider => [provider, {
+        ...current.imageGeneration.remote[provider],
+        ...patch.imageGeneration?.remote?.[provider],
+      }])) as ImageGenerationSettings['remote'],
+    },
     data: {
       ...current.data,
       ...patch.data,
@@ -374,6 +425,7 @@ function sanitizeAppSettings(value: unknown): AppSettings {
   const personalization = sanitizePersonalization(source.personalization);
   const memory = sanitizeMemory(source.memory);
   const voice = sanitizeVoice(source.voice);
+  const imageGeneration = sanitizeImageGeneration(source.imageGeneration);
   const data = sanitizeData(source.data);
   const privacy = sanitizePrivacy(source.privacy);
   const ui = sanitizeUi(source.ui);
@@ -389,6 +441,7 @@ function sanitizeAppSettings(value: unknown): AppSettings {
     personalization,
     memory,
     voice,
+    imageGeneration,
     data,
     privacy,
     ui,
@@ -517,6 +570,48 @@ function sanitizeVoice(value: unknown): VoiceSettings {
     ttsVoice,
     silenceAutoStop: cleanBoolean(source.silenceAutoStop, DEFAULT_SETTINGS.voice.silenceAutoStop),
   };
+}
+
+function sanitizeImageGeneration(value: unknown): ImageGenerationSettings {
+  const source = isRecord(value) ? value : {};
+  const local = isRecord(source.local) ? source.local : {};
+  const remote = isRecord(source.remote) ? source.remote : {};
+  const remoteSettings = Object.fromEntries(IMAGE_CLOUD_PROVIDERS.map(provider => {
+    const item = isRecord(remote[provider]) ? remote[provider] : {};
+    const fallback = DEFAULT_SETTINGS.imageGeneration.remote[provider];
+    return [provider, {
+      baseUrl: cleanString(item.baseUrl, 500, fallback.baseUrl).replace(/\/$/, ''),
+      model: cleanString(item.model, 180, fallback.model),
+    }];
+  })) as ImageGenerationSettings['remote'];
+  return {
+    provider: cleanEnum(source.provider, IMAGE_PROVIDERS, DEFAULT_SETTINGS.imageGeneration.provider),
+    cloudFallback: cleanEnum(source.cloudFallback, IMAGE_CLOUD_FALLBACKS, DEFAULT_SETTINGS.imageGeneration.cloudFallback),
+    local: {
+      engine: cleanEnum(local.engine, IMAGE_LOCAL_ENGINES, DEFAULT_SETTINGS.imageGeneration.local.engine),
+      autoDiscover: cleanBoolean(local.autoDiscover, DEFAULT_SETTINGS.imageGeneration.local.autoDiscover),
+      runtimePath: cleanString(local.runtimePath, 2048, DEFAULT_SETTINGS.imageGeneration.local.runtimePath),
+      modelPath: cleanString(local.modelPath, 2048, DEFAULT_SETTINGS.imageGeneration.local.modelPath),
+      comfyuiBaseUrl: sanitizeLocalComfyUrl(local.comfyuiBaseUrl, DEFAULT_SETTINGS.imageGeneration.local.comfyuiBaseUrl),
+      comfyuiCheckpoint: cleanString(local.comfyuiCheckpoint, 500, DEFAULT_SETTINGS.imageGeneration.local.comfyuiCheckpoint),
+      backend: cleanEnum(local.backend, IMAGE_LOCAL_BACKENDS, DEFAULT_SETTINGS.imageGeneration.local.backend),
+      profile: cleanEnum(local.profile, IMAGE_LOCAL_PROFILES, DEFAULT_SETTINGS.imageGeneration.local.profile),
+      steps: clampInteger(local.steps, 1, 100, DEFAULT_SETTINGS.imageGeneration.local.steps),
+      cfgScale: clampNumber(local.cfgScale, 0, 30, DEFAULT_SETTINGS.imageGeneration.local.cfgScale),
+    },
+    remote: remoteSettings,
+  };
+}
+
+function sanitizeLocalComfyUrl(value: unknown, fallback: string): string {
+  const candidate = cleanString(value, 500, fallback).replace(/\/$/, '');
+  try {
+    const url = new URL(candidate);
+    if (url.protocol !== 'http:' || !['127.0.0.1', 'localhost', '::1'].includes(url.hostname.toLowerCase())) return fallback;
+    return url.toString().replace(/\/$/, '');
+  } catch {
+    return fallback;
+  }
 }
 
 function sanitizeData(value: unknown): DataSettings {

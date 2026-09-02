@@ -42,6 +42,24 @@ for (const testCase of fixture.cases) {
   if (first.route === 'durable_execution') assert.equal(first.effectiveMode, 'execute');
 }
 
+for (const mode of ['create', 'companion', 'reason', 'execute']) {
+  const imageRoute = router.route({
+    message: '请直接生成一张横版的星空城市概念图',
+    mode,
+    webSearchEnabled: true,
+    canStartDurableExecution: true,
+  });
+  assert.equal(imageRoute.route, 'image_generation', `${mode} should generate images without switching modes`);
+  assert.equal(imageRoute.effectiveMode, mode);
+  assert.equal(imageRoute.autoSwitch, false);
+}
+assert.equal(router.route({
+  message: '请分析一下本地生图接口的设计方案，不要执行',
+  mode: 'reason',
+  webSearchEnabled: true,
+  canStartDurableExecution: true,
+}).route, 'conversation');
+
 const accuracy = correct / fixture.cases.length;
 const recalls = Object.fromEntries(routes.map(route => {
   const total = routes.reduce((sum, actual) => sum + matrix[route][actual], 0);

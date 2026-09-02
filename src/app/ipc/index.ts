@@ -19,9 +19,13 @@ import { canRouteModelRequest } from '../../core/ai/ModelNetworkPolicy';
 import { getPersonaEditorState, importPersonaCardFromFile, savePersonaCard, type PersonaCardPatch, type ResolvedPersonaCard } from '../../core/ai/Personality';
 import {
   clearModelCredential,
+  clearImageCredential,
+  getImageCredentialStatus,
   getModelCredentialStatus,
+  setImageCredential,
   setModelCredential,
 } from '../../core/ai/CredentialStore';
+import { IMAGE_PROVIDER_DESCRIPTORS, LocalImageRuntimeManager, getLocalImageRuntimeStatus } from '../../core/artifacts';
 import {
   getOllamaSetupStatus,
   installBundledOllama,
@@ -58,7 +62,7 @@ import {
   updateMemory,
 } from '../../memory';
 import type { MemoryKind, MemoryListOptions, MemoryReviewListOptions, MemoryUpdatePatch } from '../../memory';
-import type { McpServerInput, RemoteModelProvider, SettingsBundle, SettingsPatch, ToolConfirmationRequest, ToolStatusEvent, WebSearchStatus } from '../../shared/types';
+import type { ImageCloudProvider, LocalImageRuntimeVariantId, McpServerInput, RemoteModelProvider, SettingsBundle, SettingsPatch, ToolConfirmationRequest, ToolStatusEvent, WebSearchStatus } from '../../shared/types';
 import { armMicrophoneGrant, revokeMicrophoneGrant } from '../security/PermissionGate';
 import { applyDesktopSettings, showReminderNotification } from '../DesktopSettings';
 import { cleanAttachmentIds, cleanChatPayload, cleanExistingFilePath, isTrustedIpcSender } from './validation';
@@ -132,6 +136,16 @@ const INVOKE_CHANNELS = [
   'model:openOllamaDownload',
   'model:installBundledOllama',
   'model:pullOllamaModel',
+  'image:listProviders',
+  'image:runtimeStatus',
+  'image:runtimeVariants',
+  'image:installRuntime',
+  'image:discoverLocal',
+  'image:chooseRuntime',
+  'image:chooseModel',
+  'image:credentialStatus',
+  'image:setCredential',
+  'image:clearCredential',
   'memory:list',
   'memory:delete',
   'memory:update',
@@ -166,6 +180,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<vo
   clearIpcHandlers();
 
   const controller = new AthenaController();
+  const imageRuntimeManager = new LocalImageRuntimeManager();
   const diagnostics = new DiagnosticsService();
   const voice = new VoiceService();
   let documentOcrAbort: AbortController | null = null;
@@ -221,7 +236,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<vo
     try {
       const routing = await controller.routeMessage(userMessage, mode, { forceWebSearch, chatWindowId });
       const effectiveMode = routing.effectiveMode;
-      const response = effectiveMode === 'execute'
+      const response = routing.route === 'durable_execution'
         ? await controller.executeAgentMessage(
           userMessage,
           chatWindowId,
@@ -748,6 +763,86 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<vo
     const provider = cleanRemoteModelProvider(value);
     if (!provider) return null;
     const status = clearModelCredential(provider);
+    controller.reloadModel();
+    return status;
+  });
+
+  ipcMain.handle('image:listProviders', async event => {
+    if (!isTrustedSender(event)) return null;
+    return IMAGE_PROVIDER_DESCRIPTORS.map(item => ({ ...item }));
+  });
+
+  ipcMain.handle('image:runtimeStatus', async event => {
+    if (!isTrustedSender(event)) return null;
+    return getLocalImageRuntimeStatus(getAppSettings().imageGeneration);
+  });
+
+  ipcMain.handle('image:runtimeVariants', async event => {
+    if (!isTrustedSender(event)) return null;
+    return imageRuntimeManager.variants();
+  });
+
+  ipcMain.handle('image:installRuntime', async (event, value: unknown) => {
+    if (!isTrustedSender(event)) return null;
+    const variant = cleanLocalImageRuntimeVariant(value);
+    if (!variant) return null;
+    const result = await imageRuntimeManager.install(variant, progress => {
+      if (!mainWindow.isDestroyed()) mainWindow.webContents.send('image:runtimeInstallProgress', progress);
+    });
+    saveSettingsBundle({ settings: { imageGeneration: { provider: 'local', local: {
+      engine: 'athena',
+      runtimePath: result.runtimePath,
+      backend: result.backend,
+    } } } });
+    return result;
+  });
+
+  ipcMain.handle('image:discoverLocal', async event => {
+    if (!isTrustedSender(event)) return null;
+    return controller.discoverLocalImageResources();
+  });
+
+  ipcMain.handle('image:chooseRuntime', async event => {
+    if (!isTrustedSender(event)) return null;
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: '选择 Athena 本地生图引擎',
+      properties: ['openFile'],
+      filters: process.platform === 'win32' ? [{ name: 'stable-diffusion.cpp', extensions: ['exe'] }] : [{ name: 'Executable', extensions: ['*'] }],
+    });
+    return result.canceled ? null : result.filePaths[0];
+  });
+
+  ipcMain.handle('image:chooseModel', async event => {
+    if (!isTrustedSender(event)) return null;
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: '选择本地生图模型',
+      properties: ['openFile'],
+      filters: [{ name: 'Image model', extensions: ['safetensors', 'gguf', 'ckpt', 'pth', 'pt'] }],
+    });
+    return result.canceled ? null : result.filePaths[0];
+  });
+
+  ipcMain.handle('image:credentialStatus', async (event, value: unknown) => {
+    if (!isTrustedSender(event)) return null;
+    const provider = cleanImageCloudProvider(value);
+    return provider ? getImageCredentialStatus(provider) : null;
+  });
+
+  ipcMain.handle('image:setCredential', async (event, providerValue: unknown, apiKeyValue: unknown) => {
+    if (!isTrustedSender(event)) return null;
+    const provider = cleanImageCloudProvider(providerValue);
+    const apiKey = typeof apiKeyValue === 'string' ? apiKeyValue : '';
+    if (!provider) return null;
+    const status = setImageCredential(provider, apiKey);
+    controller.reloadModel();
+    return status;
+  });
+
+  ipcMain.handle('image:clearCredential', async (event, value: unknown) => {
+    if (!isTrustedSender(event)) return null;
+    const provider = cleanImageCloudProvider(value);
+    if (!provider) return null;
+    const status = clearImageCredential(provider);
     controller.reloadModel();
     return status;
   });
@@ -1294,6 +1389,17 @@ function cleanRemoteModelProvider(value: unknown): RemoteModelProvider | null {
   return value === 'openai' || value === 'deepseek' || value === 'athena-cloud' || value === 'custom'
     ? value
     : null;
+}
+
+function cleanImageCloudProvider(value: unknown): ImageCloudProvider | null {
+  return value === 'openai' || value === 'google' || value === 'stability' || value === 'bfl'
+    || value === 'volcengine' || value === 'dashscope' || value === 'replicate' || value === 'fal' || value === 'custom'
+    ? value
+    : null;
+}
+
+function cleanLocalImageRuntimeVariant(value: unknown): LocalImageRuntimeVariantId | null {
+  return value === 'cuda12' || value === 'vulkan' || value === 'cpu' ? value : null;
 }
 
 function cleanOptionalNumber(value: unknown, min: number, max: number): number | undefined {

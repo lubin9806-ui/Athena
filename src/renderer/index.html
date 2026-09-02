@@ -900,6 +900,134 @@
           </div>
         </details>
 
+        <details id="image-settings-section" class="settings-section">
+          <summary class="settings-heading">图像生成</summary>
+          <div class="settings-section-body">
+            <div class="settings-note settings-note-emphasis">默认本地优先、不会自动切换到付费云端。Athena 同时支持内置独立推理引擎与本机 ComfyUI；发布版不把 ComfyUI 设为唯一前置条件。</div>
+            <label class="settings-field settings-field-full">
+              <span>生图通道</span>
+              <select id="setting-image-provider">
+                <option value="local">Athena 本地引擎 · 零次调用费</option>
+                <option value="openai">OpenAI GPT Image</option>
+                <option value="google">Google Gemini Image</option>
+                <option value="stability">Stability AI</option>
+                <option value="bfl">Black Forest Labs FLUX</option>
+                <option value="volcengine">火山方舟 Seedream</option>
+                <option value="dashscope">阿里云通义万相</option>
+                <option value="replicate">Replicate 聚合平台</option>
+                <option value="fal">fal.ai 聚合平台</option>
+                <option value="custom">自定义 OpenAI-compatible</option>
+              </select>
+            </label>
+            <label class="settings-field">
+              <span>云端失败策略</span>
+              <select id="setting-image-cloud-fallback">
+                <option value="never">绝不自动切换</option>
+                <option value="ask">失败后提示手动切换</option>
+              </select>
+            </label>
+            <div id="image-local-fields" class="model-provider-fields">
+              <label class="settings-field">
+                <span>本地连接方式</span>
+                <select id="setting-image-local-engine">
+                  <option value="auto">自动 · 独立引擎 / ComfyUI</option>
+                  <option value="athena">Athena 独立引擎</option>
+                  <option value="comfyui">ComfyUI</option>
+                </select>
+              </label>
+              <label class="settings-toggle">
+                <input id="setting-image-auto-discover" type="checkbox" />
+                <span>自动搜索本机模型并连接可用服务</span>
+              </label>
+              <label class="settings-field settings-field-full">
+                <span>本地引擎</span>
+                <input id="setting-image-runtime-path" type="text" spellcheck="false" placeholder="默认使用安装包内置 image-runtime/sd-cli.exe" />
+              </label>
+              <label class="settings-field">
+                <span>安装独立引擎</span>
+                <select id="setting-image-runtime-variant">
+                  <option value="cuda12">NVIDIA CUDA 12</option>
+                  <option value="vulkan">Vulkan 通用 GPU</option>
+                  <option value="cpu">CPU 兼容版</option>
+                </select>
+              </label>
+              <label class="settings-field settings-field-full">
+                <span>本地模型</span>
+                <input id="setting-image-model-path" type="text" spellcheck="false" placeholder=".safetensors / .gguf / .ckpt" />
+              </label>
+              <label class="settings-field settings-field-full">
+                <span>已发现的本地模型</span>
+                <select id="setting-image-discovered-model">
+                  <option value="">尚未扫描</option>
+                </select>
+              </label>
+              <label class="settings-field settings-field-full">
+                <span>ComfyUI 本机地址</span>
+                <input id="setting-image-comfyui-url" type="url" spellcheck="false" placeholder="http://127.0.0.1:8188" />
+              </label>
+              <label class="settings-field settings-field-full">
+                <span>ComfyUI Checkpoint</span>
+                <select id="setting-image-comfyui-checkpoint">
+                  <option value="">自动选择兼容工作流 / 完整 checkpoint</option>
+                </select>
+              </label>
+              <label class="settings-field">
+                <span>计算后端</span>
+                <select id="setting-image-backend">
+                  <option value="auto">自动选择 GPU</option>
+                  <option value="cuda">NVIDIA CUDA</option>
+                  <option value="vulkan">Vulkan · AMD/Intel/NVIDIA</option>
+                  <option value="cpu">CPU 兼容模式</option>
+                </select>
+              </label>
+              <label class="settings-field">
+                <span>本地质量档</span>
+                <select id="setting-image-local-profile">
+                  <option value="fast">快速 · 4 步</option>
+                  <option value="balanced">平衡 · 12 步</option>
+                  <option value="quality">质量 · 24 步</option>
+                  <option value="custom">自定义</option>
+                </select>
+              </label>
+              <label class="settings-field image-custom-local-field">
+                <span>步数</span>
+                <input id="setting-image-local-steps" type="number" min="1" max="100" step="1" />
+              </label>
+              <label class="settings-field image-custom-local-field">
+                <span>CFG</span>
+                <input id="setting-image-local-cfg" type="number" min="0" max="30" step="0.1" />
+              </label>
+              <div class="model-actions settings-field-full">
+                <button id="image-install-runtime" class="settings-panel-link" type="button">下载并安装独立引擎</button>
+                <button id="image-discover-local" class="settings-panel-link" type="button">重新扫描本机</button>
+                <button id="image-choose-runtime" class="settings-panel-link" type="button">选择独立引擎</button>
+                <button id="image-choose-model" class="settings-panel-link" type="button">选择模型文件</button>
+              </div>
+              <div id="image-runtime-status" class="settings-note settings-field-full" role="status">正在检查本地引擎…</div>
+            </div>
+            <div id="image-remote-fields" class="model-provider-fields" hidden>
+              <label class="settings-field settings-field-full">
+                <span>API 地址</span>
+                <input id="setting-image-api-url" type="url" spellcheck="false" />
+              </label>
+              <label class="settings-field settings-field-full">
+                <span>模型 / Endpoint</span>
+                <input id="setting-image-model" type="text" spellcheck="false" />
+              </label>
+              <label class="settings-field settings-field-full">
+                <span>API Key</span>
+                <input id="setting-image-api-key" type="password" autocomplete="new-password" placeholder="已保存的密钥不会回显" />
+              </label>
+              <div class="model-actions settings-field-full">
+                <button id="image-save-api-key" class="settings-panel-link" type="button">安全保存 Key</button>
+                <button id="image-clear-api-key" class="settings-panel-link settings-panel-danger" type="button">清除 Key</button>
+              </div>
+              <div id="image-credential-status" class="settings-note settings-field-full" role="status">尚未检查凭据</div>
+              <div class="settings-note settings-note-warning settings-field-full">云端通道只有在“隐私与数据”中授权后才会使用；Athena 不会在失败时静默改用另一家服务。</div>
+            </div>
+          </div>
+        </details>
+
         <details class="settings-section">
           <summary class="settings-heading">记忆</summary>
           <div class="settings-section-body">
@@ -979,7 +1107,7 @@
             </label>
             <label class="settings-toggle">
               <input id="setting-consent-image-generation" type="checkbox" />
-              <span>同意在逐次确认后将生图提示词或图片编辑的参考图、蒙版发送给 OpenAI；请求可能产生 API 费用</span>
+              <span>同意在逐次确认后将提示词及必要参考图发送给当前选中的云端生图 Provider；本地通道不使用此授权</span>
             </label>
             <label class="settings-toggle">
               <input id="setting-consent-external-tool-network" type="checkbox" />
@@ -1077,6 +1205,21 @@
       </div>
       <div id="input-aura" aria-hidden="true"></div>
     </form>
+
+    <dialog id="ui-dialog" data-tone="neutral" aria-labelledby="ui-dialog-title" aria-describedby="ui-dialog-message">
+      <form id="ui-dialog-form" method="dialog">
+        <div id="ui-dialog-eyebrow">Athena</div>
+        <h2 id="ui-dialog-title">确认操作</h2>
+        <p id="ui-dialog-message"></p>
+        <div id="ui-dialog-fields"></div>
+        <div id="ui-dialog-error" role="alert" aria-live="assertive" hidden></div>
+        <div id="ui-dialog-actions">
+          <button id="ui-dialog-cancel" type="button">取消</button>
+          <button id="ui-dialog-confirm" type="submit">确认</button>
+        </div>
+      </form>
+    </dialog>
+    <div id="ui-toast-region" aria-live="polite" aria-atomic="true"></div>
   </main>
 
   <script type="module" src="./app.ts"></script>

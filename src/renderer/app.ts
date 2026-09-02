@@ -8,6 +8,8 @@ import { LiquidGlassRenderer } from './ui/LiquidGlassRenderer';
 import { MotionSystem, type AthenaSpace } from './ui/MotionSystem';
 import { SelectControlManager } from './ui/SelectControl';
 import { ThemeController } from './ui/ThemeController';
+import { DialogSystem } from './ui/DialogSystem';
+import { ToastSystem } from './ui/ToastSystem';
 import { MicrophoneRecorder } from './voice/MicrophoneRecorder';
 import type { AvatarLayoutMode } from '../shared/types/avatar';
 import type { AthenaAvatarEvent } from './avatar/AvatarRuntime';
@@ -82,6 +84,7 @@ declare global {
           error?: string;
         };
         toolExecutions?: ChatToolExecution[];
+        attachments?: ChatAttachmentSnapshot[];
         agentExecution?: { taskId: string; runId: string; status: AgentRunStatus };
         routing?: AgentMessageRouteDecision;
       } | null>;
@@ -156,6 +159,17 @@ declare global {
       openOllamaDownload: () => Promise<boolean>;
       installBundledOllama: () => Promise<{ started: boolean; error?: string }>;
       pullOllamaModel: (model: string) => Promise<{ started: boolean; error?: string }>;
+      listImageProviders: () => Promise<ImageProviderDescriptor[] | null>;
+      getLocalImageRuntimeStatus: () => Promise<LocalImageRuntimeStatus | null>;
+      listLocalImageRuntimeVariants: () => Promise<LocalImageRuntimeVariant[] | null>;
+      installLocalImageRuntime: (variant: LocalImageRuntimeVariantId) => Promise<LocalImageRuntimeInstallResult | null>;
+      onLocalImageRuntimeInstallProgress: (callback: (progress: LocalImageRuntimeInstallProgress) => void) => () => void;
+      discoverLocalImageResources: () => Promise<LocalImageDiscoverySnapshot | null>;
+      chooseLocalImageRuntime: () => Promise<string | null>;
+      chooseLocalImageModel: () => Promise<string | null>;
+      getImageCredentialStatus: (provider: ImageCloudProvider) => Promise<ImageCredentialStatus | null>;
+      setImageCredential: (provider: ImageCloudProvider, apiKey: string) => Promise<ImageCredentialStatus | null>;
+      clearImageCredential: (provider: ImageCloudProvider) => Promise<ImageCredentialStatus | null>;
       listMemories: (options: MemoryListOptions) => Promise<MemoryListResult>;
       deleteMemory: (kind: MemoryKind, id: number) => Promise<boolean>;
       updateMemory: (kind: MemoryKind, id: number, patch: MemoryUpdatePatch) => Promise<boolean>;
@@ -196,7 +210,7 @@ type MemoryReviewStatus = 'pending' | 'applied' | 'rejected';
 type AthenaMode = 'create' | 'companion' | 'reason' | 'execute';
 
 interface AgentMessageRouteDecision {
-  route: 'conversation' | 'web_research' | 'durable_execution';
+  route: 'conversation' | 'image_generation' | 'web_research' | 'durable_execution';
   effectiveMode: AthenaMode;
   confidence: 'high' | 'medium';
   reason: string;
@@ -208,6 +222,8 @@ type AppStatusState = 'ready' | 'working' | 'offline' | 'error';
 type ToolPermissionLevel = 'off' | 'read' | 'files' | 'full';
 type ModelProvider = 'ollama' | 'openai' | 'deepseek' | 'athena-cloud' | 'custom';
 type RemoteModelProvider = Exclude<ModelProvider, 'ollama'>;
+type ImageProviderId = 'local' | 'openai' | 'google' | 'stability' | 'bfl' | 'volcengine' | 'dashscope' | 'replicate' | 'fal' | 'custom';
+type ImageCloudProvider = Exclude<ImageProviderId, 'local'>;
 
 interface ToolCatalogItem {
   name: string;
@@ -728,6 +744,101 @@ interface VoiceSettings {
   silenceAutoStop: boolean;
 }
 
+interface ImageGenerationSettings {
+  provider: ImageProviderId;
+  cloudFallback: 'never' | 'ask';
+  local: {
+    engine: 'auto' | 'athena' | 'comfyui';
+    autoDiscover: boolean;
+    runtimePath: string;
+    modelPath: string;
+    comfyuiBaseUrl: string;
+    comfyuiCheckpoint: string;
+    backend: 'auto' | 'cuda' | 'vulkan' | 'cpu';
+    profile: 'fast' | 'balanced' | 'quality' | 'custom';
+    steps: number;
+    cfgScale: number;
+  };
+  remote: Record<ImageCloudProvider, { baseUrl: string; model: string }>;
+}
+
+interface ImageProviderDescriptor {
+  id: ImageProviderId;
+  label: string;
+  kind: 'local' | 'direct' | 'aggregator' | 'compatible';
+  credentialRequired: boolean;
+  supportsEdit: boolean;
+  defaultModel: string;
+  defaultBaseUrl: string;
+  costHint: 'local' | 'low' | 'variable' | 'premium';
+}
+
+interface ImageCredentialStatus {
+  provider: ImageCloudProvider;
+  configured: boolean;
+  source: 'environment' | 'local-env-file' | 'windows-safe-storage' | 'none';
+  encryptionAvailable: boolean;
+}
+
+interface LocalImageRuntimeStatus {
+  runtimeConfigured: boolean;
+  modelConfigured: boolean;
+  ready: boolean;
+  runtimePath: string;
+  modelPath: string;
+  backend: 'auto' | 'cuda' | 'vulkan' | 'cpu';
+  message: string;
+}
+
+type LocalImageRuntimeVariantId = 'cuda12' | 'vulkan' | 'cpu';
+
+interface LocalImageRuntimeVariant {
+  id: LocalImageRuntimeVariantId;
+  label: string;
+  backend: 'cuda' | 'vulkan' | 'cpu';
+  downloadBytes: number;
+  recommendedFor: string;
+}
+
+interface LocalImageRuntimeInstallProgress {
+  variant: LocalImageRuntimeVariantId;
+  phase: 'preparing' | 'downloading' | 'verifying' | 'extracting' | 'complete' | 'failed' | 'cancelled';
+  downloadedBytes: number;
+  totalBytes: number;
+  message: string;
+}
+
+interface LocalImageRuntimeInstallResult {
+  variant: LocalImageRuntimeVariantId;
+  backend: 'cuda' | 'vulkan' | 'cpu';
+  runtimePath: string;
+  installRoot: string;
+  reused: boolean;
+}
+
+interface LocalImageDiscoverySnapshot {
+  scannedAt: string;
+  models: Array<{
+    name: string;
+    path: string;
+    format: string;
+    source: string;
+    bytes: number;
+    role: 'checkpoint' | 'diffusion-model' | 'text-encoder' | 'vae' | 'unknown';
+    standaloneCompatible: boolean;
+  }>;
+  comfyui: {
+    connected: boolean;
+    baseUrl: string;
+    checkpoints: string[];
+    diffusionModels: string[];
+    textEncoders: string[];
+    vaes: string[];
+    workflows: Array<'checkpoint' | 'z-image-turbo'>;
+    error?: string;
+  };
+}
+
 interface DataSettings {
   confirmBeforeDelete: boolean;
   historyRetentionDays: number;
@@ -761,6 +872,7 @@ interface AppSettings {
   personalization: PersonalizationSettings;
   memory: MemorySettings;
   voice: VoiceSettings;
+  imageGeneration: ImageGenerationSettings;
   data: DataSettings;
   privacy: PrivacySettings;
   ui: UiSettings;
@@ -851,7 +963,7 @@ const REMOTE_PROVIDER_BASE_URLS: Partial<Record<RemoteModelProvider, string>> = 
 };
 
 interface SettingsPatch {
-  settings?: Omit<Partial<AppSettings>, 'general' | 'appearance' | 'conversation' | 'tools' | 'webSearch' | 'personalization' | 'memory' | 'voice' | 'data' | 'privacy' | 'ui'> & {
+  settings?: Omit<Partial<AppSettings>, 'general' | 'appearance' | 'conversation' | 'tools' | 'webSearch' | 'personalization' | 'memory' | 'voice' | 'imageGeneration' | 'data' | 'privacy' | 'ui'> & {
     general?: Partial<GeneralSettings>;
     appearance?: Partial<AppearanceSettings>;
     conversation?: Partial<ConversationSettings>;
@@ -862,6 +974,10 @@ interface SettingsPatch {
     personalization?: Partial<PersonalizationSettings>;
     memory?: Partial<MemorySettings>;
     voice?: Partial<VoiceSettings>;
+    imageGeneration?: Omit<Partial<ImageGenerationSettings>, 'local' | 'remote'> & {
+      local?: Partial<ImageGenerationSettings['local']>;
+      remote?: Partial<Record<ImageCloudProvider, Partial<ImageGenerationSettings['remote'][ImageCloudProvider]>>>;
+    };
     data?: Partial<DataSettings>;
     privacy?: Omit<Partial<PrivacySettings>, 'networkConsent'> & {
       networkConsent?: Partial<NetworkConsentSettings>;
@@ -878,7 +994,7 @@ interface SettingsPatch {
 interface ModelCredentialStatus {
   provider: RemoteModelProvider;
   configured: boolean;
-  source: 'environment' | 'windows-safe-storage' | 'none';
+  source: 'environment' | 'local-env-file' | 'windows-safe-storage' | 'none';
   encryptionAvailable: boolean;
 }
 
@@ -948,6 +1064,8 @@ interface DiagnosticBundleResult {
 }
 
 const appShell = mustGet<HTMLElement>('app-shell');
+const dialogs = new DialogSystem(document);
+const toasts = new ToastSystem(mustGet<HTMLElement>('ui-toast-region'));
 const themeController = new ThemeController(document.documentElement, appShell);
 const selectControls = new SelectControlManager(appShell);
 const titlebar = mustGet<HTMLElement>('titlebar');
@@ -1178,6 +1296,33 @@ const modelPullOllama = mustGet<HTMLButtonElement>('model-pull-ollama');
 const settingTemperature = mustGet<HTMLInputElement>('setting-temperature');
 const settingMaxTokens = mustGet<HTMLInputElement>('setting-max-tokens');
 const settingNumCtx = mustGet<HTMLInputElement>('setting-num-ctx');
+const settingImageProvider = mustGet<HTMLSelectElement>('setting-image-provider');
+const settingImageCloudFallback = mustGet<HTMLSelectElement>('setting-image-cloud-fallback');
+const imageLocalFields = mustGet<HTMLElement>('image-local-fields');
+const imageRemoteFields = mustGet<HTMLElement>('image-remote-fields');
+const settingImageLocalEngine = mustGet<HTMLSelectElement>('setting-image-local-engine');
+const settingImageAutoDiscover = mustGet<HTMLInputElement>('setting-image-auto-discover');
+const settingImageRuntimePath = mustGet<HTMLInputElement>('setting-image-runtime-path');
+const settingImageRuntimeVariant = mustGet<HTMLSelectElement>('setting-image-runtime-variant');
+const settingImageModelPath = mustGet<HTMLInputElement>('setting-image-model-path');
+const settingImageDiscoveredModel = mustGet<HTMLSelectElement>('setting-image-discovered-model');
+const settingImageComfyUiUrl = mustGet<HTMLInputElement>('setting-image-comfyui-url');
+const settingImageComfyUiCheckpoint = mustGet<HTMLSelectElement>('setting-image-comfyui-checkpoint');
+const settingImageBackend = mustGet<HTMLSelectElement>('setting-image-backend');
+const settingImageLocalProfile = mustGet<HTMLSelectElement>('setting-image-local-profile');
+const settingImageLocalSteps = mustGet<HTMLInputElement>('setting-image-local-steps');
+const settingImageLocalCfg = mustGet<HTMLInputElement>('setting-image-local-cfg');
+const imageChooseRuntime = mustGet<HTMLButtonElement>('image-choose-runtime');
+const imageInstallRuntime = mustGet<HTMLButtonElement>('image-install-runtime');
+const imageChooseModel = mustGet<HTMLButtonElement>('image-choose-model');
+const imageDiscoverLocal = mustGet<HTMLButtonElement>('image-discover-local');
+const imageRuntimeStatus = mustGet<HTMLElement>('image-runtime-status');
+const settingImageApiUrl = mustGet<HTMLInputElement>('setting-image-api-url');
+const settingImageModel = mustGet<HTMLInputElement>('setting-image-model');
+const settingImageApiKey = mustGet<HTMLInputElement>('setting-image-api-key');
+const imageSaveApiKey = mustGet<HTMLButtonElement>('image-save-api-key');
+const imageClearApiKey = mustGet<HTMLButtonElement>('image-clear-api-key');
+const imageCredentialStatus = mustGet<HTMLElement>('image-credential-status');
 const settingMemoryEnabled = mustGet<HTMLInputElement>('setting-memory-enabled');
 const settingMemoryAutoExtract = mustGet<HTMLInputElement>('setting-memory-auto-extract');
 const settingMemoryProfile = mustGet<HTMLInputElement>('setting-memory-profile');
@@ -1503,6 +1648,7 @@ async function sendMessage(text: string): Promise<void> {
   const titleUpdate = autoTitleCurrentChatWindow(effectiveText);
   let forceWebSearch = forceWebSearchForNextMessage;
   let requestMode = currentMode;
+  let directImageGeneration = false;
   forceWebSearchForNextMessage = false;
   try {
     const routing = await window.athenaAPI.routeMessage(
@@ -1513,6 +1659,7 @@ async function sendMessage(text: string): Promise<void> {
       queuedAttachments.map(attachment => attachment.id),
     );
     if (routing?.route === 'web_research') forceWebSearch = true;
+    directImageGeneration = routing?.route === 'image_generation';
     if (routing?.route === 'durable_execution' && routing.autoSwitch && requestMode !== 'execute') {
       await selectMode('execute');
       requestMode = 'execute';
@@ -1523,7 +1670,7 @@ async function sendMessage(text: string): Promise<void> {
   toggleComposerTools(false);
   resizeInputBox();
   activeRequestMode = requestMode;
-  if (requestMode === 'execute') {
+  if (requestMode === 'execute' && !directImageGeneration) {
     setAgentExecutionFeedback('');
     beginExecutionRequest(effectiveText);
   }
@@ -1556,18 +1703,20 @@ async function sendMessage(text: string): Promise<void> {
       currentChatWindowId ?? undefined,
       queuedAttachments.map(attachment => attachment.id),
     );
-    if (response) modelConnected = true;
+    if (response && !directImageGeneration) modelConnected = true;
     const serverRoutedExecution = requestMode !== 'execute'
       && response?.routing?.route === 'durable_execution'
       && Boolean(response.agentExecution?.taskId);
-    if (requestMode === 'execute') {
+    if (requestMode === 'execute' && !directImageGeneration) {
       if (response?.agentExecution?.taskId) selectedAgentTaskId = response.agentExecution.taskId;
       setAgentExecutionFeedback(response?.agentExecution ? '' : response?.content || '任务未能启动。');
       finishExecutionTask(response?.toolExecutions ?? [], response?.content || currentContent);
       await refreshAgentWorkspace(selectedAgentTaskId);
     } else {
-      if (!currentContent && response?.content) {
-        chatPanel.addMessage(response.content, 'assistant', response.emotion?.label);
+      if (directImageGeneration && response?.content) {
+        chatPanel.addMessage(response.content, 'assistant', response.emotion?.label, requestMode, undefined, true, response.attachments ?? []);
+      } else if (!currentContent && response?.content) {
+        chatPanel.addMessage(response.content, 'assistant', response.emotion?.label, requestMode, undefined, true, response.attachments ?? []);
       } else if (response?.emotion?.label) {
         chatPanel.setLastAssistantEmotion(response.emotion.label);
       }
@@ -1586,7 +1735,7 @@ async function sendMessage(text: string): Promise<void> {
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : '未知错误';
-    if (requestMode === 'execute') {
+    if (requestMode === 'execute' && !directImageGeneration) {
       setAgentExecutionFeedback(`任务未启动：${message}`);
       failActiveExecutionTask(message);
     }
@@ -1608,9 +1757,9 @@ async function sendMessage(text: string): Promise<void> {
     syncWebSearchControl();
     inputBar.focus();
     restoreIdleStatus();
-    if (requestMode !== 'execute' && currentSettingsBundle?.settings.voice.autoPlayAssistant) {
+    if ((requestMode !== 'execute' || directImageGeneration) && currentSettingsBundle?.settings.voice.autoPlayAssistant) {
       void speakLastAssistantMessage();
-    } else if (requestMode !== 'execute') {
+    } else if (requestMode !== 'execute' || directImageGeneration) {
       void dispatchLive2dEvent({ type: 'app.ready' });
     }
     await refreshChatWindows();
@@ -1859,6 +2008,22 @@ function init(): void {
   modelTestConnection.addEventListener('click', () => void testModelConnection());
   modelInstallOllama.addEventListener('click', () => void beginOllamaInstall());
   modelPullOllama.addEventListener('click', () => void beginOllamaModelPull());
+  settingImageProvider.addEventListener('change', () => {
+    populateSelectedImageProvider();
+    void refreshImageProviderStatus();
+  });
+  settingImageLocalProfile.addEventListener('change', syncImageLocalProfileFields);
+  settingImageLocalEngine.addEventListener('change', () => void refreshImageProviderStatus());
+  settingImageDiscoveredModel.addEventListener('change', () => {
+    if (settingImageDiscoveredModel.value) settingImageModelPath.value = settingImageDiscoveredModel.value;
+  });
+  imageDiscoverLocal.addEventListener('click', () => void discoverLocalImageResources(true));
+  imageInstallRuntime.addEventListener('click', () => void installImageRuntime());
+  imageChooseRuntime.addEventListener('click', () => void chooseImageRuntime());
+  imageChooseModel.addEventListener('click', () => void chooseImageModel());
+  imageSaveApiKey.addEventListener('click', () => void saveImageCredential());
+  imageClearApiKey.addEventListener('click', () => void clearImageCredential());
+  window.athenaAPI.onLocalImageRuntimeInstallProgress(updateImageRuntimeInstallProgress);
   privacyExport.addEventListener('click', () => {
     void exportPrivacyData();
   });
@@ -2279,7 +2444,12 @@ async function handleMcpAction(action: string, id: string, fingerprint: string):
       const warning = server.transport === 'stdio'
         ? `将以 Athena 当前 Windows 用户权限启动以下命令：\n\n${mcpLaunchText(server)}\n\n批准仅绑定当前配置指纹，任何修改都会撤销批准。`
         : `将连接以下 MCP 地址：\n\n${mcpLaunchText(server)}\n\n远程请求仍受外部工具联网同意控制。`;
-      if (!window.confirm(warning)) return;
+      if (!await dialogs.confirm({
+        eyebrow: 'MCP 授权',
+        title: '批准此 MCP Server？',
+        message: warning,
+        confirmLabel: '批准并继续',
+      })) return;
       await window.athenaAPI.approveMcpServer(id, fingerprint, true);
     } else if (action === 'revoke') {
       await window.athenaAPI.approveMcpServer(id, fingerprint, false);
@@ -2290,7 +2460,13 @@ async function handleMcpAction(action: string, id: string, fingerprint: string):
     } else if (action === 'disconnect') {
       await window.athenaAPI.disconnectMcpServer(id);
     } else if (action === 'remove') {
-      if (!window.confirm(`移除 MCP Server“${server.name}”？`)) return;
+      if (!await dialogs.confirm({
+        eyebrow: 'MCP 集成',
+        title: `移除“${server.name}”？`,
+        message: '该配置会从 Athena 中移除；如需再次使用，需要重新添加并授权。',
+        confirmLabel: '移除 Server',
+        tone: 'danger',
+      })) return;
       await window.athenaAPI.removeMcpServer(id, fingerprint);
     }
     await refreshMcpIntegrations();
@@ -3352,10 +3528,18 @@ async function createTemporaryChatWindow(): Promise<void> {
 
 async function createNewProject(): Promise<void> {
   if (isStreaming) return;
-  const title = window.prompt('Project name', `Project ${projects.length + 1}`) || '';
-  if (!title.trim()) return;
-  const instructions = window.prompt('Project instructions', '') || '';
-  const created = await window.athenaAPI.createProject(title, instructions);
+  const result = await dialogs.prompt({
+    eyebrow: '新建 Project',
+    title: '创建一个独立工作空间',
+    message: 'Project 会归组对话、文档和指令。之后仍可继续编辑。',
+    confirmLabel: '创建 Project',
+    fields: [
+      { name: 'title', label: 'Project 名称', value: `Project ${projects.length + 1}`, required: true, maxLength: 80 },
+      { name: 'instructions', label: 'Project 指令', placeholder: '补充目标、约束或偏好（可选）', multiline: true, maxLength: 4000 },
+    ],
+  });
+  if (!result) return;
+  const created = await window.athenaAPI.createProject(result.title, result.instructions);
   if (!created) return;
   currentProjectId = created.id;
   currentChatWindowId = null;
@@ -3367,6 +3551,7 @@ async function createNewProject(): Promise<void> {
     await loadCurrentChatWindowMessages();
   }
   await refreshWindowMemoryPanel();
+  toasts.show(`已创建 Project“${created.title}”`, 'success');
   inputBar.focus();
 }
 
@@ -3374,33 +3559,55 @@ async function editCurrentProjectInstructions(): Promise<void> {
   if (isStreaming || !currentProjectId) return;
   const current = getCurrentProject();
   if (!current) return;
-  const next = window.prompt('Project instructions', current.instructions || '');
-  if (next === null) return;
+  const result = await dialogs.prompt({
+    eyebrow: current.title,
+    title: '编辑 Project 指令',
+    message: '这些指令会成为此 Project 下新对话的共享上下文。',
+    confirmLabel: '保存指令',
+    fields: [
+      { name: 'instructions', label: 'Project 指令', value: current.instructions || '', placeholder: '留空表示不添加额外指令', multiline: true, maxLength: 4000 },
+    ],
+  });
+  if (!result) return;
   const updated = await window.athenaAPI.updateProject(currentProjectId, {
     title: current.title,
-    instructions: next,
+    instructions: result.instructions,
   });
   if (!updated) return;
   projects = projects.map(project => project.id === updated.id ? updated : project);
   await refreshProjects();
   await refreshChatWindows();
   await refreshWindowMemoryPanel();
+  toasts.show('Project 指令已更新', 'success');
 }
 
 async function renameCurrentChatWindow(): Promise<void> {
   if (!currentChatWindowId || isStreaming) return;
   const current = chatWindows.find(window => window.id === currentChatWindowId);
-  const title = window.prompt('重命名聊天窗口', current?.title || '');
-  if (!title || !title.trim()) return;
-  await window.athenaAPI.renameChatWindow(currentChatWindowId, title);
+  const result = await dialogs.prompt({
+    eyebrow: '对话',
+    title: '重命名聊天窗口',
+    confirmLabel: '保存名称',
+    fields: [
+      { name: 'title', label: '窗口名称', value: current?.title || '', required: true, maxLength: 80 },
+    ],
+  });
+  if (!result) return;
+  await window.athenaAPI.renameChatWindow(currentChatWindowId, result.title);
   await refreshChatWindows();
   await refreshWindowMemoryPanel();
+  toasts.show('对话名称已更新', 'success');
 }
 
 async function archiveCurrentChatWindow(): Promise<void> {
   if (!currentChatWindowId || isStreaming) return;
   const current = chatWindows.find(window => window.id === currentChatWindowId);
-  if (!window.confirm(`归档“${current?.title || '当前窗口'}”？`)) return;
+  if (!await dialogs.confirm({
+    eyebrow: '对话归档',
+    title: `归档“${current?.title || '当前窗口'}”？`,
+    message: '归档后它会离开当前对话列表，但内容仍保留在本机。',
+    confirmLabel: '归档对话',
+  })) return;
   await window.athenaAPI.archiveChatWindow(currentChatWindowId, true);
   currentChatWindowId = null;
   chatPanel.clear();
@@ -3411,6 +3618,7 @@ async function archiveCurrentChatWindow(): Promise<void> {
     await loadCurrentChatWindowMessages();
   }
   await refreshWindowMemoryPanel();
+  toasts.show('对话已归档', 'success');
 }
 
 async function deleteCurrentChatWindow(): Promise<void> {
@@ -3420,7 +3628,13 @@ async function deleteCurrentChatWindow(): Promise<void> {
   const confirmMessage = temporary
     ? '关闭这个临时聊天？它的消息和上下文快照会被清除。'
     : `删除“${current?.title || '当前窗口'}”？窗口消息会被软删除隐藏。`;
-  if (!window.confirm(confirmMessage)) return;
+  if (!await dialogs.confirm({
+    eyebrow: temporary ? '临时聊天' : '删除对话',
+    title: temporary ? '关闭这个临时聊天？' : `删除“${current?.title || '当前窗口'}”？`,
+    message: confirmMessage,
+    confirmLabel: temporary ? '关闭并清除' : '删除对话',
+    tone: 'danger',
+  })) return;
   await window.athenaAPI.deleteChatWindow(currentChatWindowId);
   currentChatWindowId = null;
   chatPanel.clear();
@@ -3431,6 +3645,7 @@ async function deleteCurrentChatWindow(): Promise<void> {
     await loadCurrentChatWindowMessages();
   }
   await refreshWindowMemoryPanel();
+  toasts.show(temporary ? '临时聊天已清除' : '对话已删除', 'success');
 }
 
 async function refreshWindowMemoryPanel(): Promise<void> {
@@ -3569,8 +3784,17 @@ function renderProjectDocuments(windowRecord: ChatWindowRecord | null, documents
 async function deleteCurrentProjectDocument(documentId: number): Promise<void> {
   const projectId = getCurrentChatWindow()?.project_id;
   if (!projectId) return;
-  if (!window.confirm('删除这份 Project 文档及其本地检索文本？')) return;
-  if (await window.athenaAPI.deleteProjectDocument(projectId, documentId)) await refreshWindowMemoryPanel();
+  if (!await dialogs.confirm({
+    eyebrow: 'Project 文档',
+    title: '删除这份文档？',
+    message: '文档副本及本地检索文本都会从此 Project 中移除。原始来源文件不会受影响。',
+    confirmLabel: '删除文档',
+    tone: 'danger',
+  })) return;
+  if (await window.athenaAPI.deleteProjectDocument(projectId, documentId)) {
+    await refreshWindowMemoryPanel();
+    toasts.show('Project 文档已删除', 'success');
+  }
 }
 
 function renderContextBudget(snapshot: ContextSnapshotRecord | null, visibleMessageCount: number): void {
@@ -4299,7 +4523,7 @@ async function refreshModelCredentialStatus(): Promise<void> {
     return;
   }
   modelCredentialStatus.textContent = status.configured
-    ? `API Key 已配置（${status.source === 'environment' ? '临时环境变量' : 'Windows 加密存储'}）。`
+    ? `API Key 已配置（${status.source === 'environment' ? '临时环境变量' : status.source === 'local-env-file' ? '本地环境文件' : 'Windows 加密存储'}）。`
     : status.encryptionAvailable
       ? '尚未保存 API Key。'
       : 'Windows 安全凭据加密不可用，Key 不会保存。';
@@ -4356,10 +4580,242 @@ async function loadAvailableModels(): Promise<void> {
 
 async function clearModelCredential(): Promise<void> {
   const provider = selectedRemoteModelProvider();
-  if (!provider || !window.confirm(`清除 ${modelProviderLabel(provider)} 的本机 API Key？`)) return;
+  if (!provider || !await dialogs.confirm({
+    eyebrow: '模型凭据',
+    title: `清除 ${modelProviderLabel(provider)} API Key？`,
+    message: '清除后，Athena 将无法再通过该平台发起请求，直到重新保存凭据。',
+    confirmLabel: '清除凭据',
+    tone: 'danger',
+  })) return;
   await window.athenaAPI.clearModelCredential(provider);
   settingModelApiKey.value = '';
   await refreshModelCredentialStatus();
+  toasts.show(`${modelProviderLabel(provider)} 凭据已清除`, 'success');
+}
+
+function selectedImageCloudProvider(): ImageCloudProvider | null {
+  const provider = settingImageProvider.value as ImageProviderId;
+  return provider === 'local' ? null : provider;
+}
+
+function populateSelectedImageProvider(): void {
+  const provider = settingImageProvider.value as ImageProviderId;
+  imageLocalFields.hidden = provider !== 'local';
+  imageRemoteFields.hidden = provider === 'local';
+  if (provider !== 'local' && currentSettingsBundle) {
+    const remote = currentSettingsBundle.settings.imageGeneration.remote[provider];
+    settingImageApiUrl.value = remote.baseUrl;
+    settingImageModel.value = remote.model;
+  }
+  syncImageLocalProfileFields();
+  selectControls.sync();
+}
+
+function syncImageLocalProfileFields(): void {
+  const custom = settingImageLocalProfile.value === 'custom';
+  settingImageLocalSteps.disabled = !custom;
+  settingImageLocalCfg.disabled = !custom;
+}
+
+async function refreshImageProviderStatus(): Promise<void> {
+  const provider = selectedImageCloudProvider();
+  if (!provider) {
+    const status = await window.athenaAPI.getLocalImageRuntimeStatus();
+    imageRuntimeStatus.textContent = status?.message || '无法读取本地引擎状态。';
+    imageRuntimeStatus.dataset.kind = status?.ready ? 'success' : 'pending';
+    if (settingImageAutoDiscover.checked) await discoverLocalImageResources(false);
+    return;
+  }
+  const status = await window.athenaAPI.getImageCredentialStatus(provider);
+  if (!status) {
+    imageCredentialStatus.textContent = '无法读取生图凭据状态。';
+    return;
+  }
+  const source = status.source === 'environment'
+    ? '环境变量'
+    : status.source === 'local-env-file'
+      ? '本地环境文件'
+      : 'Windows 加密存储';
+  imageCredentialStatus.textContent = status.configured
+    ? `API Key 已配置（${source}）。`
+    : status.encryptionAvailable
+      ? '尚未保存该通道的 API Key。'
+      : 'Windows 安全凭据加密不可用，无法保存 Key。';
+  imageCredentialStatus.dataset.kind = status.configured ? 'success' : 'pending';
+}
+
+async function discoverLocalImageResources(showToast: boolean): Promise<void> {
+  imageDiscoverLocal.disabled = true;
+  imageRuntimeStatus.textContent = '正在扫描常见本地模型目录，并探测 127.0.0.1 上的 ComfyUI…';
+  imageRuntimeStatus.dataset.kind = 'pending';
+  try {
+    const snapshot = await window.athenaAPI.discoverLocalImageResources();
+    if (!snapshot) throw new Error('主进程没有返回扫描结果。');
+    const selectedModel = settingImageModelPath.value.trim();
+    const standaloneModels = snapshot.models.filter(model => model.standaloneCompatible);
+    settingImageDiscoveredModel.replaceChildren(new Option(
+      standaloneModels.length > 0 ? `自动选择 · ${standaloneModels.length} 个独立引擎兼容模型` : '没有发现可供独立引擎直接使用的模型',
+      '',
+    ));
+    for (const model of standaloneModels) {
+      const size = model.bytes >= 1024 ** 3 ? `${(model.bytes / 1024 ** 3).toFixed(1)} GB` : `${Math.round(model.bytes / 1024 ** 2)} MB`;
+      settingImageDiscoveredModel.add(new Option(`${model.name} · ${model.source} · ${size}`, model.path));
+    }
+    if (selectedModel && standaloneModels.some(model => model.path === selectedModel)) settingImageDiscoveredModel.value = selectedModel;
+    const selectedCheckpoint = settingImageComfyUiCheckpoint.value || currentSettingsBundle?.settings.imageGeneration.local.comfyuiCheckpoint || '';
+    settingImageComfyUiCheckpoint.replaceChildren(new Option('自动选择兼容工作流 / 完整 checkpoint', ''));
+    for (const checkpoint of snapshot.comfyui.checkpoints) settingImageComfyUiCheckpoint.add(new Option(checkpoint, checkpoint));
+    if (selectedCheckpoint && snapshot.comfyui.checkpoints.includes(selectedCheckpoint)) settingImageComfyUiCheckpoint.value = selectedCheckpoint;
+    if (snapshot.comfyui.connected) settingImageComfyUiUrl.value = snapshot.comfyui.baseUrl;
+    const parts = [
+      snapshot.models.length > 0
+        ? `发现 ${snapshot.models.length} 个本地模型文件（${standaloneModels.length} 个可由独立引擎直接使用）`
+        : '未发现本地模型文件',
+      snapshot.comfyui.connected
+        ? `ComfyUI 已连接（${snapshot.comfyui.baseUrl}，${snapshot.comfyui.workflows.length} 种可用工作流${snapshot.comfyui.workflows.includes('z-image-turbo') ? '，含 Z-Image Turbo' : ''}）`
+        : 'ComfyUI 未连接',
+    ];
+    imageRuntimeStatus.textContent = parts.join('；');
+    imageRuntimeStatus.dataset.kind = standaloneModels.length > 0 || snapshot.comfyui.workflows.length > 0 ? 'success' : 'pending';
+    selectControls.sync();
+    if (showToast) toasts.show('本地生图环境扫描完成', snapshot.models.length > 0 || snapshot.comfyui.connected ? 'success' : 'neutral');
+  } catch (error) {
+    imageRuntimeStatus.textContent = `本地扫描失败：${error instanceof Error ? error.message : String(error)}`;
+    imageRuntimeStatus.dataset.kind = 'error';
+  } finally {
+    imageDiscoverLocal.disabled = false;
+  }
+}
+
+async function loadLocalImageRuntimeVariants(): Promise<void> {
+  try {
+    const variants = await window.athenaAPI.listLocalImageRuntimeVariants();
+    if (!variants?.length) return;
+    const selected = settingImageRuntimeVariant.value;
+    settingImageRuntimeVariant.replaceChildren();
+    for (const variant of variants) {
+      const size = `${Math.ceil(variant.downloadBytes / 1024 / 1024)} MB`;
+      settingImageRuntimeVariant.add(new Option(`${variant.label} · ${size} · ${variant.recommendedFor}`, variant.id));
+    }
+    if (variants.some(variant => variant.id === selected)) settingImageRuntimeVariant.value = selected;
+    selectControls.sync();
+  } catch {
+    // The manual runtime picker remains available if the managed manifest cannot be read.
+  }
+}
+
+async function installImageRuntime(): Promise<void> {
+  const variant = settingImageRuntimeVariant.value as LocalImageRuntimeVariantId;
+  const approved = await dialogs.confirm({
+    eyebrow: '本地生图引擎',
+    title: '下载并安装独立引擎？',
+    message: 'Athena 将从 stable-diffusion.cpp 官方 GitHub Release 下载所选版本，并在 SHA-256 校验通过后安装到本机应用数据目录。模型权重仍由你单独选择。',
+    confirmLabel: '开始安装',
+    tone: 'neutral',
+  });
+  if (!approved) return;
+  imageInstallRuntime.disabled = true;
+  imageRuntimeStatus.dataset.kind = 'pending';
+  try {
+    const result = await window.athenaAPI.installLocalImageRuntime(variant);
+    if (!result) throw new Error('主进程没有返回安装结果。');
+    settingImageProvider.value = 'local';
+    settingImageLocalEngine.value = 'athena';
+    settingImageRuntimePath.value = result.runtimePath;
+    settingImageBackend.value = result.backend;
+    imageRuntimeStatus.textContent = result.reused ? '已启用现有的校验版本。' : 'Athena 独立生图引擎已安装并启用。';
+    imageRuntimeStatus.dataset.kind = 'success';
+    currentSettingsBundle = await window.athenaAPI.getSettings();
+    populateSelectedImageProvider();
+    selectControls.sync();
+    toasts.show('独立生图引擎已就绪', 'success');
+  } catch (error) {
+    imageRuntimeStatus.textContent = `独立引擎安装失败：${error instanceof Error ? error.message : String(error)}`;
+    imageRuntimeStatus.dataset.kind = 'error';
+  } finally {
+    imageInstallRuntime.disabled = false;
+  }
+}
+
+function updateImageRuntimeInstallProgress(progress: LocalImageRuntimeInstallProgress): void {
+  const percent = progress.totalBytes > 0
+    ? Math.min(100, Math.round((progress.downloadedBytes / progress.totalBytes) * 100))
+    : 0;
+  imageRuntimeStatus.textContent = progress.phase === 'downloading'
+    ? `${progress.message} ${percent}%`
+    : progress.message;
+  imageRuntimeStatus.dataset.kind = progress.phase === 'failed' || progress.phase === 'cancelled'
+    ? 'error'
+    : progress.phase === 'complete' ? 'success' : 'pending';
+}
+
+async function chooseImageRuntime(): Promise<void> {
+  const selected = await window.athenaAPI.chooseLocalImageRuntime();
+  if (selected) settingImageRuntimePath.value = selected;
+}
+
+async function chooseImageModel(): Promise<void> {
+  const selected = await window.athenaAPI.chooseLocalImageModel();
+  if (selected) settingImageModelPath.value = selected;
+}
+
+async function saveImageCredential(): Promise<void> {
+  const provider = selectedImageCloudProvider();
+  if (!provider) return;
+  const apiKey = settingImageApiKey.value.trim();
+  if (!apiKey) {
+    imageCredentialStatus.textContent = '请输入 API Key。';
+    return;
+  }
+  try {
+    const status = await window.athenaAPI.setImageCredential(provider, apiKey);
+    settingImageApiKey.value = '';
+    imageCredentialStatus.textContent = status?.configured ? 'API Key 已安全保存，不会回显。' : 'API Key 保存失败。';
+  } catch (error) {
+    imageCredentialStatus.textContent = `保存失败：${error instanceof Error ? error.message : String(error)}`;
+  }
+}
+
+async function clearImageCredential(): Promise<void> {
+  const provider = selectedImageCloudProvider();
+  if (!provider || !await dialogs.confirm({
+    eyebrow: '生图凭据',
+    title: `清除 ${settingImageProvider.selectedOptions[0]?.textContent || provider} API Key？`,
+    message: '清除后，该生图通道会停止工作，直到重新保存凭据。',
+    confirmLabel: '清除凭据',
+    tone: 'danger',
+  })) return;
+  await window.athenaAPI.clearImageCredential(provider);
+  settingImageApiKey.value = '';
+  await refreshImageProviderStatus();
+  toasts.show('生图凭据已清除', 'success');
+}
+
+function imageGenerationPatchFromForm(): ImageGenerationSettings {
+  const provider = settingImageProvider.value as ImageProviderId;
+  const current = currentSettingsBundle?.settings.imageGeneration;
+  if (!current) throw new Error('生图设置尚未加载。');
+  const remote = { ...current.remote };
+  if (provider !== 'local') {
+    remote[provider] = { baseUrl: settingImageApiUrl.value.trim().replace(/\/$/, ''), model: settingImageModel.value.trim() };
+  }
+  return {
+    provider,
+    cloudFallback: settingImageCloudFallback.value as 'never' | 'ask',
+    local: {
+      engine: settingImageLocalEngine.value as ImageGenerationSettings['local']['engine'],
+      autoDiscover: settingImageAutoDiscover.checked,
+      runtimePath: settingImageRuntimePath.value.trim(),
+      modelPath: settingImageModelPath.value.trim(),
+      comfyuiBaseUrl: settingImageComfyUiUrl.value.trim().replace(/\/$/, ''),
+      comfyuiCheckpoint: settingImageComfyUiCheckpoint.value,
+      backend: settingImageBackend.value as ImageGenerationSettings['local']['backend'],
+      profile: settingImageLocalProfile.value as ImageGenerationSettings['local']['profile'],
+      steps: Number(settingImageLocalSteps.value),
+      cfgScale: Number(settingImageLocalCfg.value),
+    },
+    remote,
+  };
 }
 
 function modelPatchFromForm(setupComplete: boolean): SettingsPatch['model'] {
@@ -4505,7 +4961,13 @@ async function saveExecutionSettings(): Promise<void> {
   const previous = currentSettingsBundle?.settings.tools.modePermissions.execute ?? 'off';
   const next = settingToolPermissionExecute.value as ToolPermissionLevel;
   if (permissionRank(next) > permissionRank(previous)) {
-    const approved = window.confirm(`${toolPermissionShortLabel(next)}会扩大 Athena 对本机的访问范围。高危文件、命令、程序和外网操作仍会逐次确认。是否明确升权？`);
+    const approved = await dialogs.confirm({
+      eyebrow: '工具权限',
+      title: `将权限提升为“${toolPermissionShortLabel(next)}”？`,
+      message: `${toolPermissionShortLabel(next)}会扩大 Athena 对本机的访问范围。高危文件、命令、程序和外网操作仍会逐次确认。`,
+      confirmLabel: '确认升权',
+      tone: 'danger',
+    });
     if (!approved) {
       settingToolPermissionExecute.value = previous;
       selectControls.sync();
@@ -4535,7 +4997,7 @@ async function saveExecutionSettings(): Promise<void> {
 }
 
 function populateSettingsForm(bundle: SettingsBundle): void {
-  const { appearance, conversation, data, general, memory, personalization, privacy, tools, ui, voice, webSearch } = bundle.settings;
+  const { appearance, conversation, data, general, imageGeneration, memory, personalization, privacy, tools, ui, voice, webSearch } = bundle.settings;
   settingLaunchStartup.checked = general.launchAtStartup;
   settingCloseTray.checked = general.closeToTray;
   settingNotifications.checked = general.desktopNotifications;
@@ -4576,6 +5038,21 @@ function populateSettingsForm(bundle: SettingsBundle): void {
   settingOllamaModel.value = bundle.model.ollama.model;
   populateSelectedModelProvider();
   void refreshModelCredentialStatus();
+  settingImageProvider.value = imageGeneration.provider;
+  settingImageCloudFallback.value = imageGeneration.cloudFallback;
+  settingImageLocalEngine.value = imageGeneration.local.engine;
+  settingImageAutoDiscover.checked = imageGeneration.local.autoDiscover;
+  settingImageRuntimePath.value = imageGeneration.local.runtimePath;
+  settingImageModelPath.value = imageGeneration.local.modelPath;
+  settingImageComfyUiUrl.value = imageGeneration.local.comfyuiBaseUrl;
+  settingImageComfyUiCheckpoint.replaceChildren(new Option(imageGeneration.local.comfyuiCheckpoint || '自动选择兼容工作流 / 完整 checkpoint', imageGeneration.local.comfyuiCheckpoint));
+  settingImageBackend.value = imageGeneration.local.backend;
+  settingImageLocalProfile.value = imageGeneration.local.profile;
+  settingImageLocalSteps.value = String(imageGeneration.local.steps);
+  settingImageLocalCfg.value = String(imageGeneration.local.cfgScale);
+  populateSelectedImageProvider();
+  void loadLocalImageRuntimeVariants();
+  void refreshImageProviderStatus();
   settingMemoryEnabled.checked = memory.enabled;
   settingMemoryAutoExtract.checked = memory.autoExtract;
   settingMemoryProfile.checked = memory.retrieveProfile;
@@ -4705,6 +5182,27 @@ function applySkuRuntimeProfile(sku: SettingsBundle['sku']): void {
     settingConsentImageGeneration,
     settingConsentRemoteModel,
     settingConsentExternalToolNetwork,
+    settingImageProvider,
+    settingImageCloudFallback,
+    settingImageLocalEngine,
+    settingImageAutoDiscover,
+    settingImageRuntimePath,
+    settingImageModelPath,
+    settingImageDiscoveredModel,
+    settingImageComfyUiUrl,
+    settingImageComfyUiCheckpoint,
+    settingImageBackend,
+    settingImageLocalProfile,
+    settingImageLocalSteps,
+    settingImageLocalCfg,
+    settingImageApiUrl,
+    settingImageModel,
+    settingImageApiKey,
+    imageChooseRuntime,
+    imageChooseModel,
+    imageDiscoverLocal,
+    imageSaveApiKey,
+    imageClearApiKey,
   ]) {
     control.disabled = steam;
     control.title = steam ? 'Steam 1.0 首发构建排除此联网能力。' : '';
@@ -4750,10 +5248,17 @@ async function refreshVoiceCapabilities(): Promise<void> {
 async function saveSettingsForm(): Promise<void> {
   setSettingsFeedback('保存中...');
   const previousModel = currentSettingsBundle ? JSON.stringify(currentSettingsBundle.model) : '';
+  const previousImage = currentSettingsBundle ? JSON.stringify(currentSettingsBundle.settings.imageGeneration) : '';
   const previousPermission = currentSettingsBundle?.settings.tools.modePermissions.execute ?? 'off';
   const nextPermission = settingToolPermissionExecute.value as ToolPermissionLevel;
   if (permissionRank(nextPermission) > permissionRank(previousPermission)) {
-    const approved = window.confirm(`${toolPermissionShortLabel(nextPermission)}会扩大 Athena 对本机的访问范围。高危操作仍会逐次确认。是否明确升权？`);
+    const approved = await dialogs.confirm({
+      eyebrow: '工具权限',
+      title: `将权限提升为“${toolPermissionShortLabel(nextPermission)}”？`,
+      message: `${toolPermissionShortLabel(nextPermission)}会扩大 Athena 对本机的访问范围。高危操作仍会逐次确认。`,
+      confirmLabel: '确认升权',
+      tone: 'danger',
+    });
     if (!approved) {
       settingToolPermissionExecute.value = previousPermission;
       selectControls.sync();
@@ -4834,6 +5339,7 @@ async function saveSettingsForm(): Promise<void> {
           sttEngine: 'local_whisper',
           ttsVoice: settingTtsVoice.value,
         },
+        imageGeneration: imageGenerationPatchFromForm(),
         data: {
           confirmBeforeDelete: settingConfirmDelete.checked,
           historyRetentionDays: Number(settingHistoryRetention.value),
@@ -4860,7 +5366,8 @@ async function saveSettingsForm(): Promise<void> {
     applyRuntimeSettings(bundle.settings);
     await loadPrivacyCenter();
     const modelChanged = Boolean(previousModel && previousModel !== JSON.stringify(bundle.model));
-    setSettingsFeedback(modelChanged ? '已保存。模型连接已切换并立即生效。' : '已保存。个性化下一轮对话生效。', 'success');
+    const imageChanged = Boolean(previousImage && previousImage !== JSON.stringify(bundle.settings.imageGeneration));
+    setSettingsFeedback(modelChanged || imageChanged ? '已保存。模型与生图路由已立即切换。' : '已保存。个性化下一轮对话生效。', 'success');
   } catch (error) {
     setSettingsFeedback(`保存失败：${error instanceof Error ? error.message : String(error)}`, 'error');
   }
@@ -5030,7 +5537,13 @@ async function exportPrivacyData(): Promise<void> {
 }
 
 async function clearLocalData(): Promise<void> {
-  const approved = window.confirm('这会清除本机聊天、长期记忆、搜索/语音/工具活动记录和语音缓存。设置本身会保留。是否继续？');
+  const approved = await dialogs.confirm({
+    eyebrow: '隐私与数据',
+    title: '清除全部本机数据？',
+    message: '聊天、长期记忆、搜索/语音/工具活动记录和语音缓存会被清除。设置本身会保留，此操作无法由 Athena 撤销。',
+    confirmLabel: '清除本机数据',
+    tone: 'danger',
+  });
   if (!approved) return;
   setSettingsFeedback('正在清除本机数据...');
   try {
@@ -5279,11 +5792,20 @@ function renderMemoryItems(container: HTMLElement, items: MemoryListItem[], allo
       del.textContent = '×';
       del.addEventListener('click', async () => {
         if (currentSettingsBundle?.settings.data.confirmBeforeDelete ?? true) {
-          const confirmed = window.confirm(`删除这条${kindLabel(item.kind)}记忆？`);
+          const confirmed = await dialogs.confirm({
+            eyebrow: '记忆管理',
+            title: `删除这条${kindLabel(item.kind)}记忆？`,
+            message: '删除后，Athena 不会再在后续对话中检索这条记忆。',
+            confirmLabel: '删除记忆',
+            tone: 'danger',
+          });
           if (!confirmed) return;
         }
         const ok = await window.athenaAPI.deleteMemory(item.kind, item.id);
-        if (ok) await loadMemoryList();
+        if (ok) {
+          await loadMemoryList();
+          toasts.show('记忆已删除', 'success');
+        }
       });
       actions.appendChild(del);
     }

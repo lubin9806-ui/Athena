@@ -116,7 +116,7 @@ export function consentRequiredMessage(capability: keyof NetworkConsentSettings)
   const labels: Record<keyof NetworkConsentSettings, string> = {
     remoteModel: '远程模型服务',
     webSearch: '联网搜索',
-    imageGeneration: 'OpenAI 生图服务',
+    imageGeneration: '云端生图服务',
     onlineSpeechToText: '在线语音识别',
     onlineTextToSpeech: '在线语音合成',
     externalToolNetwork: '执行模式外部网络工具',
@@ -452,9 +452,9 @@ function buildNetworkCapabilityNotices(consent: NetworkConsentSettings): Network
     },
     {
       id: 'imageGeneration',
-      label: 'OpenAI 生图与图片编辑服务',
+      label: '用户选择的云端生图与图片编辑服务',
       sends: '用户逐次批准的生图或编辑提示词、输出设置；图片编辑还会发送所选受管参考图和可选蒙版',
-      destinations: 'https://api.openai.com/v1/images/generations；https://api.openai.com/v1/images/edits',
+      destinations: '用户在“图像生成”中明确选择并配置的 OpenAI、Google、Stability、BFL、火山方舟、通义万相、Replicate、fal.ai 或自定义 API 地址',
       defaultState: 'off-until-consent',
       consented: consent.imageGeneration,
     },

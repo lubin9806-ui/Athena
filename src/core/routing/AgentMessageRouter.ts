@@ -10,6 +10,7 @@ import {
   shouldAutoSearch,
 } from '../web/WebSearchService';
 import { requiresComputerAction } from '../tools/ToolRuntime';
+import { parseDirectImageGenerationIntent } from '../artifacts/ImageGenerationIntent';
 
 export interface RoutingHistoryItem {
   role: MessageRole;
@@ -66,6 +67,9 @@ export class AgentMessageRouter {
 
   route(input: AgentMessageRoutingInput): AgentMessageRouteDecision {
     const message = input.message.trim();
+    if (parseDirectImageGenerationIntent(message)) {
+      return decision('image_generation', input.mode, 'high', 'image-generation', false);
+    }
     if (input.mode === 'execute') {
       return decision('durable_execution', 'execute', 'high', 'selected-execution-mode', false);
     }

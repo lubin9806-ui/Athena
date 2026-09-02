@@ -171,7 +171,7 @@ const {
   }));
   await assert.rejects(() => registry.executeResolved(call('generate_image_artifact', {
     prompt: 'revoked', size: '1024x1024', quality: 'low', output_format: 'png',
-  }), resolvedImage, context(run.id, imageStep.id, 'revoked-key')), /consent was revoked/);
+  }), resolvedImage, context(run.id, imageStep.id, 'revoked-key')), /not permitted by the current privacy or SKU policy/);
   credentialAvailable = false;
   assert.deepEqual(bridge.refresh(), ['create_document_artifact']);
   writeAllowed = false;
@@ -182,12 +182,12 @@ const {
   const settingsSource = fs.readFileSync(path.join(root, 'src', 'core', 'config', 'SettingsStore.ts'), 'utf8');
   const controllerSource = fs.readFileSync(path.join(root, 'src', 'core', 'controller', 'AthenaController.ts'), 'utf8');
   const ipcSource = fs.readFileSync(path.join(root, 'src', 'app', 'ipc', 'index.ts'), 'utf8');
-  assert.match(privacySource, /api\.openai\.com\/v1\/images\/generations/);
-  assert.match(privacySource, /api\.openai\.com\/v1\/images\/edits/);
+  assert.match(privacySource, /用户选择的云端生图与图片编辑服务/);
+  assert.match(privacySource, /OpenAI、Google、Stability、BFL、火山方舟、通义万相、Replicate、fal\.ai/);
   assert.match(settingsSource, /imageGeneration:\s*false/);
   assert.match(controllerSource, /this\.artifactTools\.refresh\(\)/);
   assert.match(ipcSource, /agentArtifact:open/);
-  console.log('ATHENA_ARTIFACT_TOOLS_OK documents=markdown,html,docx,pdf image=openai-gpt-image-2 edit=references-mask workspace=project-only approval=always integrity=sha256');
+  console.log('ATHENA_ARTIFACT_TOOLS_OK documents=markdown,html,docx,pdf image=provider-routed edit=references-mask workspace=project-only approval=always integrity=sha256');
 })().then(() => {
   try { memory.closeDatabase(); } catch {}
   fs.rmSync(scratch, { recursive: true, force: true });

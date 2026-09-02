@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "engine": "stable-diffusion.cpp",
+  "executable": "sd-cli.exe",
+  "projectUrl": "https://github.com/leejet/stable-diffusion.cpp",
+  "packageDestination": "image-runtime",
+  "defaultModelFile": "athena-fast.safetensors",
+  "acceptedModelExtensions": [
+    ".safetensors",
+    ".gguf",
+    ".ckpt",
+    ".pth",
+    ".pt"
+  ],
+  "runtimeDelivery": "release-gated",
+  "modelDelivery": "user-select",
+  "requiresComfyUI": false,
+  "releaseTag": "master-841-6b3edaa",
+  "releasePublishedAt": "2026-08-30T18:29:03Z",
+  "variants": [
+    {
+      "id": "cuda12",
+      "label": "NVIDIA CUDA 12",
+      "backend": "cuda",
+      "recommendedFor": "NVIDIA RTX / GTX",
+      "archiveName": "sd-master-6b3edaa-bin-win-cuda12-x64.zip",
+      "downloadUrl": "https://github.com/leejet/stable-diffusion.cpp/releases/download/master-841-6b3edaa/sd-master-6b3edaa-bin-win-cuda12-x64.zip",
+      "downloadBytes": 336399103,
+      "sha256": "f5ea779f2db1d8432dcc5853517b7a7363ee0b6f90ac2dc9aac728ff7b5642ea"
+    },
+    {
+      "id": "vulkan",
+      "label": "Vulkan",
+      "backend": "vulkan",
+      "recommendedFor": "AMD / Intel / NVIDIA 通用 GPU",
+      "archiveName": "sd-master-6b3edaa-bin-win-vulkan-x64.zip",
+      "downloadUrl": "https://github.com/leejet/stable-diffusion.cpp/releases/download/master-841-6b3edaa/sd-master-6b3edaa-bin-win-vulkan-x64.zip",
+      "downloadBytes": 38834787,
+      "sha256": "b8640b12fd708a2d26a5e31d73861a50ede73f1b3d6132a4dbe037692b68c0f2"
+    },
+    {
+      "id": "cpu",
+      "label": "CPU",
+      "backend": "cpu",
+      "recommendedFor": "无兼容 GPU 时使用",
+      "archiveName": "sd-master-6b3edaa-bin-win-cpu-x64.zip",
+      "downloadUrl": "https://github.com/leejet/stable-diffusion.cpp/releases/download/master-841-6b3edaa/sd-master-6b3edaa-bin-win-cpu-x64.zip",
+      "downloadBytes": 24084786,
+      "sha256": "a36edb067de09fc9f70fcd193e519ff62592f860744558d7918762c7c3401050"
+    }
+  ]
+}

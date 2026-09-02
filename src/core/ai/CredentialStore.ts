@@ -1,41 +1,42 @@
 import { app, safeStorage } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
-import type { RemoteModelProvider } from '../../shared/types';
+import type { ImageCloudProvider, ImageCredentialStatus, RemoteModelProvider } from '../../shared/types';
 
 export interface ModelCredentialStatus {
   provider: RemoteModelProvider;
   configured: boolean;
-  source: 'environment' | 'windows-safe-storage' | 'none';
+  source: 'environment' | 'local-env-file' | 'windows-safe-storage' | 'none';
   encryptionAvailable: boolean;
 }
 
 interface CredentialFile {
   version: 1;
-  entries: Partial<Record<RemoteModelProvider, string>>;
+  entries: Partial<Record<CredentialProvider, string>>;
 }
 
-const PROVIDERS = new Set<RemoteModelProvider>(['openai', 'deepseek', 'athena-cloud', 'custom']);
-const ENVIRONMENT_KEYS: Record<RemoteModelProvider, string> = {
+type CredentialProvider = RemoteModelProvider | ImageCloudProvider;
+
+const PROVIDERS = new Set<CredentialProvider>([
+  'openai', 'deepseek', 'athena-cloud', 'custom', 'google', 'stability', 'bfl',
+  'volcengine', 'dashscope', 'replicate', 'fal',
+]);
+const ENVIRONMENT_KEYS: Record<CredentialProvider, string> = {
   openai: 'OPENAI_API_KEY',
   deepseek: 'DEEPSEEK_API_KEY',
   'athena-cloud': 'ATHENA_CLOUD_API_KEY',
   custom: 'ATHENA_CUSTOM_API_KEY',
+  google: 'GEMINI_API_KEY',
+  stability: 'STABILITY_API_KEY',
+  bfl: 'BFL_API_KEY',
+  volcengine: 'ARK_API_KEY',
+  dashscope: 'DASHSCOPE_API_KEY',
+  replicate: 'REPLICATE_API_TOKEN',
+  fal: 'FAL_KEY',
 };
 
 export function getModelCredentialStatus(provider: RemoteModelProvider): ModelCredentialStatus {
-  assertProvider(provider);
-  const environmentValue = process.env[ENVIRONMENT_KEYS[provider]]?.trim();
-  if (environmentValue) {
-    return { provider, configured: true, source: 'environment', encryptionAvailable: encryptionReady() };
-  }
-  const file = readCredentialFile();
-  return {
-    provider,
-    configured: Boolean(file.entries[provider]),
-    source: file.entries[provider] ? 'windows-safe-storage' : 'none',
-    encryptionAvailable: encryptionReady(),
-  };
+  return getCredentialStatus(provider) as ModelCredentialStatus;
 }
 
 export function setModelCredential(provider: RemoteModelProvider, apiKey: string): ModelCredentialStatus {
@@ -59,9 +60,61 @@ export function clearModelCredential(provider: RemoteModelProvider): ModelCreden
 }
 
 export function resolveModelCredential(provider: RemoteModelProvider): string | null {
+  return resolveCredential(provider);
+}
+
+export function getImageCredentialStatus(provider: ImageCloudProvider): ImageCredentialStatus {
+  return getCredentialStatus(provider) as ImageCredentialStatus;
+}
+
+export function setImageCredential(provider: ImageCloudProvider, apiKey: string): ImageCredentialStatus {
+  setCredential(provider, apiKey);
+  return getImageCredentialStatus(provider);
+}
+
+export function clearImageCredential(provider: ImageCloudProvider): ImageCredentialStatus {
+  clearCredential(provider);
+  return getImageCredentialStatus(provider);
+}
+
+export function resolveImageCredential(provider: ImageCloudProvider): string | null {
+  return resolveCredential(provider);
+}
+
+function getCredentialStatus(provider: CredentialProvider): ModelCredentialStatus | ImageCredentialStatus {
   assertProvider(provider);
-  const environmentValue = process.env[ENVIRONMENT_KEYS[provider]]?.trim();
-  if (environmentValue) return environmentValue;
+  const resolved = resolveEnvironmentCredential(provider);
+  if (resolved) return { provider, configured: true, source: resolved.source, encryptionAvailable: encryptionReady() } as ModelCredentialStatus | ImageCredentialStatus;
+  const file = readCredentialFile();
+  return {
+    provider,
+    configured: Boolean(file.entries[provider]),
+    source: file.entries[provider] ? 'windows-safe-storage' : 'none',
+    encryptionAvailable: encryptionReady(),
+  } as ModelCredentialStatus | ImageCredentialStatus;
+}
+
+function setCredential(provider: CredentialProvider, apiKey: string): void {
+  assertProvider(provider);
+  const value = apiKey.trim();
+  if (!value || value.length > 10_000) throw new Error('API Key 为空或长度无效。');
+  if (!encryptionReady()) throw new Error('Windows 安全凭据加密当前不可用，API Key 未保存。');
+  const file = readCredentialFile();
+  file.entries[provider] = safeStorage.encryptString(value).toString('base64');
+  writeCredentialFile(file);
+}
+
+function clearCredential(provider: CredentialProvider): void {
+  assertProvider(provider);
+  const file = readCredentialFile();
+  delete file.entries[provider];
+  writeCredentialFile(file);
+}
+
+function resolveCredential(provider: CredentialProvider): string | null {
+  assertProvider(provider);
+  const environment = resolveEnvironmentCredential(provider);
+  if (environment) return environment.value;
   const encrypted = readCredentialFile().entries[provider];
   if (!encrypted || !encryptionReady()) return null;
   try {
@@ -69,6 +122,36 @@ export function resolveModelCredential(provider: RemoteModelProvider): string | 
   } catch {
     return null;
   }
+}
+
+function resolveEnvironmentCredential(provider: CredentialProvider): { value: string; source: 'environment' | 'local-env-file' } | null {
+  const key = ENVIRONMENT_KEYS[provider];
+  const direct = process.env[key]?.trim();
+  if (direct) return { value: direct, source: 'environment' };
+  for (const filename of ['.env.local', '.env']) {
+    const filePath = path.resolve(process.cwd(), filename);
+    if (!fs.existsSync(filePath)) continue;
+    try {
+      const value = readEnvKey(fs.readFileSync(filePath, 'utf8'), key);
+      if (value) return { value, source: 'local-env-file' };
+    } catch {
+      // A malformed or unreadable local env file is ignored without exposing content.
+    }
+  }
+  return null;
+}
+
+function readEnvKey(source: string, key: string): string | null {
+  const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = source.match(new RegExp(`^\\s*(?:export\\s+)?${escaped}\\s*=\\s*(.*)$`, 'm'));
+  if (!match) return null;
+  let value = match[1].trim();
+  if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+    value = value.slice(1, -1);
+  } else {
+    value = value.replace(/\s+#.*$/, '').trim();
+  }
+  return value || null;
 }
 
 function credentialFilePath(): string | null {
@@ -102,6 +185,6 @@ function encryptionReady(): boolean {
   return Boolean(safeStorage?.isEncryptionAvailable?.());
 }
 
-function assertProvider(provider: RemoteModelProvider): void {
+function assertProvider(provider: CredentialProvider): void {
   if (!PROVIDERS.has(provider)) throw new Error('不支持的远程模型 Provider。');
 }

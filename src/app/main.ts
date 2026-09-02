@@ -372,6 +372,10 @@ function createWindow(): void {
               const modelProviderSelect = document.getElementById('setting-model-provider');
               const modelOllamaFields = document.getElementById('model-ollama-fields');
               const modelRemoteFields = document.getElementById('model-remote-fields');
+              const imageProviderSelect = document.getElementById('setting-image-provider');
+              const imageLocalEngine = document.getElementById('setting-image-local-engine');
+              const imageRuntimeVariant = document.getElementById('setting-image-runtime-variant');
+              const imageInstallRuntime = document.getElementById('image-install-runtime');
               const inputBox = document.getElementById('input-box');
               const visiblePresenceAction = Array.from(document.querySelectorAll('.presence-action'))
                 .find(button => getComputedStyle(button).display !== 'none');
@@ -413,6 +417,10 @@ function createWindow(): void {
                 modelProviderSelect instanceof HTMLSelectElement &&
                 modelOllamaFields &&
                 modelRemoteFields &&
+                imageProviderSelect instanceof HTMLSelectElement &&
+                imageLocalEngine instanceof HTMLSelectElement &&
+                imageRuntimeVariant instanceof HTMLSelectElement &&
+                imageInstallRuntime instanceof HTMLButtonElement &&
                 inputBox instanceof HTMLTextAreaElement &&
                 visiblePresenceAction instanceof HTMLButtonElement &&
                document.getElementById('setting-remote-url') &&
@@ -457,6 +465,9 @@ function createWindow(): void {
               && typeof api.requestMicrophoneAccess === 'function'
               && typeof api.getVoiceCapabilities === 'function'
               && typeof api.listModelOptions === 'function'
+              && typeof api.discoverLocalImageResources === 'function'
+              && typeof api.listLocalImageRuntimeVariants === 'function'
+              && typeof api.installLocalImageRuntime === 'function'
               );
               if (!uiReady) return false;
 
@@ -578,7 +589,15 @@ function createWindow(): void {
                && originalSettings.settings.tools.modePermissions.create === 'off'
                && originalSettings.settings.tools.modePermissions.companion === 'off'
                && originalSettings.settings.tools.modePermissions.reason === 'off';
-             if (!modelProviderTruthful || !firstRunModelChoicesReady || !firstRunPathReactive || !toolPermissionControlsReady) return false;
+             const imageGenerationControlsReady = imageProviderSelect.value === originalSettings.settings.imageGeneration.provider
+               && ['auto', 'athena', 'comfyui'].every(value => Boolean(imageLocalEngine.querySelector('option[value="' + value + '"]')))
+               && ['cuda12', 'vulkan', 'cpu'].every(value => Boolean(imageRuntimeVariant.querySelector('option[value="' + value + '"]')))
+               && imageInstallRuntime.textContent?.includes('独立引擎');
+             const imageRouteResults = await Promise.all(['companion', 'create', 'reason', 'execute'].map(mode => (
+               api.routeMessage('请生成一张夜空中的未来城市图片', mode)
+             )));
+             const directImageRoutingReady = imageRouteResults.every(result => result?.route === 'image_generation');
+             if (!modelProviderTruthful || !firstRunModelChoicesReady || !firstRunPathReactive || !toolPermissionControlsReady || !imageGenerationControlsReady || !directImageRoutingReady) return false;
              await new Promise(resolve => setTimeout(resolve, 90));
              composerMoreButton.click();
              const webSearchNeedsConsent = webSearchButton.disabled && /同意/.test(webSearchButton.title || '');
@@ -678,6 +697,24 @@ function createWindow(): void {
                && /临时对话/.test(projectDocumentButton.title || '')
                && /临时对话/.test(projectDocumentOcrButton.title || '');
              if (!temporaryDocumentBoundaryReactive) return false;
+
+             chatWindowDelete.click();
+             await new Promise(resolve => setTimeout(resolve, 80));
+             const uiDialog = document.getElementById('ui-dialog');
+             const uiDialogCancel = document.getElementById('ui-dialog-cancel');
+             const uiDialogTitle = document.getElementById('ui-dialog-title');
+             const appDialogReactive = uiDialog instanceof HTMLDialogElement
+               && uiDialog.open
+               && uiDialog.dataset.tone === 'danger'
+               && /临时聊天/.test(uiDialogTitle?.textContent || '')
+               && uiDialogCancel instanceof HTMLButtonElement;
+             if (!appDialogReactive || !(uiDialogCancel instanceof HTMLButtonElement)) return false;
+             uiDialogCancel.click();
+             await new Promise(resolve => setTimeout(resolve, 180));
+             const appDialogDismissReactive = !uiDialog.open
+               && appShell.dataset.temporaryChat === 'true'
+               && chatWindowDelete.textContent.trim() === '关闭';
+             if (!appDialogDismissReactive) return false;
 
              composerMoreButton.click();
              await new Promise(resolve => setTimeout(resolve, 90));
@@ -798,10 +835,14 @@ function createWindow(): void {
                 modelProviderTruthful,
                 firstRunModelChoicesReady,
                 firstRunPathReactive,
+                imageGenerationControlsReady,
+                directImageRoutingReady,
                 newChatImmediateReactive,
                 newChatAutoTitleReactive,
                 temporaryChatReactive,
                 temporaryDocumentBoundaryReactive,
+                appDialogReactive,
+                appDialogDismissReactive,
                 toolCatalogReactive,
                 composerToolsVisible,
                 composerMetaVisible,

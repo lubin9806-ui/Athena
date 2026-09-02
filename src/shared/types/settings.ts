@@ -11,6 +11,7 @@ export type MemoryImportContentMode = 'normal' | 'adult';
 
 import type { WebSearchSettings } from './search';
 import type { ToolModePermissions, ToolSettings } from './tools';
+import type { ImageGenerationSettings } from './images';
 
 export interface PersonalizationSettings {
   userName: string;
@@ -113,6 +114,7 @@ export interface AppSettings {
   personalization: PersonalizationSettings;
   memory: MemorySettings;
   voice: VoiceSettings;
+  imageGeneration: ImageGenerationSettings;
   data: DataSettings;
   privacy: PrivacySettings;
   ui: UiSettings;
@@ -151,7 +153,7 @@ export interface SettingsBundle {
 }
 
 export interface SettingsPatch {
-  settings?: Omit<Partial<AppSettings>, 'general' | 'appearance' | 'conversation' | 'tools' | 'webSearch' | 'personalization' | 'memory' | 'voice' | 'data' | 'privacy' | 'ui'> & {
+  settings?: Omit<Partial<AppSettings>, 'general' | 'appearance' | 'conversation' | 'tools' | 'webSearch' | 'personalization' | 'memory' | 'voice' | 'imageGeneration' | 'data' | 'privacy' | 'ui'> & {
     general?: Partial<GeneralSettings>;
     appearance?: Partial<AppearanceSettings>;
     conversation?: Partial<ConversationSettings>;
@@ -162,6 +164,10 @@ export interface SettingsPatch {
     personalization?: Partial<PersonalizationSettings>;
     memory?: Partial<MemorySettings>;
     voice?: Partial<VoiceSettings>;
+    imageGeneration?: Omit<Partial<ImageGenerationSettings>, 'local' | 'remote'> & {
+      local?: Partial<ImageGenerationSettings['local']>;
+      remote?: Partial<{ [K in keyof ImageGenerationSettings['remote']]: Partial<ImageGenerationSettings['remote'][K]> }>;
+    };
     data?: Partial<DataSettings>;
     privacy?: Omit<Partial<PrivacySettings>, 'networkConsent'> & {
       networkConsent?: Partial<NetworkConsentSettings>;
