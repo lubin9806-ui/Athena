@@ -6,6 +6,7 @@ const root = path.resolve(__dirname, '..');
 const fixturePath = path.join(root, 'scripts', 'fixtures', 'agent-routing-cases.json');
 const fixture = JSON.parse(fs.readFileSync(fixturePath, 'utf8'));
 const { AgentMessageRouter } = require(path.join(root, 'dist', 'core', 'routing', 'index.js'));
+const { resolveDirectImageGenerationIntent } = require(path.join(root, 'dist', 'core', 'artifacts', 'index.js'));
 
 assert.equal(fixture.schemaVersion, 1);
 assert(Array.isArray(fixture.cases));
@@ -59,6 +60,39 @@ assert.equal(router.route({
   webSearchEnabled: true,
   canStartDurableExecution: true,
 }).route, 'conversation');
+
+const detailedImagePrompt = 'Afternoon light in a small bathroom, soft steam, reflective glass, natural composition.生图';
+assert.equal(router.route({
+  message: detailedImagePrompt,
+  mode: 'companion',
+  webSearchEnabled: true,
+  canStartDurableExecution: true,
+}).route, 'image_generation', 'ASCII punctuation before 生图 must still enter direct image generation');
+assert.equal(resolveDirectImageGenerationIntent(detailedImagePrompt).prompt.endsWith('生图'), false, 'execution suffix must not be sent to the image model');
+
+const regenerationHistory = [
+  { role: 'user', content: detailedImagePrompt },
+  { role: 'assistant', content: '已生成图片。' },
+  { role: 'user', content: '生成图片' },
+  { role: 'assistant', content: '已生成另一张图片。' },
+];
+const regenerated = resolveDirectImageGenerationIntent('重新生成', regenerationHistory);
+assert(regenerated, 'regeneration must resolve a prior descriptive image prompt');
+assert.equal(regenerated.prompt, 'Afternoon light in a small bathroom, soft steam, reflective glass, natural composition.');
+assert.equal(router.route({
+  message: '重新生成',
+  mode: 'companion',
+  webSearchEnabled: true,
+  canStartDurableExecution: true,
+  recentMessages: regenerationHistory,
+}).route, 'image_generation', 'regeneration with image context must re-enter direct image generation');
+assert.equal(router.route({
+  message: '重新生成',
+  mode: 'companion',
+  webSearchEnabled: true,
+  canStartDurableExecution: true,
+  recentMessages: [],
+}).route, 'conversation', 'regeneration without image context must not invent an image prompt');
 
 const accuracy = correct / fixture.cases.length;
 const recalls = Object.fromEntries(routes.map(route => {

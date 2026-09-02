@@ -22,9 +22,78 @@ export class LocalImageDiscoveryService {
       Promise.resolve(discoverLocalModels(settings.local.modelPath, signal)),
       discoverComfyUI(settings.local.comfyuiBaseUrl, signal),
     ]);
-    this.cached = { scannedAt: new Date().toISOString(), models, comfyui };
+    const installation = discoverInstalledComfyUI(models);
+    this.cached = { scannedAt: new Date().toISOString(), models, comfyui: { ...installation, ...comfyui } };
     return structuredClone(this.cached);
   }
+}
+
+export function discoverInstalledComfyUI(models: DiscoveredLocalImageModel[]): Pick<
+  LocalImageDiscoverySnapshot['comfyui'],
+  'installed' | 'launchable' | 'launcherLabel' | 'installedModelCount' | 'installedWorkflows'
+> {
+  const comfyModels = models.filter(model => model.source === 'comfyui');
+  const installedWorkflows: LocalImageDiscoverySnapshot['comfyui']['installedWorkflows'] = [];
+  if (comfyModels.some(model => model.role === 'checkpoint' && model.standaloneCompatible)) installedWorkflows.push('checkpoint');
+  if (
+    hasNamedDiscoveredModel(comfyModels, 'diffusion-model', 'z_image_turbo_bf16.safetensors')
+    && hasNamedDiscoveredModel(comfyModels, 'text-encoder', 'qwen_3_4b.safetensors')
+    && hasNamedDiscoveredModel(comfyModels, 'vae', 'ae.safetensors')
+  ) installedWorkflows.push('z-image-turbo');
+  const launcher = findComfyUILaunchTarget();
+  return {
+    installed: comfyModels.length > 0 || Boolean(launcher),
+    launchable: Boolean(launcher),
+    launcherLabel: launcher?.label,
+    installedModelCount: comfyModels.length,
+    installedWorkflows,
+  };
+}
+
+export function findComfyUILaunchTarget(): { path: string; label: string } | null {
+  const userRoot = process.env.USERPROFILE || process.env.HOME || '';
+  const appData = process.env.APPDATA || (userRoot ? path.join(userRoot, 'AppData', 'Roaming') : '');
+  const localAppData = process.env.LOCALAPPDATA || (userRoot ? path.join(userRoot, 'AppData', 'Local') : '');
+  const candidates: Array<{ path: string; label: string }> = [
+    { path: path.join(appData, 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Comfy Desktop.lnk'), label: 'Comfy Desktop' },
+    { path: path.join(appData, 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'ComfyUI.lnk'), label: 'ComfyUI' },
+    { path: path.join(localAppData, 'Programs', 'ComfyUI', 'ComfyUI.exe'), label: 'ComfyUI' },
+    { path: path.join(localAppData, 'Programs', 'Comfy Desktop', 'Comfy Desktop.exe'), label: 'Comfy Desktop' },
+  ];
+  if (process.platform === 'win32') {
+    for (let code = 67; code <= 90; code += 1) {
+      const drive = `${String.fromCharCode(code)}:\\`;
+      if (!safeDirectoryExists(drive)) continue;
+      candidates.push(
+        { path: path.join(drive, 'ai', 'Comfy Desktop', 'Comfy Desktop.exe'), label: 'Comfy Desktop' },
+        { path: path.join(drive, 'Comfy Desktop', 'Comfy Desktop.exe'), label: 'Comfy Desktop' },
+      );
+    }
+  }
+  return candidates.find(candidate => safeFileExists(candidate.path)) ?? null;
+}
+
+export async function waitForComfyUIConnection(
+  configuredBaseUrl: string,
+  timeoutMs = 90_000,
+): Promise<string | null> {
+  const candidates = Array.from(new Set([
+    normalizeComfyBaseUrl(configuredBaseUrl),
+    'http://127.0.0.1:8188',
+    'http://127.0.0.1:8189',
+    'http://127.0.0.1:8190',
+  ].filter(Boolean)));
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    for (const baseUrl of candidates) {
+      try {
+        const response = await fetch(`${baseUrl}/system_stats`, { signal: AbortSignal.timeout(1_500), redirect: 'error' });
+        if (response.ok) return baseUrl;
+      } catch { /* The desktop app is still starting. */ }
+    }
+    await new Promise(resolve => setTimeout(resolve, 1_500));
+  }
+  return null;
 }
 
 export function discoverLocalModels(configuredModelPath = '', signal?: AbortSignal): DiscoveredLocalImageModel[] {
@@ -74,7 +143,12 @@ export function discoverLocalModels(configuredModelPath = '', signal?: AbortSign
   return output.sort((left, right) => left.name.localeCompare(right.name, 'zh-CN'));
 }
 
-async function discoverComfyUI(configuredBaseUrl: string, signal: AbortSignal): Promise<LocalImageDiscoverySnapshot['comfyui']> {
+type LiveComfyUIDiscovery = Omit<
+  LocalImageDiscoverySnapshot['comfyui'],
+  'installed' | 'launchable' | 'launcherLabel' | 'installedModelCount' | 'installedWorkflows'
+>;
+
+async function discoverComfyUI(configuredBaseUrl: string, signal: AbortSignal): Promise<LiveComfyUIDiscovery> {
   const candidates = Array.from(new Set([
     normalizeComfyBaseUrl(configuredBaseUrl),
     'http://127.0.0.1:8188',
@@ -190,6 +264,14 @@ function hasNamedModel(models: string[], expectedName: string): boolean {
   return models.some(model => path.basename(model).toLowerCase() === expectedName.toLowerCase());
 }
 
+function hasNamedDiscoveredModel(
+  models: DiscoveredLocalImageModel[],
+  role: DiscoveredLocalImageModel['role'],
+  expectedName: string,
+): boolean {
+  return models.some(model => model.role === role && model.name.toLowerCase() === expectedName.toLowerCase());
+}
+
 function classifyModelRole(filePath: string): DiscoveredLocalImageModel['role'] {
   const segments = path.resolve(filePath).toLowerCase().split(/[\\/]+/);
   if (segments.includes('checkpoints') || segments.includes('stable-diffusion')) return 'checkpoint';
@@ -259,6 +341,13 @@ function safeDirectoryExists(directory: string): boolean {
   try {
     const stat = fs.lstatSync(directory);
     return stat.isDirectory() && !stat.isSymbolicLink();
+  } catch { return false; }
+}
+
+function safeFileExists(filePath: string): boolean {
+  try {
+    const stat = fs.lstatSync(filePath);
+    return stat.isFile() && !stat.isSymbolicLink();
   } catch { return false; }
 }
 

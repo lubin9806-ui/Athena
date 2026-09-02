@@ -1,5 +1,6 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 
 const root = path.resolve(__dirname, '..');
@@ -11,7 +12,7 @@ const builderSource = fs.readFileSync(path.join(root, 'electron-builder.yml'), '
 const tsconfig = JSON.parse(fs.readFileSync(path.join(root, 'tsconfig.json'), 'utf8'));
 const { cleanAttachmentIds, cleanChatPayload, cleanExistingFilePath, isTrustedIpcSender, MAX_CHAT_CHARS } = require('../dist/app/ipc/validation');
 const { buildToolConfirmation, buildToolArgumentPreview } = require('../dist/core/tools/ToolRuntime');
-const { DEFAULT_SETTINGS } = require('../dist/core/config/SettingsStore');
+const { DEFAULT_SETTINGS, getSettingsBundle, saveSettingsBundle } = require('../dist/core/config/SettingsStore');
 const permissionGate = require('../dist/app/security/PermissionGate');
 
 assert.match(mainSource, /sandbox:\s*true/);
@@ -31,9 +32,37 @@ assert.match(builderSource, /!config\/settings\.json/);
 assert.equal(tsconfig.compilerOptions.sourceMap, false);
 assert.equal(DEFAULT_SETTINGS.tools.permissionLevel, 'off');
 assert.equal(DEFAULT_SETTINGS.tools.modePermissions.execute, 'off');
-const handlerCount = [...ipcSource.matchAll(/ipcMain\.handle\('/g)].length;
-const trustedCheckCount = [...ipcSource.matchAll(/if \(!isTrustedSender\(event\)\)/g)].length;
-assert.equal(trustedCheckCount, handlerCount, 'every invoke handler must reject an untrusted sender');
+const trackedSettings = JSON.parse(fs.readFileSync(path.join(root, 'config/settings.json'), 'utf8'));
+assert.equal(trackedSettings.tools.permissionLevel, 'off');
+assert.equal(trackedSettings.tools.modePermissions.create, 'off');
+assert.equal(trackedSettings.tools.modePermissions.companion, 'off');
+assert.equal(trackedSettings.tools.modePermissions.reason, 'off');
+assert.equal(trackedSettings.tools.modePermissions.execute, 'off');
+assert.equal(trackedSettings.privacy.networkConsent.remoteModel, false);
+assert.equal(trackedSettings.privacy.networkConsent.webSearch, false);
+assert.equal(trackedSettings.privacy.networkConsent.imageGeneration, false);
+assert.equal(trackedSettings.privacy.networkConsent.onlineSpeechToText, false);
+assert.equal(trackedSettings.privacy.networkConsent.onlineTextToSpeech, false);
+assert.equal(trackedSettings.privacy.networkConsent.externalToolNetwork, false);
+const conversationSource = fs.readFileSync(path.join(root, 'src/core/ai/Conversation.ts'), 'utf8');
+assert.match(conversationSource, /execute:\s*'off'/);
+assert.doesNotMatch(conversationSource, /execute:\s*'full'/);
+assert.match(builderSource, /!config\/settings\.local\.json/);
+assert.match(builderSource, /!config\/model\.local\.json/);
+const trackedModel = JSON.parse(fs.readFileSync(path.join(root, 'config/model.json'), 'utf8'));
+assert.equal(trackedModel.provider, 'ollama');
+assert.equal(trackedModel.setupComplete, false);
+const handlerNames = [...ipcSource.matchAll(/ipcMain\.handle\('([^']+)'/g)].map(match => match[1]);
+const untrustedHandlers = handlerNames.filter(name => {
+  const block = ipcSource.match(new RegExp(`ipcMain\\.handle\\('${name}'[\\s\\S]{0,400}`));
+  return !block || !/if \(!isTrustedSender\(event\)\)/.test(block[0]);
+});
+assert.deepEqual(untrustedHandlers, [], `invoke handlers missing a standalone trusted-sender check: ${untrustedHandlers.join(', ')}`);
+assert.equal(
+  [...ipcSource.matchAll(/if \(!isTrustedSender\(event\)\)/g)].length,
+  handlerNames.length,
+  'every invoke handler must reject an untrusted sender',
+);
 
 const webContents = {};
 const window = { isDestroyed: () => false, webContents };
@@ -90,5 +119,45 @@ assert.equal(buildToolConfirmation('read_file', 'read', { path: 'x' }), null);
 assert.equal(buildToolConfirmation('http_request', 'http', { url: 'http://127.0.0.1:11434/api/tags' }), null);
 assert.equal(buildToolConfirmation('check_port', 'port', { host: 'localhost', port: 11434 }), null);
 assert.doesNotMatch(buildToolArgumentPreview({ authorization: 'Bearer secret', apiKey: 'sk-proj-secret' }), /Bearer secret|sk-proj-secret/);
+
+const overlayRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'athena-overlay-'));
+const previousConfigDir = process.env.ATHENA_CONFIG_DIR;
+const previousLocalSettings = process.env.ATHENA_USE_LOCAL_SETTINGS;
+try {
+  process.env.ATHENA_CONFIG_DIR = path.join(overlayRoot, 'config');
+  delete process.env.ATHENA_USE_LOCAL_SETTINGS;
+  fs.mkdirSync(process.env.ATHENA_CONFIG_DIR, { recursive: true });
+  let bundle = getSettingsBundle();
+  assert.equal(bundle.settings.tools.modePermissions.execute, 'off');
+  assert.equal(bundle.model.provider, 'ollama');
+  assert.equal(bundle.model.setupComplete, false);
+
+  process.env.ATHENA_USE_LOCAL_SETTINGS = '1';
+  bundle = saveSettingsBundle({
+    settings: {
+      tools: { modePermissions: { execute: 'full' } },
+      privacy: { networkConsent: { remoteModel: true, webSearch: true, externalToolNetwork: true } },
+    },
+    model: { provider: 'deepseek', setupComplete: true },
+  });
+  assert.equal(bundle.settings.tools.modePermissions.execute, 'full');
+  assert.equal(bundle.model.provider, 'deepseek');
+  assert.equal(fs.existsSync(path.join(process.env.ATHENA_CONFIG_DIR, 'settings.local.json')), true);
+  assert.equal(fs.existsSync(path.join(process.env.ATHENA_CONFIG_DIR, 'model.local.json')), true);
+  assert.equal(fs.existsSync(path.join(process.env.ATHENA_CONFIG_DIR, 'settings.json')), false);
+
+  delete process.env.ATHENA_USE_LOCAL_SETTINGS;
+  bundle = getSettingsBundle();
+  assert.equal(bundle.settings.tools.modePermissions.execute, 'off');
+  assert.equal(bundle.settings.privacy.networkConsent.remoteModel, false);
+  assert.equal(bundle.model.provider, 'ollama');
+  assert.equal(bundle.model.setupComplete, false);
+} finally {
+  if (previousConfigDir === undefined) delete process.env.ATHENA_CONFIG_DIR;
+  else process.env.ATHENA_CONFIG_DIR = previousConfigDir;
+  if (previousLocalSettings === undefined) delete process.env.ATHENA_USE_LOCAL_SETTINGS;
+  else process.env.ATHENA_USE_LOCAL_SETTINGS = previousLocalSettings;
+  fs.rmSync(overlayRoot, { recursive: true, force: true });
+}
 
 console.log('SECURITY_BASELINE_OK');

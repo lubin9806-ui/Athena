@@ -63,9 +63,11 @@ export class Conversation {
     mode: ConversationMode,
     onStream?: (chunk: string) => void,
     webSearchContext?: WebSearchContext,
+    // Fail closed: callers must pass real settings. A missing argument must not
+    // grant Execute Full, which previously happened on this default object.
     toolSettings: ToolSettings = {
       permissionLevel: 'off',
-      modePermissions: { create: 'off', companion: 'off', reason: 'off', execute: 'full' },
+      modePermissions: { create: 'off', companion: 'off', reason: 'off', execute: 'off' },
       maxToolRounds: 4,
       commandTimeoutSeconds: 60,
     },

@@ -290,6 +290,7 @@ function createWindow(): void {
       sandbox: true,
       webSecurity: true,
       allowRunningInsecureContent: false,
+      backgroundThrottling: !isSmokeTest,
     },
     show: false,
   });
@@ -323,7 +324,7 @@ function createWindow(): void {
     mainWindowReady = true;
     if (!isSmokeTest) mainWindow?.show();
     else {
-      if (isVoiceSmokeTest) mainWindow?.showInactive();
+      mainWindow?.showInactive();
       logSmokeReady();
     }
     focusPrimaryWindow();
@@ -333,6 +334,20 @@ function createWindow(): void {
     if (!isSmokeTest || !mainWindow) return;
     let domReady = false;
     try {
+      if (!mainWindow.isVisible()) mainWindow.showInactive();
+      await new Promise<void>(resolve => {
+        if (mainWindowReady) {
+          resolve();
+          return;
+        }
+        const onReady = () => resolve();
+        createdWindow.once('ready-to-show', onReady);
+        if (mainWindowReady) {
+          createdWindow.removeListener('ready-to-show', onReady);
+          resolve();
+        }
+      });
+      await new Promise(resolve => setTimeout(resolve, 32));
       domReady = await mainWindow.webContents.executeJavaScript(`
         (async () => {
           try {
@@ -376,6 +391,9 @@ function createWindow(): void {
               const imageLocalEngine = document.getElementById('setting-image-local-engine');
               const imageRuntimeVariant = document.getElementById('setting-image-runtime-variant');
               const imageInstallRuntime = document.getElementById('image-install-runtime');
+              const imageDiscoverLocal = document.getElementById('image-discover-local');
+              const imageSimpleSetup = document.getElementById('image-simple-setup');
+              const imageLocalAdvanced = document.getElementById('image-local-advanced');
               const inputBox = document.getElementById('input-box');
               const visiblePresenceAction = Array.from(document.querySelectorAll('.presence-action'))
                 .find(button => getComputedStyle(button).display !== 'none');
@@ -589,10 +607,14 @@ function createWindow(): void {
                && originalSettings.settings.tools.modePermissions.create === 'off'
                && originalSettings.settings.tools.modePermissions.companion === 'off'
                && originalSettings.settings.tools.modePermissions.reason === 'off';
-             const imageGenerationControlsReady = imageProviderSelect.value === originalSettings.settings.imageGeneration.provider
-               && ['auto', 'athena', 'comfyui'].every(value => Boolean(imageLocalEngine.querySelector('option[value="' + value + '"]')))
-               && ['cuda12', 'vulkan', 'cpu'].every(value => Boolean(imageRuntimeVariant.querySelector('option[value="' + value + '"]')))
-               && imageInstallRuntime.textContent?.includes('独立引擎');
+              const imageGenerationControlsReady = imageProviderSelect.value === originalSettings.settings.imageGeneration.provider
+                && ['auto', 'athena', 'comfyui'].every(value => Boolean(imageLocalEngine.querySelector('option[value="' + value + '"]')))
+                && ['cuda12', 'vulkan', 'cpu'].every(value => Boolean(imageRuntimeVariant.querySelector('option[value="' + value + '"]')))
+                && imageInstallRuntime.textContent?.includes('独立引擎')
+                && imageDiscoverLocal.textContent?.includes('自动检测')
+                && imageSimpleSetup instanceof HTMLElement
+                && imageLocalAdvanced instanceof HTMLDetailsElement
+                && imageLocalAdvanced.open === false;
              const imageRouteResults = await Promise.all(['companion', 'create', 'reason', 'execute'].map(mode => (
                api.routeMessage('请生成一张夜空中的未来城市图片', mode)
              )));

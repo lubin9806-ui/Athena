@@ -118,12 +118,14 @@ function verifySource() {
   for (const [key, value] of Object.entries(EXPECTED)) assert.equal(product[key], value, `Store identity drifted: ${key}`);
 
   const builder = fs.readFileSync(path.join(ROOT, 'electron-builder.store.yml'), 'utf8');
-  for (const value of [EXPECTED.identityName, EXPECTED.publisher, EXPECTED.publisherDisplayName, 'target: appx', 'signAndEditExecutable: false', 'setBuildNumber: false', '!skills/**/*', '!config/settings.json', '!config/steam.json', '!assets/steam/**/*', '!node_modules/steamworks.js/dist/linux64/**/*', '!node_modules/steamworks.js/dist/osx/**/*', '!node_modules/better-sqlite3/src/**/*', '!node_modules/better-sqlite3/deps/**/*', 'runFullTrust', 'internetClient', 'microphone']) {
+  for (const value of [EXPECTED.identityName, EXPECTED.publisher, EXPECTED.publisherDisplayName, 'target: appx', 'signAndEditExecutable: false', 'setBuildNumber: false', '!skills/**/*', '!config/settings.json', '!config/settings.local.json', '!config/model.local.json', '!config/steam.json', '!assets/steam/**/*', '!node_modules/steamworks.js/dist/linux64/**/*', '!node_modules/steamworks.js/dist/osx/**/*', '!node_modules/better-sqlite3/src/**/*', '!node_modules/better-sqlite3/deps/**/*', 'runFullTrust', 'internetClient', 'microphone']) {
     assert(builder.includes(value), `Store builder configuration is missing: ${value}`);
   }
   assert(!builder.includes('.build/update-config.json'), 'Store package must not contain Desktop Direct update configuration.');
   assert(!builder.includes('.build/app-update.yml'), 'Store package must not contain electron-updater metadata.');
   assert(builder.includes('!config/settings.json'), 'Store package must exclude developer settings and start from runtime defaults.');
+  assert(builder.includes('!config/settings.local.json'), 'Store package must exclude local developer settings overlay.');
+  assert(builder.includes('!config/model.local.json'), 'Store package must exclude local developer model overlay.');
   const legacyActions = fs.readFileSync(path.join(ROOT, 'skills', 'actions.js'), 'utf8');
   assert(!/(?:G:\\Athena|d:\\vs\\vs\.6|QWEATHER_KEY\s*=\s*['"][a-f0-9]{24,}['"]|require\(['"]puppeteer['"]\))/i.test(legacyActions), 'Legacy actions contain developer paths, a hard-coded credential, or a missing dependency.');
 

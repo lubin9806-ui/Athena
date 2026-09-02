@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { resolveConfigFile, resolveWritableConfigFile } from '../runtime/Paths';
+import { resolveConfigFile, resolveLocalConfigOverlayPath, resolveWritableConfigFile } from '../runtime/Paths';
 import { resolvePersonaCardWithSource, summarizePersonaCard } from '../ai/Personality';
 import { applySteamSettingsPolicy, capSteamToolSettings, isSteamSku } from '../steam/SteamSkuPolicy';
 import { isMicrosoftStoreSku } from '../store/MicrosoftStoreSku';
@@ -248,8 +248,10 @@ export function saveSettingsBundle(patch: SettingsPatch): SettingsBundle {
     sku: current.sku,
   };
 
-  writeJson(configPath('settings.json'), next.settings);
-  writeJson(configPath('model.json'), next.model);
+  // Unpackaged Electron writes overlays so tracked config stays at shipping
+  // defaults. Isolated tests and packaged userData still write the plain files.
+  writeJson(resolveLocalConfigOverlayPath('settings.json') || configPath('settings.json'), next.settings);
+  writeJson(resolveLocalConfigOverlayPath('model.json') || configPath('model.json'), next.model);
   return next;
 }
 
@@ -306,11 +308,23 @@ export function shouldSaveHistory(): boolean {
 }
 
 function loadAppSettings(): AppSettings {
-  return applySteamSettingsPolicy(sanitizeAppSettings(readJson(resolveConfigFile('settings.json'), DEFAULT_SETTINGS)));
+  const tracked = sanitizeAppSettings(readJson(resolveConfigFile('settings.json'), DEFAULT_SETTINGS));
+  const overlayPath = resolveLocalConfigOverlayPath('settings.json');
+  // Overlay is opt-in for unpackaged Electron only. Node tests keep seeing the
+  // tracked file, which is how ATH-SEC-003/ATH-PRIV-001 regressions are caught.
+  if (!overlayPath || !fs.existsSync(overlayPath)) {
+    return applySteamSettingsPolicy(tracked);
+  }
+  const overlay = sanitizeAppSettings(readJson(overlayPath, tracked));
+  return applySteamSettingsPolicy(mergeAppSettings(tracked, overlay));
 }
 
 function loadModelSettings(): ModelSettings {
-  return sanitizeModelSettings(readJson(resolveConfigFile('model.json'), DEFAULT_MODEL));
+  const tracked = sanitizeModelSettings(readJson(resolveConfigFile('model.json'), DEFAULT_MODEL));
+  const overlayPath = resolveLocalConfigOverlayPath('model.json');
+  if (!overlayPath || !fs.existsSync(overlayPath)) return tracked;
+  const overlay = readJson(overlayPath, tracked);
+  return sanitizeModelSettings(mergeModelSettings(tracked, isRecord(overlay) ? overlay : undefined));
 }
 
 function mergeAppSettings(current: AppSettings, patch?: SettingsPatch['settings']): AppSettings {

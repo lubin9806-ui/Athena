@@ -11,6 +11,8 @@ files:
   - "!resources/OllamaSetup.exe"
   - config/**/*
   - "!config/settings.json"
+  - "!config/settings.local.json"
+  - "!config/model.local.json"
   - skills/**/*
   - assets/**/*
   - "!assets/avatar/**/*"

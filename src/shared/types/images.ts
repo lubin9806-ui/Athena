@@ -82,6 +82,11 @@ export interface LocalImageDiscoverySnapshot {
   scannedAt: string;
   models: DiscoveredLocalImageModel[];
   comfyui: {
+    installed: boolean;
+    launchable: boolean;
+    launcherLabel?: string;
+    installedModelCount: number;
+    installedWorkflows: Array<'checkpoint' | 'z-image-turbo'>;
     connected: boolean;
     baseUrl: string;
     checkpoints: string[];
@@ -91,6 +96,14 @@ export interface LocalImageDiscoverySnapshot {
     workflows: Array<'checkpoint' | 'z-image-turbo'>;
     error?: string;
   };
+}
+
+export interface LocalComfyUILaunchResult {
+  started: boolean;
+  connected: boolean;
+  baseUrl?: string;
+  message: string;
+  snapshot?: LocalImageDiscoverySnapshot;
 }
 
 export interface LocalImageRuntimeVariant {

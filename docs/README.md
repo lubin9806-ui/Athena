@@ -2,6 +2,10 @@
 
 Athena 当前工程版本为 **Desktop 0.9 Private Beta candidate (`0.9.6-beta.1`)**。更新协议、候选内容门和 packaged smoke 已有可重复工程证据；签名证书、生产更新源、clean-checkout CI 和真实 20–50 人 Beta 尚未完成，因此发行结论仍为 **No-Go**。文档按以下优先级解释；低优先级文档不得覆盖高优先级结论。
 
+## 当前开发交接
+
+- `GROK_HANDOFF_2026-09-02.md`：`main@db4b1dc` 的 Grok 接手快照、未提交开发现场、禁止动作与继续开发顺序。交接当时开发态 smoke 与 package freshness 均为 No-Go。后续已连续两次恢复开发态 `smoke:electron`（`ATHENA_SMOKE_READY_TO_SHOW`、`ATHENA_SMOKE_DOM_OK`）；现有安装包 freshness、打包态 smoke、签名候选和公开发行仍为 No-Go。接手前必须先读该文件，且不得把开发态 smoke 写成发布放行。
+
 ## 商业化唯一基线
 
 1. `COMMERCIAL_ROADMAP.md`：产品阶段、平台边界、风险分级和总路线。

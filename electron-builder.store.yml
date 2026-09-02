@@ -13,6 +13,8 @@ files:
   - "!resources/OllamaSetup.exe"
   - config/**/*
   - "!config/settings.json"
+  - "!config/settings.local.json"
+  - "!config/model.local.json"
   - "!config/commercial.json"
   - "!config/microsoft-store.json"
   - "!config/operations.json"

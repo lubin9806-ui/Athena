@@ -165,6 +165,7 @@ declare global {
       installLocalImageRuntime: (variant: LocalImageRuntimeVariantId) => Promise<LocalImageRuntimeInstallResult | null>;
       onLocalImageRuntimeInstallProgress: (callback: (progress: LocalImageRuntimeInstallProgress) => void) => () => void;
       discoverLocalImageResources: () => Promise<LocalImageDiscoverySnapshot | null>;
+      startComfyUI: () => Promise<LocalComfyUILaunchResult | null>;
       chooseLocalImageRuntime: () => Promise<string | null>;
       chooseLocalImageModel: () => Promise<string | null>;
       getImageCredentialStatus: (provider: ImageCloudProvider) => Promise<ImageCredentialStatus | null>;
@@ -828,6 +829,11 @@ interface LocalImageDiscoverySnapshot {
     standaloneCompatible: boolean;
   }>;
   comfyui: {
+    installed: boolean;
+    launchable: boolean;
+    launcherLabel?: string;
+    installedModelCount: number;
+    installedWorkflows: Array<'checkpoint' | 'z-image-turbo'>;
     connected: boolean;
     baseUrl: string;
     checkpoints: string[];
@@ -837,6 +843,14 @@ interface LocalImageDiscoverySnapshot {
     workflows: Array<'checkpoint' | 'z-image-turbo'>;
     error?: string;
   };
+}
+
+interface LocalComfyUILaunchResult {
+  started: boolean;
+  connected: boolean;
+  baseUrl?: string;
+  message: string;
+  snapshot?: LocalImageDiscoverySnapshot;
 }
 
 interface DataSettings {
@@ -1314,6 +1328,7 @@ const settingImageLocalSteps = mustGet<HTMLInputElement>('setting-image-local-st
 const settingImageLocalCfg = mustGet<HTMLInputElement>('setting-image-local-cfg');
 const imageChooseRuntime = mustGet<HTMLButtonElement>('image-choose-runtime');
 const imageInstallRuntime = mustGet<HTMLButtonElement>('image-install-runtime');
+const imageStartComfyUi = mustGet<HTMLButtonElement>('image-start-comfyui');
 const imageChooseModel = mustGet<HTMLButtonElement>('image-choose-model');
 const imageDiscoverLocal = mustGet<HTMLButtonElement>('image-discover-local');
 const imageRuntimeStatus = mustGet<HTMLElement>('image-runtime-status');
@@ -2014,10 +2029,9 @@ function init(): void {
   });
   settingImageLocalProfile.addEventListener('change', syncImageLocalProfileFields);
   settingImageLocalEngine.addEventListener('change', () => void refreshImageProviderStatus());
-  settingImageDiscoveredModel.addEventListener('change', () => {
-    if (settingImageDiscoveredModel.value) settingImageModelPath.value = settingImageDiscoveredModel.value;
-  });
+  settingImageDiscoveredModel.addEventListener('change', () => void selectDiscoveredImageModel());
   imageDiscoverLocal.addEventListener('click', () => void discoverLocalImageResources(true));
+  imageStartComfyUi.addEventListener('click', () => void startAndConnectComfyUI());
   imageInstallRuntime.addEventListener('click', () => void installImageRuntime());
   imageChooseRuntime.addEventListener('click', () => void chooseImageRuntime());
   imageChooseModel.addEventListener('click', () => void chooseImageModel());
@@ -4553,6 +4567,16 @@ async function saveModelCredential(): Promise<void> {
   }
 }
 
+async function saveTypedModelCredentialBeforeTest(): Promise<void> {
+  const provider = selectedRemoteModelProvider();
+  const apiKey = settingModelApiKey.value.trim();
+  if (!provider || !apiKey) return;
+  const status = await window.athenaAPI.setModelCredential(provider, apiKey);
+  if (!status?.configured) throw new Error('API Key 保存失败。');
+  settingModelApiKey.value = '';
+  await refreshModelCredentialStatus();
+}
+
 async function loadAvailableModels(): Promise<void> {
   const provider = selectedModelProvider();
   if (!provider) {
@@ -4569,7 +4593,11 @@ async function loadAvailableModels(): Promise<void> {
       option.value = model;
       return option;
     }));
-    if (models.length === 1) settingRemoteModel.value = models[0];
+    if (!settingRemoteModel.value.trim() && models.length > 0) {
+      settingRemoteModel.value = provider === 'deepseek' && models.includes('deepseek-v4-flash')
+        ? 'deepseek-v4-flash'
+        : models[0];
+    }
     modelConnectionStatus.textContent = models.length > 0
       ? `已读取 ${models.length} 个模型，可输入或从列表选择。`
       : '接口可访问，但没有返回可选模型；你仍可以手动填写模型名。';
@@ -4621,7 +4649,9 @@ async function refreshImageProviderStatus(): Promise<void> {
   const provider = selectedImageCloudProvider();
   if (!provider) {
     const status = await window.athenaAPI.getLocalImageRuntimeStatus();
-    imageRuntimeStatus.textContent = status?.message || '无法读取本地引擎状态。';
+    imageRuntimeStatus.textContent = status?.ready
+      ? '本地引擎和模型都已准备好，可以直接在对话中生图。'
+      : '正在自动检查本机模型、独立引擎和 ComfyUI…';
     imageRuntimeStatus.dataset.kind = status?.ready ? 'success' : 'pending';
     if (settingImageAutoDiscover.checked) await discoverLocalImageResources(false);
     return;
@@ -4653,36 +4683,88 @@ async function discoverLocalImageResources(showToast: boolean): Promise<void> {
     if (!snapshot) throw new Error('主进程没有返回扫描结果。');
     const selectedModel = settingImageModelPath.value.trim();
     const standaloneModels = snapshot.models.filter(model => model.standaloneCompatible);
+    const installedComfyModels = snapshot.models.filter(model => model.source === 'comfyui');
+    const installedZImage = snapshot.comfyui.installedWorkflows.includes('z-image-turbo');
     settingImageDiscoveredModel.replaceChildren(new Option(
-      standaloneModels.length > 0 ? `自动选择 · ${standaloneModels.length} 个独立引擎兼容模型` : '没有发现可供独立引擎直接使用的模型',
+      standaloneModels.length > 0
+        ? `自动选择 · ${standaloneModels.length} 个独立引擎兼容模型`
+        : installedZImage
+          ? '已发现 Z-Image Turbo · 通过 ComfyUI 使用'
+          : installedComfyModels.length > 0
+            ? `已发现 ${installedComfyModels.length} 个 ComfyUI 模型组件`
+            : '没有发现本地生图模型',
       '',
     ));
     for (const model of standaloneModels) {
       const size = model.bytes >= 1024 ** 3 ? `${(model.bytes / 1024 ** 3).toFixed(1)} GB` : `${Math.round(model.bytes / 1024 ** 2)} MB`;
       settingImageDiscoveredModel.add(new Option(`${model.name} · ${model.source} · ${size}`, model.path));
     }
-    if (selectedModel && standaloneModels.some(model => model.path === selectedModel)) settingImageDiscoveredModel.value = selectedModel;
+    if (selectedModel && standaloneModels.some(model => model.path === selectedModel)) {
+      settingImageDiscoveredModel.value = selectedModel;
+    } else if (!selectedModel && standaloneModels.length > 0) {
+      settingImageDiscoveredModel.value = standaloneModels[0].path;
+      settingImageModelPath.value = standaloneModels[0].path;
+      await persistImageGenerationSettings();
+    }
     const selectedCheckpoint = settingImageComfyUiCheckpoint.value || currentSettingsBundle?.settings.imageGeneration.local.comfyuiCheckpoint || '';
     settingImageComfyUiCheckpoint.replaceChildren(new Option('自动选择兼容工作流 / 完整 checkpoint', ''));
     for (const checkpoint of snapshot.comfyui.checkpoints) settingImageComfyUiCheckpoint.add(new Option(checkpoint, checkpoint));
     if (selectedCheckpoint && snapshot.comfyui.checkpoints.includes(selectedCheckpoint)) settingImageComfyUiCheckpoint.value = selectedCheckpoint;
     if (snapshot.comfyui.connected) settingImageComfyUiUrl.value = snapshot.comfyui.baseUrl;
-    const parts = [
-      snapshot.models.length > 0
-        ? `发现 ${snapshot.models.length} 个本地模型文件（${standaloneModels.length} 个可由独立引擎直接使用）`
-        : '未发现本地模型文件',
-      snapshot.comfyui.connected
-        ? `ComfyUI 已连接（${snapshot.comfyui.baseUrl}，${snapshot.comfyui.workflows.length} 种可用工作流${snapshot.comfyui.workflows.includes('z-image-turbo') ? '，含 Z-Image Turbo' : ''}）`
-        : 'ComfyUI 未连接',
-    ];
-    imageRuntimeStatus.textContent = parts.join('；');
-    imageRuntimeStatus.dataset.kind = standaloneModels.length > 0 || snapshot.comfyui.workflows.length > 0 ? 'success' : 'pending';
+    const runtimeStatus = await window.athenaAPI.getLocalImageRuntimeStatus();
+    const comfyReady = snapshot.comfyui.connected && snapshot.comfyui.workflows.length > 0;
+    const standaloneReady = runtimeStatus?.runtimeConfigured && standaloneModels.length > 0;
+    imageStartComfyUi.hidden = snapshot.comfyui.connected || !snapshot.comfyui.launchable;
+    imageStartComfyUi.textContent = `启动并连接 ${snapshot.comfyui.launcherLabel || 'ComfyUI'}`;
+    imageInstallRuntime.hidden = installedZImage && snapshot.comfyui.launchable;
+    if (comfyReady) {
+      imageRuntimeStatus.textContent = `已连接本机 ComfyUI，可以直接生图${snapshot.comfyui.workflows.includes('z-image-turbo') ? '（已识别 Z-Image Turbo）' : ''}。`;
+    } else if (installedZImage) {
+      imageRuntimeStatus.textContent = `已找到你的 Z-Image Turbo 完整模型组合（共扫描到 ${snapshot.comfyui.installedModelCount} 个 ComfyUI 模型文件）。模型没有问题，只是 ComfyUI 当前未启动。`;
+    } else if (standaloneReady) {
+      imageRuntimeStatus.textContent = `本地生图已准备好，已自动选择 ${settingImageDiscoveredModel.selectedOptions[0]?.textContent || '可用模型'}。`;
+    } else if (standaloneModels.length > 0) {
+      imageRuntimeStatus.textContent = `已找到 ${standaloneModels.length} 个可用模型。再点击“安装独立引擎”即可开始生图。`;
+    } else if (runtimeStatus?.runtimeConfigured) {
+      imageRuntimeStatus.textContent = '独立引擎已经安装，还差一个模型。点击“从电脑选择模型”，或启动已有 ComfyUI 后重新检测。';
+    } else {
+      imageRuntimeStatus.textContent = '这台电脑还没有可直接使用的生图组合。先安装独立引擎，再选择一个模型；已有 ComfyUI 的话，启动后重新检测即可。';
+    }
+    imageRuntimeStatus.dataset.kind = comfyReady || standaloneReady ? 'success' : 'pending';
     selectControls.sync();
     if (showToast) toasts.show('本地生图环境扫描完成', snapshot.models.length > 0 || snapshot.comfyui.connected ? 'success' : 'neutral');
   } catch (error) {
     imageRuntimeStatus.textContent = `本地扫描失败：${error instanceof Error ? error.message : String(error)}`;
     imageRuntimeStatus.dataset.kind = 'error';
   } finally {
+    imageDiscoverLocal.disabled = false;
+  }
+}
+
+async function startAndConnectComfyUI(): Promise<void> {
+  imageStartComfyUi.disabled = true;
+  imageDiscoverLocal.disabled = true;
+  imageRuntimeStatus.textContent = '正在启动 ComfyUI 并等待本地服务就绪，首次启动可能需要几十秒…';
+  imageRuntimeStatus.dataset.kind = 'pending';
+  try {
+    const result = await window.athenaAPI.startComfyUI();
+    if (!result) throw new Error('主进程没有返回启动结果。');
+    imageRuntimeStatus.textContent = result.message;
+    imageRuntimeStatus.dataset.kind = result.connected ? 'success' : result.started ? 'pending' : 'error';
+    if (result.connected) {
+      settingImageProvider.value = 'local';
+      settingImageLocalEngine.value = 'comfyui';
+      if (result.baseUrl) settingImageComfyUiUrl.value = result.baseUrl;
+      currentSettingsBundle = await window.athenaAPI.getSettings();
+      populateSelectedImageProvider();
+      await discoverLocalImageResources(false);
+      toasts.show('ComfyUI 已连接，可以直接生图', 'success');
+    }
+  } catch (error) {
+    imageRuntimeStatus.textContent = `启动 ComfyUI 失败：${error instanceof Error ? error.message : String(error)}`;
+    imageRuntimeStatus.dataset.kind = 'error';
+  } finally {
+    imageStartComfyUi.disabled = false;
     imageDiscoverLocal.disabled = false;
   }
 }
@@ -4728,6 +4810,7 @@ async function installImageRuntime(): Promise<void> {
     currentSettingsBundle = await window.athenaAPI.getSettings();
     populateSelectedImageProvider();
     selectControls.sync();
+    await discoverLocalImageResources(false);
     toasts.show('独立生图引擎已就绪', 'success');
   } catch (error) {
     imageRuntimeStatus.textContent = `独立引擎安装失败：${error instanceof Error ? error.message : String(error)}`;
@@ -4756,7 +4839,30 @@ async function chooseImageRuntime(): Promise<void> {
 
 async function chooseImageModel(): Promise<void> {
   const selected = await window.athenaAPI.chooseLocalImageModel();
-  if (selected) settingImageModelPath.value = selected;
+  if (!selected) return;
+  settingImageModelPath.value = selected;
+  settingImageDiscoveredModel.replaceChildren(new Option(selected.split(/[\\/]/).pop() || '已选择的模型', selected));
+  settingImageDiscoveredModel.value = selected;
+  await persistImageGenerationSettings();
+  imageRuntimeStatus.textContent = '模型已选择并保存。Athena 会自动检查引擎，准备好后即可在对话中生图。';
+  imageRuntimeStatus.dataset.kind = 'pending';
+  await refreshImageProviderStatus();
+}
+
+async function selectDiscoveredImageModel(): Promise<void> {
+  if (!settingImageDiscoveredModel.value) return;
+  settingImageModelPath.value = settingImageDiscoveredModel.value;
+  await persistImageGenerationSettings();
+  imageRuntimeStatus.textContent = '模型已自动保存。准备好引擎后即可直接在对话中生图。';
+  imageRuntimeStatus.dataset.kind = 'pending';
+  await refreshImageProviderStatus();
+}
+
+async function persistImageGenerationSettings(): Promise<void> {
+  if (!currentSettingsBundle) return;
+  currentSettingsBundle = await window.athenaAPI.saveSettings({
+    settings: { imageGeneration: imageGenerationPatchFromForm() },
+  });
 }
 
 async function saveImageCredential(): Promise<void> {
@@ -4888,6 +4994,7 @@ async function testModelConnection(): Promise<void> {
   setModelDiagnostic(modelDiagnosticModel, 'idle', '等待服务');
   setModelDiagnostic(modelDiagnosticChat, 'idle', '等待模型');
   try {
+    await saveTypedModelCredentialBeforeTest();
     await saveModelConfiguration(true);
     const status = await window.athenaAPI.testModelConnection();
     if (!status) throw new Error('主进程没有返回诊断结果');

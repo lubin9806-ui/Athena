@@ -94,6 +94,7 @@ function main() {
   runElectron('seed-database', path.join(ROOT, 'scripts', 'create-seed-database.js'));
   run('renderer', path.join(ROOT, 'node_modules', 'vite', 'bin', 'vite.js'), ['build', '--config', 'vite.config.mts']);
   run('voice-runtime', path.join(ROOT, 'scripts', 'verify-voice-runtime.js'));
+  run('image-runtime-contract', path.join(ROOT, 'scripts', 'verify-image-runtime-contract.js'));
   run('package', path.join(ROOT, 'node_modules', 'electron-builder', 'cli.js'), ['--config', config, '--publish', 'never']);
   console.log(`ATHENA_DESKTOP_BUILD_OK signed=${signed}`);
 }

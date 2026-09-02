@@ -26,7 +26,7 @@ import {
   DocumentArtifactService,
   ElectronPdfRenderer,
   ImageGenerationRouter,
-  parseDirectImageGenerationIntent,
+  resolveDirectImageGenerationIntent,
   type DirectImageGenerationIntent,
 } from '../artifacts';
 import { AttachmentService, type ChatAttachmentTextContext, type PreparedChatAttachment } from '../attachments';
@@ -263,12 +263,16 @@ export class AthenaController {
       logger.warn(`Steam AI input blocked [category=${inputGuardrail.category}]`);
       return { content, emotion: this.emotion.analyzeResponse(content) };
     }
+    const recentImageMessages = getChatWindowMessages(chatWindowId, 24).map(message => ({
+      role: message.role,
+      content: message.content,
+    }));
     const savedUser = this.saveConversationMessage('user', userMessage, undefined, mode, chatWindowId);
     if (savedUser.chatMessageId && attachmentIds.length > 0) {
       this.attachments.attachToMessage(chatWindowId, savedUser.chatMessageId, attachmentIds);
     }
 
-    const imageIntent = parseDirectImageGenerationIntent(userMessage);
+    const imageIntent = resolveDirectImageGenerationIntent(userMessage, recentImageMessages);
     if (imageIntent) {
       const directImage = await this.processDirectImageRequest(imageIntent, mode, chatWindowId, options);
       if (effectiveSaveHistory) this.persistExtractedMemory(userMessage, savedUser.messageId, chatWindowId);
@@ -402,7 +406,9 @@ export class AthenaController {
       await this.imageRouter.refreshLocalDiscovery().catch(() => null);
     }
     if (!this.imageRouter.isAvailable()) {
-      return reply(`当前选择的“${descriptor.label}”尚未就绪。请在设置 → 图像生成中连接本地引擎和模型，或配置该云端通道。`);
+      return reply(this.imageRouter.isNetworkProvider()
+        ? `“${descriptor.label}”还没有连接好。打开设置 → 图像生成，粘贴该平台的 API Key 后保存即可。`
+        : '本地生图还差一步。打开设置 → 图像生成，先点“自动检测”；Athena 会告诉你是直接可用，还是需要安装引擎或选择模型。');
     }
     if (this.imageRouter.isNetworkProvider()) {
       options?.onToolStatus?.({ phase: 'confirming', message: `等待确认：${descriptor.label} 生图`, toolName: 'generate_image', toolLabel: descriptor.label });

@@ -2767,6 +2767,162 @@ summary:focus-visible {
   min-width: 112px;
 }
 
+.image-simple-setup {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 13px;
+  padding: 14px;
+  border-left: 2px solid color-mix(in srgb, var(--accent) 70%, transparent);
+  border-radius: 5px 12px 12px 5px;
+  background:
+    radial-gradient(circle at 0 0, color-mix(in srgb, var(--accent) 8%, transparent), transparent 52%),
+    rgba(255, 255, 255, 0.028);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, white 4%, transparent);
+}
+
+.image-simple-setup-copy {
+  display: grid;
+  gap: 5px;
+}
+
+.image-simple-setup-copy > span {
+  color: var(--accent);
+  font-size: 9px;
+  font-weight: 650;
+  letter-spacing: 0.1em;
+}
+
+.image-simple-setup-copy strong,
+.image-cloud-intro strong {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: -0.015em;
+}
+
+.image-simple-setup-copy p,
+.image-cloud-intro p {
+  max-width: 62ch;
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 10.5px;
+  line-height: 1.65;
+  text-wrap: pretty;
+}
+
+.image-simple-setup-actions,
+.image-model-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.image-simple-setup-actions .settings-panel-link,
+.image-model-actions .settings-panel-link {
+  width: auto;
+}
+
+.settings-action-primary {
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--border));
+  color: color-mix(in srgb, var(--accent) 32%, var(--text));
+  background: color-mix(in srgb, var(--accent) 13%, rgba(255, 255, 255, 0.035));
+}
+
+.settings-action-primary:hover,
+.settings-action-primary:focus-visible {
+  border-color: color-mix(in srgb, var(--accent) 72%, var(--border));
+  background: color-mix(in srgb, var(--accent) 19%, rgba(255, 255, 255, 0.04));
+}
+
+.image-simple-setup-status {
+  min-height: 34px;
+  padding: 9px 10px 9px 28px;
+  position: relative;
+  border-top: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: 10px;
+  line-height: 1.55;
+}
+
+.image-simple-setup-status::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  position: absolute;
+  top: 13px;
+  left: 10px;
+  border-radius: 50%;
+  background: var(--text-dim);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--text-dim) 10%, transparent);
+}
+
+.image-simple-setup-status[data-kind="success"]::before {
+  background: var(--success);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--success) 12%, transparent);
+}
+
+.image-simple-setup-status[data-kind="error"]::before {
+  background: var(--danger);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--danger) 12%, transparent);
+}
+
+.image-cloud-intro {
+  display: grid;
+  gap: 6px;
+  padding: 4px 0 3px;
+}
+
+.image-advanced-settings {
+  border-top: 1px solid var(--border);
+}
+
+.image-advanced-settings > summary {
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--text-muted);
+  font-size: 10.5px;
+  cursor: pointer;
+  list-style: none;
+  transition: color var(--motion-standard) ease;
+}
+
+.image-advanced-settings > summary::-webkit-details-marker {
+  display: none;
+}
+
+.image-advanced-settings > summary::after {
+  content: "+";
+  color: var(--text-dim);
+  font-size: 14px;
+  font-weight: 400;
+  transition: transform var(--motion-standard) var(--ease-spring);
+}
+
+.image-advanced-settings[open] > summary::after {
+  transform: rotate(45deg);
+}
+
+.image-advanced-settings > summary:hover,
+.image-advanced-settings > summary:focus-visible {
+  color: var(--text);
+}
+
+.image-advanced-settings > summary span {
+  margin-left: auto;
+  color: var(--text-dim);
+  font-size: 9px;
+}
+
+.image-advanced-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  padding: 3px 0 12px;
+}
+
 .privacy-actions {
   display: flex;
   gap: 8px;
@@ -3029,7 +3185,8 @@ summary:focus-visible {
   }
 
   .model-provider-fields,
-  .model-path-options {
+  .model-path-options,
+  .image-advanced-grid {
     grid-template-columns: 1fr;
   }
 }

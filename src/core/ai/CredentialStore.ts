@@ -83,13 +83,22 @@ export function resolveImageCredential(provider: ImageCloudProvider): string | n
 
 function getCredentialStatus(provider: CredentialProvider): ModelCredentialStatus | ImageCredentialStatus {
   assertProvider(provider);
-  const resolved = resolveEnvironmentCredential(provider);
-  if (resolved) return { provider, configured: true, source: resolved.source, encryptionAvailable: encryptionReady() } as ModelCredentialStatus | ImageCredentialStatus;
+  const environment = resolveProcessEnvironmentCredential(provider);
+  if (environment) return { provider, configured: true, source: environment.source, encryptionAvailable: encryptionReady() } as ModelCredentialStatus | ImageCredentialStatus;
   const file = readCredentialFile();
+  if (file.entries[provider]) {
+    return {
+      provider,
+      configured: true,
+      source: 'windows-safe-storage',
+      encryptionAvailable: encryptionReady(),
+    } as ModelCredentialStatus | ImageCredentialStatus;
+  }
+  const localEnvironment = resolveLocalEnvironmentCredential(provider);
   return {
     provider,
-    configured: Boolean(file.entries[provider]),
-    source: file.entries[provider] ? 'windows-safe-storage' : 'none',
+    configured: Boolean(localEnvironment),
+    source: localEnvironment?.source ?? 'none',
     encryptionAvailable: encryptionReady(),
   } as ModelCredentialStatus | ImageCredentialStatus;
 }
@@ -113,21 +122,28 @@ function clearCredential(provider: CredentialProvider): void {
 
 function resolveCredential(provider: CredentialProvider): string | null {
   assertProvider(provider);
-  const environment = resolveEnvironmentCredential(provider);
+  const environment = resolveProcessEnvironmentCredential(provider);
   if (environment) return environment.value;
   const encrypted = readCredentialFile().entries[provider];
-  if (!encrypted || !encryptionReady()) return null;
-  try {
-    return safeStorage.decryptString(Buffer.from(encrypted, 'base64'));
-  } catch {
-    return null;
+  if (encrypted && encryptionReady()) {
+    try {
+      return safeStorage.decryptString(Buffer.from(encrypted, 'base64'));
+    } catch {
+      // Fall through to a local env file when the encrypted value is unreadable.
+    }
   }
+  return resolveLocalEnvironmentCredential(provider)?.value ?? null;
 }
 
-function resolveEnvironmentCredential(provider: CredentialProvider): { value: string; source: 'environment' | 'local-env-file' } | null {
+function resolveProcessEnvironmentCredential(provider: CredentialProvider): { value: string; source: 'environment' } | null {
   const key = ENVIRONMENT_KEYS[provider];
   const direct = process.env[key]?.trim();
   if (direct) return { value: direct, source: 'environment' };
+  return null;
+}
+
+function resolveLocalEnvironmentCredential(provider: CredentialProvider): { value: string; source: 'local-env-file' } | null {
+  const key = ENVIRONMENT_KEYS[provider];
   for (const filename of ['.env.local', '.env']) {
     const filePath = path.resolve(process.cwd(), filename);
     if (!fs.existsSync(filePath)) continue;

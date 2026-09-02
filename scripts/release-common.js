@@ -120,7 +120,7 @@ function buildInputHash() {
   }
   const hash = crypto.createHash('sha256');
   for (const file of files.sort((left, right) => left.relative.localeCompare(right.relative))) {
-    if (file.relative === 'config/settings.json') continue;
+    if (file.relative === 'config/settings.json' || file.relative === 'config/settings.local.json' || file.relative === 'config/model.local.json') continue;
     hash.update(file.relative);
     hash.update('\0');
     hash.update(fs.readFileSync(file.absolute));

@@ -11,18 +11,18 @@ release/
 release-steam/
 release-store/
 .build/
+/artifacts/
 *.blockmap
 
 # Runtime database and local user state
-database/athena.db
-database/*.db-shm
-database/*.db-wal
-database/backups/
+/database/
 memory/*.json
 config/personas/
 config/skills/
 config/skills-state.json
 config/mcp-servers.json
+config/settings.local.json
+config/model.local.json
 personality/private/
 
 # Environment

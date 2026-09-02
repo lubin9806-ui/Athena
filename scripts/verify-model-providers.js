@@ -8,6 +8,7 @@ const { app, safeStorage } = require('electron');
 async function main() {
   await app.whenReady();
   const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'athena-model-providers-'));
+  const originalCwd = process.cwd();
   process.env.ATHENA_CREDENTIALS_DIR = path.join(scratch, 'credentials');
   process.env.ATHENA_CONFIG_DIR = path.join(scratch, 'config');
   const requests = [];
@@ -38,6 +39,7 @@ async function main() {
   try {
     const credentials = require('../dist/core/ai/CredentialStore.js');
     const { LLMClient } = require('../dist/core/ai/Client.js');
+    const { diagnoseModelConnection, friendlyModelConnectionError } = require('../dist/core/ai/ModelConnectionDiagnostics.js');
     const { canRouteModelRequest } = require('../dist/core/ai/ModelNetworkPolicy.js');
     const { saveSettingsBundle } = require('../dist/core/config/SettingsStore.js');
 
@@ -49,6 +51,14 @@ async function main() {
     const credentialFile = path.join(process.env.ATHENA_CREDENTIALS_DIR, 'model-credentials.enc.json');
     assert(fs.existsSync(credentialFile));
     assert(!fs.readFileSync(credentialFile, 'utf8').includes('sk-athena-provider-fixture'));
+    fs.writeFileSync(path.join(scratch, '.env'), 'OPENAI_API_KEY=sk-stale-local-file\n', 'utf8');
+    process.chdir(scratch);
+    assert.strictEqual(credentials.getModelCredentialStatus('openai').source, 'windows-safe-storage');
+    assert.strictEqual(credentials.resolveModelCredential('openai'), 'sk-athena-provider-fixture');
+    process.env.OPENAI_API_KEY = 'sk-explicit-process-environment';
+    assert.strictEqual(credentials.getModelCredentialStatus('openai').source, 'environment');
+    assert.strictEqual(credentials.resolveModelCredential('openai'), 'sk-explicit-process-environment');
+    delete process.env.OPENAI_API_KEY;
 
     const bundle = saveSettingsBundle({ model: {
       provider: 'openai',
@@ -88,6 +98,17 @@ async function main() {
     assert.strictEqual(await client.chat([{ role: 'user', content: 'stream' }], chunk => { streamed += chunk; }), 'fixture');
     assert.strictEqual(streamed, 'fixture');
     assert.strictEqual(await client.chatJson([{ role: 'user', content: 'json' }], { type: 'object' }), '{"ok":true}');
+    const diagnostic = await diagnoseModelConnection(client);
+    assert.strictEqual(diagnostic.connected, true);
+    const emptyModelClient = new LLMClient({
+      ...bundle.model,
+      remote: { ...bundle.model.remote, openai: { ...bundle.model.remote.openai, model: '' } },
+    }, () => 'sk-athena-provider-fixture');
+    const emptyModelDiagnostic = await diagnoseModelConnection(emptyModelClient);
+    assert.strictEqual(emptyModelDiagnostic.serviceReachable, true);
+    assert.strictEqual(emptyModelDiagnostic.modelAvailable, false);
+    assert.match(emptyModelDiagnostic.error, /尚未选择模型/);
+    assert.match(friendlyModelConnectionError(new Error('DeepSeek request failed: 401 Unauthorized')), /API Key 无效/);
     assert(requests.some(item => item.url === '/v1/models'));
     assert(requests.filter(item => item.url === '/v1/chat/completions').every(item => item.authorization === 'Bearer sk-athena-provider-fixture'));
 
@@ -99,10 +120,16 @@ async function main() {
     assert.strictEqual(await custom.chat([{ role: 'user', content: 'custom' }]), 'fixture-response');
 
     const cleared = credentials.clearModelCredential('openai');
-    assert.strictEqual(cleared.configured, false);
+    assert.strictEqual(cleared.configured, true);
+    assert.strictEqual(cleared.source, 'local-env-file');
+    assert.strictEqual(credentials.resolveModelCredential('openai'), 'sk-stale-local-file');
+    fs.rmSync(path.join(scratch, '.env'));
+    assert.strictEqual(credentials.getModelCredentialStatus('openai').configured, false);
     assert.strictEqual(credentials.resolveModelCredential('openai'), null);
     console.log('ATHENA_MODEL_PROVIDERS_OK providers=ollama+openai+deepseek+athena-cloud+custom credentials=encrypted');
   } finally {
+    process.chdir(originalCwd);
+    delete process.env.OPENAI_API_KEY;
     await new Promise(resolve => server.close(resolve));
     fs.rmSync(scratch, { recursive: true, force: true });
     app.quit();

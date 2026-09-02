@@ -15,6 +15,7 @@ import {
 } from '../../core/privacy/PrivacyDataService';
 import { VoiceService } from '../../core/voice/VoiceService';
 import { LLMClient } from '../../core/ai/Client';
+import { diagnoseModelConnection } from '../../core/ai/ModelConnectionDiagnostics';
 import { canRouteModelRequest } from '../../core/ai/ModelNetworkPolicy';
 import { getPersonaEditorState, importPersonaCardFromFile, savePersonaCard, type PersonaCardPatch, type ResolvedPersonaCard } from '../../core/ai/Personality';
 import {
@@ -25,7 +26,13 @@ import {
   setImageCredential,
   setModelCredential,
 } from '../../core/ai/CredentialStore';
-import { IMAGE_PROVIDER_DESCRIPTORS, LocalImageRuntimeManager, getLocalImageRuntimeStatus } from '../../core/artifacts';
+import {
+  IMAGE_PROVIDER_DESCRIPTORS,
+  LocalImageRuntimeManager,
+  findComfyUILaunchTarget,
+  getLocalImageRuntimeStatus,
+  waitForComfyUIConnection,
+} from '../../core/artifacts';
 import {
   getOllamaSetupStatus,
   installBundledOllama,
@@ -141,6 +148,7 @@ const INVOKE_CHANNELS = [
   'image:runtimeVariants',
   'image:installRuntime',
   'image:discoverLocal',
+  'image:startComfyUI',
   'image:chooseRuntime',
   'image:chooseModel',
   'image:credentialStatus',
@@ -298,7 +306,10 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<vo
   });
 
   ipcMain.handle('attachment:chooseFiles', async (event, value: unknown) => {
-    if (!isTrustedSender(event) || !isRecord(value)) return [];
+    // Keep the trusted-sender check on its own line. Combining it with payload
+    // validation hid this handler from the Window 02 IPC gate.
+    if (!isTrustedSender(event)) return [];
+    if (!isRecord(value)) return [];
     const chatWindowId = cleanPositiveInteger(value.chatWindowId);
     const maxFiles = Math.max(1, Math.min(5, cleanPositiveInteger(value.maxFiles) || 5));
     if (!chatWindowId) return [];
@@ -802,6 +813,25 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<vo
     return controller.discoverLocalImageResources();
   });
 
+  ipcMain.handle('image:startComfyUI', async event => {
+    if (!isTrustedSender(event)) return null;
+    const launcher = findComfyUILaunchTarget();
+    if (!launcher) return { started: false, connected: false, message: '没有找到可启动的 ComfyUI 应用，请先手动启动后再检测。' };
+    const launchError = await shell.openPath(launcher.path);
+    if (launchError) return { started: false, connected: false, message: `启动 ${launcher.label} 失败：${launchError}` };
+    const settings = getAppSettings();
+    const baseUrl = await waitForComfyUIConnection(settings.imageGeneration.local.comfyuiBaseUrl);
+    if (!baseUrl) {
+      return { started: true, connected: false, message: `${launcher.label} 已打开，但服务尚未在 90 秒内就绪。可以稍后再点“自动检测”。` };
+    }
+    saveSettingsBundle({ settings: { imageGeneration: { provider: 'local', local: {
+      engine: 'comfyui',
+      comfyuiBaseUrl: baseUrl,
+    } } } });
+    const snapshot = await controller.discoverLocalImageResources();
+    return { started: true, connected: true, baseUrl, message: `已连接 ${launcher.label}。`, snapshot };
+  });
+
   ipcMain.handle('image:chooseRuntime', async event => {
     if (!isTrustedSender(event)) return null;
     const result = await dialog.showOpenDialog(mainWindow, {
@@ -853,42 +883,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<vo
     if (!canRouteModelRequest(client.providerName, canUseNetworkCapability('remoteModel'))) {
       throw new Error('请先明确同意将请求发送给所选远程模型服务。');
     }
-    const startedAt = Date.now();
-    let serviceReachable = false;
-    let modelAvailable = false;
-    let chatSucceeded = false;
-    let error = '';
-    try {
-      serviceReachable = await client.checkConnection();
-      if (serviceReachable) {
-        const models = await client.listModels();
-        modelAvailable = client.providerName === 'ollama'
-          ? models.some(model => model === client.modelName || model === `${client.modelName}:latest`)
-          : Boolean(client.modelName);
-      }
-      if (serviceReachable && modelAvailable) {
-        const reply = await client.chat(
-          [{ role: 'user', content: 'Reply with OK only.' }],
-          undefined,
-          'reason',
-          { maxTokens: 16, temperature: 0.1 },
-        );
-        chatSucceeded = reply.trim().length > 0;
-      }
-    } catch (caught) {
-      error = caught instanceof Error ? caught.message : String(caught);
-    }
-    return {
-      connected: serviceReachable && modelAvailable && chatSucceeded,
-      serviceReachable,
-      modelAvailable,
-      chatSucceeded,
-      durationMs: Date.now() - startedAt,
-      error,
-      provider: client.providerName,
-      model: client.modelName,
-      endpoint: client.endpoint,
-    };
+    return diagnoseModelConnection(client);
   });
 
   ipcMain.handle('model:listOptions', async (event) => {

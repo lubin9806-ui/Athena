@@ -22,8 +22,10 @@ const root = path.resolve(__dirname, '..');
     },
   });
   const discovery = await router.refreshLocalDiscovery(AbortSignal.timeout(10_000));
-  if (!discovery.comfyui.connected || discovery.comfyui.checkpoints.length === 0) {
-    throw new Error('Live local proof requires a running ComfyUI with at least one checkpoint');
+  const hasSupportedWorkflow = discovery.comfyui.checkpoints.length > 0
+    || discovery.comfyui.workflows.includes('z-image-turbo');
+  if (!discovery.comfyui.connected || !hasSupportedWorkflow) {
+    throw new Error('Live local proof requires a running ComfyUI with a checkpoint or supported split-model workflow');
   }
   const generated = await router.generate({
     prompt: 'A quiet midnight observatory above a luminous futuristic city, clean cinematic concept art, no text',

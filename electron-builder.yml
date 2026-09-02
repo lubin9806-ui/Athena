@@ -11,7 +11,9 @@ files:
   - "!resources/image-runtime/**/*"
   - config/**/*
   - "!config/settings.json"
+  - "!config/settings.local.json"
   - "!config/model.json"
+  - "!config/model.local.json"
   - "!config/personas/**/*"
   - "!config/private/**/*"
   - skills/**/*

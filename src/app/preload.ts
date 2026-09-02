@@ -104,6 +104,7 @@ contextBridge.exposeInMainWorld('athenaAPI', {
     return () => ipcRenderer.removeListener('image:runtimeInstallProgress', handler);
   },
   discoverLocalImageResources: () => ipcRenderer.invoke('image:discoverLocal'),
+  startComfyUI: () => ipcRenderer.invoke('image:startComfyUI'),
   chooseLocalImageRuntime: () => ipcRenderer.invoke('image:chooseRuntime'),
   chooseLocalImageModel: () => ipcRenderer.invoke('image:chooseModel'),
   getImageCredentialStatus: (provider: string) => ipcRenderer.invoke('image:credentialStatus', provider),

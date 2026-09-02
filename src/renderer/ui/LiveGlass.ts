@@ -64,6 +64,14 @@ export class LiveGlass {
   private readonly handlePointerMove = (event: PointerEvent): void => {
     this.targetPointerX = event.clientX;
     this.targetPointerY = event.clientY;
+    if (this.shouldBypassAnimationFrame()) {
+      this.pointerX = this.targetPointerX;
+      this.pointerY = this.targetPointerY;
+      this.velocityX = 0;
+      this.velocityY = 0;
+      this.applyMaterialPosition();
+      return;
+    }
     if (!this.frame) this.frame = requestAnimationFrame(this.update);
   };
 
@@ -180,6 +188,10 @@ export class LiveGlass {
 
   private isMotionReduced(): boolean {
     return this.settingsReducedMotion || this.reducedMotion.matches;
+  }
+
+  private shouldBypassAnimationFrame(): boolean {
+    return this.isMotionReduced() || (typeof document !== 'undefined' && document.visibilityState !== 'visible');
   }
 
   private scheduleIdleShift(): void {

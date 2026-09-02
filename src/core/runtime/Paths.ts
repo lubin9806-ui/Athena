@@ -8,19 +8,49 @@ function resourcesPath(): string | undefined {
   return (process as ProcessWithResourcesPath).resourcesPath;
 }
 
-function packagedUserDataPath(): string | undefined {
+function electronApp(): { isPackaged?: boolean; getPath?: (name: string) => string } | undefined {
   try {
     const requireFromHere = createRequire(__filename);
     const electron = requireFromHere('electron') as {
       app?: { isPackaged?: boolean; getPath?: (name: string) => string };
     };
-    if (electron.app?.isPackaged && electron.app.getPath) {
-      return electron.app.getPath('userData');
-    }
+    return electron.app;
   } catch {
-    // Node-only scripts keep using the workspace configuration directory.
+    return undefined;
+  }
+}
+
+function packagedUserDataPath(): string | undefined {
+  const app = electronApp();
+  if (app?.isPackaged && app.getPath) {
+    return app.getPath('userData');
   }
   return undefined;
+}
+
+export function isUnpackagedElectronRuntime(): boolean {
+  const app = electronApp();
+  return Boolean(app) && app?.isPackaged === false;
+}
+
+export function resolveLocalSettingsOverlayPath(): string | null {
+  return resolveLocalConfigOverlayPath('settings.json');
+}
+
+export function resolveLocalConfigOverlayPath(fileName: 'settings.json' | 'model.json'): string | null {
+  if (process.env.ATHENA_USE_LOCAL_SETTINGS === '0') return null;
+  const localName = fileName.replace(/\.json$/, '.local.json');
+  if (process.env.ATHENA_USE_LOCAL_SETTINGS === '1') {
+    const dir = process.env.ATHENA_CONFIG_DIR
+      ? path.resolve(process.env.ATHENA_CONFIG_DIR)
+      : path.join(resolveProjectRoot(), 'config');
+    return path.join(dir, localName);
+  }
+  // Default: unpackaged Electron only. Smoke/tests set ATHENA_CONFIG_DIR and
+  // must not pick up the developer's Execute=full / remote-model overlay.
+  if (process.env.ATHENA_CONFIG_DIR) return null;
+  if (!isUnpackagedElectronRuntime()) return null;
+  return path.join(resolveProjectRoot(), 'config', localName);
 }
 
 export function resolveProjectRoot(): string {

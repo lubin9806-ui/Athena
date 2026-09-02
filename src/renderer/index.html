@@ -903,117 +903,123 @@
         <details id="image-settings-section" class="settings-section">
           <summary class="settings-heading">图像生成</summary>
           <div class="settings-section-body">
-            <div class="settings-note settings-note-emphasis">默认本地优先、不会自动切换到付费云端。Athena 同时支持内置独立推理引擎与本机 ComfyUI；发布版不把 ComfyUI 设为唯一前置条件。</div>
+            <div class="settings-note settings-note-emphasis">先选择使用本机还是云端。默认使用本机，不会按张收费，也不会在失败后悄悄切换到付费服务。</div>
             <label class="settings-field settings-field-full">
-              <span>生图通道</span>
+              <span>你想怎么生成图片</span>
               <select id="setting-image-provider">
-                <option value="local">Athena 本地引擎 · 零次调用费</option>
-                <option value="openai">OpenAI GPT Image</option>
-                <option value="google">Google Gemini Image</option>
-                <option value="stability">Stability AI</option>
-                <option value="bfl">Black Forest Labs FLUX</option>
-                <option value="volcengine">火山方舟 Seedream</option>
-                <option value="dashscope">阿里云通义万相</option>
-                <option value="replicate">Replicate 聚合平台</option>
-                <option value="fal">fal.ai 聚合平台</option>
-                <option value="custom">自定义 OpenAI-compatible</option>
-              </select>
-            </label>
-            <label class="settings-field">
-              <span>云端失败策略</span>
-              <select id="setting-image-cloud-fallback">
-                <option value="never">绝不自动切换</option>
-                <option value="ask">失败后提示手动切换</option>
+                <option value="local">使用本机 · 推荐，不按张收费</option>
+                <option value="openai">OpenAI · 需要 API Key</option>
+                <option value="google">Google Gemini · 需要 API Key</option>
+                <option value="stability">Stability AI · 需要 API Key</option>
+                <option value="bfl">FLUX · 需要 API Key</option>
+                <option value="volcengine">火山方舟 Seedream · 需要 API Key</option>
+                <option value="dashscope">阿里云通义万相 · 需要 API Key</option>
+                <option value="replicate">Replicate · 需要 API Key</option>
+                <option value="fal">fal.ai · 需要 API Key</option>
+                <option value="custom">其他兼容接口 · 高级</option>
               </select>
             </label>
             <div id="image-local-fields" class="model-provider-fields">
-              <label class="settings-field">
-                <span>本地连接方式</span>
-                <select id="setting-image-local-engine">
-                  <option value="auto">自动 · 独立引擎 / ComfyUI</option>
-                  <option value="athena">Athena 独立引擎</option>
-                  <option value="comfyui">ComfyUI</option>
-                </select>
-              </label>
+              <section id="image-simple-setup" class="image-simple-setup" aria-labelledby="image-simple-setup-title">
+                <div class="image-simple-setup-copy">
+                  <span>推荐设置</span>
+                  <strong id="image-simple-setup-title">让 Athena 自动准备本地生图</strong>
+                  <p>先检查这台电脑。如果已经安装模型或正在运行 ComfyUI，Athena 会直接连接；没有独立引擎时可一键安装。</p>
+                </div>
+                <div class="image-simple-setup-actions">
+                  <button id="image-discover-local" class="settings-panel-link settings-action-primary" type="button">自动检测</button>
+                  <button id="image-start-comfyui" class="settings-panel-link settings-action-primary" type="button" hidden>启动并连接 ComfyUI</button>
+                  <button id="image-install-runtime" class="settings-panel-link" type="button">安装独立引擎</button>
+                </div>
+                <div id="image-runtime-status" class="image-simple-setup-status" role="status" data-kind="pending">正在检查这台电脑…</div>
+              </section>
               <label class="settings-toggle">
                 <input id="setting-image-auto-discover" type="checkbox" />
-                <span>自动搜索本机模型并连接可用服务</span>
+                <span>每次启动时自动检查（推荐）</span>
               </label>
               <label class="settings-field settings-field-full">
-                <span>本地引擎</span>
-                <input id="setting-image-runtime-path" type="text" spellcheck="false" placeholder="默认使用安装包内置 image-runtime/sd-cli.exe" />
-              </label>
-              <label class="settings-field">
-                <span>安装独立引擎</span>
-                <select id="setting-image-runtime-variant">
-                  <option value="cuda12">NVIDIA CUDA 12</option>
-                  <option value="vulkan">Vulkan 通用 GPU</option>
-                  <option value="cpu">CPU 兼容版</option>
-                </select>
-              </label>
-              <label class="settings-field settings-field-full">
-                <span>本地模型</span>
-                <input id="setting-image-model-path" type="text" spellcheck="false" placeholder=".safetensors / .gguf / .ckpt" />
-              </label>
-              <label class="settings-field settings-field-full">
-                <span>已发现的本地模型</span>
+                <span>用于生图的模型</span>
                 <select id="setting-image-discovered-model">
-                  <option value="">尚未扫描</option>
+                  <option value="">点击“自动检测”查找模型</option>
                 </select>
               </label>
-              <label class="settings-field settings-field-full">
-                <span>ComfyUI 本机地址</span>
-                <input id="setting-image-comfyui-url" type="url" spellcheck="false" placeholder="http://127.0.0.1:8188" />
-              </label>
-              <label class="settings-field settings-field-full">
-                <span>ComfyUI Checkpoint</span>
-                <select id="setting-image-comfyui-checkpoint">
-                  <option value="">自动选择兼容工作流 / 完整 checkpoint</option>
-                </select>
-              </label>
-              <label class="settings-field">
-                <span>计算后端</span>
-                <select id="setting-image-backend">
-                  <option value="auto">自动选择 GPU</option>
-                  <option value="cuda">NVIDIA CUDA</option>
-                  <option value="vulkan">Vulkan · AMD/Intel/NVIDIA</option>
-                  <option value="cpu">CPU 兼容模式</option>
-                </select>
-              </label>
-              <label class="settings-field">
-                <span>本地质量档</span>
-                <select id="setting-image-local-profile">
-                  <option value="fast">快速 · 4 步</option>
-                  <option value="balanced">平衡 · 12 步</option>
-                  <option value="quality">质量 · 24 步</option>
-                  <option value="custom">自定义</option>
-                </select>
-              </label>
-              <label class="settings-field image-custom-local-field">
-                <span>步数</span>
-                <input id="setting-image-local-steps" type="number" min="1" max="100" step="1" />
-              </label>
-              <label class="settings-field image-custom-local-field">
-                <span>CFG</span>
-                <input id="setting-image-local-cfg" type="number" min="0" max="30" step="0.1" />
-              </label>
-              <div class="model-actions settings-field-full">
-                <button id="image-install-runtime" class="settings-panel-link" type="button">下载并安装独立引擎</button>
-                <button id="image-discover-local" class="settings-panel-link" type="button">重新扫描本机</button>
-                <button id="image-choose-runtime" class="settings-panel-link" type="button">选择独立引擎</button>
-                <button id="image-choose-model" class="settings-panel-link" type="button">选择模型文件</button>
+              <div class="image-model-actions settings-field-full">
+                <button id="image-choose-model" class="settings-panel-link" type="button">从电脑选择模型</button>
               </div>
-              <div id="image-runtime-status" class="settings-note settings-field-full" role="status">正在检查本地引擎…</div>
+              <label class="settings-field">
+                <span>生成速度与质量</span>
+                <select id="setting-image-local-profile">
+                  <option value="fast">速度优先</option>
+                  <option value="balanced">平衡 · 推荐</option>
+                  <option value="quality">质量优先</option>
+                  <option value="custom">自定义 · 高级</option>
+                </select>
+              </label>
+              <details id="image-local-advanced" class="image-advanced-settings settings-field-full">
+                <summary>高级设置 <span>通常无需修改</span></summary>
+                <div class="image-advanced-grid">
+                  <label class="settings-field">
+                    <span>连接方式</span>
+                    <select id="setting-image-local-engine">
+                      <option value="auto">自动选择</option>
+                      <option value="athena">只用 Athena 独立引擎</option>
+                      <option value="comfyui">只用 ComfyUI</option>
+                    </select>
+                  </label>
+                  <label class="settings-field">
+                    <span>安装版本</span>
+                    <select id="setting-image-runtime-variant">
+                      <option value="cuda12">NVIDIA 显卡</option>
+                      <option value="vulkan">AMD / Intel / 通用显卡</option>
+                      <option value="cpu">仅使用 CPU</option>
+                    </select>
+                  </label>
+                  <label class="settings-field settings-field-full">
+                    <span>独立引擎路径</span>
+                    <input id="setting-image-runtime-path" type="text" spellcheck="false" placeholder="Athena 自动管理；通常留空" />
+                  </label>
+                  <label class="settings-field settings-field-full">
+                    <span>模型文件路径</span>
+                    <input id="setting-image-model-path" type="text" spellcheck="false" placeholder="Athena 自动填写；通常留空" />
+                  </label>
+                  <label class="settings-field settings-field-full">
+                    <span>ComfyUI 地址</span>
+                    <input id="setting-image-comfyui-url" type="url" spellcheck="false" placeholder="http://127.0.0.1:8188" />
+                  </label>
+                  <label class="settings-field settings-field-full">
+                    <span>ComfyUI 模型 / 工作流</span>
+                    <select id="setting-image-comfyui-checkpoint">
+                      <option value="">自动选择</option>
+                    </select>
+                  </label>
+                  <label class="settings-field">
+                    <span>计算方式</span>
+                    <select id="setting-image-backend">
+                      <option value="auto">自动选择</option>
+                      <option value="cuda">NVIDIA CUDA</option>
+                      <option value="vulkan">Vulkan</option>
+                      <option value="cpu">CPU</option>
+                    </select>
+                  </label>
+                  <label class="settings-field image-custom-local-field">
+                    <span>步数</span>
+                    <input id="setting-image-local-steps" type="number" min="1" max="100" step="1" />
+                  </label>
+                  <label class="settings-field image-custom-local-field">
+                    <span>提示词引导强度（CFG）</span>
+                    <input id="setting-image-local-cfg" type="number" min="0" max="30" step="0.1" />
+                  </label>
+                  <div class="image-model-actions settings-field-full">
+                    <button id="image-choose-runtime" class="settings-panel-link" type="button">手动选择引擎程序</button>
+                  </div>
+                </div>
+              </details>
             </div>
             <div id="image-remote-fields" class="model-provider-fields" hidden>
-              <label class="settings-field settings-field-full">
-                <span>API 地址</span>
-                <input id="setting-image-api-url" type="url" spellcheck="false" />
-              </label>
-              <label class="settings-field settings-field-full">
-                <span>模型 / Endpoint</span>
-                <input id="setting-image-model" type="text" spellcheck="false" />
-              </label>
+              <div class="image-cloud-intro settings-field-full">
+                <strong>连接所选云端服务</strong>
+                <p>通常只需要粘贴 API Key。Athena 会使用该平台的默认地址和模型，并在每次可能产生费用前请求确认。</p>
+              </div>
               <label class="settings-field settings-field-full">
                 <span>API Key</span>
                 <input id="setting-image-api-key" type="password" autocomplete="new-password" placeholder="已保存的密钥不会回显" />
@@ -1024,6 +1030,26 @@
               </div>
               <div id="image-credential-status" class="settings-note settings-field-full" role="status">尚未检查凭据</div>
               <div class="settings-note settings-note-warning settings-field-full">云端通道只有在“隐私与数据”中授权后才会使用；Athena 不会在失败时静默改用另一家服务。</div>
+              <details class="image-advanced-settings settings-field-full">
+                <summary>高级设置 <span>使用自定义接口时再修改</span></summary>
+                <div class="image-advanced-grid">
+                  <label class="settings-field settings-field-full">
+                    <span>API 地址</span>
+                    <input id="setting-image-api-url" type="url" spellcheck="false" />
+                  </label>
+                  <label class="settings-field settings-field-full">
+                    <span>模型名称</span>
+                    <input id="setting-image-model" type="text" spellcheck="false" />
+                  </label>
+                  <label class="settings-field settings-field-full">
+                    <span>服务失败后</span>
+                    <select id="setting-image-cloud-fallback">
+                      <option value="never">停止，不切换服务</option>
+                      <option value="ask">询问我是否手动切换</option>
+                    </select>
+                  </label>
+                </div>
+              </details>
             </div>
           </div>
         </details>
