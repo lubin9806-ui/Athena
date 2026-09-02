@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Athena Companion</string>
+    <string name="production_no_go">engineering-only · production=no-go</string>
+</resources>

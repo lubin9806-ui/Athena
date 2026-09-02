@@ -30,6 +30,17 @@ personality/private/
 .env.local
 .env.*.local
 
+# Android Companion
+mobile/android/.gradle/
+mobile/android/build/
+mobile/android/app/build/
+mobile/android/app/.cxx/
+mobile/android/local.properties
+*.apk
+*.aab
+*.ap_
+*.dex
+
 # IDE
 .vscode/
 .idea/
