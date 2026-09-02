@@ -97,6 +97,7 @@
     "test:local-ocr": "tsc && electron scripts/verify-local-ocr.js",
     "test:packaged-ocr": "electron scripts/verify-packaged-ocr.js",
     "test:diagnostics": "tsc && electron scripts/verify-diagnostics.js",
+    "test:android": "node scripts/verify-android-companion.js",
     "test:agent-routing": "tsc && node scripts/verify-agent-routing.js",
     "test:agent-evals": "npm.cmd run test:agent-routing && npm.cmd run test:web-search && npm.cmd run test:agent-runtime && npm.cmd run test:project-workspace && npm.cmd run test:research-tools && npm.cmd run test:project-memory && npm.cmd run test:skill-library",
     "test:deepseek:live": "tsc && electron scripts/verify-deepseek-live-chat.js",

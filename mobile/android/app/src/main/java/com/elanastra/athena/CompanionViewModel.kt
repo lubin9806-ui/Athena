@@ -5,8 +5,10 @@ import com.elanastra.athena.cloud.AthenaCloudClient
 import com.elanastra.athena.cloud.ChatTurn
 import com.elanastra.athena.cloud.CompanionException
 import com.elanastra.athena.cloud.SearchHit
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
 enum class Workspace { Chat, Memory, Me }
@@ -55,7 +57,9 @@ class CompanionViewModel(
 
     suspend fun register() = runCatching {
         val current = _state.value
-        val body = cloud.register(current.tenantName.ifBlank { "Athena" }, current.email, current.password, current.deviceName)
+        val body = withContext(Dispatchers.IO) {
+            cloud.register(current.tenantName.ifBlank { "Athena" }, current.email, current.password, current.deviceName)
+        }
         _state.value = current.copy(
             signedIn = true,
             tenantId = body.getString("tenantId"),
@@ -65,7 +69,9 @@ class CompanionViewModel(
 
     suspend fun login() = runCatching {
         val current = _state.value
-        val body = cloud.login(current.tenantId, current.email, current.password, current.deviceName)
+        val body = withContext(Dispatchers.IO) {
+            cloud.login(current.tenantId, current.email, current.password, current.deviceName)
+        }
         _state.value = current.copy(signedIn = true, status = "已登录 ${body.getString("tenantId")}")
     }
 
@@ -77,7 +83,7 @@ class CompanionViewModel(
         cloud.webSearchConsent = current.webSearchConsent
         val history = current.messages.takeLast(12).map { ChatTurn(it.role, it.text) }
         val sources = if (current.searchArmed) {
-            val search = cloud.search(prompt)
+            val search = withContext(Dispatchers.IO) { cloud.search(prompt) }
             val hits = search.getJSONArray("results")
             buildList {
                 for (index in 0 until hits.length()) {
@@ -91,10 +97,10 @@ class CompanionViewModel(
             append("\n\nUntrusted sources:\n")
             sources.forEachIndexed { index, hit -> append("${index + 1}. ${hit.title} ${hit.url}\n") }
         }
-        val reply = cloud.infer(grounded, current.mode.api, history)
+        val reply = withContext(Dispatchers.IO) { cloud.infer(grounded, current.mode.api, history) }
         val userMessage = ChatMessage("user", prompt, sources)
         val assistant = ChatMessage("assistant", reply.getString("text"), sources)
-        persistConversation(current.messages + userMessage + assistant, current.mode.api)
+        withContext(Dispatchers.IO) { persistConversation(current.messages + userMessage + assistant, current.mode.api) }
         _state.value = current.copy(
             draft = "",
             searchArmed = false,
@@ -104,7 +110,7 @@ class CompanionViewModel(
     }
 
     suspend fun refreshMemory() = runCatching {
-        val changes = cloud.listChanges()
+        val changes = withContext(Dispatchers.IO) { cloud.listChanges() }
         val records = changes.getJSONArray("records")
         val items = buildList {
             for (index in 0 until records.length()) {
@@ -126,8 +132,9 @@ class CompanionViewModel(
     }
 
     suspend fun refreshAccount() = runCatching {
-        val entitlements = cloud.entitlements()
-        val devices = cloud.listDevices()
+        val (entitlements, devices) = withContext(Dispatchers.IO) {
+            cloud.entitlements() to cloud.listDevices()
+        }
         update {
             it.copy(
                 entitlements = entitlements.toString(),
@@ -138,12 +145,12 @@ class CompanionViewModel(
     }
 
     suspend fun exportAccount() = runCatching {
-        val job = cloud.exportData()
+        val job = withContext(Dispatchers.IO) { cloud.exportData() }
         update { it.copy(status = "export ${job.getString("jobId")} ${job.optString("status")}") }
     }
 
     suspend fun deleteAccount() = runCatching {
-        val result = cloud.deleteAccount()
+        val result = withContext(Dispatchers.IO) { cloud.deleteAccount() }
         cloud.accessToken = null
         cloud.refreshToken = null
         update {

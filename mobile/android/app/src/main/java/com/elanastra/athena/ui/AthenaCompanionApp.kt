@@ -39,6 +39,7 @@ fun AthenaCompanionApp(
 ) {
     val state by model.state.collectAsState()
     val scope = rememberCoroutineScope()
+    val go: (suspend () -> Unit) -> Unit = { block -> scope.launch { block() } }
     Scaffold(
         bottomBar = {
             if (state.signedIn) {
@@ -59,10 +60,10 @@ fun AthenaCompanionApp(
         Column(Modifier.fillMaxSize().padding(padding).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("Athena Companion")
             Text(state.status)
-            if (!state.signedIn) AuthPane(state, model, scope::launch) else when (state.workspace) {
-                Workspace.Chat -> ChatPane(state, model, onRequestMic, onSpeak, scope::launch)
-                Workspace.Memory -> MemoryPane(state, scope::launch, model)
-                Workspace.Me -> AccountPane(state, model, scope::launch)
+            if (!state.signedIn) AuthPane(state, model, go) else when (state.workspace) {
+                Workspace.Chat -> ChatPane(state, model, onRequestMic, onSpeak, go)
+                Workspace.Memory -> MemoryPane(state, go, model)
+                Workspace.Me -> AccountPane(state, model, go)
             }
         }
     }
