@@ -14,6 +14,13 @@ import {
   recordDataActivity,
 } from '../../core/privacy/PrivacyDataService';
 import { VoiceService } from '../../core/voice/VoiceService';
+import {
+  getCloudAccountStatus,
+  loginCloudAccount,
+  logoutCloudAccount,
+  registerCloudAccount,
+  syncCloudAccountNow,
+} from '../../core/cloud/CloudAccountService';
 import { LLMClient } from '../../core/ai/Client';
 import { diagnoseModelConnection } from '../../core/ai/ModelConnectionDiagnostics';
 import { canRouteModelRequest } from '../../core/ai/ModelNetworkPolicy';
@@ -169,6 +176,11 @@ const INVOKE_CHANNELS = [
   'privacy:get',
   'privacy:export',
   'privacy:clearLocalData',
+  'cloud:status',
+  'cloud:register',
+  'cloud:login',
+  'cloud:logout',
+  'cloud:syncNow',
   'diagnostics:getHealth',
   'diagnostics:exportSupport',
   'diagnostics:clear',
@@ -996,6 +1008,41 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<vo
   ipcMain.handle('privacy:get', async (event) => {
     if (!isTrustedSender(event)) return null;
     return getPrivacyCenterState();
+  });
+
+  ipcMain.handle('cloud:status', async (event) => {
+    if (!isTrustedSender(event)) return null;
+    return getCloudAccountStatus();
+  });
+
+  ipcMain.handle('cloud:register', async (event, value: unknown) => {
+    if (!isTrustedSender(event)) return null;
+    const payload = isRecord(value) ? value : {};
+    return registerCloudAccount({
+      tenantName: cleanString(payload.tenantName, 100) || 'Athena',
+      email: cleanString(payload.email, 254),
+      password: typeof payload.password === 'string' ? payload.password : '',
+    });
+  });
+
+  ipcMain.handle('cloud:login', async (event, value: unknown) => {
+    if (!isTrustedSender(event)) return null;
+    const payload = isRecord(value) ? value : {};
+    return loginCloudAccount({
+      tenantId: cleanString(payload.tenantId, 80),
+      email: cleanString(payload.email, 254),
+      password: typeof payload.password === 'string' ? payload.password : '',
+    });
+  });
+
+  ipcMain.handle('cloud:logout', async (event) => {
+    if (!isTrustedSender(event)) return null;
+    return logoutCloudAccount();
+  });
+
+  ipcMain.handle('cloud:syncNow', async (event) => {
+    if (!isTrustedSender(event)) return null;
+    return syncCloudAccountNow();
   });
 
   ipcMain.handle('privacy:export', async (event, format: unknown) => {

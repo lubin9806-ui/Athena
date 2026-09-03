@@ -119,6 +119,38 @@ async function main() {
     assert.deepStrictEqual(await custom.listModels(), ['fixture-model']);
     assert.strictEqual(await custom.chat([{ role: 'user', content: 'custom' }]), 'fixture-response');
 
+    const previousLocalSettings = process.env.ATHENA_USE_LOCAL_SETTINGS;
+    try {
+      fs.writeFileSync(path.join(process.env.ATHENA_CONFIG_DIR, 'model.json'), `${JSON.stringify({
+        provider: 'ollama',
+        setupComplete: false,
+        ollama: { baseUrl: 'http://127.0.0.1:11434', model: 'qwen2.5:14b', temperature: 0.7, maxTokens: 2048, numCtx: 4096 },
+      }, null, 2)}\n`);
+      process.env.ATHENA_USE_LOCAL_SETTINGS = '1';
+      saveSettingsBundle({
+        model: {
+          provider: 'deepseek',
+          setupComplete: true,
+          remote: { deepseek: { baseUrl: 'https://api.deepseek.com', model: 'deepseek-v4-flash' } },
+        },
+      });
+      const overlayClient = new LLMClient();
+      assert.strictEqual(overlayClient.providerName, 'deepseek', 'dev overlay provider must drive LLMClient');
+      assert.strictEqual(overlayClient.modelName, 'deepseek-v4-flash');
+      assert.strictEqual(overlayClient.endpoint, 'https://api.deepseek.com');
+      assert.strictEqual(
+        JSON.parse(fs.readFileSync(path.join(process.env.ATHENA_CONFIG_DIR, 'model.json'), 'utf8')).provider,
+        'ollama',
+        'tracked model.json must stay at the shipping default',
+      );
+      delete process.env.ATHENA_USE_LOCAL_SETTINGS;
+      const trackedClient = new LLMClient();
+      assert.strictEqual(trackedClient.providerName, 'ollama', 'tests without overlay must not absorb developer DeepSeek settings');
+    } finally {
+      if (previousLocalSettings === undefined) delete process.env.ATHENA_USE_LOCAL_SETTINGS;
+      else process.env.ATHENA_USE_LOCAL_SETTINGS = previousLocalSettings;
+    }
+
     const cleared = credentials.clearModelCredential('openai');
     assert.strictEqual(cleared.configured, true);
     assert.strictEqual(cleared.source, 'local-env-file');

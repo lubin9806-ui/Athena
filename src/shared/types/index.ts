@@ -13,3 +13,4 @@ export * from './agent';
 export * from './skills';
 export * from './integrations';
 export * from './images';
+export * from './cloud';

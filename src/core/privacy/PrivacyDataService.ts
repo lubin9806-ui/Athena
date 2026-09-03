@@ -120,6 +120,7 @@ export function consentRequiredMessage(capability: keyof NetworkConsentSettings)
     onlineSpeechToText: '在线语音识别',
     onlineTextToSpeech: '在线语音合成',
     externalToolNetwork: '执行模式外部网络工具',
+    cloudSync: 'Athena 账号跨设备同步',
   };
   return `${labels[capability]}需要先在“隐私与数据中心”阅读说明并明确同意。`;
 }
@@ -412,6 +413,19 @@ function buildDataMap(settings: AppSettings): DataMapItem[] {
       controls: ['执行模式权限', '高风险逐次确认', '外部网络工具同意', '导出', '一键清除'],
     },
     {
+      id: 'cloud-sync',
+      label: 'Athena 账号与跨设备同步',
+      stored: settings.cloud.syncEnabled && settings.privacy.networkConsent.cloudSync
+        ? '本机仍保留完整 SQLite；同步副本以加密资源形式存在于配置的 Athena Cloud'
+        : '默认同步关闭，对话和记忆只留在本机',
+      locations: [database, settings.cloud.baseUrl || '未配置 Cloud 基址'],
+      leavesDevice: settings.privacy.networkConsent.cloudSync
+        ? '打开同步并登录后，对话与记忆会发往用户配置的 Athena Cloud /v1。密码不落盘，会话用 Windows 加密存储。'
+        : '未同意前不上传。',
+      retention: 'Cloud 侧按账号导出/删除；本机一键清除不会自动删除云端账号，需先退出或走账号删除。',
+      controls: ['Athena 账号开关', '跨设备同步同意', '登录/退出', '立即同步'],
+    },
+    {
       id: 'logs',
       label: '日志',
       stored: 'Logger 写控制台；主进程崩溃/无响应写本机最小 JSONL；两者都对密钥、Cookie、Authorization 等字段脱敏',
@@ -481,6 +495,14 @@ function buildNetworkCapabilityNotices(consent: NetworkConsentSettings): Network
       destinations: '用户在执行任务中指定的外部网络地址；localhost 不属于外部网络',
       defaultState: 'off-until-consent',
       consented: consent.externalToolNetwork,
+    },
+    {
+      id: 'cloudSync',
+      label: 'Athena 账号跨设备同步',
+      sends: '用户明确打开同步后的对话摘要、记忆条目和账号元数据',
+      destinations: '用户配置的 Athena Cloud /v1 基址；本地 fixture 仅 loopback',
+      defaultState: 'off-until-consent',
+      consented: consent.cloudSync,
     },
   ];
 }

@@ -1124,9 +1124,47 @@
         </details>
 
         <details class="settings-section">
+          <summary class="settings-heading">Athena 账号</summary>
+          <div class="settings-section-body">
+            <div class="settings-note">电脑端和手机端是同一个 Athena。登录同一账号后，对话和记忆经 Cloud 同步，不直接读取对方数据库。</div>
+            <label class="settings-toggle">
+              <input id="setting-cloud-sync-enabled" type="checkbox" />
+              <span>打开跨设备同步</span>
+            </label>
+            <label class="settings-toggle">
+              <input id="setting-consent-cloud-sync" type="checkbox" />
+              <span>同意将对话与记忆同步到我配置的 Athena Cloud</span>
+            </label>
+            <label class="settings-field">
+              <span>Cloud 基址</span>
+              <input id="setting-cloud-base-url" type="url" placeholder="http://127.0.0.1:8787" />
+            </label>
+            <label class="settings-field">
+              <span>邮箱</span>
+              <input id="setting-cloud-email" type="email" autocomplete="username" />
+            </label>
+            <label class="settings-field">
+              <span>租户 ID</span>
+              <input id="setting-cloud-tenant-id" type="text" placeholder="登录已有账号时填写" />
+            </label>
+            <label class="settings-field">
+              <span>密码</span>
+              <input id="setting-cloud-password" type="password" autocomplete="current-password" />
+            </label>
+            <div class="privacy-actions">
+              <button id="cloud-register" class="settings-panel-link" type="button">注册并登录</button>
+              <button id="cloud-login" class="settings-panel-link" type="button">登录</button>
+              <button id="cloud-sync-now" class="settings-panel-link" type="button">立即同步</button>
+              <button id="cloud-logout" class="settings-panel-link settings-panel-danger" type="button">退出账号</button>
+            </div>
+            <div id="cloud-account-status" class="settings-note" role="status" aria-live="polite"></div>
+          </div>
+        </details>
+
+        <details class="settings-section">
           <summary class="settings-heading">隐私与数据</summary>
           <div class="settings-section-body">
-            <div class="settings-note">本中心只管理 Desktop 本机数据。当前没有账号、Athena Cloud、Steam Cloud 或 Mobile 同步。</div>
+            <div class="settings-note">默认同步关闭。未同意前，对话和记忆只留在这台电脑。</div>
             <label class="settings-toggle">
               <input id="setting-consent-web-search" type="checkbox" />
               <span>同意联网搜索向第三方搜索与网页提供方发送查询和网页请求</span>

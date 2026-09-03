@@ -1,7 +1,6 @@
 /** Provider-neutral LLM facade backed by protocol-specific model adapters. */
 
-import * as fs from 'fs';
-import { resolveConfigFile } from '../runtime/Paths';
+import { getModelSettings } from '../config/SettingsStore';
 import { resolveModelCredential } from './CredentialStore';
 import type { ConversationMode, ModelProvider } from '../../shared/types';
 import {
@@ -172,10 +171,10 @@ export class LLMClient {
 }
 
 function loadModelConfig(): ModelClientConfig {
-  const configPath = resolveConfigFile('model.json');
-  if (!configPath) return {};
-  try { return JSON.parse(fs.readFileSync(configPath, 'utf8')) as ModelClientConfig; }
-  catch { return {}; }
+  // Unpackaged Electron persists the user's provider in gitignored overlays.
+  // Reading tracked config/model.json here would keep chat and connection tests
+  // on the shipping Ollama default even after DeepSeek/OpenAI was saved.
+  return getModelSettings();
 }
 
 function cloneCapabilities(capabilities: ModelAdapterCapabilities): ModelAdapterCapabilities {

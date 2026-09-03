@@ -10,7 +10,7 @@
 | 范围 | 结论 | 原因 |
 |---|---|---|
 | 写出并维护本计划 | **GO** | `docs/cloud/CLOUD_GO_NO_GO.md` 允许 Mobile 使用 API v1 做隔离开发；所有者已要求按现有基线做安卓计划 |
-| 对本地 Cloud fixture 做 Android 工程脚手架 | **GO（需所有者确认开工）** | Cloud 本地工程边界已通过 `ATHENA_CLOUD_1_0_ENGINEERING_OK`；客户端不得连接生产或宣称 Cloud 可用 |
+| 在独立目录 `G:\AthenaCompanion` 对本地 Cloud fixture 做 Android 工程 | **GO** | 与 Desktop Electron 仓库分开；只通过 HTTP 使用 `G:\Athena\cloud`；客户端不得连接生产或宣称 Cloud 可用 |
 | Play 内测 / 正式轨 / 收费 / 公开下载 | **NO-GO** | ATH-CLOUD-001、ATH-MOBILE-001 仍为 Blocked；无 Play Console、package ID 签字、Data safety 与生产 API |
 | 把 Electron UI 包装成 APK，或直连 Desktop SQLite | **禁止** | `docs/COMMERCIAL_ROADMAP.md` Phase 5 与 `docs/PRODUCT_MATRIX.md` 的硬边界 |
 
@@ -27,13 +27,31 @@ ATH-MOBILE-001 保持 **Blocked**。本文件进入证据栏，不等于问题�
 5. `cloud/CLOUD_GO_NO_GO.md`、`cloud/API_V1.md`、`cloud/ARCHITECTURE.md`
 6. 本计划
 
-本计划不修改 Desktop 1.0 一次性许可、Steam 裁剪或 Live2D 发行硬门。Desktop Direct 仍是无账号本地优先；Android 是**另一 SKU**：必须有账号、只走 Cloud，不继承 Desktop 许可证。
+本计划不修改 Desktop 1.0 一次性许可、Steam 裁剪或 Live2D 发行硬门。商店支付通道可以不同（桌面直售 / Play），**产品不是两套助手**。
 
-## 2. 产品定义
+## 2. 产品关系（豆包 / ChatGPT 模型）
 
-名称工作稿：Athena Companion（Android）。最终商店名、开发者名称和商标由发行主体签字，不在本文件冻结。
+Athena 桌面端和 Athena 手机端的关系，就是豆包桌面端和豆包手机端、ChatGPT 桌面端和 ChatGPT 手机端的关系：
 
-目标用户：需要随身继续 Create / Companion / Reason 对话、查看与延续已同步记忆、使用麦克风语音，并在 Play 完成订阅/恢复购买的个人用户。
+| 层 | 关系 |
+|---|---|
+| 产品 | 同一个 Athena。同一个时夏。不是“桌面 Athena”加“另一个手机助手”。 |
+| 账号与记忆 | 同一个 Cloud 账号。对话、记忆、偏好在两端延续，像 ChatGPT 换设备还能接着聊。 |
+| 能力分工 | 两端都有 Create / Companion / Reason。电脑多出来的是本地模型、Execute、本机文件。手机多出来的是随身聊、通知、系统语音。 |
+| 工程 | 两个原生客户端，互不包装。禁止把 Electron 打成 APK，也禁止手机直读桌面 SQLite。中间只通过 Cloud `/v1`。 |
+| 商店 | 可以走不同货架和付款方式，但不能做成两个品牌或两套人格。 |
+
+因此：
+
+- 应用名就是 **Athena**（日常人格仍是时夏）。不要起一个平行品牌叫“Athena Companion”。
+- 三种普通模式的语义、称呼、记忆连续性必须和桌面一致。
+- 用户在电脑上说的事，登录同一账号后手机要能接住；反过来也一样。这依赖 Cloud 同步，不依赖拷贝 `database/athena.db`。
+- Execute、Ollama 14B、任意本机文件仍只在电脑端。手机不是残血版另一个产品，而是同一助手的随身端。
+- Desktop 1.0 Direct 可以继续本地优先、不强制登录；一旦用户打开同步/登录，两端进入同一账号空间。这与产品矩阵里 Desktop 同步为 Planned、Mobile 同步为 GA 一致。
+
+## 3. 手机端范围
+
+目标用户：把同一位时夏装进口袋的人。在外面继续 Create / Companion / Reason，查看和延续已同步的对话与记忆，用麦克风说话，并用 Play 处理该端的订阅/恢复。
 
 核心承诺（与 `PRODUCT_MATRIX.md` Mobile 1.0 一致）：
 
@@ -52,15 +70,15 @@ ATH-MOBILE-001 保持 **Blocked**。本文件进入证据栏，不等于问题�
 - 读取、上传或迁移 `database/athena.db`
 - 桌面托盘、桌面常驻、桌宠、Live2D
 - Skills / 插件市场
-- 把 Desktop 一次性个人许可或 Steam 所有权当成 Mobile 权益
+- 把 Desktop 一次性个人许可或 Steam 所有权自动当成手机已付费；两端付款通道可以不同，但账号身份必须能统一
 - 静默把本地语音失败切到在线 STT/TTS
 - 在手机上复用 Desktop 的搜狗/Bing/DuckDuckGo HTML 抓取
 
-人格：Android 不得打包 `personality/private/`。Companion 身份来自 Cloud `preference` 记录与首方默认公开卡；私有桌面人格仍只属于本机 Desktop。
+人格：两端都是时夏。Android 不打包 `personality/private/` 文件，但公开身份、称呼和默认语气必须与桌面一致。登录同步后，Cloud `preference` 是人格与偏好的共同源；未登录时桌面可继续用本机人格卡，手机用同一套公开默认卡。
 
-## 3. 硬前置
+## 4. 硬前置
 
-### 3.1 发布前置（不可绕过）
+### 4.1 发布前置（不可绕过）
 
 `CLOUD_GO_NO_GO.md`：Cloud 1.0 生产 Go 是 Mobile 1.0 硬前置。未满足前禁止：
 
@@ -69,7 +87,7 @@ ATH-MOBILE-001 保持 **Blocked**。本文件进入证据栏，不等于问题�
 - 商店文案写跨设备同步、云推理已上线
 - 关闭 ATH-MOBILE-001
 
-### 3.2 隔离开发前置（当前已满足）
+### 4.2 隔离开发前置（当前已满足）
 
 本地 Cloud 可在 loopback 启动，供 Android 模拟器/本机调试：
 
@@ -81,15 +99,15 @@ npm.cmd run verify
 
 要求标记：`ATHENA_CLOUD_DRILL_OK`、`ATHENA_CLOUD_1_0_ENGINEERING_OK`。客户端配置只允许 `http://10.0.2.2:8787`（模拟器）或明确的本机/内网 fixture，生产模式必须 fail-closed。
 
-### 3.3 Cloud API 缺口（会挡住部分 Mobile GA 行）
+### 4.3 Cloud API 与跨端衔接
 
-当前冻结的 `/v1` **没有**搜索代理、流式补全、附件、生图或电脑工具。因此：
+`/v1` 已有账号、同步、三模式推理和搜索 fixture。Desktop 已增加 Athena 账号登录/注册和对话/记忆推送（设置 → Athena 账号），临时聊天与 Execute 窗口不同步。真实换端续聊仍需本机 Cloud fixture 或生产 Cloud，以及两边都登录同一账号。未同意、未打开同步前不得宣传“已经和电脑端同步”。
 
 | 产品矩阵 Mobile 1.0 行 | 当前 Cloud v1 | 计划处置 |
 |---|---|---|
-| Create/Companion/Reason | `POST /v1/model/responses` `{prompt,mode}` | M3 可做；fixture 回显，非真实模型 |
-| 跨设备记忆同步 | `memory/conversation/preference/reminder` | M4 可做 |
-| 搜索 + 来源卡片 GA（云代理） | **无对应端点** | 不得在 Android 侧抓网页；另开 Cloud 变更，经窗口 09 批准后再接 |
+| Create/Companion/Reason | `POST /v1/model/responses` `{prompt,mode,history?}` | 两端语义一致；fixture 回显，非真实模型 |
+| 跨设备记忆同步 | `memory/conversation/preference/reminder` | 手机 M4 可做；桌面同步客户端仍为 Planned |
+| 搜索 + 来源卡片 GA（云代理） | `POST /v1/search/query` 本地 fixture | 手机不得抓网页；生产搜索供应商未选 |
 | 深读 Beta | 无 | 同上 |
 | STT/TTS GA | 模型网关不保留语音 | 先用系统 on-device 引擎；在线适配器必须独立同意 |
 | 订阅 GA | 计费端口为零收费 fixture | Play Billing 沙箱可做协议，生产收款 Blocked |
@@ -97,7 +115,7 @@ npm.cmd run verify
 
 未先改 `PRODUCT_MATRIX.md` 和 Cloud API 兼容策略，不得把搜索/生图/Execute 塞进 Android。
 
-## 4. 架构
+## 5. 架构
 
 ```text
 [Athena Companion Android]
@@ -110,7 +128,7 @@ npm.cmd run verify
         x  禁止：Electron IPC、Desktop SQLite、ComputerTools、Live2D
 ```
 
-客户端分层（均在 `mobile/android/`，不进入 `src/app` 或 `src/renderer`）：
+客户端分层（均在独立工程 `G:\AthenaCompanion`，禁止进入 Desktop 的 `src/app`、`src/renderer`、`package.json` scripts 或 `database/`）：
 
 1. **Network**：OkHttp，RFC 9457 problem+json，`Athena-API-Version: 1`，未知字段忽略。
 2. **Session**：access/refresh 不写明文 SharedPreferences；Android Keystore + EncryptedSharedPreferences；401 后刷新一次，失败回登录。
@@ -128,7 +146,7 @@ npm.cmd run verify
 - 不收集聊天正文作为崩溃日志
 - 不实现 `QUERY_ALL_PACKAGES`、文件树、无障碍滥用、后台弹出
 
-## 5. 技术选型
+## 6. 技术选型
 
 | 项 | 选择 | 理由 |
 |---|---|---|
@@ -144,28 +162,29 @@ npm.cmd run verify
 
 不选 React Native / Capacitor / Electron-Android：与“不得把 Electron UI 直接包装成移动 1.0”冲突。
 
-## 6. 仓库布局（待开工时创建）
+## 7. 仓库布局（客户端分开，产品不分家）
+
+Android 不放进 `G:\Athena` 桌面仓库。独立工程：
 
 ```text
-mobile/android/
-  README.md                 仅本地 fixture 说明，标明 No-Go
-  app/                      ApplicationId 由所有者决定后写入
-  core-api/                 /v1 客户端、problem+json、幂等
-  core-sync/                vector clock 与冲突
-  core-session/             登录、设备、Keystore
-  feature-chat/
-  feature-memory/
-  feature-privacy/
-  feature-billing/          无生产密钥
-  gradle/                   版本目录
+G:\AthenaCompanion\
+  README.md
+  package.json              仅 Companion 验证脚本，不并入 Desktop npm
+  protocol/                 Node 协议测试，HTTP 调用 Cloud
+  android/                  Kotlin + Compose 应用
+    app/
+    gradle/
 ```
+
+电脑版继续只存在于 `G:\Athena`（Electron / `src/` / 桌面 `package.json`）。
 
 约束：
 
-- 不把 `database/`、`config/model.json`、`config/settings.json`、人格私有卡、API Key 拷进 assets
+- 不把 Desktop `database/`、`config/model.json`、`config/settings.json`、人格私有卡、API Key 拷进 APK
 - 不把 Live2D / Cubism / 3D VRM 打进 APK
-- debug 与 release 使用不同 ApplicationId 后缀或不同 signing，避免污染正式包名
-- `mobile/` 加入根文档索引后，仍不得出现在 Desktop/Steam 商店文案
+- 不把 Android 脚本、依赖或 UI 写进 Desktop `package.json`
+- debug 与 release 使用不同 ApplicationId 后缀
+- Desktop/Steam 商店文案不得把本工程写成已上架能力
 
 建议包名候选（须所有者签字，未签字前不得创建 Play 应用）：
 
@@ -174,7 +193,7 @@ mobile/android/
 
 未决定前工程可用 `com.athena.companion.debug`，且不上传 Play。
 
-## 7. 分阶段计划
+## 8. 分阶段计划
 
 阶段门用证据而不是口头完成。任何阶段都可以在 Cloud 生产仍 Blocked 时做完工程，但不能把该阶段标成商店通过。
 
@@ -186,10 +205,10 @@ mobile/android/
 
 ### M1 工程骨架
 
-- 创建 `mobile/android`，Compose 空壳，debug 连接 Cloud fixture
+- 在 `G:\AthenaCompanion\android` 建立 Compose 空壳，debug 连接 Cloud fixture
 - 健康检查：`GET /health/live`、`/health/ready`
 - 生产 flavor 拒绝非 HTTPS 与未配置的基址
-- 验证：`mobile` 模块 assembleDebug；静态扫描确认无 Electron/SQLite 桌面导入
+- 验证：在 Companion 工程内跑 `npm.cmd test`；静态扫描确认无 Electron/SQLite 桌面导入
 - 退出标记（建议）：`ATHENA_ANDROID_SHELL_OK`
 
 ### M2 身份与设备
@@ -258,19 +277,17 @@ mobile/android/
 
 在此之前，AAB 只可作为 unsigned/internal engineering artifact，不得写“已上架”。
 
-## 8. 验证命令（开工后落地）
+## 9. 验证命令（开工后落地）
 
-Desktop 现有命令保持不变。Android 增加独立脚本，例如：
+Desktop 现有命令保持不变，且**不要**把 Android 测试写进 Desktop `package.json`。
 
 ```powershell
 cd G:\Athena\cloud
 npm.cmd test
 npm.cmd run verify
 
-cd G:\Athena\mobile\android
-.\gradlew.bat :app:assembleDebug
-.\gradlew.bat :app:testDebugUnitTest
-node ..\..\scripts\verify-android-companion.js
+cd G:\AthenaCompanion
+npm.cmd test
 ```
 
 建议稳定标记：
@@ -287,27 +304,27 @@ node ..\..\scripts\verify-android-companion.js
 
 `docs/RELEASE_CHECKLIST.md` 第 7 节在 M9 之前保持全部 `[ ]` 或 engineering `[~]`，不得因本 ADR 勾成 `[x]`。
 
-## 9. 外部阻断（保持 Blocked 的原因）
+## 10. 外部阻断（保持 Blocked 的原因）
 
 1. Cloud 生产 provider、区域、KMS、TLS、计费、渗透、SLO、on-call（ATH-CLOUD-001）
 2. Play Console 账号、package ID 签字、upload/app-signing key
 3. 公开隐私政策 URL 与法律主体
 4. 真实模型条款，使 `/v1/model/responses` 不再是 local-fixture
-5. 若要坚持矩阵中的 Mobile 搜索 GA：Cloud 必须先增加签约搜索代理 API
+5. Cloud 已有 `/v1/search/query` 本地 fixture；生产搜索供应商未选，不得当商业搜索 SLA
 6. Android Owner 写入 `config/operations.json` 并完成窗口 11 演练（ATH-OPS-001）
 7. iOS 不在本计划关闭范围内；ATH-MOBILE-001 覆盖双端商店合规，仅 Android 工程完成不能关闭该 P0
 
-## 10. 与 Desktop 工作区的隔离
+## 11. 与 Desktop 工作区的隔离
 
-当前 `main@db4b1dc` 仍有未提交 Desktop 改动。Android 开工时：
+当前 `main@db4b1dc` 仍有未提交 Desktop 改动。Android 只允许改 `G:\AthenaCompanion`，以及 Cloud `/v1` 为 Mobile 增加的独立端点。
 
-- 只新增 `mobile/android/**`、本文件、必要脚本与索引
+- 不把 Android 源码、Gradle、APK 或 npm script 放进 Desktop 仓库
 - 不把 Android 改动混进 Desktop 安全默认 / 生图 / smoke 提交
-- 不读取、不迁移 `database/` 聊天附件
-- 不修改 `RELEASE_FEATURES.live2d`
+- 不读取、不迁移 Desktop `database/` 聊天附件
+- 不修改 Desktop `RELEASE_FEATURES.live2d`
 - 不把 fixture 连通写成真实用户 Beta
 
-## 11. 开放决策（须所有者回答后才能创建正式应用）
+## 12. 开放决策（须所有者回答后才能创建正式应用）
 
 1. ApplicationId：`com.elanastra.athena` 还是 `com.athena.companion`，或其他。
 2. 是否立即开始 M1 脚手架（仅 fixture），或等 Cloud 生产 Go 后再建工程。
@@ -315,13 +332,8 @@ node ..\..\scripts\verify-android-companion.js
 4. 订阅价、税区、是否提供免费额度；在 Cloud billing 未选供应商前只能做沙箱。
 5. Android Owner 人名与 Play 账号持有人（可与 Desktop 发行主体相同，但必须写明）。
 
-## 12. 下一步可直接执行
+## 13. 下一步可直接执行
 
-若所有者确认“可以在 fixture 上建工程”：
-
-1. 冻结 ApplicationId（debug 可用临时 ID）
-2. 创建 `mobile/android` 空模块与 `scripts/verify-android-companion.js`
-3. 对接 `GET /health/*` 与 fail-closed 基址
-4. 再做 M2 登录，而不是先做 UI 视觉搬运
+当前已在 `G:\AthenaCompanion` 落地独立工程。继续开发只改该目录；Desktop 回归命令保持 `cd G:\Athena`。
 
 若所有者确认“只保留计划、暂不建工程”：本文件即为窗口 10 的当前交付；等待 ATH-CLOUD-001 外部项。

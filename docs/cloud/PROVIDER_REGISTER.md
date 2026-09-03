@@ -7,6 +7,7 @@ Machine-readable source: `cloud/config/provider-policies.json`.
 | Domain | Adapter | Data/cost | Production status |
 |---|---|---|---|
 | Model | `local-fixture` | Current prompt exists in process memory for one call; no voice; no network; no retention/training; deterministic local response | Not eligible |
+| Search | `local-fixture` | Current query exists in process memory for one call; no HTML scraping; example.test citations marked untrusted | Not eligible |
 | Billing | `local-no-charge` | Entitlement state only; creates no charge, invoice, tax record or refund transfer | Not eligible |
 | Deployment | `local` | Local files and simulated `local-1`/`local-2`; no cloud resource | Not eligible |
 | Recovery | `local-return-token` | Returns one-time token to local caller; no email/SMS | Not eligible |

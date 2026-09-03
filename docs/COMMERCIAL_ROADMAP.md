@@ -46,8 +46,9 @@ Athena 当前是一个**可运行的 Windows Desktop 0.9 Private Beta 候选工�
 | 语音 | 本地架构已固定 | STT 只接受受管 Python 3.11 + 预置 Whisper 模型，禁止下载/在线回退；TTS 使用 Windows SAPI；缺组件时 UI 禁用并解释 |
 | 提醒 | 部分实现 | 仅进程内定时器；重启后丢失，无系统通知持久化保证 |
 | 工作流 | Beta 已实现 | 四个固定模板支持 start/next/cancel/complete；不宣称持久化或第三方自动化引擎 |
-| 技能/插件 | 骨架或关闭 | SkillManager 只有注册生命周期；PluginManager 与 Planner 明确关闭；`skills/actions.js` 是旧式入口 |
-| Live2D/头像/音乐/日历等 | 未实现 | 旧愿景文档有描述，当前运行时没有可售实现 |
+| Agent Skills / 插件 | Skills Beta 已实现；插件生态关闭 | `SkillLibrary` 已实现发现、哈希、信任、启停、资源读取与调用记录，并通过 `ToolRegistry` 渐进加载；第三方脚本不会自动执行。PluginManager、Planner 和插件市场仍明确关闭，不作为 1.0 承诺 |
+| Live2D/头像 | 工程运行时已实现，发行关闭 | Live2D 宿主、桌宠窗口、交互与回归入口存在，但 `RELEASE_FEATURES.live2d=false`；生产角色美术、真实 Cubism 导出、授权与人工视觉验收未过门，不能作为当前可售能力 |
+| 音乐/日历等插件 | 未实现 | 旧愿景文档有描述，当前没有可售实现 |
 | Windows 安装包 | 已实现但未签名 | NSIS 安装器和 9GB 级离线包可生成；正式签名被显式关闭 |
 | 更新、回滚、崩溃上报 | 部分实现 | beta/stable updater、签名门、暂停/回滚 fixture 和迁移恢复已实现；真实签名 HTTPS feed 与崩溃上报仍未完成 |
 | 账号、订阅、权益 | 商业边界与本地接口已定义 | Desktop 1.0 冻结为无账号的一次性个人许可证，最多 2 台设备、覆盖 1.x；生产支付/许可证平台、公钥、价格和 UI 尚未接入 |

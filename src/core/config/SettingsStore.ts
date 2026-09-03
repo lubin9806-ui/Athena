@@ -39,6 +39,7 @@ import type {
   VoiceSettings,
   WebSearchMode,
   WebSearchSettings,
+  CloudAccountSettings,
 } from '../../shared/types';
 import { ensureSufficientDiskSpace } from '../runtime/DiskSpaceGuard';
 
@@ -153,7 +154,15 @@ export const DEFAULT_SETTINGS: AppSettings = {
       onlineSpeechToText: false,
       onlineTextToSpeech: false,
       externalToolNetwork: false,
+      cloudSync: false,
     },
+  },
+  cloud: {
+    syncEnabled: false,
+    baseUrl: '',
+    email: '',
+    tenantId: '',
+    deviceName: 'Athena Desktop',
   },
   ui: {
     startupIntro: true,
@@ -396,6 +405,11 @@ function mergeAppSettings(current: AppSettings, patch?: SettingsPatch['settings'
       ...current.ui,
       ...patch.ui,
     },
+    cloud: {
+      ...DEFAULT_SETTINGS.cloud,
+      ...current.cloud,
+      ...patch.cloud,
+    },
   };
 }
 
@@ -443,6 +457,7 @@ function sanitizeAppSettings(value: unknown): AppSettings {
   const data = sanitizeData(source.data);
   const privacy = sanitizePrivacy(source.privacy);
   const ui = sanitizeUi(source.ui);
+  const cloud = sanitizeCloud(source.cloud);
   return {
     version: DEFAULT_SETTINGS.version,
     profile: cleanString(source.profile, 80, DEFAULT_SETTINGS.profile),
@@ -459,6 +474,7 @@ function sanitizeAppSettings(value: unknown): AppSettings {
     data,
     privacy,
     ui,
+    cloud,
   };
 }
 
@@ -652,8 +668,20 @@ function sanitizePrivacy(value: unknown): PrivacySettings {
       onlineSpeechToText: cleanBoolean(consent.onlineSpeechToText, DEFAULT_SETTINGS.privacy.networkConsent.onlineSpeechToText),
       onlineTextToSpeech: cleanBoolean(consent.onlineTextToSpeech, DEFAULT_SETTINGS.privacy.networkConsent.onlineTextToSpeech),
       externalToolNetwork: cleanBoolean(consent.externalToolNetwork, DEFAULT_SETTINGS.privacy.networkConsent.externalToolNetwork),
+      cloudSync: cleanBoolean(consent.cloudSync, DEFAULT_SETTINGS.privacy.networkConsent.cloudSync),
     },
     ...(firstRunPrivacySeenAt ? { firstRunPrivacySeenAt } : {}),
+  };
+}
+
+function sanitizeCloud(value: unknown): CloudAccountSettings {
+  const source = isRecord(value) ? value : {};
+  return {
+    syncEnabled: cleanBoolean(source.syncEnabled, DEFAULT_SETTINGS.cloud.syncEnabled),
+    baseUrl: cleanString(source.baseUrl, 200, DEFAULT_SETTINGS.cloud.baseUrl),
+    email: cleanString(source.email, 254, DEFAULT_SETTINGS.cloud.email),
+    tenantId: cleanString(source.tenantId, 80, DEFAULT_SETTINGS.cloud.tenantId),
+    deviceName: cleanString(source.deviceName, 100, DEFAULT_SETTINGS.cloud.deviceName) || 'Athena Desktop',
   };
 }
 

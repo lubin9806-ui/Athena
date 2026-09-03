@@ -89,7 +89,11 @@ function main() {
   assert.equal(packagedMetadata.version, pkg.version, 'Packaged application version does not match package.json.');
   assert(entries.includes('dist/core/update/DesktopUpdater.js'), 'Packaged application is missing DesktopUpdater.');
   assert(entries.includes('dist/core/update/UpdatePolicy.js'), 'Packaged application is missing UpdatePolicy.');
+  assert(entries.includes('dist/core/ai/CredentialStore.js'), 'Packaged application is missing the encrypted credential store.');
   assert(entries.includes('dist/shared/releaseFeatures.js'), 'Packaged application is missing its release feature policy.');
+  assert(entries.includes('dist/core/skills/SkillLibrary.js'), 'Packaged application is missing the governed Skill library.');
+  assert(entries.includes('dist/core/skills/SkillAgentToolBridge.js'), 'Packaged application is missing the Skill tool bridge.');
+  assert(entries.includes('dist/core/tools/ComputerToolCatalog.js'), 'Packaged application is missing the modular computer-tool catalog.');
   for (const imageModule of [
     'dist/core/artifacts/ComfyUIImageGenerationProvider.js',
     'dist/core/artifacts/ImageGenerationRouter.js',
@@ -100,11 +104,16 @@ function main() {
     assert(entries.includes(imageModule), `Packaged application is missing image-generation module: ${imageModule}`);
   }
   const releaseFeatures = asar.extractFile(asarPath, path.join('dist', 'shared', 'releaseFeatures.js')).toString('utf8');
+  const credentialStore = asar.extractFile(asarPath, path.join('dist', 'core', 'ai', 'CredentialStore.js')).toString('utf8');
   assert.match(releaseFeatures, /live2d:\s*false/, 'Packaged release feature policy must keep Live2D disabled.');
+  assert.match(credentialStore, /safeStorage\.encryptString/, 'Packaged credential store does not encrypt saved API credentials.');
+  assert.match(credentialStore, /safeStorage\.decryptString/, 'Packaged credential store cannot decrypt saved API credentials.');
   assert(!entries.includes('config/settings.json'), 'Packaged application contains developer or user settings.');
   assert(!entries.includes('config/settings.local.json'), 'Packaged application contains a local developer settings overlay.');
   assert(!entries.includes('config/model.local.json'), 'Packaged application contains a local developer model overlay.');
   assert(!entries.includes('config/model.json'), 'Packaged application contains a developer model/API configuration.');
+  assert(!entries.includes('config/skills.json'), 'Packaged application contains the obsolete declarative skill shell.');
+  assert(!entries.some(value => value.startsWith('dist/skills/')), 'Packaged application contains the obsolete SkillManager shell.');
   assert(!entries.some(value => value.startsWith('config/personas/')), 'Packaged application contains user-imported persona cards.');
   assert(!entries.some(value => value.startsWith('config/private/')), 'Packaged application contains private configuration.');
   assert(!entries.some(value => value.startsWith('personality/private/')), 'Packaged application contains a private persona card.');

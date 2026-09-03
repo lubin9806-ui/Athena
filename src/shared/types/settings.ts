@@ -12,6 +12,7 @@ export type MemoryImportContentMode = 'normal' | 'adult';
 import type { WebSearchSettings } from './search';
 import type { ToolModePermissions, ToolSettings } from './tools';
 import type { ImageGenerationSettings } from './images';
+import type { CloudAccountSettings } from './cloud';
 
 export interface PersonalizationSettings {
   userName: string;
@@ -85,6 +86,7 @@ export interface NetworkConsentSettings {
   onlineSpeechToText: boolean;
   onlineTextToSpeech: boolean;
   externalToolNetwork: boolean;
+  cloudSync: boolean;
 }
 
 export interface PrivacySettings {
@@ -118,6 +120,7 @@ export interface AppSettings {
   data: DataSettings;
   privacy: PrivacySettings;
   ui: UiSettings;
+  cloud: CloudAccountSettings;
 }
 
 export interface RemoteModelSettings {
@@ -153,7 +156,7 @@ export interface SettingsBundle {
 }
 
 export interface SettingsPatch {
-  settings?: Omit<Partial<AppSettings>, 'general' | 'appearance' | 'conversation' | 'tools' | 'webSearch' | 'personalization' | 'memory' | 'voice' | 'imageGeneration' | 'data' | 'privacy' | 'ui'> & {
+  settings?: Omit<Partial<AppSettings>, 'general' | 'appearance' | 'conversation' | 'tools' | 'webSearch' | 'personalization' | 'memory' | 'voice' | 'imageGeneration' | 'data' | 'privacy' | 'ui' | 'cloud'> & {
     general?: Partial<GeneralSettings>;
     appearance?: Partial<AppearanceSettings>;
     conversation?: Partial<ConversationSettings>;
@@ -173,6 +176,7 @@ export interface SettingsPatch {
       networkConsent?: Partial<NetworkConsentSettings>;
     };
     ui?: Partial<UiSettings>;
+    cloud?: Partial<CloudAccountSettings>;
   };
   model?: Omit<Partial<ModelSettings>, 'ollama' | 'remote' | 'fallback'> & {
     ollama?: Partial<ModelSettings['ollama']>;

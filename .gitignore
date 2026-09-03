@@ -21,6 +21,8 @@ config/personas/
 config/skills/
 config/skills-state.json
 config/mcp-servers.json
+config/settings.json
+config/model.json
 config/settings.local.json
 config/model.local.json
 personality/private/
@@ -30,16 +32,9 @@ personality/private/
 .env.local
 .env.*.local
 
-# Android Companion
-mobile/android/.gradle/
-mobile/android/build/
-mobile/android/app/build/
-mobile/android/app/.cxx/
-mobile/android/local.properties
-*.apk
-*.aab
-*.ap_
-*.dex
+# Local package-analysis and handoff artifacts
+/grok/
+/handoff/
 
 # IDE
 .vscode/

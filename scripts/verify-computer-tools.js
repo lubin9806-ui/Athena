@@ -8,6 +8,7 @@ const scratch = path.join(root, 'temp', 'computer-tools-verification');
 process.env.ATHENA_CONFIG_DIR = path.join(scratch, 'config');
 
 const { ComputerToolService } = require('../dist/core/tools/ComputerTools.js');
+const { COMPUTER_TOOL_DEFINITIONS } = require('../dist/core/tools/ComputerToolCatalog.js');
 const { LLMClient } = require('../dist/core/ai/Client.js');
 const { buildToolArgumentPreview, buildToolConfirmation, requiresComputerAction, ToolRuntime, shouldPlanComputerTools } = require('../dist/core/tools/ToolRuntime.js');
 const { toolPermissionPrompt } = require('../dist/core/tools/ComputerTools.js');
@@ -83,6 +84,8 @@ async function verifyExecutionCenterUi() {
 async function verifyService() {
   const service = new ComputerToolService();
   serviceForCleanup = service;
+  assert.equal(COMPUTER_TOOL_DEFINITIONS.length, 22);
+  assert.equal(new Set(COMPUTER_TOOL_DEFINITIONS.map(tool => tool.name)).size, COMPUTER_TOOL_DEFINITIONS.length);
   assert(shouldPlanComputerTools('package.json 里面的 name 是什么？'));
   assert(shouldPlanComputerTools('帮我在 8080 端口启动服务'));
   assert(shouldPlanComputerTools('帮我把桌面上的图片整理放在海报文件夹里'));
@@ -306,7 +309,7 @@ async function verifyService() {
     command: 'Write-Output ATHENA_TERMINAL_START_OK',
   }, settings('full'));
   assert.equal(terminalStart.status, 'completed');
-  assert(terminalStart.output.includes('ATHENA_TERMINAL_START_OK'));
+  assert(terminalStart.output.includes('ATHENA_TERMINAL_START_OK'), `PowerShell start command was not observed:\n${terminalStart.output}`);
   const sessionId = terminalStart.output.match(/session_id: (term-[^\s]+)/)?.[1];
   assert(sessionId, 'terminal_start did not return a session_id');
 
@@ -324,7 +327,7 @@ async function verifyService() {
     wait_ms: 1200,
   }, settings('full'));
   assert.equal(terminalState.status, 'completed');
-  assert(/(^|\s)42(\s|$)/.test(terminalState.output));
+  assert(/(^|\s)42(\s|$)/.test(terminalState.output), `persistent PowerShell state was not observed:\n${terminalState.output}`);
 
   await service.execute('terminal_write', {
     session_id: sessionId,

@@ -1154,6 +1154,14 @@ export class AthenaController {
   ): { chatMessageId?: number; messageId?: number } {
     const saved = saveChatMessage(chatWindowId, role, content, emotion, mode);
     const isTemporaryChat = getChatWindow(chatWindowId)?.is_temporary === true;
+    if (!isTemporaryChat && mode !== 'execute') {
+      try {
+        const { queueCloudWindowSync } = require('../cloud/CloudAccountService') as typeof import('../cloud/CloudAccountService');
+        queueCloudWindowSync(chatWindowId);
+      } catch {
+        // Cloud sync is opt-in and must not break local chat.
+      }
+    }
     const globalMessage = !isTemporaryChat && shouldSaveHistory()
       ? saveMessage(role, content, emotion, mode)
       : undefined;

@@ -1,11 +1,13 @@
 import { LLMClient, type ChatMessage } from '../ai/Client';
 import {
   ComputerToolService,
+  type ComputerToolResult,
+} from './ComputerTools';
+import {
   permissionLabel,
   toolPermissionPrompt,
   type ComputerToolDefinition,
-  type ComputerToolResult,
-} from './ComputerTools';
+} from './ComputerToolCatalog';
 import type {
   ConversationMode,
   ToolExecutionRecord,

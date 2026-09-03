@@ -82,7 +82,12 @@ export function applySteamSettingsPolicy(settings: AppSettings): AppSettings {
         onlineSpeechToText: false,
         onlineTextToSpeech: false,
         externalToolNetwork: false,
+        cloudSync: false,
       },
+    },
+    cloud: {
+      ...settings.cloud,
+      syncEnabled: false,
     },
   };
 }

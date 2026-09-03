@@ -1,7 +1,8 @@
 import type { AgentCapabilityAccess, AgentRiskLevel, ToolPermissionLevel, ToolSettings } from '../../shared/types';
 import { ToolRegistry, type AgentToolPolicyDescriptor, type AgentToolRegistration } from '../agent/ToolRegistry';
 import { buildToolConfirmation } from './ToolRuntime';
-import { ComputerToolService, type ComputerToolDefinition } from './ComputerTools';
+import { ComputerToolService } from './ComputerTools';
+import type { ComputerToolDefinition } from './ComputerToolCatalog';
 
 export interface ComputerAgentToolBridgeOptions {
   registry: ToolRegistry;

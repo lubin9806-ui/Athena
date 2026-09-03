@@ -184,6 +184,11 @@ declare global {
       previewMemoryImport: (sourcePath: string) => Promise<MemoryImportPreview>;
       commitMemoryImport: (sourcePath: string, candidateIds: number[]) => Promise<MemoryImportCommitResult>;
       getPrivacyCenter: () => Promise<PrivacyCenterState | null>;
+      getCloudAccount: () => Promise<CloudSessionStatus | null>;
+      registerCloudAccount: (payload: { tenantName: string; email: string; password: string }) => Promise<CloudSessionStatus | null>;
+      loginCloudAccount: (payload: { tenantId: string; email: string; password: string }) => Promise<CloudSessionStatus | null>;
+      logoutCloudAccount: () => Promise<CloudSessionStatus | null>;
+      syncCloudAccount: () => Promise<CloudSessionStatus | null>;
       exportPrivacyData: (format?: 'json' | 'markdown') => Promise<{ path: string; bytes: number } | null>;
       clearLocalData: () => Promise<{ deletedTables: string[]; voiceCacheFilesDeleted: number; skillInvocationsDeleted: number } | null>;
       getDiagnosticHealth: () => Promise<DiagnosticHealthSnapshot | null>;
@@ -867,6 +872,26 @@ interface NetworkConsentSettings {
   onlineSpeechToText: boolean;
   onlineTextToSpeech: boolean;
   externalToolNetwork: boolean;
+  cloudSync: boolean;
+}
+
+interface CloudAccountSettings {
+  syncEnabled: boolean;
+  baseUrl: string;
+  email: string;
+  tenantId: string;
+  deviceName: string;
+}
+
+interface CloudSessionStatus {
+  signedIn: boolean;
+  syncEnabled: boolean;
+  baseUrl: string;
+  email: string;
+  tenantId: string | null;
+  deviceId: string | null;
+  lastSyncAt: string | null;
+  lastError: string | null;
 }
 
 interface PrivacySettings {
@@ -890,6 +915,7 @@ interface AppSettings {
   data: DataSettings;
   privacy: PrivacySettings;
   ui: UiSettings;
+  cloud: CloudAccountSettings;
 }
 
 interface PersonaSummarySettings {
@@ -977,7 +1003,7 @@ const REMOTE_PROVIDER_BASE_URLS: Partial<Record<RemoteModelProvider, string>> = 
 };
 
 interface SettingsPatch {
-  settings?: Omit<Partial<AppSettings>, 'general' | 'appearance' | 'conversation' | 'tools' | 'webSearch' | 'personalization' | 'memory' | 'voice' | 'imageGeneration' | 'data' | 'privacy' | 'ui'> & {
+  settings?: Omit<Partial<AppSettings>, 'general' | 'appearance' | 'conversation' | 'tools' | 'webSearch' | 'personalization' | 'memory' | 'voice' | 'imageGeneration' | 'data' | 'privacy' | 'ui' | 'cloud'> & {
     general?: Partial<GeneralSettings>;
     appearance?: Partial<AppearanceSettings>;
     conversation?: Partial<ConversationSettings>;
@@ -997,6 +1023,7 @@ interface SettingsPatch {
       networkConsent?: Partial<NetworkConsentSettings>;
     };
     ui?: Partial<UiSettings>;
+    cloud?: Partial<CloudAccountSettings>;
   };
   model?: Omit<Partial<ModelSettings>, 'ollama' | 'remote' | 'fallback'> & {
     ollama?: Partial<ModelSettings['ollama']>;
@@ -1295,6 +1322,17 @@ const settingRemoteModel = mustGet<HTMLInputElement>('setting-remote-model');
 const remoteModelOptions = mustGet<HTMLDataListElement>('remote-model-options');
 const settingModelApiKey = mustGet<HTMLInputElement>('setting-model-api-key');
 const settingConsentRemoteModel = mustGet<HTMLInputElement>('setting-consent-remote-model');
+const settingCloudSyncEnabled = mustGet<HTMLInputElement>('setting-cloud-sync-enabled');
+const settingConsentCloudSync = mustGet<HTMLInputElement>('setting-consent-cloud-sync');
+const settingCloudBaseUrl = mustGet<HTMLInputElement>('setting-cloud-base-url');
+const settingCloudEmail = mustGet<HTMLInputElement>('setting-cloud-email');
+const settingCloudTenantId = mustGet<HTMLInputElement>('setting-cloud-tenant-id');
+const settingCloudPassword = mustGet<HTMLInputElement>('setting-cloud-password');
+const cloudRegister = mustGet<HTMLButtonElement>('cloud-register');
+const cloudLogin = mustGet<HTMLButtonElement>('cloud-login');
+const cloudSyncNow = mustGet<HTMLButtonElement>('cloud-sync-now');
+const cloudLogout = mustGet<HTMLButtonElement>('cloud-logout');
+const cloudAccountStatus = mustGet<HTMLElement>('cloud-account-status');
 const modelSaveApiKey = mustGet<HTMLButtonElement>('model-save-api-key');
 const modelLoadOptions = mustGet<HTMLButtonElement>('model-load-options');
 const modelClearApiKey = mustGet<HTMLButtonElement>('model-clear-api-key');
@@ -2044,6 +2082,10 @@ function init(): void {
   privacyClear.addEventListener('click', () => {
     void clearLocalData();
   });
+  cloudRegister.addEventListener('click', () => void registerCloudAccount());
+  cloudLogin.addEventListener('click', () => void loginCloudAccount());
+  cloudSyncNow.addEventListener('click', () => void syncCloudAccountNow());
+  cloudLogout.addEventListener('click', () => void logoutCloudAccount());
   diagnosticsExport.addEventListener('click', () => void exportDiagnosticSupport());
   diagnosticsClear.addEventListener('click', () => void clearDiagnostics());
   inputBox.addEventListener('keydown', handleInputKeydown);
@@ -4583,6 +4625,12 @@ async function loadAvailableModels(): Promise<void> {
     modelConnectionStatus.textContent = '请先选择 API 平台。';
     return;
   }
+  if (provider !== 'ollama' && !settingConsentRemoteModel.checked) {
+    modelConnectionStatus.textContent = '请先打开上方同意开关，允许将请求发送给所选远程模型服务。';
+    modelConnectionStatus.dataset.kind = 'error';
+    return;
+  }
+  modelConnectionStatus.dataset.kind = '';
   modelConnectionStatus.textContent = provider === 'ollama' ? '正在读取本机模型...' : '正在读取可用模型...';
   try {
     await saveModelConfiguration(false);
@@ -4994,10 +5042,18 @@ async function testModelConnection(): Promise<void> {
   setModelDiagnostic(modelDiagnosticModel, 'idle', '等待服务');
   setModelDiagnostic(modelDiagnosticChat, 'idle', '等待模型');
   try {
+    const provider = selectedModelProvider();
+    if (!provider) throw new Error('请先选择 API 平台。');
+    if (provider !== 'ollama' && !settingConsentRemoteModel.checked) {
+      throw new Error('请先打开上方同意开关，允许将请求发送给所选远程模型服务。');
+    }
     await saveTypedModelCredentialBeforeTest();
     await saveModelConfiguration(true);
     const status = await window.athenaAPI.testModelConnection();
     if (!status) throw new Error('主进程没有返回诊断结果');
+    if (status.provider !== provider) {
+      throw new Error(`已保存 ${modelProviderLabel(provider)}，但连接测试实际走了 ${modelProviderLabel(status.provider)}。请重新保存后测试。`);
+    }
     lastModelConnectionStatus = status;
     renderModelDiagnostics(status);
     modelConnected = status.connected;
@@ -5181,6 +5237,12 @@ function populateSettingsForm(bundle: SettingsBundle): void {
   settingConsentImageGeneration.checked = privacy.networkConsent.imageGeneration;
   settingConsentRemoteModel.checked = privacy.networkConsent.remoteModel;
   settingConsentExternalToolNetwork.checked = privacy.networkConsent.externalToolNetwork;
+  settingConsentCloudSync.checked = privacy.networkConsent.cloudSync;
+  settingCloudSyncEnabled.checked = bundle.settings.cloud.syncEnabled;
+  settingCloudBaseUrl.value = bundle.settings.cloud.baseUrl;
+  settingCloudEmail.value = bundle.settings.cloud.email;
+  settingCloudTenantId.value = bundle.settings.cloud.tenantId;
+  void refreshCloudAccountStatus();
   applySkuRuntimeProfile(bundle.sku);
   selectControls.sync();
   void refreshVoiceCapabilities();
@@ -5462,7 +5524,15 @@ async function saveSettingsForm(): Promise<void> {
             onlineSpeechToText: currentSettingsBundle?.settings.privacy.networkConsent.onlineSpeechToText ?? false,
             onlineTextToSpeech: currentSettingsBundle?.settings.privacy.networkConsent.onlineTextToSpeech ?? false,
             externalToolNetwork: settingConsentExternalToolNetwork.checked,
+            cloudSync: settingConsentCloudSync.checked,
           },
+        },
+        cloud: {
+          syncEnabled: settingCloudSyncEnabled.checked,
+          baseUrl: settingCloudBaseUrl.value.trim(),
+          email: settingCloudEmail.value.trim(),
+          tenantId: settingCloudTenantId.value.trim(),
+          deviceName: currentSettingsBundle?.settings.cloud.deviceName || 'Athena Desktop',
         },
       },
       model: modelPatchFromForm(true),
@@ -5547,6 +5617,94 @@ function setSettingsFeedback(message: string, kind: 'info' | 'success' | 'error'
 function setExecutionSettingsFeedback(message: string, kind: 'info' | 'success' | 'error' = 'info'): void {
   executionSettingsFeedback.textContent = message;
   executionSettingsFeedback.dataset.kind = kind;
+}
+
+function renderCloudAccountStatus(status: CloudSessionStatus | null): void {
+  if (!status) {
+    cloudAccountStatus.textContent = '无法读取账号状态。';
+    return;
+  }
+  const signed = status.signedIn ? '已登录' : '未登录';
+  const sync = status.syncEnabled ? '同步开' : '同步关';
+  const error = status.lastError ? ` · ${status.lastError}` : '';
+  cloudAccountStatus.textContent = `${signed} · ${sync} · ${status.email || '无邮箱'} · tenant ${status.tenantId || '无'}${error}`;
+}
+
+async function refreshCloudAccountStatus(): Promise<void> {
+  try {
+    renderCloudAccountStatus(await window.athenaAPI.getCloudAccount());
+  } catch (error) {
+    cloudAccountStatus.textContent = `账号状态失败：${error instanceof Error ? error.message : String(error)}`;
+  }
+}
+
+async function persistCloudSettings(): Promise<void> {
+  await window.athenaAPI.saveSettings({
+    settings: {
+      cloud: {
+        syncEnabled: settingCloudSyncEnabled.checked,
+        baseUrl: settingCloudBaseUrl.value.trim(),
+        email: settingCloudEmail.value.trim(),
+        tenantId: settingCloudTenantId.value.trim(),
+        deviceName: currentSettingsBundle?.settings.cloud.deviceName || 'Athena Desktop',
+      },
+      privacy: {
+        networkConsent: { cloudSync: settingConsentCloudSync.checked },
+      },
+    },
+  });
+}
+
+async function registerCloudAccount(): Promise<void> {
+  try {
+    await persistCloudSettings();
+    const status = await window.athenaAPI.registerCloudAccount({
+      tenantName: 'Athena',
+      email: settingCloudEmail.value.trim(),
+      password: settingCloudPassword.value,
+    });
+    settingCloudPassword.value = '';
+    if (status?.tenantId) settingCloudTenantId.value = status.tenantId;
+    renderCloudAccountStatus(status);
+    setSettingsFeedback('Athena 账号已注册。', 'success');
+  } catch (error) {
+    setSettingsFeedback(`注册失败：${error instanceof Error ? error.message : String(error)}`, 'error');
+  }
+}
+
+async function loginCloudAccount(): Promise<void> {
+  try {
+    await persistCloudSettings();
+    const status = await window.athenaAPI.loginCloudAccount({
+      tenantId: settingCloudTenantId.value.trim(),
+      email: settingCloudEmail.value.trim(),
+      password: settingCloudPassword.value,
+    });
+    settingCloudPassword.value = '';
+    renderCloudAccountStatus(status);
+    setSettingsFeedback('已登录 Athena 账号。', 'success');
+  } catch (error) {
+    setSettingsFeedback(`登录失败：${error instanceof Error ? error.message : String(error)}`, 'error');
+  }
+}
+
+async function syncCloudAccountNow(): Promise<void> {
+  try {
+    await persistCloudSettings();
+    renderCloudAccountStatus(await window.athenaAPI.syncCloudAccount());
+    setSettingsFeedback('已与 Athena Cloud 同步。', 'success');
+  } catch (error) {
+    setSettingsFeedback(`同步失败：${error instanceof Error ? error.message : String(error)}`, 'error');
+  }
+}
+
+async function logoutCloudAccount(): Promise<void> {
+  try {
+    renderCloudAccountStatus(await window.athenaAPI.logoutCloudAccount());
+    setSettingsFeedback('已退出 Athena 账号。', 'success');
+  } catch (error) {
+    setSettingsFeedback(`退出失败：${error instanceof Error ? error.message : String(error)}`, 'error');
+  }
 }
 
 async function loadPrivacyCenter(): Promise<void> {

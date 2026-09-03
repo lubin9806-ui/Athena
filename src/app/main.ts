@@ -39,6 +39,16 @@ const isSmokeTest = process.argv.includes('--smoke-test') || process.env.ATHENA_
 const steamPlatform = initializeSteamPlatform();
 const isSteamBuild = steamPlatform.state.sku === 'steam';
 const isMicrosoftStoreBuild = isMicrosoftStoreSku();
+const appIconPath = path.join(
+  __dirname,
+  '../../resources',
+  process.platform === 'win32' ? 'su-shixia.ico' : 'su-shixia-icon.png',
+);
+
+if (process.platform === 'win32' && !isMicrosoftStoreBuild) {
+  app.setAppUserModelId(isSteamBuild ? 'com.athena.steam' : 'com.athena.desktop');
+}
+
 const isVoiceSmokeTest = isSmokeTest && process.env.ATHENA_SMOKE_VOICE === '1';
 const isModelSmokeTest = isSmokeTest && process.env.ATHENA_SMOKE_MODEL === '1';
 const isLive2dPetSmokeTest = RELEASE_FEATURES.live2d && isSmokeTest && process.env.ATHENA_SMOKE_LIVE2D_PET === '1';
@@ -282,7 +292,7 @@ function createWindow(): void {
     minHeight: 560,
     frame: false,
     resizable: true,
-    icon: path.join(__dirname, '../../resources/su-shixia-icon.png'),
+    icon: appIconPath,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
