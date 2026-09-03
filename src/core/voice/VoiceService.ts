@@ -23,6 +23,7 @@ export type VoiceFailureCode =
   | 'no_speech'
   | 'timeout'
   | 'offline'
+  | 'cancelled'
   | 'service_unavailable'
   | 'unknown';
 
@@ -46,8 +47,38 @@ interface ProcessResult { code: number | null; stdout: string; stderr: string }
 const PROJECT_ROOT = resolveProjectRoot();
 const SCRIPT_ROOT = resolveVoiceScriptRoot();
 const TEMP_DIR = getVoiceTempDir();
+const MAX_SYNTHESIZE_CHARS = 4_000;
+const MAX_RECORDING_BYTES = 32 * 1024 * 1024;
+const TRANSCRIBE_EXTENSIONS = new Set(['.wav', '.aiff', '.aif', '.flac']);
 
 export class VoiceService {
+  private readonly activeOperations = new Set<AbortController>();
+
+  cancelAll(): number {
+    let cancelled = 0;
+    for (const controller of this.activeOperations) {
+      controller.abort();
+      cancelled += 1;
+    }
+    return cancelled;
+  }
+
+  private beginOperation(signal?: AbortSignal): { signal: AbortSignal; end: () => void } {
+    const controller = new AbortController();
+    this.activeOperations.add(controller);
+    const onExternalAbort = () => controller.abort();
+    if (signal) {
+      if (signal.aborted) controller.abort();
+      else signal.addEventListener('abort', onExternalAbort, { once: true });
+    }
+    return {
+      signal: controller.signal,
+      end: () => {
+        signal?.removeEventListener('abort', onExternalAbort);
+        this.activeOperations.delete(controller);
+      },
+    };
+  }
   async getCapabilities(): Promise<VoiceCapabilities> {
     const python = resolvePythonRuntime();
     const modelPath = resolveWhisperModelPath();
@@ -93,62 +124,88 @@ export class VoiceService {
     };
   }
 
-  async synthesize(text: string): Promise<VoiceResult> {
+  async synthesize(text: string, signal?: AbortSignal): Promise<VoiceResult> {
     const content = text.trim();
     if (!content) return failure('input_error', '没有可朗读的文本。');
+    if (content.length > MAX_SYNTHESIZE_CHARS) return failure('input_error', `朗读文本超过 ${MAX_SYNTHESIZE_CHARS} 个字符上限，请缩短后重试。`);
     if (process.platform !== 'win32') return failure('service_unavailable', '当前版本的本地朗读仅支持 Windows。');
 
-    fs.mkdirSync(TEMP_DIR, { recursive: true });
-    try { ensureSufficientDiskSpace(TEMP_DIR, 32 * 1024 * 1024); }
-    catch (error) { return failure('unknown', error instanceof InsufficientDiskSpaceError ? error.message : '无法检查语音缓存空间。'); }
-    const id = randomUUID();
-    const textPath = path.join(TEMP_DIR, `${id}.txt`);
-    const audioPath = path.join(TEMP_DIR, `${id}.wav`);
-    fs.writeFileSync(textPath, content, 'utf8');
+    const operation = this.beginOperation(signal);
+    try {
+      fs.mkdirSync(TEMP_DIR, { recursive: true });
+      try { ensureSufficientDiskSpace(TEMP_DIR, 32 * 1024 * 1024); }
+      catch (error) { return failure('unknown', error instanceof InsufficientDiskSpaceError ? error.message : '无法检查语音缓存空间。'); }
+      const id = randomUUID();
+      const textPath = path.join(TEMP_DIR, `${id}.txt`);
+      const audioPath = path.join(TEMP_DIR, `${id}.wav`);
+      fs.writeFileSync(textPath, content, 'utf8');
 
-    const voiceName = process.env.ATHENA_TTS_VOICE ?? getAppSettings().voice.ttsVoice;
-    const ttsArgs = [
-      '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File',
-      path.join(SCRIPT_ROOT, 'tts-local.ps1'), '-TextFile', textPath,
-    ];
-    if (voiceName.trim()) ttsArgs.push('-VoiceName', voiceName.trim());
-    ttsArgs.push('-OutputFile', audioPath);
-    const result = await runProcess('powershell.exe', ttsArgs, 45_000);
-    safeUnlink(textPath);
-    if (result.code !== 0 || !fs.existsSync(audioPath)) {
-      safeUnlink(audioPath);
-      return mapVoiceFailure(result, '本地朗读失败。请确认 Windows 已安装可用语音。');
+      const voiceName = process.env.ATHENA_TTS_VOICE ?? getAppSettings().voice.ttsVoice;
+      const ttsArgs = [
+        '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File',
+        path.join(SCRIPT_ROOT, 'tts-local.ps1'), '-TextFile', textPath,
+      ];
+      if (voiceName.trim()) ttsArgs.push('-VoiceName', voiceName.trim());
+      ttsArgs.push('-OutputFile', audioPath);
+      const result = await runProcess('powershell.exe', ttsArgs, 45_000, operation.signal);
+      safeUnlink(textPath);
+      if (result.code !== 0 || !fs.existsSync(audioPath)) {
+        safeUnlink(audioPath);
+        return mapVoiceFailure(result, '本地朗读失败。请确认 Windows 已安装可用语音。');
+      }
+      cleanupVoiceCache(getAppSettings().data.voiceCacheRetentionHours);
+      return { ok: true, audioPath };
+    } finally {
+      operation.end();
     }
-    cleanupVoiceCache(getAppSettings().data.voiceCacheRetentionHours);
-    return { ok: true, audioPath };
   }
 
-  async transcribe(audioPath: string): Promise<VoiceResult> {
+  async transcribe(audioPath: string, signal?: AbortSignal): Promise<VoiceResult> {
     const sourcePath = audioPath.trim();
-    if (!sourcePath || !fs.existsSync(sourcePath)) return failure('input_error', '音频文件不存在。');
+    if (!sourcePath) return failure('input_error', '音频路径不能为空。');
+    if (!path.isAbsolute(sourcePath)) return failure('input_error', '音频路径必须是绝对路径。');
+    const extension = path.extname(sourcePath).toLowerCase();
+    if (!TRANSCRIBE_EXTENSIONS.has(extension)) {
+      return failure('input_error', '仅支持 WAV/AIFF/FLAC 音频文件。');
+    }
+    let stat: fs.Stats;
+    try {
+      stat = fs.statSync(sourcePath);
+    } catch {
+      return failure('input_error', '音频文件不存在。');
+    }
+    if (!stat.isFile()) return failure('input_error', '音频路径不是普通文件。');
+
     const capabilities = await this.getCapabilities();
     if (!capabilities.stt.ready) {
       return failure(capabilities.stt.reason?.includes('模型') ? 'model_missing' : 'runtime_missing', capabilities.stt.reason || '本地语音识别不可用。');
     }
-    const result = await runProcess(
-      capabilities.stt.runtimePath,
-      [path.join(SCRIPT_ROOT, 'stt_whisper.py'), sourcePath, capabilities.stt.modelPath],
-      90_000,
-    );
-    const text = result.stdout.trim();
-    if (result.code === 0 && text) return { ok: true, text };
-    return mapVoiceFailure(result, '本地语音识别失败。');
+    const operation = this.beginOperation(signal);
+    try {
+      const result = await runProcess(
+        capabilities.stt.runtimePath,
+        [path.join(SCRIPT_ROOT, 'stt_whisper.py'), sourcePath, capabilities.stt.modelPath],
+        90_000,
+        operation.signal,
+      );
+      const text = result.stdout.trim();
+      if (result.code === 0 && text) return { ok: true, text };
+      return mapVoiceFailure(result, '本地语音识别失败。');
+    } finally {
+      operation.end();
+    }
   }
 
-  async transcribeRecording(audioBytes: Uint8Array): Promise<VoiceResult> {
+  async transcribeRecording(audioBytes: Uint8Array, signal?: AbortSignal): Promise<VoiceResult> {
     if (audioBytes.byteLength === 0) return failure('input_error', 'Recording is empty.');
+    if (audioBytes.byteLength > MAX_RECORDING_BYTES) return failure('input_error', `录音超过 ${MAX_RECORDING_BYTES / 1024 / 1024} MB 上限，请缩短录音后重试。`);
     fs.mkdirSync(TEMP_DIR, { recursive: true });
     try { ensureSufficientDiskSpace(TEMP_DIR, Math.max(32 * 1024 * 1024, audioBytes.byteLength * 3)); }
     catch (error) { return failure('unknown', error instanceof InsufficientDiskSpaceError ? error.message : '无法检查录音缓存空间。'); }
     const audioPath = path.join(TEMP_DIR, `${randomUUID()}.wav`);
     try {
       fs.writeFileSync(audioPath, Buffer.from(audioBytes.buffer, audioBytes.byteOffset, audioBytes.byteLength));
-      return await this.transcribe(audioPath);
+      return await this.transcribe(audioPath, signal);
     } catch (error) {
       return failure('unknown', compactError(error instanceof Error ? error.message : String(error)));
     } finally {
@@ -156,17 +213,31 @@ export class VoiceService {
     }
   }
 
-  async play(audioPath: string): Promise<VoiceResult> {
+  async play(audioPath: string, signal?: AbortSignal): Promise<VoiceResult> {
     const sourcePath = audioPath.trim();
-    if (!sourcePath || !fs.existsSync(sourcePath)) return failure('input_error', '音频文件不存在。');
+    if (!sourcePath) return failure('input_error', '音频路径不能为空。');
+    if (!path.isAbsolute(sourcePath)) return failure('input_error', '音频路径必须是绝对路径。');
     if (path.extname(sourcePath).toLowerCase() !== '.wav') {
       return failure('input_error', 'Desktop 1.0 本地播放仅接受 WAV 文件。');
     }
-    const result = await runProcess('powershell.exe', [
-      '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File',
-      path.join(SCRIPT_ROOT, 'play_audio_local.ps1'), sourcePath,
-    ], 120_000);
-    return result.code === 0 ? { ok: true, text: result.stdout.trim() } : mapVoiceFailure(result, '系统音频播放失败。');
+    let stat: fs.Stats;
+    try {
+      stat = fs.statSync(sourcePath);
+    } catch {
+      return failure('input_error', '音频文件不存在。');
+    }
+    if (!stat.isFile()) return failure('input_error', '音频路径不是普通文件。');
+
+    const operation = this.beginOperation(signal);
+    try {
+      const result = await runProcess('powershell.exe', [
+        '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File',
+        path.join(SCRIPT_ROOT, 'play_audio_local.ps1'), sourcePath,
+      ], 120_000, operation.signal);
+      return result.code === 0 ? { ok: true, text: result.stdout.trim() } : mapVoiceFailure(result, '系统音频播放失败。');
+    } finally {
+      operation.end();
+    }
   }
 }
 
@@ -215,7 +286,7 @@ async function inspectWindowsVoices(): Promise<Array<{ name: string; culture: st
   }
 }
 
-function runProcess(command: string, args: string[], timeoutMs: number): Promise<ProcessResult> {
+function runProcess(command: string, args: string[], timeoutMs: number, signal?: AbortSignal): Promise<ProcessResult> {
   return new Promise((resolve) => {
     const child = spawn(command, args, {
       cwd: SCRIPT_ROOT,
@@ -232,31 +303,44 @@ function runProcess(command: string, args: string[], timeoutMs: number): Promise
     let stdout = '';
     let stderr = '';
     let settled = false;
-    const timer = setTimeout(() => {
+    const settle = (result: ProcessResult) => {
       if (settled) return;
       settled = true;
-      child.kill();
-      resolve({ code: -1, stdout, stderr: stderr || '[TIMEOUT] Voice command timed out.' });
+      clearTimeout(timer);
+      signal?.removeEventListener('abort', onAbort);
+      resolve(result);
+    };
+    const onAbort = () => {
+      try { child.kill(); } catch { /* Child may already be gone. */ }
+      settle({ code: -1, stdout, stderr: stderr || '[CANCELLED] 语音操作已取消。' });
+    };
+    const timer = setTimeout(() => {
+      if (settled) return;
+      try { child.kill(); } catch { /* Child may already be gone. */ }
+      settle({ code: -1, stdout, stderr: stderr || '[TIMEOUT] Voice command timed out.' });
     }, timeoutMs);
+    if (signal) {
+      if (signal.aborted) {
+        onAbort();
+        return;
+      }
+      signal.addEventListener('abort', onAbort, { once: true });
+    }
     child.stdout.on('data', chunk => { stdout += chunk.toString(); });
     child.stderr.on('data', chunk => { stderr += chunk.toString(); });
     child.on('error', error => {
       if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      resolve({ code: -1, stdout, stderr: `[RUNTIME_MISSING] ${error.message}` });
+      settle({ code: -1, stdout, stderr: `[RUNTIME_MISSING] ${error.message}` });
     });
     child.on('close', code => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      resolve({ code, stdout, stderr });
+      settle({ code, stdout, stderr });
     });
   });
 }
 
 function mapVoiceFailure(result: ProcessResult, fallback: string): VoiceResult {
   const detail = compactError(result.stderr || result.stdout || fallback);
+  if (/CANCELLED/i.test(detail)) return failure('cancelled', '语音操作已取消。');
   if (/RUNTIME_MISSING|not recognized|ENOENT/i.test(detail)) return failure('runtime_missing', '本地语音运行时缺失，请修复或重新安装语音组件。');
   if (/DEPENDENCY_ERROR|No module named/i.test(detail)) return failure('dependency_missing', '本地语音依赖不完整，请修复语音组件。');
   if (/MODEL_MISSING|model.*missing/i.test(detail)) return failure('model_missing', '本地 Whisper 模型缺失；为避免隐式联网，Athena 不会自动下载。');

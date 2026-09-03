@@ -201,6 +201,7 @@ declare global {
       transcribeRecording: (audioBytes: Uint8Array) => Promise<VoiceResult>;
       requestMicrophoneAccess: () => Promise<boolean>;
       getVoiceCapabilities: () => Promise<VoiceCapabilities | null>;
+      cancelVoice: () => Promise<number>;
       setDesktopPetWindowVisible: (visible: boolean) => Promise<boolean>;
       sendDesktopPetEvent: (event: DesktopPetEvent) => void;
       onDesktopPetInteraction: (callback: (interaction: { prompt: string; hotZoneId: string }) => void) => () => void;
@@ -3278,7 +3279,7 @@ function createExecutionRecordCard(execution: ChatToolExecution): HTMLElement {
 
   const title = document.createElement('summary');
   title.className = 'message-tool-title';
-  const status = execution.status === 'completed' ? '完成' : execution.status === 'denied' ? '已拒绝' : '失败';
+  const status = execution.status === 'completed' ? '完成' : execution.status === 'denied' ? '已拒绝' : execution.status === 'cancelled' ? '已取消' : '失败';
   const duration = execution.durationMs >= 1000 ? `${(execution.durationMs / 1000).toFixed(1)}s` : `${execution.durationMs}ms`;
   title.textContent = `${execution.label} · ${status} · ${duration}`;
 
@@ -6693,6 +6694,9 @@ function stopCurrentAudio(): void {
     currentAudio = null;
   }
   void live2dCompanion.stopAudioTracking();
+  // Also cancel main-process voice work (synthesis or PowerShell playback) that
+  // may still be in flight so a stop is immediate instead of waiting for timeouts.
+  void window.athenaAPI.cancelVoice();
 }
 
 function toFileUrl(filePath: string): string {

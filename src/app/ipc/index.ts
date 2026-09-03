@@ -191,6 +191,7 @@ const INVOKE_CHANNELS = [
   'voice:transcribeFile',
   'voice:transcribeRecording',
   'voice:capabilities',
+  'voice:cancel',
 ] as const;
 
 const EVENT_CHANNELS = ['window:minimize', 'window:close'] as const;
@@ -1151,6 +1152,11 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<vo
   ipcMain.handle('voice:capabilities', async (event) => {
     if (!isTrustedSender(event)) return null;
     return voice.getCapabilities();
+  });
+
+  ipcMain.handle('voice:cancel', (event) => {
+    if (!isTrustedSender(event)) return 0;
+    return voice.cancelAll();
   });
 
   ipcMain.on('window:minimize', (event) => {

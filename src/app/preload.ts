@@ -140,6 +140,7 @@ contextBridge.exposeInMainWorld('athenaAPI', {
   transcribeRecording: (audioBytes: Uint8Array) => ipcRenderer.invoke('voice:transcribeRecording', audioBytes),
   requestMicrophoneAccess: () => ipcRenderer.invoke('voice:requestMicrophoneAccess'),
   getVoiceCapabilities: () => ipcRenderer.invoke('voice:capabilities'),
+  cancelVoice: () => ipcRenderer.invoke('voice:cancel'),
   setDesktopPetWindowVisible: (visible: boolean) => ipcRenderer.invoke('avatar:desktop:setVisible', visible),
   sendDesktopPetEvent: (event: unknown) => ipcRenderer.send('avatar:desktop:event', event),
   onDesktopPetInteraction: (callback: (interaction: { prompt: string; hotZoneId: string }) => void) => {
