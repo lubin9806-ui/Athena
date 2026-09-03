@@ -132,103 +132,127 @@ export function normalizeMemorySearchTerms(keywords: MemorySearchTerms, maxTerms
 
 export function rebuildMemoryIndex(): MemoryIndexStats {
   const db = getDatabase();
-  db.prepare('DELETE FROM memory_index').run();
+  return db.transaction(() => {
+    db.prepare('DELETE FROM memory_index').run();
 
-  const stats: MemoryIndexStats = {
-    messages: 0,
-    profile: 0,
-    events: 0,
-    daily_memory_summaries: 0,
-    procedural_memories: 0,
-    memory_facts: 0,
-    project_notes: 0,
-    project_document_chunks: 0,
-  };
+    const stats: MemoryIndexStats = {
+      messages: 0,
+      profile: 0,
+      events: 0,
+      daily_memory_summaries: 0,
+      procedural_memories: 0,
+      memory_facts: 0,
+      project_notes: 0,
+      project_document_chunks: 0,
+    };
 
-  const messages = db.prepare('SELECT id, role, content, emotion FROM messages').all() as any[];
-  for (const row of messages) {
-    upsertMemoryIndex('messages', row.id, `${row.role} ${row.content} ${row.emotion || ''}`);
-    stats.messages += 1;
-  }
+    const messages = db.prepare('SELECT id, role, content, emotion FROM messages').all() as any[];
+    for (const row of messages) {
+      upsertMemoryIndex('messages', row.id, `${row.role} ${row.content} ${row.emotion || ''}`);
+      stats.messages += 1;
+    }
 
-  const profile = db.prepare('SELECT id, category, fact, source FROM profile').all() as any[];
-  for (const row of profile) {
-    upsertMemoryIndex('profile', row.id, `${row.category} ${row.fact} ${row.source || ''}`);
-    stats.profile += 1;
-  }
+    const profile = db.prepare('SELECT id, category, fact, source FROM profile').all() as any[];
+    for (const row of profile) {
+      upsertMemoryIndex('profile', row.id, `${row.category} ${row.fact} ${row.source || ''}`);
+      stats.profile += 1;
+    }
 
-  const events = db.prepare('SELECT id, summary, detail, tags, emotion FROM events').all() as any[];
-  for (const row of events) {
-    upsertMemoryIndex('events', row.id, `${row.summary} ${row.detail || ''} ${row.tags || ''} ${row.emotion || ''}`);
-    stats.events += 1;
-  }
+    const events = db.prepare('SELECT id, summary, detail, tags, emotion FROM events').all() as any[];
+    for (const row of events) {
+      upsertMemoryIndex('events', row.id, `${row.summary} ${row.detail || ''} ${row.tags || ''} ${row.emotion || ''}`);
+      stats.events += 1;
+    }
 
-  const dailySummaries = db.prepare('SELECT id, date, summary, highlights, decay_stage FROM daily_memory_summaries').all() as any[];
-  for (const row of dailySummaries) {
-    upsertMemoryIndex('daily_memory_summaries', row.id, `${row.date} ${row.summary} ${row.highlights || ''} ${row.decay_stage || ''}`);
-    stats.daily_memory_summaries += 1;
-  }
+    const dailySummaries = db.prepare('SELECT id, date, summary, highlights, decay_stage FROM daily_memory_summaries').all() as any[];
+    for (const row of dailySummaries) {
+      upsertMemoryIndex('daily_memory_summaries', row.id, `${row.date} ${row.summary} ${row.highlights || ''} ${row.decay_stage || ''}`);
+      stats.daily_memory_summaries += 1;
+    }
 
-  const procedural = db.prepare('SELECT id, scope, project_id, key, instruction, evidence FROM procedural_memories WHERE status = \'active\'').all() as any[];
-  for (const row of procedural) {
-    upsertMemoryIndex('procedural_memories', row.id, `${row.scope} ${row.project_id || ''} ${row.key} ${row.instruction} ${row.evidence || ''}`, row.scope === 'project' ? row.project_id : 0);
-    stats.procedural_memories += 1;
-  }
+    const procedural = db.prepare('SELECT id, scope, project_id, key, instruction, evidence FROM procedural_memories WHERE status = \'active\'').all() as any[];
+    for (const row of procedural) {
+      upsertMemoryIndex('procedural_memories', row.id, `${row.scope} ${row.project_id || ''} ${row.key} ${row.instruction} ${row.evidence || ''}`, row.scope === 'project' ? row.project_id : 0);
+      stats.procedural_memories += 1;
+    }
 
-  const facts = db.prepare('SELECT id, subject, predicate, object, summary FROM memory_facts WHERE status = \'active\' AND valid_to IS NULL').all() as any[];
-  for (const row of facts) {
-    upsertMemoryIndex('memory_facts', row.id, `${row.subject} ${row.predicate} ${row.object} ${row.summary}`);
-    stats.memory_facts += 1;
-  }
+    const facts = db.prepare('SELECT id, subject, predicate, object, summary FROM memory_facts WHERE status = \'active\' AND valid_to IS NULL').all() as any[];
+    for (const row of facts) {
+      upsertMemoryIndex('memory_facts', row.id, `${row.subject} ${row.predicate} ${row.object} ${row.summary}`);
+      stats.memory_facts += 1;
+    }
 
-  const projectNotes = db.prepare('SELECT id, project_id, project, title, note, status, tags FROM project_notes').all() as any[];
-  for (const row of projectNotes) {
-    upsertMemoryIndex('project_notes', row.id, `${row.project_id || ''} ${row.project} ${row.title} ${row.note} ${row.status} ${row.tags || ''}`, row.project_id);
-    stats.project_notes += 1;
-  }
+    const projectNotes = db.prepare('SELECT id, project_id, project, title, note, status, tags FROM project_notes').all() as any[];
+    for (const row of projectNotes) {
+      upsertMemoryIndex('project_notes', row.id, `${row.project_id || ''} ${row.project} ${row.title} ${row.note} ${row.status} ${row.tags || ''}`, row.project_id);
+      stats.project_notes += 1;
+    }
 
-  const documentChunks = db.prepare(`
-    SELECT c.id, c.project_id, c.locator, c.text, d.name
-    FROM project_document_chunks c
-    JOIN project_documents d ON d.id = c.document_id AND d.project_id = c.project_id
-    WHERE d.status = 'ready'
-  `).all() as any[];
-  for (const row of documentChunks) {
-    upsertMemoryIndex('project_document_chunks', row.id, `${row.name} ${row.locator} ${row.text}`, row.project_id);
-    stats.project_document_chunks += 1;
-  }
+    const documentChunks = db.prepare(`
+      SELECT c.id, c.project_id, c.locator, c.text, d.name
+      FROM project_document_chunks c
+      JOIN project_documents d ON d.id = c.document_id AND d.project_id = c.project_id
+      WHERE d.status = 'ready'
+    `).all() as any[];
+    for (const row of documentChunks) {
+      upsertMemoryIndex('project_document_chunks', row.id, `${row.name} ${row.locator} ${row.text}`, row.project_id);
+      stats.project_document_chunks += 1;
+    }
 
-  return stats;
+    return stats;
+  })();
 }
 
 export function extractIndexKeywords(text: string): string[] {
   const normalized = text.toLowerCase();
-  const words: string[] = [];
-
   const chineseMatches = normalized.match(/[\u4e00-\u9fff]{2,}/g) || [];
-  for (const phrase of chineseMatches) {
-    if (phrase.length <= 16) words.push(phrase);
-    for (let size = 2; size <= 4; size += 1) {
-      for (let i = 0; i <= phrase.length - size; i += 1) {
-        words.push(phrase.slice(i, i + size));
-      }
-    }
-  }
-
   const englishMatches = normalized.match(/[a-z][a-z0-9_-]{1,}/g) || [];
-  words.push(...englishMatches);
-
   const stopWords = new Set([
     '这个', '那个', '什么', '怎么', '可以', '我们', '他们', '你们', '一个', '一些',
     '没有', '不是', '自己', '知道', '这样', '今天', '明天', '昨天', '帮我', '需要',
     'the', 'this', 'that', 'what', 'how', 'can', 'you', 'your', 'and', 'for', 'with',
   ]);
 
-  return Array.from(new Set(
-    words
-      .map(word => word.trim())
-      .filter(word => word.length >= 2 && !stopWords.has(word))
-  )).slice(0, 48);
+  const groups = [
+    ...chineseMatches.map(buildBalancedChineseNgrams),
+    englishMatches,
+  ];
+  return collectBalancedKeywords(groups, stopWords, 48);
+}
+
+function buildBalancedChineseNgrams(phrase: string): string[] {
+  const words: string[] = phrase.length <= 16 ? [phrase] : [];
+  const maxStart = Math.max(0, phrase.length - 2);
+  const positions: number[] = [];
+  for (let offset = 0; offset <= maxStart; offset += 1) {
+    const head = offset;
+    const tail = maxStart - offset;
+    if (!positions.includes(head)) positions.push(head);
+    if (!positions.includes(tail)) positions.push(tail);
+    if (positions.length >= maxStart + 1) break;
+  }
+  for (const index of positions) {
+    for (let size = 2; size <= 4 && index + size <= phrase.length; size += 1) {
+      words.push(phrase.slice(index, index + size));
+    }
+  }
+  return words;
+}
+
+function collectBalancedKeywords(groups: string[][], stopWords: Set<string>, maxTerms: number): string[] {
+  const result: string[] = [];
+  const seen = new Set<string>();
+  const maxGroupLength = Math.max(0, ...groups.map(group => group.length));
+  for (let index = 0; index < maxGroupLength && result.length < maxTerms; index += 1) {
+    for (const group of groups) {
+      const word = group[index]?.trim();
+      if (!word || word.length < 2 || stopWords.has(word) || seen.has(word)) continue;
+      seen.add(word);
+      result.push(word);
+      if (result.length >= maxTerms) break;
+    }
+  }
+  return result;
 }
 
 interface MemoryIndexRow {

@@ -101,32 +101,54 @@ export function retrieveContext(options: RetrieveOptions): RetrievedContext {
 }
 
 export function extractKeywords(message: string): string[] {
-  const words: string[] = [];
-
   const chineseMatches = message.match(/[\u4e00-\u9fff]{2,}/g) || [];
-  for (const phrase of chineseMatches) {
-    if (phrase.length <= 16) words.push(phrase);
-    for (let size = 2; size <= 4; size++) {
-      for (let i = 0; i <= phrase.length - size; i++) {
-        words.push(phrase.slice(i, i + size));
-      }
-    }
-  }
-
   const englishMatches = message.match(/[a-zA-Z][a-zA-Z0-9_-]{1,}/g) || [];
-  words.push(...englishMatches.map(word => word.toLowerCase()));
-
   const stopWords = new Set([
     '这个', '那个', '什么', '怎么', '可以', '我们', '他们', '你们', '一个', '一些',
     '没有', '不是', '自己', '知道', '这样', '今天', '明天', '昨天', '帮我', '需要',
     'the', 'this', 'that', 'what', 'how', 'can', 'you', 'your', 'and', 'for', 'with',
   ]);
 
-  return Array.from(new Set(
-    words
-      .map(word => word.trim())
-      .filter(word => word.length >= 2 && !stopWords.has(word))
-  )).slice(0, 32);
+  const groups = [
+    ...chineseMatches.map(buildBalancedChineseNgrams),
+    englishMatches.map(word => word.toLowerCase()),
+  ];
+  return collectBalancedKeywords(groups, stopWords, 32);
+}
+
+function buildBalancedChineseNgrams(phrase: string): string[] {
+  const words: string[] = phrase.length <= 16 ? [phrase] : [];
+  const maxStart = Math.max(0, phrase.length - 2);
+  const positions: number[] = [];
+  for (let offset = 0; offset <= maxStart; offset += 1) {
+    const head = offset;
+    const tail = maxStart - offset;
+    if (!positions.includes(head)) positions.push(head);
+    if (!positions.includes(tail)) positions.push(tail);
+    if (positions.length >= maxStart + 1) break;
+  }
+  for (const index of positions) {
+    for (let size = 2; size <= 4 && index + size <= phrase.length; size += 1) {
+      words.push(phrase.slice(index, index + size));
+    }
+  }
+  return words;
+}
+
+function collectBalancedKeywords(groups: string[][], stopWords: Set<string>, maxTerms: number): string[] {
+  const result: string[] = [];
+  const seen = new Set<string>();
+  const maxGroupLength = Math.max(0, ...groups.map(group => group.length));
+  for (let index = 0; index < maxGroupLength && result.length < maxTerms; index += 1) {
+    for (const group of groups) {
+      const word = group[index]?.trim();
+      if (!word || word.length < 2 || stopWords.has(word) || seen.has(word)) continue;
+      seen.add(word);
+      result.push(word);
+      if (result.length >= maxTerms) break;
+    }
+  }
+  return result;
 }
 
 function collectProfileFacts(keywords: string[], limit: number): ProfileEntry[] {

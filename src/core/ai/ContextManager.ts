@@ -84,37 +84,49 @@ interface SelectedCandidate extends ContextCandidate {
 const DEFAULT_MAX_PROMPT_TOKENS = 4096;
 const RECENT_ORIGINAL_MESSAGE_COUNT = 8;
 const MIN_CONTEXT_ITEM_TOKENS = 48;
+const CONTEXT_TRIM_MARKER = '\n[trimmed by ContextManager]';
 
 export function buildManagedContext(input: ManagedContextInput): ManagedContextResult {
   const maxPromptTokens = Math.max(1024, Math.round(input.maxPromptTokens ?? DEFAULT_MAX_PROMPT_TOKENS));
   const candidates = buildCandidates(input);
-  const mandatoryTokens = estimateTokens(input.systemContext) + estimateTokens(input.userMessage);
+  const mandatory = fitMandatoryContext(input.systemContext, input.userMessage, maxPromptTokens);
+  const mandatoryTokens = estimateTokens([mandatory.systemContext, mandatory.userMessage].join('\n'));
   const selected: SelectedCandidate[] = [];
   const included: ContextSnapshotItem[] = [
-    snapshotItem('system', 'system/persona', 100, input.systemContext, true, 'required'),
-    snapshotItem('current_input', 'current user input', 95, input.userMessage, true, 'required'),
+    {
+      ...snapshotItem('system', 'system/persona', 100, mandatory.systemContext, true, mandatory.systemTruncated ? 'required; trimmed to fit hard prompt budget' : 'required'),
+      ...(mandatory.systemTruncated ? { truncated: true, originalChars: normalizeContextText(input.systemContext).length } : {}),
+    },
+    {
+      ...snapshotItem('current_input', 'current user input', 95, mandatory.userMessage, true, mandatory.userTruncated ? 'required; trimmed to fit hard prompt budget' : 'required'),
+      ...(mandatory.userTruncated ? { truncated: true, originalChars: normalizeContextText(input.userMessage).length } : {}),
+    },
   ];
   const omitted: ContextSnapshotItem[] = [];
-  let usedTokens = mandatoryTokens;
 
   for (const candidate of candidates.sort(compareCandidatePriority)) {
     const normalized = normalizeContextText(candidate.content);
     if (!normalized) continue;
 
     const candidateTokens = estimateTokens(normalized);
-    const remainingTokens = maxPromptTokens - usedTokens;
-    if (remainingTokens >= candidateTokens) {
+    const fullCandidate: SelectedCandidate = { ...candidate, content: normalized, truncated: false, originalChars: normalized.length };
+    if (estimateManagedPromptTokens(mandatory.systemContext, mandatory.userMessage, [...selected, fullCandidate]) <= maxPromptTokens) {
       selected.push({ ...candidate, content: normalized, truncated: false, originalChars: normalized.length });
-      usedTokens += candidateTokens;
       included.push(snapshotItem(candidate.kind, candidate.label, candidate.priority, normalized, true, 'included', candidate.id, candidate.evidence));
       continue;
     }
 
     const minTokens = candidate.minTokens ?? MIN_CONTEXT_ITEM_TOKENS;
-    if (remainingTokens >= minTokens) {
-      const trimmed = trimToTokenBudget(normalized, remainingTokens);
+    const trimmed = trimCandidateToManagedBudget(
+      normalized,
+      mandatory.systemContext,
+      mandatory.userMessage,
+      selected,
+      candidate,
+      maxPromptTokens,
+    );
+    if (trimmed && estimateTokens(trimmed) >= minTokens) {
       selected.push({ ...candidate, content: trimmed, truncated: true, originalChars: normalized.length });
-      usedTokens += estimateTokens(trimmed);
       included.push({
         ...snapshotItem(candidate.kind, candidate.label, candidate.priority, trimmed, true, 'trimmed to fit remaining budget', candidate.id, candidate.evidence),
         truncated: true,
@@ -127,7 +139,7 @@ export function buildManagedContext(input: ManagedContextInput): ManagedContextR
   }
 
   const systemSections = [
-    input.systemContext,
+    mandatory.systemContext,
     ...selected
       .filter(item => item.placement === 'system')
       .sort((left, right) => left.order - right.order)
@@ -137,7 +149,7 @@ export function buildManagedContext(input: ManagedContextInput): ManagedContextR
   for (const item of selected.filter(item => item.placement === 'history').sort((left, right) => left.order - right.order)) {
     messages.push({ role: item.role || 'user', content: item.content });
   }
-  messages.push({ role: 'user', content: input.userMessage });
+  messages.push({ role: 'user', content: mandatory.userMessage });
 
   const promptText = messages.map(message => message.content).join('\n');
   const snapshot: ContextSnapshotPayload = {
@@ -154,6 +166,10 @@ export function buildManagedContext(input: ManagedContextInput): ManagedContextR
     included,
     omitted,
   };
+
+  if (snapshot.budget.estimatedPromptTokens > maxPromptTokens) {
+    throw new Error(`ContextManager prompt budget invariant failed: ${snapshot.budget.estimatedPromptTokens} > ${maxPromptTokens}`);
+  }
 
   return { messages, snapshot };
 }
@@ -267,7 +283,6 @@ function buildCandidates(input: ManagedContextInput): ContextCandidate[] {
       content: [
         '## Current chat window summary',
         '窗口 rolling summary:',
-        '绐楀彛 rolling summary:',
         `Window: ${chatWindow.title} (#${chatWindow.id}); messages: ${chatWindow.messageCount}`,
         chatWindow.summary,
       ].join('\n'),
@@ -393,16 +408,113 @@ function evidenceFor(context: RetrievedContext, memoryTable: string, ids: Array<
   return (context.evidence || []).filter(item => item.memoryTable === memoryTable && wanted.has(item.memoryId));
 }
 
-function trimToTokenBudget(value: string, maxTokens: number): string {
+function trimToTokenBudget(value: string, maxTokens: number, preserveTail = false): string {
+  if (maxTokens <= 0) return '';
+  const normalized = normalizeContextText(value);
+  if (estimateTokens(normalized) <= maxTokens) return normalized;
+  let low = 0;
+  let high = normalized.length;
+  while (low < high) {
+    const mid = Math.ceil((low + high) / 2);
+    const candidate = buildTrimmedText(normalized, mid, preserveTail);
+    if (estimateTokens(candidate) <= maxTokens) low = mid;
+    else high = mid - 1;
+  }
+  return low > 0 ? buildTrimmedText(normalized, low, preserveTail) : '';
+}
+
+function buildTrimmedText(value: string, retainedChars: number, preserveTail: boolean): string {
+  if (retainedChars >= value.length) return value;
+  if (!preserveTail) return `${value.slice(0, retainedChars).trimEnd()}${CONTEXT_TRIM_MARKER}`.trim();
+  const headChars = Math.ceil(retainedChars * 0.65);
+  const tailChars = Math.max(0, retainedChars - headChars);
+  const head = value.slice(0, headChars).trimEnd();
+  const tail = tailChars > 0 ? value.slice(value.length - tailChars).trimStart() : '';
+  return `${head}${CONTEXT_TRIM_MARKER}${tail ? `\n${tail}` : ''}`.trim();
+}
+
+function fitMandatoryContext(systemContext: string, userMessage: string, maxPromptTokens: number): {
+  systemContext: string;
+  userMessage: string;
+  systemTruncated: boolean;
+  userTruncated: boolean;
+} {
+  const normalizedSystem = normalizeContextText(systemContext);
+  const normalizedUser = normalizeContextText(userMessage);
+  if (estimateTokens([normalizedSystem, normalizedUser].join('\n')) <= maxPromptTokens) {
+    return {
+      systemContext: normalizedSystem,
+      userMessage: normalizedUser,
+      systemTruncated: false,
+      userTruncated: false,
+    };
+  }
+
+  const reservedUserTokens = Math.min(
+    estimateTokens(normalizedUser),
+    Math.max(128, Math.floor(maxPromptTokens / 2)),
+  );
+  const fittedSystem = trimToTokenBudget(normalizedSystem, Math.max(1, maxPromptTokens - reservedUserTokens - 1), true);
+  const fittedUser = trimTextWithBaseToBudget(fittedSystem ? [fittedSystem] : [], normalizedUser, maxPromptTokens, true);
+  return {
+    systemContext: fittedSystem,
+    userMessage: fittedUser,
+    systemTruncated: fittedSystem !== normalizedSystem,
+    userTruncated: fittedUser !== normalizedUser,
+  };
+}
+
+function trimTextWithBaseToBudget(baseParts: string[], value: string, maxPromptTokens: number, preserveTail: boolean): string {
+  const normalized = normalizeContextText(value);
+  if (estimateTokens([...baseParts, normalized].filter(Boolean).join('\n')) <= maxPromptTokens) return normalized;
+  let low = 0;
+  let high = normalized.length;
+  while (low < high) {
+    const mid = Math.ceil((low + high) / 2);
+    const candidate = buildTrimmedText(normalized, mid, preserveTail);
+    if (estimateTokens([...baseParts, candidate].filter(Boolean).join('\n')) <= maxPromptTokens) low = mid;
+    else high = mid - 1;
+  }
+  return low > 0 ? buildTrimmedText(normalized, low, preserveTail) : '';
+}
+
+function trimCandidateToManagedBudget(
+  value: string,
+  systemContext: string,
+  userMessage: string,
+  selected: SelectedCandidate[],
+  candidate: ContextCandidate,
+  maxPromptTokens: number,
+): string {
   let low = 0;
   let high = value.length;
   while (low < high) {
     const mid = Math.ceil((low + high) / 2);
-    if (estimateTokens(value.slice(0, mid)) <= maxTokens) low = mid;
+    const content = buildTrimmedText(value, mid, false);
+    const tentative: SelectedCandidate = { ...candidate, content, truncated: true, originalChars: value.length };
+    if (estimateManagedPromptTokens(systemContext, userMessage, [...selected, tentative]) <= maxPromptTokens) low = mid;
     else high = mid - 1;
   }
-  const trimmed = value.slice(0, low).trimEnd();
-  return trimmed.length < value.length ? `${trimmed}\n[trimmed by ContextManager]` : trimmed;
+  return low > 0 ? buildTrimmedText(value, low, false) : '';
+}
+
+function estimateManagedPromptTokens(systemContext: string, userMessage: string, selected: SelectedCandidate[]): number {
+  const systemSections = [
+    systemContext,
+    ...selected
+      .filter(item => item.placement === 'system')
+      .sort((left, right) => left.order - right.order)
+      .map(item => item.content),
+  ];
+  const messages = [
+    systemSections.filter(Boolean).join('\n\n'),
+    ...selected
+      .filter(item => item.placement === 'history')
+      .sort((left, right) => left.order - right.order)
+      .map(item => item.content),
+    userMessage,
+  ];
+  return estimateTokens(messages.filter(Boolean).join('\n'));
 }
 
 function truncateForSnippet(value: string, maxChars: number): string {

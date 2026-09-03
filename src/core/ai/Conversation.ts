@@ -7,6 +7,7 @@ import { EmotionEngine } from './Emotion';
 import { ToolRuntime } from '../tools/ToolRuntime';
 import { toolPermissionPrompt } from '../tools/ComputerTools';
 import { saveContextSnapshot } from '../../memory';
+import { createLogger } from '../../engine/Logger';
 import type {
   ConversationMode,
   Message,
@@ -28,6 +29,8 @@ interface ContextSnapshotOptions {
   chatWindowId?: number;
   userMessageId?: number;
 }
+
+const logger = createLogger('Conversation');
 
 export class Conversation {
   private llm: LLMClient;
@@ -161,7 +164,8 @@ function persistContextSnapshot(
       promptChars: snapshot.budget.promptChars,
       estimatedPromptTokens: snapshot.budget.estimatedPromptTokens,
     });
-  } catch {
+  } catch (error) {
+    logger.warn(`Context snapshot persistence failed: ${error instanceof Error ? error.message : String(error)}`);
     return undefined;
   }
 }

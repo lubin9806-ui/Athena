@@ -265,12 +265,29 @@ try {
   });
   const managedText = managed.messages.map((message) => message.content).join('\n');
   assert.ok(managedText.includes('current-input-marker'), 'current input must always be included');
-  assert.ok(managed.snapshot.budget.estimatedPromptTokens <= managed.snapshot.budget.maxPromptTokens + 128, 'managed prompt should stay close to the configured budget');
+  assert.ok(managed.snapshot.budget.estimatedPromptTokens <= managed.snapshot.budget.maxPromptTokens, 'managed prompt must stay inside the configured hard budget');
   assert.ok(managed.snapshot.omitted.length > 0, 'context manager must omit low-priority items under pressure');
   assert.ok(
     managed.snapshot.omitted.some((item) => item.kind === 'old_history' || item.kind === 'window_summary' || item.kind === 'working_state'),
     'snapshot must explain omitted lower-priority context',
   );
+
+  const oversized = buildChatPromptWithSnapshot({
+    userMessage: `oversized-head-${'汉'.repeat(20_000)}-oversized-tail`,
+    recentMessages: [],
+    retrievedContext: {
+      profileFacts: [], proceduralMemories: [], temporalFacts: [], relatedEvents: [], dailySummaries: [],
+      projectNotes: [], documentChunks: [], recentMessages: [], evidence: [], relevanceScore: 0,
+    },
+    mode: 'companion',
+    maxPromptTokens: 1024,
+  });
+  const oversizedText = oversized.messages.map(message => message.content).join('\n');
+  assert.ok(oversized.snapshot.budget.estimatedPromptTokens <= 1024, 'mandatory system and user content must obey the hard prompt budget');
+  assert.ok(oversized.snapshot.included.some(item => item.kind === 'current_input' && item.truncated), 'snapshot must disclose mandatory user-input truncation');
+  assert.match(oversizedText, /oversized-head/);
+  assert.match(oversizedText, /oversized-tail/);
+  assert.match(oversizedText, /trimmed by ContextManager/);
 
   const savedSnapshot = memory.saveContextSnapshot({
     windowId: windowA.id,

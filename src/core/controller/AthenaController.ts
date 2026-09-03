@@ -1313,49 +1313,63 @@ function buildRetrievedContext(
   const depth = settings.retrievalDepth;
   const recentMessageCount = Math.max(10, Math.min(20, depth > 0 ? depth * 2 : 10));
   if (!settings.enabled || temporaryChat) {
-    const chatWindow = chatWindowId ? getChatWindow(chatWindowId) : null;
-    return {
-      ...emptyRetrievedContext(),
-      recentMessages: chatWindowId
-        ? getChatWindowMessages(chatWindowId, recentMessageCount + 1)
-          .filter(message => message.id !== excludeChatMessageId)
-          .slice(-recentMessageCount)
-        : [],
-      chatWindow: chatWindow ? {
-        id: chatWindow.id,
-        title: chatWindow.title,
-        summary: chatWindow.summary,
-        workingStateJson: chatWindow.working_state_json || chatWindow.working_state || '{}',
-        messageCount: chatWindow.messageCount ?? 0,
-        updatedAt: chatWindow.updated_at,
-        isTemporary: chatWindow.is_temporary === true,
-        projectId: chatWindow.project_id,
-        projectTitle: chatWindow.projectTitle,
-        projectInstructions: chatWindow.projectInstructions,
-        projectInstructionsSnapshot: chatWindow.projectInstructionsSnapshot,
-      } : undefined,
-    };
+    return buildWindowOnlyRetrievedContext(chatWindowId, recentMessageCount, excludeChatMessageId);
   }
 
-  const context = retrieveContext({
-    query,
-    maxProfileFacts: settings.retrieveProfile ? depth * 2 : 0,
-    maxProceduralMemories: settings.retrieveProfile ? Math.max(4, Math.ceil(depth / 2)) : 0,
-    maxTemporalFacts: settings.retrieveProfile ? depth : 0,
-    maxEvents: settings.retrieveEvents ? depth : 0,
-    maxDailySummaries: settings.retrieveEvents ? depth : 0,
-    maxProjectNotes: settings.retrieveProjects ? depth : 0,
-    maxDocumentChunks: settings.retrieveProjects ? Math.max(4, depth) : 0,
-    recentMessageCount: chatWindowId ? recentMessageCount + 1 : (saveHistory ? recentMessageCount : 0),
-    conversationMode: mode,
-    chatWindowId,
-  });
+  let context: RetrievedContext;
+  try {
+    context = retrieveContext({
+      query,
+      maxProfileFacts: settings.retrieveProfile ? depth * 2 : 0,
+      maxProceduralMemories: settings.retrieveProfile ? Math.max(4, Math.ceil(depth / 2)) : 0,
+      maxTemporalFacts: settings.retrieveProfile ? depth : 0,
+      maxEvents: settings.retrieveEvents ? depth : 0,
+      maxDailySummaries: settings.retrieveEvents ? depth : 0,
+      maxProjectNotes: settings.retrieveProjects ? depth : 0,
+      maxDocumentChunks: settings.retrieveProjects ? Math.max(4, depth) : 0,
+      recentMessageCount: chatWindowId ? recentMessageCount + 1 : (saveHistory ? recentMessageCount : 0),
+      conversationMode: mode,
+      chatWindowId,
+    });
+  } catch (error) {
+    logger.warn(`Memory retrieval failed; continuing with current-window context only: ${error instanceof Error ? error.message : String(error)}`);
+    return buildWindowOnlyRetrievedContext(chatWindowId, recentMessageCount, excludeChatMessageId);
+  }
   if (excludeChatMessageId) {
     context.recentMessages = context.recentMessages
       .filter(message => message.id !== excludeChatMessageId)
       .slice(-recentMessageCount);
   }
   return context;
+}
+
+function buildWindowOnlyRetrievedContext(
+  chatWindowId: number | undefined,
+  recentMessageCount: number,
+  excludeChatMessageId?: number,
+): RetrievedContext {
+  const chatWindow = chatWindowId ? getChatWindow(chatWindowId) : null;
+  return {
+    ...emptyRetrievedContext(),
+    recentMessages: chatWindowId
+      ? getChatWindowMessages(chatWindowId, recentMessageCount + 1)
+        .filter(message => message.id !== excludeChatMessageId)
+        .slice(-recentMessageCount)
+      : [],
+    chatWindow: chatWindow ? {
+      id: chatWindow.id,
+      title: chatWindow.title,
+      summary: chatWindow.summary,
+      workingStateJson: chatWindow.working_state_json || chatWindow.working_state || '{}',
+      messageCount: chatWindow.messageCount ?? 0,
+      updatedAt: chatWindow.updated_at,
+      isTemporary: chatWindow.is_temporary === true,
+      projectId: chatWindow.project_id,
+      projectTitle: chatWindow.projectTitle,
+      projectInstructions: chatWindow.projectInstructions,
+      projectInstructionsSnapshot: chatWindow.projectInstructionsSnapshot,
+    } : undefined,
+  };
 }
 
 function emptyRetrievedContext(): RetrievedContext {

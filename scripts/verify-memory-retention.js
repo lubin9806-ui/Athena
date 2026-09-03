@@ -127,6 +127,23 @@ try {
   memory.rebuildMemoryIndex();
   const vectorRow = db.prepare("SELECT semantic_vector FROM memory_index WHERE source_table = 'procedural_memories' AND source_id = ?").get(procedure.id);
   assert(vectorRow && JSON.parse(vectorRow.semantic_vector).some(value => value > 0), 'memory index should store local semantic vectors');
+  const longChineseQuery = '天地玄黄宇宙洪荒日月盈昃辰宿列张寒来暑往秋收冬藏闰余成岁律吕调阳云腾致雨露结为霜金生丽水玉出昆冈剑号巨阙珠称夜光量子火箭';
+  assert(memory.extractKeywords(longChineseQuery).some(keyword => /量子|火箭/.test(keyword)), 'long Chinese queries must retain tail keywords');
+  assert(memory.extractIndexKeywords(longChineseQuery).some(keyword => /量子|火箭/.test(keyword)), 'long Chinese memory entries must index tail keywords');
+
+  const indexBeforeFailedRebuild = db.prepare('SELECT source_table, source_id, keywords FROM memory_index ORDER BY source_table, source_id').all();
+  db.exec(`
+    CREATE TEMP TRIGGER fail_memory_index_rebuild
+    BEFORE INSERT ON memory_index
+    WHEN NEW.source_table = 'events'
+    BEGIN
+      SELECT RAISE(ABORT, 'forced index rebuild failure');
+    END;
+  `);
+  assert.throws(() => memory.rebuildMemoryIndex(), /forced index rebuild failure/);
+  db.exec('DROP TRIGGER fail_memory_index_rebuild');
+  const indexAfterFailedRebuild = db.prepare('SELECT source_table, source_id, keywords FROM memory_index ORDER BY source_table, source_id').all();
+  assert.deepEqual(indexAfterFailedRebuild, indexBeforeFailedRebuild, 'failed index rebuild must roll back atomically');
   memory.setMemoryVectorProvider({
     id: 'test-local-vector',
     dimensions: 4,
