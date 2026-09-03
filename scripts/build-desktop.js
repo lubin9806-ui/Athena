@@ -33,7 +33,10 @@ function effectiveBuilderConfig(signed, updateUrl, channel, publisher) {
   if (!contents.includes('signAndEditExecutable: true')) {
     throw new Error('electron-builder.yml must keep release signing enabled in the source configuration.');
   }
-  if (!signed) contents = contents.replace('signAndEditExecutable: true', 'signAndEditExecutable: false');
+  if (!signed) contents = contents.replace(
+    'signAndEditExecutable: true',
+    'signAndEditExecutable: true\n  signExecutable: false',
+  );
   if (signed) contents = `forceCodeSigning: true\n${contents}`;
   contents = `${contents.trimEnd()}\npublish:\n  provider: generic\n  url: ${JSON.stringify(updateUrl)}\n  channel: ${JSON.stringify(channel)}\n  publisherName:\n    - ${JSON.stringify(publisher)}\n  updaterCacheDirName: athena-updater\n`;
   const target = path.join(ROOT, '.build', 'electron-builder.effective.yml');

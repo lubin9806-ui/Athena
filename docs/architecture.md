@@ -43,7 +43,7 @@ The normal NSIS installer is intentionally the lightweight app installer. Use
 `release/Athena-Offline-Pack`, which adds the Athena installer, Ollama installer,
 bundled Ollama model store, and the offline setup scripts.
 
-`win.signAndEditExecutable` is disabled so unsigned local builds can complete on Windows accounts without symlink privileges. For a formal signed release, re-enable executable signing/editing in an elevated or Developer Mode environment.
+Unsigned engineering builds keep `win.signAndEditExecutable` enabled so Electron Builder still writes the Athena icon, product name, file description, and requested execution level into `Athena.exe`. They set `win.signExecutable: false` in the generated effective config to skip Authenticode signing only. Formal signed releases must provide the signing certificate, publisher identity, and HTTPS update feed before producing a distributable candidate.
 
 ## Legacy Code
 

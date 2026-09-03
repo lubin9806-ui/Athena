@@ -15,6 +15,22 @@ const {
 
 const PYTHON_PUBLISHER = 'CN=Python Software Foundation, O=Python Software Foundation, L=Beaverton, S=Oregon, C=US';
 
+function executableVersionInfo(filePath) {
+  if (process.platform !== 'win32') {
+    return { ProductName: '', FileDescription: '', OriginalFilename: '' };
+  }
+  const literal = filePath.replace(/'/g, "''");
+  const command = `& { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8; $file = Get-Item -LiteralPath '${literal}'; [pscustomobject]@{ ProductName = [string]$file.VersionInfo.ProductName; FileDescription = [string]$file.VersionInfo.FileDescription; OriginalFilename = [string]$file.VersionInfo.OriginalFilename } | ConvertTo-Json -Compress }`;
+  const result = require('child_process').spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', command], {
+    cwd: ROOT,
+    encoding: 'utf8',
+    windowsHide: true,
+    env: process.env,
+  });
+  assert.equal(result.status, 0, `Unable to inspect executable version info for ${filePath}.`);
+  return JSON.parse(result.stdout.trim());
+}
+
 function artifactRecord(filePath) {
   assert(fs.existsSync(filePath), `Desktop package artifact is missing: ${filePath}`);
   const signature = authenticode(filePath);
@@ -155,6 +171,9 @@ function main() {
     approvedExecutables.push(path.relative(path.join(ROOT, 'release'), imageRuntime.executable).replace(/\\/g, '/'));
   }
   assert.deepStrictEqual(relativeExecutables.sort(), approvedExecutables.sort(), 'Desktop package contains an unapproved executable.');
+  const executableInfo = executableVersionInfo(executable);
+  assert.equal(executableInfo.ProductName, 'Athena', 'Desktop executable ProductName must be Athena, not Electron.');
+  assert.equal(executableInfo.FileDescription, 'Athena', 'Desktop executable FileDescription must be Athena, not Electron.');
   const pythonPath = path.join(resources, 'voice', 'python', 'python.exe');
   const pythonSignature = authenticode(pythonPath);
   assert.equal(pythonSignature.status, 'Valid', 'Managed Python runtime signature is invalid.');
