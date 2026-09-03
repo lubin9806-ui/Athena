@@ -2,6 +2,12 @@
 setlocal
 cd /d "%~dp0"
 
+set "ATHENA_PACKAGED_EXE=%~dp0release\win-unpacked\Athena.exe"
+if exist "%ATHENA_PACKAGED_EXE%" (
+  start "" "%ATHENA_PACKAGED_EXE%"
+  exit /b 0
+)
+
 if not exist "node_modules\electron\dist\electron.exe" (
   echo Electron is not installed. Running npm install first...
   call npm.cmd install
