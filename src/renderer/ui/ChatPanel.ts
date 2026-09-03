@@ -18,7 +18,7 @@ export interface ChatToolExecution {
   id: string;
   name: string;
   label: string;
-  status: 'completed' | 'failed' | 'denied';
+  status: 'completed' | 'failed' | 'denied' | 'cancelled';
   summary: string;
   inputPreview: string;
   outputPreview: string;
@@ -319,7 +319,7 @@ export class ChatPanel {
 
       const title = document.createElement('summary');
       title.className = 'message-tool-title';
-      const status = execution.status === 'completed' ? '完成' : execution.status === 'denied' ? '已拒绝' : '失败';
+      const status = execution.status === 'completed' ? '完成' : execution.status === 'denied' ? '已拒绝' : execution.status === 'cancelled' ? '已取消' : '失败';
       const duration = execution.durationMs >= 1000
         ? `${(execution.durationMs / 1000).toFixed(1)}s`
         : `${execution.durationMs}ms`;

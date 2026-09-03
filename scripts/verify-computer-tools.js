@@ -33,6 +33,13 @@ function settings(permissionLevel) {
 
 async function startHttpServer() {
   const server = http.createServer((request, response) => {
+    if (request.url === '/slow') {
+      setTimeout(() => {
+        response.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
+        response.end('ATHENA_SLOW_OK');
+      }, 5_000);
+      return;
+    }
     response.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
     response.end(request.url === '/large' ? 'x'.repeat(500_000) : 'ATHENA_PORT_OK');
   });
@@ -605,6 +612,152 @@ async function verifyNoFakeProgressAndCancellation() {
   console.log('ATHENA_MODE_TOOL_ISOLATION_OK');
 }
 
+async function verifyInFlightCancellation() {
+  await fs.mkdir(scratch, { recursive: true });
+  const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+  const service = new ComputerToolService();
+  serviceForCleanup = service;
+  try {
+    const marker = path.join(scratch, 'cancelled-command-must-not-write.txt');
+    const longCommand = process.platform === 'win32'
+      ? `Start-Sleep -Seconds 12; Set-Content -LiteralPath '${marker}' -Value executed`
+      : `sleep 12; printf executed > '${marker}'`;
+
+    const controller = new AbortController();
+    const running = service.execute('run_command', {
+      command: longCommand,
+      cwd: root,
+      timeout_seconds: 30,
+    }, settings('full'), controller.signal);
+    await sleep(600);
+    const startedAt = Date.now();
+    controller.abort();
+    const cancelledCommand = await running;
+    assert.equal(cancelledCommand.status, 'cancelled', `run_command should report cancelled:\n${JSON.stringify(cancelledCommand)}`);
+    assert(Date.now() - startedAt < 5_000, 'aborted run_command must return promptly instead of waiting for its own timeout');
+    await sleep(1_500);
+    await assert.rejects(fs.stat(marker), 'aborted run_command child process must be killed, not left running');
+
+    const httpController = new AbortController();
+    const { server, port } = await startHttpServer();
+    try {
+      const slowRunning = service.execute('http_request', {
+        url: `http://127.0.0.1:${port}/slow`,
+        timeout_seconds: 20,
+      }, settings('full'), httpController.signal);
+      await sleep(200);
+      const httpStartedAt = Date.now();
+      httpController.abort();
+      const cancelledHttp = await slowRunning;
+      assert.equal(cancelledHttp.status, 'cancelled', 'in-flight http_request must be abortable');
+      assert(Date.now() - httpStartedAt < 3_000, 'aborted http_request must return promptly');
+    } finally {
+      await new Promise(resolve => server.close(resolve));
+    }
+
+    const abortedSignal = new AbortController();
+    abortedSignal.abort();
+    const cancelledSearch = await service.execute('search_text', {
+      root: scratch,
+      query: 'beta',
+    }, settings('read'), abortedSignal.signal);
+    assert.equal(cancelledSearch.status, 'cancelled', 'pre-aborted signal must cancel search_text');
+
+    const terminalStart = await service.execute('terminal_start', {
+      shell: 'powershell',
+      cwd: root,
+      command: 'Write-Output ATHENA_TERMINAL_CANCEL_OK',
+    }, settings('full'));
+    assert.equal(terminalStart.status, 'completed');
+    const sessionId = terminalStart.output.match(/session_id: (term-[^\s]+)/)?.[1];
+    assert(sessionId, 'terminal_start did not return a session_id');
+    await service.execute('terminal_write', {
+      session_id: sessionId,
+      input: 'Start-Sleep -Seconds 5',
+      wait_ms: 50,
+    }, settings('full'));
+    const readController = new AbortController();
+    const readRunning = service.execute('terminal_read', {
+      session_id: sessionId,
+      wait_ms: 10_000,
+    }, settings('full'), readController.signal);
+    await sleep(300);
+    const readStartedAt = Date.now();
+    readController.abort();
+    const cancelledRead = await readRunning;
+    assert.equal(cancelledRead.status, 'cancelled', 'terminal_read waiting must be abortable');
+    assert(Date.now() - readStartedAt < 5_000, 'aborted terminal_read must stop waiting promptly');
+    const listAfterCancel = await service.execute('terminal_list', {}, settings('full'));
+    assert(listAfterCancel.output.includes(sessionId), 'cancelling a terminal wait must not kill the persistent session');
+    await service.execute('terminal_stop', { session_id: sessionId }, settings('full'));
+  } finally {
+    service.shutdown();
+    serviceForCleanup = null;
+    await fs.rm(scratch, { recursive: true, force: true });
+  }
+
+  let releasePlanner;
+  let signalPlannerStarted;
+  const plannerRelease = new Promise(resolve => { releasePlanner = resolve; });
+  const plannerStarted = new Promise(resolve => { signalPlannerStarted = resolve; });
+  const runtimeStartedMarker = path.join(scratch, 'runtime-cancel-command-started.txt');
+  const runtimeEndMarker = path.join(scratch, 'runtime-cancel-command-must-not-write.txt');
+  const runtimeLongCommand = process.platform === 'win32'
+    ? `Set-Content -LiteralPath '${runtimeStartedMarker}' -Value started; Start-Sleep -Seconds 12; Set-Content -LiteralPath '${runtimeEndMarker}' -Value executed`
+    : `printf started > '${runtimeStartedMarker}'; sleep 12; printf executed > '${runtimeEndMarker}'`;
+  const cancelDuringExecLlm = {
+    contextWindow: 4096,
+    chat: async () => 'unused',
+    chatJson: async () => {
+      signalPlannerStarted();
+      await plannerRelease;
+      return JSON.stringify({
+        kind: 'tool',
+        content: '',
+        calls: [{ name: 'run_command', arguments: { command: runtimeLongCommand, cwd: root, timeout_seconds: 30 } }],
+      });
+    },
+  };
+  await fs.mkdir(scratch, { recursive: true });
+  const runtime = new ToolRuntime(cancelDuringExecLlm);
+  runtime.setPermissionLevel('full');
+  try {
+    const running = runtime.process({
+      messages: [{ role: 'system', content: 'test' }, { role: 'user', content: '请执行一条长命令。' }],
+      userMessage: '请执行一条长命令。',
+      mode: 'execute',
+      settings: settings('full'),
+      onConfirm: async () => true,
+    });
+    await plannerStarted;
+    releasePlanner();
+    const markerDeadline = Date.now() + 10_000;
+    let commandStarted = false;
+    while (Date.now() < markerDeadline) {
+      try {
+        await fs.stat(runtimeStartedMarker);
+        commandStarted = true;
+        break;
+      } catch {
+        await sleep(80);
+      }
+    }
+    assert(commandStarted, 'long command must actually start before the cancellation lands');
+    const cancelStartedAt = Date.now();
+    assert.equal(runtime.cancelCurrent(), 1);
+    const result = await running;
+    assert(result.executions.some(item => item.name === 'run_command' && item.status === 'cancelled'), 'ToolRuntime cancel during execution must record a cancelled tool result');
+    assert(result.content.includes('已停止'), 'ToolRuntime cancel during execution must explain the stop');
+    assert(Date.now() - cancelStartedAt < 8_000, 'ToolRuntime cancel during execution must return promptly');
+    await sleep(1_500);
+    await assert.rejects(fs.stat(runtimeEndMarker), 'ToolRuntime cancel must kill the in-flight command child process');
+  } finally {
+    runtime.shutdown();
+    await fs.rm(scratch, { recursive: true, force: true });
+  }
+  console.log('ATHENA_TOOL_IN_FLIGHT_CANCELLATION_OK');
+}
+
 async function verifyLiveLoop() {
   const llm = new LLMClient();
   assert(await llm.checkConnection(), 'Ollama is not connected');
@@ -720,6 +873,7 @@ async function verifyLiveLoop() {
   await verifyService();
   await verifyRuntimePermissionRevocation();
   await verifyNoFakeProgressAndCancellation();
+  await verifyInFlightCancellation();
   if (process.argv.includes('--live')) await verifyLiveLoop();
 })().catch(async (error) => {
   serviceForCleanup?.shutdown();

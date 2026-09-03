@@ -1,6 +1,6 @@
 export type ToolPermissionLevel = 'off' | 'read' | 'files' | 'full';
 
-export type ToolExecutionStatus = 'completed' | 'failed' | 'denied';
+export type ToolExecutionStatus = 'completed' | 'failed' | 'denied' | 'cancelled';
 
 export interface ToolModePermissions {
   create: ToolPermissionLevel;

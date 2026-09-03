@@ -91,6 +91,7 @@ export class ComputerAgentToolBridge {
           definition.name,
           capExecutionArguments(definition.name, argumentsValue, settings),
           settings,
+          context.signal,
         );
         if (context.signal.aborted) throw context.signal.reason || new Error('Tool execution cancelled');
         return {

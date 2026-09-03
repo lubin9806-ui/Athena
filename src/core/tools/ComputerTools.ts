@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as net from 'net';
-import { execFile, spawn, type ChildProcessWithoutNullStreams } from 'child_process';
+import { spawn, type ChildProcessWithoutNullStreams } from 'child_process';
 import { resolveProjectRoot } from '../runtime/Paths';
 import { isSteamToolAllowed } from '../steam/SteamSkuPolicy';
 import type { ToolCatalogItem, ToolExecutionStatus, ToolPermissionLevel, ToolSettings } from '../../shared/types';
@@ -94,7 +94,7 @@ export class ComputerToolService {
     });
   }
 
-  async execute(name: string, args: Record<string, unknown>, settings: ToolSettings): Promise<ComputerToolResult> {
+  async execute(name: string, args: Record<string, unknown>, settings: ToolSettings, signal?: AbortSignal): Promise<ComputerToolResult> {
     const definition = TOOL_DEFINITIONS.find(tool => tool.name === name);
     if (!definition) {
       return { status: 'failed', summary: `未知工具：${name}`, output: `Tool ${name} is not registered.` };
@@ -119,30 +119,33 @@ export class ComputerToolService {
     try {
       switch (name) {
         case 'file_info': return await this.fileInfo(args);
-        case 'list_directory': return await this.listDirectory(args);
+        case 'list_directory': return await this.listDirectory(args, signal);
         case 'read_file': return await this.readFile(args);
-        case 'search_files': return await this.searchFiles(args);
-        case 'search_text': return await this.searchText(args);
+        case 'search_files': return await this.searchFiles(args, signal);
+        case 'search_text': return await this.searchText(args, signal);
         case 'write_file': return await this.writeFile(args);
         case 'replace_in_file': return await this.replaceInFile(args);
         case 'make_directory': return await this.makeDirectory(args);
         case 'copy_path': return await this.copyPath(args);
         case 'move_path': return await this.movePath(args);
-        case 'move_matching_files': return await this.moveMatchingFiles(args);
+        case 'move_matching_files': return await this.moveMatchingFiles(args, signal);
         case 'delete_path': return await this.deletePath(args);
-        case 'run_command': return await this.runCommand(args, settings);
-        case 'terminal_start': return await this.terminalStart(args);
-        case 'terminal_write': return await this.terminalWrite(args);
-        case 'terminal_read': return await this.terminalRead(args);
+        case 'run_command': return await this.runCommand(args, settings, signal);
+        case 'terminal_start': return await this.terminalStart(args, signal);
+        case 'terminal_write': return await this.terminalWrite(args, signal);
+        case 'terminal_read': return await this.terminalRead(args, signal);
         case 'terminal_list': return this.terminalList();
         case 'terminal_stop': return await this.terminalStop(args);
         case 'launch_program': return await this.launchProgram(args);
         case 'open_path': return await this.openPath(args);
-        case 'http_request': return await this.httpRequest(args, settings);
-        case 'check_port': return await this.checkPort(args, settings);
+        case 'http_request': return await this.httpRequest(args, settings, signal);
+        case 'check_port': return await this.checkPort(args, settings, signal);
         default: return { status: 'failed', summary: `未实现工具：${name}`, output: '' };
       }
     } catch (error) {
+      if (error instanceof ToolCancelledError) {
+        return { status: 'cancelled', summary: error.message, output: '' };
+      }
       const operationError = error instanceof ToolOperationError ? error : null;
       return {
         status: 'failed',
@@ -191,7 +194,7 @@ export class ComputerToolService {
     return completed(`已读取 ${target} 的信息`, output);
   }
 
-  private async listDirectory(args: Record<string, unknown>): Promise<ComputerToolResult> {
+  private async listDirectory(args: Record<string, unknown>, signal?: AbortSignal): Promise<ComputerToolResult> {
     const root = resolveComputerPath(requireString(args.path, 'path'));
     const stat = await fs.promises.stat(root);
     if (!stat.isDirectory()) throw new Error(`${root} 不是目录。`);
@@ -199,7 +202,8 @@ export class ComputerToolService {
     const recursive = args.recursive === true;
     const maxDepth = recursive ? clampInteger(args.max_depth, 1, 12, 3) : 1;
     const limit = clampInteger(args.limit, 1, 500, 200);
-    const entries = await walkEntries(root, maxDepth, limit);
+    const entries = await walkEntries(root, maxDepth, limit, () => true, signal);
+    if (signal?.aborted) throw new ToolCancelledError('目录遍历已取消。');
     const output = entries.length
       ? entries.map(entry => `${entry.isDirectory ? '[D]' : '[F]'} ${entry.path}${entry.isDirectory ? '' : ` (${entry.size} bytes)`}`).join('\n')
       : '(empty directory)';
@@ -227,13 +231,14 @@ export class ComputerToolService {
     }
   }
 
-  private async searchFiles(args: Record<string, unknown>): Promise<ComputerToolResult> {
+  private async searchFiles(args: Record<string, unknown>, signal?: AbortSignal): Promise<ComputerToolResult> {
     const root = resolveComputerPath(requireString(args.root, 'root'));
     const pattern = requireString(args.pattern, 'pattern');
     const maxDepth = clampInteger(args.max_depth, 1, 20, 8);
     const maxResults = clampInteger(args.max_results, 1, 500, 100);
     const matcher = makeNameMatcher(pattern);
-    const entries = await walkEntries(root, maxDepth, 20_000, entry => matcher(path.basename(entry.path)));
+    const entries = await walkEntries(root, maxDepth, 20_000, entry => matcher(path.basename(entry.path)), signal);
+    if (signal?.aborted) throw new ToolCancelledError('文件搜索已取消。');
     const matches = entries.slice(0, maxResults);
     const output = matches.length
       ? matches.map(entry => `${entry.isDirectory ? '[D]' : '[F]'} ${entry.path}`).join('\n')
@@ -241,7 +246,7 @@ export class ComputerToolService {
     return completed(`在 ${root} 找到 ${matches.length} 项`, output);
   }
 
-  private async searchText(args: Record<string, unknown>): Promise<ComputerToolResult> {
+  private async searchText(args: Record<string, unknown>, signal?: AbortSignal): Promise<ComputerToolResult> {
     const root = resolveComputerPath(requireString(args.root, 'root'));
     const query = requireString(args.query, 'query');
     const caseSensitive = args.case_sensitive === true;
@@ -249,7 +254,8 @@ export class ComputerToolService {
     const fileMatcher = filePattern ? makeNameMatcher(filePattern) : () => true;
     const maxDepth = clampInteger(args.max_depth, 1, 20, 8);
     const maxResults = clampInteger(args.max_results, 1, 300, 80);
-    const files = await walkEntries(root, maxDepth, 20_000, entry => !entry.isDirectory && fileMatcher(path.basename(entry.path)));
+    const files = await walkEntries(root, maxDepth, 20_000, entry => !entry.isDirectory && fileMatcher(path.basename(entry.path)), signal);
+    if (signal?.aborted) throw new ToolCancelledError('文本搜索已取消。');
     const needle = caseSensitive ? query : query.toLocaleLowerCase();
     const matches: string[] = [];
     let scannedFiles = 0;
@@ -257,6 +263,7 @@ export class ComputerToolService {
     let budgetExhausted = false;
 
     for (const entry of files) {
+      if (signal?.aborted) throw new ToolCancelledError('文本搜索已取消。');
       if (matches.length >= maxResults || entry.size > MAX_SEARCH_FILE_BYTES) continue;
       if (scannedBytes + entry.size > MAX_SEARCH_TOTAL_BYTES) {
         budgetExhausted = true;
@@ -371,7 +378,7 @@ export class ComputerToolService {
     return completed(`已移动到 ${destination}`, `source: ${source}\ndestination: ${destination}`);
   }
 
-  private async moveMatchingFiles(args: Record<string, unknown>): Promise<ComputerToolResult> {
+  private async moveMatchingFiles(args: Record<string, unknown>, signal?: AbortSignal): Promise<ComputerToolResult> {
     const source = resolveComputerPath(requireString(args.source_directory, 'source_directory'));
     const destination = resolveComputerPath(requireString(args.destination_directory, 'destination_directory'));
     if (isSameComputerPath(source, destination)) throw new Error('源目录和目标目录相同，已取消批量移动。');
@@ -391,7 +398,9 @@ export class ComputerToolService {
       entry => !entry.isDirectory
         && !(destinationInsideSource && (isSameComputerPath(entry.path, destination) || isPathWithin(entry.path, destination)))
         && matchers.some(matcher => matcher(path.basename(entry.path))),
+      signal,
     );
+    if (signal?.aborted) throw new ToolCancelledError('批量整理已取消。');
     const matches = entries.slice(0, MAX_BATCH_MOVE_FILES);
 
     await fs.promises.mkdir(destination, { recursive: true });
@@ -400,6 +409,7 @@ export class ComputerToolService {
     const failed: Array<{ path: string; error: string }> = [];
 
     for (const entry of matches) {
+      if (signal?.aborted) throw new ToolCancelledError(`批量整理已取消；已移动的 ${moved.length} 个文件不会自动撤销。`);
       try {
         let target = path.join(destination, path.basename(entry.path));
         if (isSameComputerPath(entry.path, target)) {
@@ -465,21 +475,24 @@ export class ComputerToolService {
     return completed(`已删除 ${target}`, `path: ${target}\nrecursive: ${recursive}`);
   }
 
-  private async runCommand(args: Record<string, unknown>, settings: ToolSettings): Promise<ComputerToolResult> {
+  private async runCommand(args: Record<string, unknown>, settings: ToolSettings, signal?: AbortSignal): Promise<ComputerToolResult> {
     const command = requireString(args.command, 'command', 20_000);
     const cwd = optionalString(args.cwd) ? resolveComputerPath(requireString(args.cwd, 'cwd')) : resolveProjectRoot();
     const timeoutSeconds = clampInteger(args.timeout_seconds, 1, 300, settings.commandTimeoutSeconds);
-    const result = await executeShellCommand(command, cwd, timeoutSeconds * 1000);
+    const result = await executeShellCommand(command, cwd, timeoutSeconds * 1000, signal);
     const output = [`cwd: ${cwd}`, `exit_code: ${result.exitCode}`, '', result.stdout, result.stderr ? `\n[stderr]\n${result.stderr}` : '']
       .filter(Boolean)
       .join('\n');
+    if (result.cancelled) {
+      return { status: 'cancelled', summary: '命令已取消，子进程已被终止。', output };
+    }
     if (result.exitCode !== 0) {
       throw new ToolOperationError(`命令执行失败（退出码 ${result.exitCode}）`, output);
     }
     return completed(`命令执行完成（退出码 0）`, output);
   }
 
-  private async terminalStart(args: Record<string, unknown>): Promise<ComputerToolResult> {
+  private async terminalStart(args: Record<string, unknown>, signal?: AbortSignal): Promise<ComputerToolResult> {
     this.pruneClosedTerminalSessions();
     const activeSessions = Array.from(this.terminalSessions.values()).filter(session => !session.closed);
     if (activeSessions.length >= MAX_TERMINAL_SESSIONS) {
@@ -543,15 +556,20 @@ export class ComputerToolService {
       before,
       initialCommand ? 3_000 : 800,
       initialCommand ? 500 : 180,
+      signal,
     );
     const read = readTerminalChunk(session, 20_000);
-    return completed(
-      `已启动 ${terminalShellLabel(shell)} 终端（${id}）`,
-      formatTerminalOutput(session, read, initialCommand ? `initial_command_chars: ${initialCommand.length}` : ''),
-    );
+    const cancelled = signal?.aborted === true;
+    return {
+      status: cancelled ? 'cancelled' : 'completed',
+      summary: cancelled
+        ? `终端已启动（${id}），等待初始输出时被取消；会话仍在运行，可继续使用或关闭`
+        : `已启动 ${terminalShellLabel(shell)} 终端（${id}）`,
+      output: formatTerminalOutput(session, read, initialCommand ? `initial_command_chars: ${initialCommand.length}` : ''),
+    };
   }
 
-  private async terminalWrite(args: Record<string, unknown>): Promise<ComputerToolResult> {
+  private async terminalWrite(args: Record<string, unknown>, signal?: AbortSignal): Promise<ComputerToolResult> {
     const session = this.requireTerminalSession(requireString(args.session_id, 'session_id', 200));
     if (session.closed || !session.process.stdin.writable) {
       throw new Error(`终端会话 ${session.id} 已结束，不能继续写入。`);
@@ -561,26 +579,34 @@ export class ComputerToolService {
     const waitMs = clampInteger(args.wait_ms, 0, 5_000, 450);
     const before = session.buffer.length;
     await writeTerminalInput(session, input, appendNewline);
-    if (waitMs > 0) await waitForTerminalQuiet(session, before, waitMs);
+    if (waitMs > 0) await waitForTerminalQuiet(session, before, waitMs, 140, signal);
     const read = readTerminalChunk(session, 30_000);
-    return completed(
-      `已向终端 ${session.id} 写入 ${input.length} 个字符`,
-      formatTerminalOutput(session, read, `input_chars: ${input.length}\nappend_newline: ${appendNewline}`),
-    );
+    const cancelled = signal?.aborted === true;
+    return {
+      status: cancelled ? 'cancelled' : 'completed',
+      summary: cancelled
+        ? `已向终端 ${session.id} 写入 ${input.length} 个字符，等待输出时被取消；会话仍在运行`
+        : `已向终端 ${session.id} 写入 ${input.length} 个字符`,
+      output: formatTerminalOutput(session, read, `input_chars: ${input.length}\nappend_newline: ${appendNewline}`),
+    };
   }
 
-  private async terminalRead(args: Record<string, unknown>): Promise<ComputerToolResult> {
+  private async terminalRead(args: Record<string, unknown>, signal?: AbortSignal): Promise<ComputerToolResult> {
     const session = this.requireTerminalSession(requireString(args.session_id, 'session_id', 200));
     const waitMs = clampInteger(args.wait_ms, 0, 10_000, 500);
     const maxChars = clampInteger(args.max_chars, 1, 100_000, 30_000);
     if (session.cursor >= session.buffer.length && !session.closed && waitMs > 0) {
-      await waitForTerminalQuiet(session, session.buffer.length, waitMs);
+      await waitForTerminalQuiet(session, session.buffer.length, waitMs, 140, signal);
     }
     const read = readTerminalChunk(session, maxChars);
-    return completed(
-      read.text ? `已读取终端 ${session.id} 的新输出` : `终端 ${session.id} 暂无新输出`,
-      formatTerminalOutput(session, read),
-    );
+    const cancelled = signal?.aborted === true;
+    return {
+      status: cancelled ? 'cancelled' : 'completed',
+      summary: cancelled
+        ? `已取消等待终端 ${session.id} 的输出；会话仍在运行`
+        : read.text ? `已读取终端 ${session.id} 的新输出` : `终端 ${session.id} 暂无新输出`,
+      output: formatTerminalOutput(session, read),
+    };
   }
 
   private terminalList(): ComputerToolResult {
@@ -653,7 +679,7 @@ export class ComputerToolService {
     return completed(`已打开 ${target}`, `target: ${target}\npid: ${child.pid ?? 'unknown'}`);
   }
 
-  private async httpRequest(args: Record<string, unknown>, settings: ToolSettings): Promise<ComputerToolResult> {
+  private async httpRequest(args: Record<string, unknown>, settings: ToolSettings, signal?: AbortSignal): Promise<ComputerToolResult> {
     const rawUrl = requireString(args.url, 'url', 8_192);
     const url = new URL(rawUrl);
     if (url.protocol !== 'http:' && url.protocol !== 'https:') throw new Error('只支持 HTTP 和 HTTPS 地址。');
@@ -676,6 +702,14 @@ export class ComputerToolService {
     const timeoutSeconds = clampInteger(args.timeout_seconds, 1, 120, Math.min(settings.commandTimeoutSeconds, 60));
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutSeconds * 1000);
+    const externalAbort = () => controller.abort();
+    if (signal) {
+      if (signal.aborted) {
+        clearTimeout(timer);
+        return { status: 'cancelled', summary: 'HTTP 请求已取消。', output: `url: ${url.toString()}\nreason: cancelled_by_user` };
+      }
+      signal.addEventListener('abort', externalAbort, { once: true });
+    }
     try {
       const response = await fetch(url, {
         method,
@@ -696,12 +730,18 @@ export class ComputerToolService {
         body.text,
       ].join('\n');
       return completed(`HTTP ${response.status} · ${url.host}`, output);
+    } catch (error) {
+      if (signal?.aborted) {
+        return { status: 'cancelled', summary: 'HTTP 请求已取消。', output: `url: ${url.toString()}\nreason: cancelled_by_user` };
+      }
+      throw error;
     } finally {
       clearTimeout(timer);
+      signal?.removeEventListener('abort', externalAbort);
     }
   }
 
-  private async checkPort(args: Record<string, unknown>, settings: ToolSettings): Promise<ComputerToolResult> {
+  private async checkPort(args: Record<string, unknown>, settings: ToolSettings, signal?: AbortSignal): Promise<ComputerToolResult> {
     const host = optionalString(args.host) || '127.0.0.1';
     const parsedPort = typeof args.port === 'number' ? args.port : Number(args.port);
     if (!Number.isInteger(parsedPort) || parsedPort < 1 || parsedPort > 65_535) {
@@ -716,7 +756,10 @@ export class ComputerToolService {
       };
     }
     const timeoutSeconds = clampInteger(args.timeout_seconds, 1, 30, 3);
-    const open = await probePort(host, port, timeoutSeconds * 1000);
+    const open = await probePort(host, port, timeoutSeconds * 1000, signal);
+    if (signal?.aborted) {
+      return { status: 'cancelled', summary: '端口探测已取消。', output: `host: ${host}\nport: ${port}\nreason: cancelled_by_user` };
+    }
     return completed(`${host}:${port} ${open ? '可连接' : '未开放'}`, `host: ${host}\nport: ${port}\nopen: ${open}`);
   }
 }
@@ -884,12 +927,13 @@ async function walkEntries(
   maxDepth: number,
   limit: number,
   include: (entry: WalkEntry) => boolean = () => true,
+  signal?: AbortSignal,
 ): Promise<WalkEntry[]> {
   const output: WalkEntry[] = [];
   const queue: Array<{ directory: string; depth: number }> = [{ directory: root, depth: 0 }];
   let visited = 0;
 
-  while (queue.length > 0 && visited < limit) {
+  while (queue.length > 0 && visited < limit && !signal?.aborted) {
     const current = queue.shift();
     if (!current) break;
     let entries: fs.Dirent[];
@@ -935,34 +979,77 @@ interface CommandResult {
   exitCode: number;
   stdout: string;
   stderr: string;
+  cancelled?: boolean;
 }
 
-function executeShellCommand(command: string, cwd: string, timeoutMs: number): Promise<CommandResult> {
+function executeShellCommand(command: string, cwd: string, timeoutMs: number, signal?: AbortSignal): Promise<CommandResult> {
   const executable = process.platform === 'win32' ? 'powershell.exe' : '/bin/sh';
   const shellArgs = process.platform === 'win32'
     ? ['-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', command]
     : ['-lc', command];
 
   return new Promise((resolve, reject) => {
-    execFile(executable, shellArgs, {
+    const child = spawn(executable, shellArgs, {
       cwd,
-      timeout: timeoutMs,
       windowsHide: true,
-      maxBuffer: 5 * 1024 * 1024,
-      encoding: 'utf8',
-    }, (error, stdout, stderr) => {
-      const result = {
-        exitCode: typeof (error as NodeJS.ErrnoException & { code?: number } | null)?.code === 'number'
-          ? Number((error as NodeJS.ErrnoException & { code?: number }).code)
-          : error ? 1 : 0,
-        stdout: truncate(String(stdout || ''), MAX_COMMAND_OUTPUT),
-        stderr: truncate(String(stderr || ''), MAX_COMMAND_OUTPUT),
-      };
-      if (error && (error as NodeJS.ErrnoException).code === 'ENOENT') {
-        reject(new ToolOperationError(`无法启动命令解释器 ${executable}`, result.stderr || error.message));
+      stdio: ['ignore', 'pipe', 'pipe'],
+      shell: false,
+    });
+    let stdout = '';
+    let stderr = '';
+    let settled = false;
+    const finish = (result: CommandResult) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(killTimer);
+      signal?.removeEventListener('abort', onAbort);
+      resolve(result);
+    };
+    const onAbort = () => {
+      if (settled) return;
+      try { child.kill(); } catch { /* Child may already be gone. */ }
+      finish({
+        exitCode: -1,
+        stdout: truncate(stdout, MAX_COMMAND_OUTPUT),
+        stderr: truncate(stderr || '[CANCELLED] 命令执行已取消，子进程已被终止。', MAX_COMMAND_OUTPUT),
+        cancelled: true,
+      });
+    };
+    const killTimer = setTimeout(() => {
+      if (settled) return;
+      try { child.kill(); } catch { /* Child may already be gone. */ }
+      finish({
+        exitCode: -1,
+        stdout: truncate(stdout, MAX_COMMAND_OUTPUT),
+        stderr: truncate(stderr || '[TIMEOUT] 命令执行超时。', MAX_COMMAND_OUTPUT),
+      });
+    }, timeoutMs);
+    if (signal) {
+      if (signal.aborted) {
+        onAbort();
         return;
       }
-      resolve(result);
+      signal.addEventListener('abort', onAbort, { once: true });
+    }
+    child.stdout.on('data', chunk => {
+      if (stdout.length < MAX_COMMAND_OUTPUT) stdout += String(chunk);
+    });
+    child.stderr.on('data', chunk => {
+      if (stderr.length < MAX_COMMAND_OUTPUT) stderr += String(chunk);
+    });
+    child.on('error', error => {
+      if (settled) return;
+      clearTimeout(killTimer);
+      signal?.removeEventListener('abort', onAbort);
+      settled = true;
+      reject(new ToolOperationError(`无法启动命令解释器 ${executable}`, error.message));
+    });
+    child.on('close', code => {
+      finish({
+        exitCode: typeof code === 'number' ? code : -1,
+        stdout: truncate(stdout, MAX_COMMAND_OUTPUT),
+        stderr: truncate(stderr, MAX_COMMAND_OUTPUT),
+      });
     });
   });
 }
@@ -978,7 +1065,7 @@ function waitForSpawn(child: ReturnType<typeof spawn>): Promise<void> {
   });
 }
 
-function probePort(host: string, port: number, timeoutMs: number): Promise<boolean> {
+function probePort(host: string, port: number, timeoutMs: number, signal?: AbortSignal): Promise<boolean> {
   return new Promise((resolve) => {
     const socket = new net.Socket();
     let settled = false;
@@ -986,8 +1073,17 @@ function probePort(host: string, port: number, timeoutMs: number): Promise<boole
       if (settled) return;
       settled = true;
       socket.destroy();
+      signal?.removeEventListener('abort', onAbort);
       resolve(open);
     };
+    const onAbort = () => finish(false);
+    if (signal) {
+      if (signal.aborted) {
+        finish(false);
+        return;
+      }
+      signal.addEventListener('abort', onAbort, { once: true });
+    }
     socket.setTimeout(timeoutMs);
     socket.once('connect', () => finish(true));
     socket.once('timeout', () => finish(false));
@@ -1079,6 +1175,7 @@ async function waitForTerminalQuiet(
   previousLength: number,
   maxWaitMs: number,
   quietMs = 140,
+  signal?: AbortSignal,
 ): Promise<void> {
   if (maxWaitMs <= 0) return;
   const startedAt = Date.now();
@@ -1086,7 +1183,7 @@ async function waitForTerminalQuiet(
   let lastChangeAt = startedAt;
   let sawChange = lastLength > previousLength;
 
-  while (!session.closed && Date.now() - startedAt < maxWaitMs) {
+  while (!session.closed && !signal?.aborted && Date.now() - startedAt < maxWaitMs) {
     await delay(35);
     if (session.buffer.length !== lastLength) {
       lastLength = session.buffer.length;
@@ -1148,5 +1245,12 @@ class ToolOperationError extends Error {
   constructor(message: string, readonly output: string) {
     super(message);
     this.name = 'ToolOperationError';
+  }
+}
+
+class ToolCancelledError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ToolCancelledError';
   }
 }

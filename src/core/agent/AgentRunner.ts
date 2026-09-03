@@ -807,7 +807,7 @@ function completeStepWithResult(
     current = store.transitionStep(current.id, 'running', current.revision);
   }
   if (current.status !== 'running') return;
-  store.transitionStep(current.id, result.status === 'completed' ? 'completed' : 'failed', current.revision, {
+  store.transitionStep(current.id, result.status === 'completed' ? 'completed' : result.status === 'cancelled' ? 'cancelled' : 'failed', current.revision, {
     output: {
       status: result.status,
       summary: result.summary,

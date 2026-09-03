@@ -785,7 +785,8 @@ summary:focus-visible {
 }
 
 .message-tool-card[data-status="failed"],
-.message-tool-card[data-status="denied"] {
+.message-tool-card[data-status="denied"],
+.message-tool-card[data-status="cancelled"] {
   border-color: color-mix(in srgb, #d38c91 38%, var(--border));
 }
 

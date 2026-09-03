@@ -45,6 +45,7 @@ interface ActiveToolPermission {
 
 interface ActiveToolRun {
   cancelled: boolean;
+  controller: AbortController;
 }
 
 export interface ToolRuntimeInput {
@@ -95,6 +96,7 @@ export class ToolRuntime {
     for (const run of this.activeRuns) {
       if (run.cancelled) continue;
       run.cancelled = true;
+      run.controller.abort();
       cancelled += 1;
     }
     return cancelled;
@@ -109,7 +111,7 @@ export class ToolRuntime {
     const activePermission: ActiveToolPermission = {
       level: minimumPermissionLevel(input.settings.permissionLevel, this.permissionLevel),
     };
-    const activeRun: ActiveToolRun = { cancelled: false };
+    const activeRun: ActiveToolRun = { cancelled: false, controller: new AbortController() };
     this.activePermissions.add(activePermission);
     this.activeRuns.add(activeRun);
     try {
@@ -251,7 +253,7 @@ export class ToolRuntime {
           });
 
           const callSettings: ToolSettings = { ...input.settings, permissionLevel: activePermission.level };
-          const result = await this.computer.execute(call.name, call.arguments, callSettings);
+          const result = await this.computer.execute(call.name, call.arguments, callSettings, activeRun.controller.signal);
           const returnedSessionId = extractTerminalSessionId(result.output);
           if (returnedSessionId) lastTerminalSessionId = returnedSessionId;
           if (call.name === 'terminal_stop' && result.status === 'completed') lastTerminalSessionId = undefined;
@@ -273,7 +275,7 @@ export class ToolRuntime {
           if (result.status === 'completed') executedAnyTool = true;
 
           emit(input.onStatus, {
-            phase: result.status === 'completed' ? 'completed' : 'failed',
+            phase: result.status === 'completed' ? 'completed' : result.status === 'cancelled' ? 'cancelled' : 'failed',
             message: result.summary,
             toolName: call.name,
             toolLabel: label,

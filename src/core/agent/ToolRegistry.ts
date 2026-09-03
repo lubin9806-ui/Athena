@@ -2,7 +2,7 @@ import Ajv, { type ErrorObject, type ValidateFunction } from 'ajv';
 import type { AgentCapabilityAccess, AgentRiskLevel } from '../../shared/types';
 import type { JsonSchema, ModelToolCall, ModelToolDefinition } from '../ai/model';
 
-export type AgentToolExecutionStatus = 'completed' | 'failed' | 'denied';
+export type AgentToolExecutionStatus = 'completed' | 'failed' | 'denied' | 'cancelled';
 export type AgentToolApprovalMode = 'never' | 'risk_based' | 'always';
 
 export interface AgentToolPolicyDescriptor {
