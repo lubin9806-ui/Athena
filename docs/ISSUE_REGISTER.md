@@ -8,9 +8,9 @@
 | 严重级别 | Closed | Open/In Progress/Blocked | 说明 |
 |---|---:|---:|---|
 | Blocker | 7 | 0 | 窗口 01 的仓库、事实源与验证链 Blocker 已全部关闭 |
-| P0 | 6 | 4 | ATH-SEC-001～003、ATH-PRIV-001、ATH-DATA-001、ATH-LEGAL-001 已关闭；ATH-REL-001 及 Steam/Cloud/Mobile P0 未关闭 |
+| P0 | 6 | 5 | ATH-SEC-001～003、ATH-PRIV-001、ATH-DATA-001、ATH-LEGAL-001 已关闭；ATH-REL-001 及 Steam/Cloud/Mobile P0 未关闭；2026-09-03 新登记 ATH-SEC-004 |
 | P1 | 3 | 3 | ATH-VOICE-001、ATH-WEB-001、ATH-CONFIG-001 已关闭；Desktop/运营三项保持 Blocked |
-| P2/P3 | 2 | 1 | ATH-ARCH-001、ATH-PRODUCT-001 已关闭；ATH-REPO-001 保持未关闭 |
+| P2/P3 | 2 | 4 | ATH-ARCH-001、ATH-PRODUCT-001 已关闭；ATH-REPO-001 保持未关闭；2026-09-03 新登记 ATH-VOICE-002、ATH-CLOUD-002、ATH-REPO-002 |
 
 窗口 07 判定：ATH-PRODUCT-001 有可重复营销审计证据并关闭；ATH-DESKTOP-002 的 SKU/策略/本地接口已定义，但因真实主体、支付/许可证平台、公开渠道和签字缺失转为 Blocked。Desktop 1.0 仍因 ATH-REL-001、ATH-DESKTOP-001、ATH-DESKTOP-002 及 Universal/Desktop 清单未完成项保持 No-Go。
 
@@ -49,6 +49,10 @@
 | ATH-ARCH-001 | PluginManager/Planner 关闭，旧 Workflows/Skills 曾多为骨架 | Workflows 已实现四个有界 start/next/cancel/complete 会话；Agent Skills 已由 `SkillLibrary`、包哈希信任状态、调用记录和 `SkillAgentToolBridge` 接入真实 `ToolRegistry`，旧 `src/skills/SkillManager.ts` 与 `config/skills.json` 空壳已移除；PluginManager、Planner、脚本自动执行与插件市场仍保持 Excluded | P2 | 05 | Closed | 固定工作流与只读渐进加载 Skills 保留为 Beta；未实现的插件执行生态继续从 1.0 UI/宣传排除，第三方脚本不得因 Skill 声明自动获得权限 |
 | ATH-PRODUCT-001 | Live2D、音乐、日历、跨平台等旧愿景不得冒充首发能力 | `promo/*.html` 与 `DESKTOP_1_0_STORE_LISTING.md` 已移除旧 Muse/Venus/Oracle 和未过门卖点；Live2D 工程运行时存在但发行硬门为关闭，生产角色美术、真实 Cubism 导出、授权与视觉验收仍 No-Go；音乐、日历、跨平台等继续 Planned/Excluded | P3 | 07 | Closed | 已从 Desktop 1.0 官网/商店源稿排除；Live2D 仅可陈述为未发布工程能力，其他未来能力进入矩阵后另建实现问题并重新过营销审核 |
 | ATH-REPO-001 | 来源不明空目录、历史归档和大模型本地 payload 仍需长期归属策略 | `新建文件夹/`、`legacy/root-artifacts`、`models/` | P2 | 04 | Open | 确认所有者/许可/保留期；在有备份和批准前不得删除 |
+| ATH-SEC-004 | 官方 npm audit 新报 advisory：fast-uri 3.0.0–3.1.5（High，SSRF/主机混淆，经 ajv 8.20.0 运行时可达）、@xmldom/xmldom ≤0.8.14（Moderate，XML 片段注入，经 mammoth 运行时及 electron-builder/pixi 开发时） | 2026-09-03 `npm.cmd run audit:security` 非零退出：2 vulnerabilities (1 moderate, 1 high)，audit 报告 fix available；上次记录为 0 漏洞 | P0 | 02 | Open | 官方 registry `--audit-level=high` 返回 0（或窗口 02 完成 exploitability 评估并书面接受）；lockfile 修复已提交；`audit:security` 与候选版发布门重新通过 |
+| ATH-VOICE-002 | 语音缺少打断（barge-in）：AI 朗读期间用户开口不能立即停下并转听 | 2026-09-03 已落语音取消基础（`70c7268`：synthesize/play/transcribe 可中止、`voice:cancel` IPC、停止播放联动）；尚无"播放中检测语音活动→停止朗读→进入听写"链路 | P2 | 05 | Open | 朗读过程中用户开口可中止播放并进入听写（含回声消除/误触发边界与验证）；不得宣称未经实现的"边听边说"并发 |
+| ATH-CLOUD-002 | 桌面云同步三处不完整：queueCloudWindowSync 忽略 windowId 导致每条消息全量同步；入站仅导入 conversation.* 记录，服务端 memory.* 从不导入；出站 pushLocalState 仅推送 profile 一种记忆 | `src/core/cloud/CloudAccountService.ts`（queueCloudWindowSync `void windowId`、入站 conversation-only、出站 profile-only）；`test:cloud-sync` 仅覆盖 conversation 推拉 | P2 | 09 | Open | 按窗口增量同步且参数不被忽略；memory.* 双向导入/推送与冲突处理；fixture 端到端覆盖双向记忆同步；不改变 production=no-go |
+| ATH-REPO-002 | 仓库无 git remote/远端备份：本地是唯一已确认开发现场，数据丢失不可恢复 | 2026-09-03 `git remote -v` 为空；`GROK_HANDOFF_2026-09-02.md` §2 记录同一事实 | P2 | 01 | Open | 与项目所有者确认远端平台与备份策略后配置 remote/定期备份；形成可复制的恢复流程证据 |
 
 ## 4. 窗口 01 关闭记录
 
