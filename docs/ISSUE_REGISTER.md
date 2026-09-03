@@ -10,7 +10,9 @@
 | Blocker | 7 | 0 | 窗口 01 的仓库、事实源与验证链 Blocker 已全部关闭 |
 | P0 | 6 | 5 | ATH-SEC-001～003、ATH-PRIV-001、ATH-DATA-001、ATH-LEGAL-001 已关闭；ATH-REL-001 及 Steam/Cloud/Mobile P0 未关闭；2026-09-03 新登记 ATH-SEC-004 |
 | P1 | 3 | 3 | ATH-VOICE-001、ATH-WEB-001、ATH-CONFIG-001 已关闭；Desktop/运营三项保持 Blocked |
-| P2/P3 | 2 | 4 | ATH-ARCH-001、ATH-PRODUCT-001 已关闭；ATH-REPO-001 保持未关闭；2026-09-03 新登记 ATH-VOICE-002、ATH-CLOUD-002、ATH-REPO-002 |
+| P2/P3 | 2 | 11 | ATH-ARCH-001、ATH-PRODUCT-001 已关闭；ATH-REPO-001 保持未关闭；2026-09-03 新登记 ATH-VOICE-002、ATH-CLOUD-002、ATH-REPO-002、ATH-CHAT-001～003、ATH-STAB-001、ATH-WEB-002、ATH-IMG-001、ATH-CLOUD-003 |
+
+> 2026-09-03 需求澄清（用户确认，本轮排期）：四类问题全部处理（对话路由与执行链路、搜索稳定性、账号与图像生成、整体稳定性与流畅度）；长文优先判定为生图意图；图片反推提示词做进对话内；账号系统先修体验。
 
 窗口 07 判定：ATH-PRODUCT-001 有可重复营销审计证据并关闭；ATH-DESKTOP-002 的 SKU/策略/本地接口已定义，但因真实主体、支付/许可证平台、公开渠道和签字缺失转为 Blocked。Desktop 1.0 仍因 ATH-REL-001、ATH-DESKTOP-001、ATH-DESKTOP-002 及 Universal/Desktop 清单未完成项保持 No-Go。
 
@@ -53,6 +55,13 @@
 | ATH-VOICE-002 | 语音缺少打断（barge-in）：AI 朗读期间用户开口不能立即停下并转听 | 2026-09-03 已落语音取消基础（`70c7268`：synthesize/play/transcribe 可中止、`voice:cancel` IPC、停止播放联动）；尚无"播放中检测语音活动→停止朗读→进入听写"链路 | P2 | 05 | Open | 朗读过程中用户开口可中止播放并进入听写（含回声消除/误触发边界与验证）；不得宣称未经实现的"边听边说"并发 |
 | ATH-CLOUD-002 | 桌面云同步三处不完整：queueCloudWindowSync 忽略 windowId 导致每条消息全量同步；入站仅导入 conversation.* 记录，服务端 memory.* 从不导入；出站 pushLocalState 仅推送 profile 一种记忆 | `src/core/cloud/CloudAccountService.ts`（queueCloudWindowSync `void windowId`、入站 conversation-only、出站 profile-only）；`test:cloud-sync` 仅覆盖 conversation 推拉 | P2 | 09 | Open | 按窗口增量同步且参数不被忽略；memory.* 双向导入/推送与冲突处理；fixture 端到端覆盖双向记忆同步；不改变 production=no-go |
 | ATH-REPO-002 | 仓库无 git remote/远端备份：本地是唯一已确认开发现场，数据丢失不可恢复 | 2026-09-03 `git remote -v` 为空；`GROK_HANDOFF_2026-09-02.md` §2 记录同一事实 | P2 | 01 | Open | 与项目所有者确认远端平台与备份策略后配置 remote/定期备份；形成可复制的恢复流程证据 |
+| ATH-CHAT-001 | 长段生图提示词被规则误判为电脑工具意图，非执行模式弹出“切换到执行模式”拒绝语 | 用户 2026-09-02 实测报告；`src/core/tools/ToolRuntime.ts` shouldPlanComputerTools 的“请/帮我+图片/照片/文件”组合对长文假阳性。需求澄清 2026-09-03：**长文优先判定为生图意图** | P2 | 05 | Open | 长文含生图特征（或窗口处于生图上下文）时优先走图像生成路由，不再弹工具提示；规则层收紧或语义确认；`test:agent-routing` 增加长文生图回归且准确率不下降 |
+| ATH-CHAT-002 | 缺少“识别图片→反推提示词”能力；当前该请求被路由到执行模式并以工具报错结束 | 用户 2026-09-02 实测报告（自动跳执行模式后 list_directory JSON 报错）。需求澄清 2026-09-03：**对话内完成**。前置：当前默认 qwen2.5:14b 无视觉能力，需视觉模型或远程模型 | P2 | 05 | Open | 对话内发图片附件→能力检测（Ollama vision/远程视觉模型）→模型描述并反推提示词→可“再来一张”直接生图；无视觉模型时给出可理解的安装/配置提示；verify 覆盖 |
+| ATH-CHAT-003 | 模型返回截断 JSON 工具参数时错误原文直接暴露给用户 | `src/core/ai/model/ProtocolUtils.ts:22`（ModelProtocolError “Unterminated string...”）；用户 2026-09-02 实测报告 | P2 | 05 | Open | 执行链路捕获该错误并给出友好提示+失败记录+可选重试；原始 JSON 错误不再直接显示；回归用例覆盖 |
+| ATH-STAB-001 | 整体稳定性与流畅度：模型连接、启动、UI 动画、边缘 bug 的用户报告项 | 用户 2026-09-02 实测报告（“整体不够稳定，包括连接模型、启动、ui动画”）；历史上 smoke 液态玻璃门曾连续失败两次后恢复 | P2 | 05 | Open | 用户报告项逐条可复现→修复→关闭；开发态与打包态 smoke 连续通过；无未解释的启动/连接失败 |
+| ATH-WEB-002 | 搜索反爬自动降级不够稳定，影响搜索可用性 | 用户 2026-09-02 实测报告；ATH-WEB-001 已 Closed 的限速/降级机制需要增强 | P2 | 05 | Open | 降级发生时对话有明确提示且不中断主回复；失败分类（限流/反爬/断网）准确；live 测试覆盖主要降级路径 |
+| ATH-IMG-001 | 图像生成链路体验复核：对话生图、再来一张、本地引擎设置流程 | 用户 2026-09-02 报告（“图像生成”）；与 ATH-CHAT-001/002 联动 | P2 | 05 | Open | 对话生图/再来一张/本地引擎（ComfyUI/sd-cli）设置流程人工走查通过；错误与阻塞状态提示可理解 |
+| ATH-CLOUD-003 | 账号系统体验：注册/登录/同步在本机 cloud 服务上跑通、报错可理解；生产决策仍由 ATH-CLOUD-001 阻断 | 用户 2026-09-02 报告（“账号系统”）。需求澄清 2026-09-03：**先修体验** | P2 | 09 | Open | 桌面→cloud fixture 端到端账号流程通过；设置面板账号状态真实、错误文案可理解；`test:cloud-sync` 扩展覆盖账号状态展示 |
 
 ## 4. 窗口 01 关闭记录
 
