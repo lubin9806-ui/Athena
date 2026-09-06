@@ -60,7 +60,10 @@ export class AgentMessageRouter {
 
   constructor(options: AgentMessageRouterOptions = {}) {
     this.semanticClassifier = options.semanticClassifier;
-    this.semanticTimeoutMs = clampInteger(options.semanticTimeoutMs ?? 8_000, 500, 30_000);
+    // Measured: a long message with full history always exceeded 8s and fell back
+    // to the rules decision anyway, so the old ceiling only bought dead time
+    // (ATH-PERF-001).
+    this.semanticTimeoutMs = clampInteger(options.semanticTimeoutMs ?? 4_000, 500, 30_000);
     this.cacheTtlMs = clampInteger(options.cacheTtlMs ?? 15_000, 1_000, 60_000);
     this.now = options.now ?? Date.now;
   }

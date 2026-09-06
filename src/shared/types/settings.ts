@@ -55,6 +55,11 @@ export interface ConversationSettings {
   streamResponses: boolean;
   showTimestamps: boolean;
   saveHistory: boolean;
+  /**
+   * Asks the model to double-check the routing decision before a message is sent.
+   * Off by default: measured at several seconds per message, ahead of the reply.
+   */
+  semanticRouting: boolean;
 }
 
 export interface MemorySettings {

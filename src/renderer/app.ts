@@ -710,6 +710,7 @@ interface ConversationSettings {
   streamResponses: boolean;
   showTimestamps: boolean;
   saveHistory: boolean;
+  semanticRouting: boolean;
 }
 
 interface ToolModePermissions {
@@ -1303,6 +1304,7 @@ const settingEnterSend = mustGet<HTMLInputElement>('setting-enter-send');
 const settingStreamResponses = mustGet<HTMLInputElement>('setting-stream-responses');
 const settingShowTimestamps = mustGet<HTMLInputElement>('setting-show-timestamps');
 const settingSaveHistory = mustGet<HTMLInputElement>('setting-save-history');
+const settingSemanticRouting = mustGet<HTMLInputElement>('setting-semantic-routing');
 const settingToolPermissionExecute = mustGet<HTMLSelectElement>('setting-tool-permission-execute');
 const settingToolMaxRounds = mustGet<HTMLInputElement>('setting-tool-max-rounds');
 const settingToolCommandTimeout = mustGet<HTMLInputElement>('setting-tool-command-timeout');
@@ -5272,6 +5274,7 @@ function populateSettingsForm(bundle: SettingsBundle): void {
   settingStreamResponses.checked = conversation.streamResponses;
   settingShowTimestamps.checked = conversation.showTimestamps;
   settingSaveHistory.checked = conversation.saveHistory;
+  settingSemanticRouting.checked = conversation.semanticRouting;
   settingToolPermissionExecute.value = tools.modePermissions.execute;
   settingToolMaxRounds.value = String(tools.maxToolRounds);
   settingToolCommandTimeout.value = String(tools.commandTimeoutSeconds);
@@ -5550,6 +5553,7 @@ async function saveSettingsForm(): Promise<void> {
           streamResponses: settingStreamResponses.checked,
           showTimestamps: settingShowTimestamps.checked,
           saveHistory: settingSaveHistory.checked,
+          semanticRouting: settingSemanticRouting.checked,
         },
         tools: {
           modePermissions: {

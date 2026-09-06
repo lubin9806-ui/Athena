@@ -601,7 +601,11 @@ export class AthenaController {
       webSearchEnabled: settings.webSearch.enabled,
       canStartDurableExecution,
       recentMessages,
-      semanticRoutingAllowed: evaluateSteamAiContent(userMessage).allowed
+      // Measured at roughly 3.5s on top of the provider's base round trip even for a
+      // short message, ahead of the reply the user is waiting for, so it is opt-in
+      // rather than something every ordinary turn pays for (ATH-PERF-001).
+      semanticRoutingAllowed: settings.conversation.semanticRouting
+        && evaluateSteamAiContent(userMessage).allowed
         && canRouteModelRequest(this.llm.providerName, canUseNetworkCapability('remoteModel'), this.llm.endpoint),
     });
     logger.info(`Message routed [route=${route.route}, reason=${route.reason}, method=${route.routingMethod}, confidence=${route.confidence}, autoSwitch=${route.autoSwitch}]`);

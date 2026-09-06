@@ -51,13 +51,16 @@ export class ModelSemanticRoutingClassifier implements SemanticRoutingClassifier
       {
         role: 'user',
         content: JSON.stringify({
-          currentMessage: input.message.slice(0, 4_000),
+          // Deciding "chat, research or task" does not need the whole conversation.
+          // The old budget shipped up to ~6,400 tokens per classification, which is
+          // most of what made it slow (ATH-PERF-001).
+          currentMessage: input.message.slice(0, 1_200),
           requestedMode: input.mode,
           webResearchAvailable: input.webSearchEnabled,
           durableExecutionAvailable: input.canStartDurableExecution,
-          recentConversation: (input.recentMessages || []).slice(-8).map(item => ({
+          recentConversation: (input.recentMessages || []).slice(-4).map(item => ({
             role: item.role,
-            content: item.content.slice(0, 1_200),
+            content: item.content.slice(0, 300),
           })),
         }),
       },

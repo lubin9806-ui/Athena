@@ -123,6 +123,37 @@ for (const mode of ['companion', 'create', 'reason']) {
   }).route, 'conversation', `a long visual brief must stay conversational in ${mode} mode`);
 }
 
+// ATH-PERF-001: the preflight is a model round trip ahead of the reply, measured at
+// several seconds even for a short message, so it must be possible to turn off
+// without changing what the rules decide.
+async function verifySemanticRoutingIsOptional() {
+  let classifierCalls = 0;
+  const countingRouter = new AgentMessageRouter({
+    semanticClassifier: {
+      classify: async () => {
+        classifierCalls += 1;
+        return { route: 'durable_execution', confidence: 'high', explicitActionConsent: true, referencesPriorContext: false, query: '' };
+      },
+    },
+  });
+  const ambiguous = {
+    message: '这个配色我还在犹豫，你怎么看',
+    mode: 'companion',
+    webSearchEnabled: true,
+    canStartDurableExecution: true,
+  };
+  const withReview = await countingRouter.routeAdaptive({ ...ambiguous });
+  assert.equal(classifierCalls, 1, 'the classifier runs when semantic routing is allowed');
+  assert.equal(withReview.routingMethod, 'model');
+
+  countingRouter.clearCache();
+  classifierCalls = 0;
+  const withoutReview = await countingRouter.routeAdaptive({ ...ambiguous, semanticRoutingAllowed: false });
+  assert.equal(classifierCalls, 0, 'disabling semantic routing must skip the model call entirely');
+  assert.equal(withoutReview.routingMethod, 'rules');
+  assert.equal(withoutReview.route, 'conversation', 'the rules decision stands on its own');
+}
+
 const accuracy = correct / fixture.cases.length;
 const recalls = Object.fromEntries(routes.map(route => {
   const total = routes.reduce((sum, actual) => sum + matrix[route][actual], 0);
@@ -145,4 +176,19 @@ assert.match(ipc, /forceWebSearch \|\| routing\.route === 'web_research'/);
 assert.match(preload, /routeMessage:.*ipcRenderer\.invoke\('chat:route'/);
 assert.match(renderer, /routing\?\.route === 'durable_execution'.*selectMode\('execute'\)/s);
 
-console.log(`ATHENA_AGENT_ROUTING_OK cases=${fixture.cases.length} accuracy=${accuracy.toFixed(3)} safetyFalsePositives=${safetyFalsePositives} recall=${routes.map(route => `${route}:${recalls[route].toFixed(3)}`).join(',')}`);
+// ATH-PERF-001: the preflight is a model round trip ahead of the reply, measured at
+// several seconds even for a short message, so it must be possible to turn off
+// without changing what the rules decide.
+verifySemanticRoutingIsOptional()
+  .then(() => {
+    assert.match(
+      fs.readFileSync(path.join(root, 'src', 'core', 'controller', 'AthenaController.ts'), 'utf8'),
+      /semanticRoutingAllowed:\s*settings\.conversation\.semanticRouting/,
+      'the controller must gate the preflight on the setting',
+    );
+    console.log(`ATHENA_AGENT_ROUTING_OK cases=${fixture.cases.length} accuracy=${accuracy.toFixed(3)} safetyFalsePositives=${safetyFalsePositives} recall=${routes.map(route => `${route}:${recalls[route].toFixed(3)}`).join(',')} semanticPreflight=opt-in`);
+  })
+  .catch(error => {
+    console.error(error?.stack || error);
+    process.exit(1);
+  });

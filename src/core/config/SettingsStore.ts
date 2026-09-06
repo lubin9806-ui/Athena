@@ -64,6 +64,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     streamResponses: true,
     showTimestamps: false,
     saveHistory: true,
+    semanticRouting: false,
   },
   tools: {
     permissionLevel: 'off',
@@ -507,6 +508,7 @@ function sanitizeConversation(value: unknown): ConversationSettings {
     streamResponses: cleanBoolean(source.streamResponses, DEFAULT_SETTINGS.conversation.streamResponses),
     showTimestamps: cleanBoolean(source.showTimestamps, DEFAULT_SETTINGS.conversation.showTimestamps),
     saveHistory: cleanBoolean(source.saveHistory, DEFAULT_SETTINGS.conversation.saveHistory),
+    semanticRouting: cleanBoolean(source.semanticRouting, DEFAULT_SETTINGS.conversation.semanticRouting),
   };
 }
 
