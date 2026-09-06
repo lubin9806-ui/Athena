@@ -11,13 +11,18 @@ import {
   creativeStateSummary,
   describeCreativeChange,
   formatCreativeStateForDisplay,
+  formatCreativeProposal,
   hasCreativeContent,
   mergeCreativeState,
-  parseCreativeState,
-  serializeCreativeState,
+  needsCreativeConfirmation,
+  parseCreativeWorkspace,
+  readCreativeReply,
+  serializeCreativeWorkspace,
   type CreativeExtraction,
+  type CreativePendingProposal,
   type CreativeSection,
   type CreativeState,
+  type CreativeWorkspace,
 } from '../creative';
 import { classifyModelFailure } from '../ai/ModelFailure';
 import { resolvePersonaCard } from '../ai/Personality';
@@ -123,6 +128,19 @@ import type {
 } from '../../shared/types';
 
 const logger = createLogger('AthenaController');
+
+/** What a creative turn did, so the caller knows whether to draw, ask, or carry on. */
+type CreativeTurnOutcome =
+  | { kind: 'none' }
+  | { kind: 'cancelled' }
+  | { kind: 'proposed'; message: string }
+  | {
+    kind: 'applied';
+    state: CreativeState;
+    changed: CreativeSection[];
+    refused: CreativeSection[];
+    understanding: string;
+  };
 const STARTUP_MAINTENANCE_DELAY_MS = 5_000;
 
 interface ProcessMessageOptions {
@@ -317,13 +335,31 @@ export class AthenaController {
     // In the creative workspace, and whenever this window already holds a
     // description, the message is read for what it changes before anything is
     // drawn. Elsewhere the state is left alone so ordinary chat costs nothing.
+    const creativeWorkspace = parseCreativeWorkspace(getChatWindowCreativeState(chatWindowId));
     const creativeContext = mode === 'create'
-      || hasCreativeContent(parseCreativeState(getChatWindowCreativeState(chatWindowId)));
-    const creativeUpdate = creativeContext && !isTemporaryChat
+      || Boolean(creativeWorkspace.pending)
+      || hasCreativeContent(creativeWorkspace.state);
+    const creative: CreativeTurnOutcome = creativeContext && !isTemporaryChat
       ? await this.updateCreativeState(chatWindowId, userMessage)
-      : null;
+      : { kind: 'none' };
 
-    const merged = parseCreativeState(getChatWindowCreativeState(chatWindowId));
+    // Understanding is delivered before acting: the proposal is the reply, and
+    // nothing is drawn until the user answers it (ATH-CHAT-004).
+    if (creative.kind === 'proposed') {
+      const emotion = this.emotion.analyzeResponse(creative.message);
+      this.saveConversationMessage('assistant', creative.message, emotion.type, mode, chatWindowId);
+      if (effectiveSaveHistory) this.persistExtractedMemory(userMessage, savedUser.messageId, chatWindowId);
+      return { content: creative.message, emotion };
+    }
+    if (creative.kind === 'cancelled') {
+      const content = '好，那这次的改动就不动了。要改哪一部分随时说。';
+      const emotion = this.emotion.analyzeResponse(content);
+      this.saveConversationMessage('assistant', content, emotion.type, mode, chatWindowId);
+      return { content, emotion };
+    }
+    const creativeUpdate = creative.kind === 'applied' ? creative : null;
+
+    const merged = parseCreativeWorkspace(getChatWindowCreativeState(chatWindowId)).state;
     // "生成图片" on its own carries no subject, but the window may already hold the
     // description it refers to. Without this the command has nothing to draw.
     const imageIntent = resolveDirectImageGenerationIntent(userMessage, recentImageMessages)
@@ -1087,43 +1123,89 @@ export class AthenaController {
   private async updateCreativeState(
     chatWindowId: number,
     message: string,
-  ): Promise<{ state: CreativeState; changed: CreativeSection[]; refused: CreativeSection[]; understanding: string } | null> {
-    if (!canRouteModelRequest(this.llm.providerName, canUseNetworkCapability('remoteModel'), this.llm.endpoint)) return null;
-    const current = parseCreativeState(getChatWindowCreativeState(chatWindowId));
+  ): Promise<CreativeTurnOutcome> {
+    if (!canRouteModelRequest(this.llm.providerName, canUseNetworkCapability('remoteModel'), this.llm.endpoint)) {
+      return { kind: 'none' };
+    }
+    const workspace = parseCreativeWorkspace(getChatWindowCreativeState(chatWindowId));
+
+    // A standing proposal is answered before anything else is read: a bare "好" is
+    // consent to that proposal, not a new creative message.
+    if (workspace.pending) {
+      const reply = readCreativeReply(message);
+      if (reply === 'confirm') return this.applyCreativeProposal(chatWindowId, workspace);
+      if (reply === 'cancel') {
+        saveChatWindowCreativeState(chatWindowId, serializeCreativeWorkspace({ ...workspace, pending: null }));
+        return { kind: 'cancelled' };
+      }
+    }
+
     let extraction: CreativeExtraction;
     try {
-      extraction = await this.creativeExtractor.extract({ message, state: current });
+      extraction = await this.creativeExtractor.extract({ message, state: workspace.state });
     } catch (error) {
       const failure = classifyModelFailure(error);
       logger.warn(`Creative extraction failed [code=${failure.code}]: ${failure.detail}`);
-      return null;
+      return { kind: 'none' };
     }
-    if (extraction.issues.length > 0) {
-      logger.info(`Creative extraction issues: ${extraction.issues.join('|')}`);
-    }
-    if (extraction.kind === 'not_creative') return null;
+    if (extraction.issues.length > 0) logger.info(`Creative extraction issues: ${extraction.issues.join('|')}`);
+    if (extraction.kind === 'not_creative') return { kind: 'none' };
 
-    const merged = mergeCreativeState(current, extraction.patch);
-    if (merged.changed.length === 0 && merged.refused.length === 0) return null;
-    if (merged.changed.length > 0) {
-      saveChatWindowCreativeState(chatWindowId, serializeCreativeState(merged.state));
+    // Understanding first, acting second. A whole new character, or a request with
+    // a genuine gap, gets a sentence back rather than a picture (ATH-CHAT-004).
+    if (needsCreativeConfirmation(extraction)) {
+      const proposal: CreativePendingProposal = {
+        patch: extraction.patch,
+        understanding: extraction.understanding,
+        gaps: extraction.gaps,
+        plannedExtensions: extraction.plannedExtensions,
+        createdAt: new Date().toISOString(),
+      };
+      saveChatWindowCreativeState(chatWindowId, serializeCreativeWorkspace({ ...workspace, pending: proposal }));
+      logger.info(`Creative proposal awaiting confirmation [gaps=${proposal.gaps.length}, extensions=${proposal.plannedExtensions.length}]`);
+      return { kind: 'proposed', message: formatCreativeProposal(proposal) };
     }
-    logger.info(`Creative state ${merged.changed.length > 0 ? `v${merged.state.version}` : 'unchanged'} [changed=${merged.changed.join(',') || 'none'}, refused=${merged.refused.join(',') || 'none'}]`);
+
+    return this.applyCreativeProposal(chatWindowId, {
+      state: workspace.state,
+      pending: {
+        patch: extraction.patch,
+        understanding: extraction.understanding,
+        gaps: extraction.gaps,
+        plannedExtensions: extraction.plannedExtensions,
+        createdAt: new Date().toISOString(),
+      },
+    });
+  }
+
+  private applyCreativeProposal(chatWindowId: number, workspace: CreativeWorkspace): CreativeTurnOutcome {
+    if (!workspace.pending) return { kind: 'none' };
+    const merged = mergeCreativeState(workspace.state, workspace.pending.patch);
+    saveChatWindowCreativeState(chatWindowId, serializeCreativeWorkspace({ state: merged.state, pending: null }));
+    logger.info(`Creative state v${merged.state.version} [changed=${merged.changed.join(',') || 'none'}, refused=${merged.refused.join(',') || 'none'}]`);
+    if (merged.changed.length === 0 && merged.refused.length === 0) return { kind: 'none' };
     return {
+      kind: 'applied',
       state: merged.state,
       changed: merged.changed,
       refused: merged.refused,
-      understanding: extraction.understanding,
+      understanding: workspace.pending.understanding,
     };
   }
 
   /** The merged description a person reads and copies. */
-  getCreativeState(chatWindowId: number): { text: string; summary: string; version: number } {
-    const state = parseCreativeState(getChatWindowCreativeState(chatWindowId));
+  getCreativeState(chatWindowId: number): {
+    text: string;
+    summary: string;
+    version: number;
+    pending: string | null;
+  } {
+    const workspace = parseCreativeWorkspace(getChatWindowCreativeState(chatWindowId));
     return {
-      text: formatCreativeStateForDisplay(state),
-      summary: creativeStateSummary(state),
-      version: state.version,
+      text: formatCreativeStateForDisplay(workspace.state),
+      summary: creativeStateSummary(workspace.state),
+      version: workspace.state.version,
+      pending: workspace.pending ? formatCreativeProposal(workspace.pending) : null,
     };
   }
 

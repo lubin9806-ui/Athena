@@ -177,4 +177,73 @@ assert.equal(extracted.state.sections.scene, BOOKSTORE);
 assert.match(describeCreativeChange(extracted.changed, extracted.refused), /更新了 场景/);
 assert.match(describeCreativeChange(['scene'], ['character']), /保持了锁定的 五官/);
 
-console.log(`ATHENA_CREATIVE_STATE_OK sections=${CREATIVE_SECTIONS.length} locked=${DEFAULT_LOCKED_SECTIONS.join('+')}`);
+// --- Confirm before acting (ATH-CHAT-004) ---
+
+const {
+  needsCreativeConfirmation,
+} = require(path.join(root, 'dist', 'core', 'creative', 'CreativeExtraction.js'));
+const {
+  readCreativeReply,
+  formatCreativeProposal,
+  parseCreativeWorkspace,
+  serializeCreativeWorkspace,
+  emptyCreativeWorkspace,
+} = require(path.join(root, 'dist', 'core', 'creative', 'CreativeWorkspace.js'));
+
+// A whole new character, or a request with a real gap, is worth a sentence back.
+// A narrow unambiguous edit is not - asking every time is its own kind of not listening.
+assert.equal(needsCreativeConfirmation({ kind: 'full_spec', gaps: [], plannedExtensions: [] }), true);
+assert.equal(needsCreativeConfirmation({ kind: 'edit', gaps: ['光线方向'], plannedExtensions: [] }), true);
+assert.equal(needsCreativeConfirmation({ kind: 'edit', gaps: [], plannedExtensions: ['镜头'] }), false);
+assert.equal(needsCreativeConfirmation({ kind: 'not_creative', gaps: ['x'], plannedExtensions: [] }), false);
+
+// Only a message that is nothing but an affirmative counts as consent.
+for (const yes of ['好', '好的', '可以', '确认', '就这样', '生成吧', 'ok', 'Yes']) {
+  assert.equal(readCreativeReply(yes), 'confirm', `${yes} should confirm`);
+}
+for (const no of ['取消', '算了', '不用了', '先不要', 'cancel']) {
+  assert.equal(readCreativeReply(no), 'cancel', `${no} should cancel`);
+}
+// The dangerous case: consent-shaped, but actually a revision.
+for (const revise of [
+  '好，不过把场景换成书店',
+  '可以，但头发再长一点',
+  '好的，另外加一盏侧光并且把背景虚化程度调高一些',
+  '为什么要问我',
+  '',
+]) {
+  assert.equal(readCreativeReply(revise), 'revise', `${JSON.stringify(revise)} must not be read as consent`);
+}
+
+const proposal = {
+  patch: { sections: { scene: BOOKSTORE }, explicitSections: ['scene'] },
+  understanding: '把场景从咖啡馆换成书店',
+  gaps: ['时间是下午还是傍晚'],
+  plannedExtensions: ['侧逆光', '浅景深'],
+  createdAt: new Date().toISOString(),
+};
+const proposalText = formatCreativeProposal(proposal);
+assert(proposalText.includes('我理解的是：把场景从咖啡馆换成书店'));
+assert(proposalText.includes('侧逆光'));
+assert(proposalText.includes('时间是下午还是傍晚'));
+assert(proposalText.includes('角色特征我不会动'));
+
+// The workspace round-trips, and a blob written before proposals existed still reads.
+const workspace = { state: sceneEdit.state, pending: proposal };
+const roundTripped = parseCreativeWorkspace(serializeCreativeWorkspace(workspace));
+assert.deepEqual(roundTripped.state, sceneEdit.state);
+assert.equal(roundTripped.pending.understanding, proposal.understanding);
+
+const legacyBlob = serializeCreativeState(sceneEdit.state);
+const legacy = parseCreativeWorkspace(legacyBlob);
+assert.deepEqual(legacy.state, sceneEdit.state, 'a bare state blob must still load');
+assert.equal(legacy.pending, null);
+
+for (const raw of [null, '', 'not json', '[]', '{"pending":"nope"}', '{"pending":{"patch":"nope"}}']) {
+  const parsed = parseCreativeWorkspace(raw);
+  assert.equal(parsed.pending, null, `malformed pending must not survive: ${JSON.stringify(raw)}`);
+  assert.deepEqual(Object.keys(parsed.state.sections).sort(), [...CREATIVE_SECTIONS].sort());
+}
+assert.equal(emptyCreativeWorkspace().pending, null);
+
+console.log(`ATHENA_CREATIVE_STATE_OK sections=${CREATIVE_SECTIONS.length} locked=${DEFAULT_LOCKED_SECTIONS.join('+')} confirm=before-acting`);

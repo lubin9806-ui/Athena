@@ -7,6 +7,10 @@ export interface CreativeExtraction {
   patch: CreativePatch;
   /** One sentence describing what was understood, shown to the user for confirmation. */
   understanding: string;
+  /** Things the request leaves genuinely open, which are worth asking about. */
+  gaps: string[];
+  /** Technical details Athena would fill in herself, listed so they can be refused. */
+  plannedExtensions: string[];
   issues: string[];
 }
 
@@ -25,8 +29,18 @@ export function parseCreativeExtraction(raw: string): CreativeExtraction {
   const object = readJsonObject(raw, issues);
   const kind = readKind(object.kind, issues);
 
+  const gaps = readStringList(object.gaps, issues, 'gap');
+  const plannedExtensions = readStringList(object.plannedExtensions ?? object.planned_extensions, issues, 'extension');
+
   if (kind === 'not_creative') {
-    return { kind, patch: { sections: {} }, understanding: readText(object.understanding, MAX_UNDERSTANDING_CHARS), issues };
+    return {
+      kind,
+      patch: { sections: {} },
+      understanding: readText(object.understanding, MAX_UNDERSTANDING_CHARS),
+      gaps: [],
+      plannedExtensions: [],
+      issues,
+    };
   }
 
   const sections: Partial<Record<CreativeSection, string>> = {};
@@ -51,7 +65,14 @@ export function parseCreativeExtraction(raw: string): CreativeExtraction {
   const explicitSections = readExplicitSections(object.explicitSections ?? object.explicit_sections, issues);
   if (Object.keys(sections).length === 0) {
     issues.push('empty-patch');
-    return { kind: 'not_creative', patch: { sections: {} }, understanding: readText(object.understanding, MAX_UNDERSTANDING_CHARS), issues };
+    return {
+      kind: 'not_creative',
+      patch: { sections: {} },
+      understanding: readText(object.understanding, MAX_UNDERSTANDING_CHARS),
+      gaps: [],
+      plannedExtensions: [],
+      issues,
+    };
   }
 
   return {
@@ -63,8 +84,22 @@ export function parseCreativeExtraction(raw: string): CreativeExtraction {
       replaceAll: kind === 'full_spec',
     },
     understanding: readText(object.understanding, MAX_UNDERSTANDING_CHARS),
+    gaps,
+    plannedExtensions,
     issues,
   };
+}
+
+/**
+ * Whether this request is worth confirming before acting.
+ *
+ * A whole new character is worth a sentence of confirmation, and so is a request
+ * that leaves something genuinely open. A narrow, unambiguous edit is not - asking
+ * about every scene change would be its own kind of not listening (ATH-CHAT-004).
+ */
+export function needsCreativeConfirmation(extraction: CreativeExtraction): boolean {
+  if (extraction.kind === 'not_creative') return false;
+  return extraction.kind === 'full_spec' || extraction.gaps.length > 0;
 }
 
 /** The sections a person would recognise, for the confirmation sentence. */
@@ -154,6 +189,19 @@ function readExplicitSections(value: unknown, issues: string[]): CreativeSection
     else issues.push('invalid-explicit-section');
   }
   return result;
+}
+
+function readStringList(value: unknown, issues: string[], label: string): string[] {
+  if (value === undefined) return [];
+  if (!Array.isArray(value)) {
+    issues.push(`invalid-${label}-list`);
+    return [];
+  }
+  return value
+    .filter((item): item is string => typeof item === 'string')
+    .map(item => item.replace(/\s+/g, ' ').trim())
+    .filter(Boolean)
+    .slice(0, 6);
 }
 
 function readText(value: unknown, maxChars: number): string {
