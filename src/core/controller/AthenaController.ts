@@ -56,6 +56,7 @@ import {
   extractMemoryFromUserMessage,
   getDatabase,
   getStats,
+  purgeEphemeralChatMessages,
   queueExtractedMemory,
   rebuildMemoryIndex,
   retrieveContext,
@@ -219,6 +220,7 @@ export class AthenaController {
     if (temporaryWindowsDeleted > 0) {
       logger.info(`Cleaned up ${temporaryWindowsDeleted} temporary chat windows and ${temporaryAttachmentsDeleted} attachment files.`);
     }
+    this.purgeUnsavedChatSegment();
     this.emotion.setBaseEmotion(new Date().getHours());
     const settings = getAppSettings();
     this.applyToolPermission(settings.tools, settings.conversation.activeMode);
@@ -936,6 +938,19 @@ export class AthenaController {
     logger.info('Athena shutdown complete.');
   }
 
+  // Drops the turns recorded while "save chat history" was off. Called at startup
+  // and again the moment history is switched back on, so the unsaved segment cannot
+  // be pulled into the context snapshots of the durable turns that follow it.
+  // Attachment files go first: their rows cascade away with the messages.
+  purgeUnsavedChatSegment(): { messages: number; attachments: number } {
+    const attachments = this.attachments.cleanupEphemeralMessageFiles();
+    const messages = purgeEphemeralChatMessages();
+    if (messages > 0) {
+      logger.info(`Purged ${messages} chat messages and ${attachments} attachments written while history was off.`);
+    }
+    return { messages, attachments };
+  }
+
   private persistExtractedMemory(userMessage: string, sourceMessageId?: number, chatWindowId?: number): void {
     const settings = getAppSettings();
     if (!settings.conversation.saveHistory) return;
@@ -1152,9 +1167,14 @@ export class AthenaController {
     mode: ConversationMode,
     chatWindowId: number,
   ): { chatMessageId?: number; messageId?: number } {
-    const saved = saveChatMessage(chatWindowId, role, content, emotion, mode);
+    // With chat history off the turn still has to work, so it is written and read
+    // back for this session only, then purged at the next startup. It never enters
+    // the window summary/working state, the global messages table, long-term
+    // memory, or cloud sync (ATH-DATA-002).
+    const ephemeral = !shouldSaveHistory();
+    const saved = saveChatMessage(chatWindowId, role, content, emotion, mode, ephemeral);
     const isTemporaryChat = getChatWindow(chatWindowId)?.is_temporary === true;
-    if (!isTemporaryChat && mode !== 'execute') {
+    if (!isTemporaryChat && !ephemeral && mode !== 'execute') {
       try {
         const { queueCloudWindowSync } = require('../cloud/CloudAccountService') as typeof import('../cloud/CloudAccountService');
         queueCloudWindowSync(chatWindowId);

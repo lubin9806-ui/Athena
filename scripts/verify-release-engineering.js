@@ -178,6 +178,77 @@ function verifyVersion3ChatWindowMigration(scratch) {
   assert.match(migrated.stdout, /is_temporary/);
 }
 
+// Shipping databases sit at schema 15, so the ephemeral column arrives through
+// ALTER TABLE rather than the CREATE TABLE path a fresh database takes. Existing
+// rows must come across as durable (ephemeral = 0), or the first startup after the
+// upgrade would purge real history (ATH-DATA-002).
+function verifyVersion15EphemeralMigration(scratch) {
+  const databaseDir = path.join(scratch, 'migration-v15-database');
+  fs.mkdirSync(databaseDir, { recursive: true });
+  const databasePath = path.join(databaseDir, 'athena.db');
+  const Database = require('better-sqlite3');
+  const legacy = new Database(databasePath);
+  legacy.exec(`
+    CREATE TABLE chat_windows (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      summary TEXT NOT NULL DEFAULT '',
+      mode TEXT NOT NULL DEFAULT 'companion' CHECK(mode IN ('create', 'companion', 'reason', 'execute')),
+      working_state TEXT NOT NULL DEFAULT '{}',
+      project_id INTEGER,
+      project_instructions_snapshot TEXT NOT NULL DEFAULT '',
+      is_temporary INTEGER NOT NULL DEFAULT 0 CHECK(is_temporary IN (0, 1)),
+      archived_at DATETIME,
+      deleted_at DATETIME,
+      created_at DATETIME DEFAULT (datetime('now', 'localtime')),
+      updated_at DATETIME DEFAULT (datetime('now', 'localtime')),
+      last_active_at DATETIME DEFAULT (datetime('now', 'localtime'))
+    );
+    CREATE TABLE chat_messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      window_id INTEGER NOT NULL REFERENCES chat_windows(id) ON DELETE CASCADE,
+      role TEXT NOT NULL CHECK(role IN ('user', 'assistant', 'system')),
+      content TEXT NOT NULL,
+      emotion TEXT,
+      mode TEXT CHECK(mode IN ('create', 'companion', 'reason', 'execute')),
+      created_at DATETIME DEFAULT (datetime('now', 'localtime'))
+    );
+    INSERT INTO chat_windows(title) VALUES ('pre-upgrade window');
+    INSERT INTO chat_messages(window_id, role, content, mode) VALUES (1, 'user', 'pre-upgrade history', 'companion');
+    PRAGMA user_version = 15;
+  `);
+  legacy.close();
+
+  const probe = `
+    const db=require('./dist/memory/database/index.js');
+    const memory=require('./dist/memory/index.js');
+    try {
+      const opened=db.getDatabase();
+      const columns=opened.prepare('PRAGMA table_info(chat_messages)').all().map(column => column.name);
+      console.log('schema='+opened.pragma('user_version',{simple:true}));
+      console.log('columns='+columns.join(','));
+      console.log('row='+JSON.stringify(opened.prepare('SELECT content, ephemeral FROM chat_messages WHERE id=1').get()));
+      console.log('purged='+memory.purgeEphemeralChatMessages());
+      console.log('survivors='+opened.prepare('SELECT COUNT(*) AS c FROM chat_messages').get().c);
+      db.closeDatabase();
+    } catch(error) {
+      console.error(error.message);
+      process.exit(23);
+    }
+  `;
+  const migrated = spawnSync(process.execPath, ['-e', probe], {
+    cwd: ROOT,
+    encoding: 'utf8',
+    env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', ATHENA_DB_DIR: databaseDir },
+  });
+  assert.strictEqual(migrated.status, 0, `v15 ephemeral migration should recover: ${migrated.stdout} ${migrated.stderr}`);
+  assert.match(migrated.stdout, new RegExp(`schema=${DATABASE_SCHEMA_VERSION}`));
+  assert.match(migrated.stdout, /columns=.*ephemeral/);
+  assert.match(migrated.stdout, /"content":"pre-upgrade history","ephemeral":0/);
+  assert.match(migrated.stdout, /purged=0/);
+  assert.match(migrated.stdout, /survivors=1/);
+}
+
 function main() {
   const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'athena-release-engineering-'));
   try {
@@ -185,6 +256,7 @@ function main() {
     verifyChannelControls(scratch);
     verifyMigrationRecovery(scratch);
     verifyVersion3ChatWindowMigration(scratch);
+    verifyVersion15EphemeralMigration(scratch);
     console.log('ATHENA_RELEASE_ENGINEERING_OK version=0.9.6-beta.1 channels=beta,stable migrationBackup=verified rollback=verified');
   } finally {
     fs.rmSync(scratch, { recursive: true, force: true });

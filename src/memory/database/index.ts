@@ -7,7 +7,7 @@ import { ensureSufficientDiskSpace } from '../../core/runtime/DiskSpaceGuard';
 
 let db: Database.Database | null = null;
 let resolvedDbPath: string | null = null;
-export const DATABASE_SCHEMA_VERSION = 15;
+export const DATABASE_SCHEMA_VERSION = 16;
 const MIGRATION_BACKUP_RETENTION = 5;
 
 export interface MemoryStats {
@@ -200,6 +200,7 @@ function runMigrations(database: Database.Database, currentVersion: number): voi
       content TEXT NOT NULL,
       emotion TEXT,
       mode TEXT CHECK(mode IN ('create', 'companion', 'reason', 'execute')),
+      ephemeral INTEGER NOT NULL DEFAULT 0 CHECK(ephemeral IN (0, 1)),
       created_at DATETIME DEFAULT (datetime('now', 'localtime'))
     );
     CREATE INDEX IF NOT EXISTS idx_chat_messages_window_id ON chat_messages(window_id, id);
@@ -728,6 +729,13 @@ function runMigrations(database: Database.Database, currentVersion: number): voi
     if (!projectDocumentColumns.some(column => column.name === 'needs_ocr')) {
       database.exec('ALTER TABLE project_documents ADD COLUMN needs_ocr INTEGER NOT NULL DEFAULT 0 CHECK(needs_ocr IN (0, 1))');
     }
+    // schema 16: messages written while "save chat history" is off are kept only
+    // for the running session and purged at startup (ATH-DATA-002).
+    const chatMessageColumns = database.prepare('PRAGMA table_info(chat_messages)').all() as Array<{ name: string }>;
+    if (!chatMessageColumns.some(column => column.name === 'ephemeral')) {
+      database.exec('ALTER TABLE chat_messages ADD COLUMN ephemeral INTEGER NOT NULL DEFAULT 0 CHECK(ephemeral IN (0, 1))');
+    }
+    database.exec('CREATE INDEX IF NOT EXISTS idx_chat_messages_ephemeral ON chat_messages(ephemeral) WHERE ephemeral = 1');
     database.exec('CREATE INDEX IF NOT EXISTS idx_chat_windows_temporary ON chat_windows(is_temporary, deleted_at, archived_at)');
     database.exec('CREATE INDEX IF NOT EXISTS idx_chat_windows_project ON chat_windows(project_id, deleted_at, archived_at, last_active_at DESC)');
     database.exec('CREATE INDEX IF NOT EXISTS idx_memory_review_queue_group ON memory_review_queue(group_key, status)');

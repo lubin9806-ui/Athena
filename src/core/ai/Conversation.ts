@@ -7,6 +7,7 @@ import { EmotionEngine } from './Emotion';
 import { ToolRuntime } from '../tools/ToolRuntime';
 import { toolPermissionPrompt } from '../tools/ComputerTools';
 import { saveContextSnapshot } from '../../memory';
+import { shouldSaveHistory } from '../config/SettingsStore';
 import { createLogger } from '../../engine/Logger';
 import type {
   ConversationMode,
@@ -151,6 +152,10 @@ function persistContextSnapshot(
   snapshot: ContextSnapshotPayload,
   options: ContextSnapshotOptions,
 ): ContextSnapshotRecord | undefined {
+  // included/omitted carry previews of the recent messages and retrieved memory
+  // that went into the prompt, so this table is chat history by another name
+  // (ATH-DATA-002).
+  if (!shouldSaveHistory()) return undefined;
   try {
     return saveContextSnapshot({
       projectId: options.projectId,

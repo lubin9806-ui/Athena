@@ -202,6 +202,47 @@ export function cleanupTemporaryChatWindows(): number {
   return ids.length;
 }
 
+// Messages written while "save chat history" was off live only for the session
+// that produced them. Their context snapshots go with them explicitly, because
+// that foreign key is ON DELETE SET NULL and would otherwise leave the preview
+// text behind under a null message id. Attachment rows cascade from chat_messages,
+// so AttachmentService.cleanupEphemeralMessageFiles must run BEFORE this to delete
+// the managed files while the rows still name them.
+export function purgeEphemeralChatMessages(): number {
+  const db = getDatabase();
+  const windowIds = (db.prepare(`
+    SELECT DISTINCT window_id FROM chat_messages WHERE ephemeral = 1
+  `).all() as Array<{ window_id: number }>).map(row => row.window_id);
+  if (windowIds.length === 0) return 0;
+  const placeholders = windowIds.map(() => '?').join(', ');
+  return db.transaction(() => {
+    db.prepare(`
+      DELETE FROM context_snapshots
+      WHERE user_message_id IN (SELECT id FROM chat_messages WHERE ephemeral = 1)
+    `).run();
+    const deleted = db.prepare('DELETE FROM chat_messages WHERE ephemeral = 1').run().changes;
+    // Windows that only ever held ephemeral turns keep a stale message count in
+    // their working state, so reset the counter for every window we touched.
+    for (const windowId of windowIds) {
+      const remaining = (db.prepare('SELECT COUNT(*) as c FROM chat_messages WHERE window_id = ?')
+        .get(windowId) as { c: number }).c;
+      const row = db.prepare('SELECT working_state FROM chat_windows WHERE id = ?')
+        .get(windowId) as { working_state: string } | undefined;
+      if (!row) continue;
+      const state = parseWorkingState(row.working_state);
+      state.messageCount = remaining;
+      db.prepare('UPDATE chat_windows SET working_state = ? WHERE id = ?')
+        .run(JSON.stringify(state), windowId);
+    }
+    return deleted;
+  })();
+}
+
+export function countEphemeralChatMessages(): number {
+  return (getDatabase().prepare('SELECT COUNT(*) as c FROM chat_messages WHERE ephemeral = 1')
+    .get() as { c: number }).c;
+}
+
 export function pinChatWindowFact(windowId: number, text: string): ChatWindow | null {
   const window = getChatWindow(windowId);
   const normalized = truncateChatWindowText(text, MAX_PINNED_FACT_CHARS);
@@ -239,14 +280,15 @@ export function saveChatMessage(
   content: string,
   emotion?: string,
   mode?: ConversationMode,
+  ephemeral = false,
 ): ChatWindowMessage | null {
   const window = getChatWindow(windowId);
   if (!window || window.deleted_at) return null;
   const db = getDatabase();
   const result = db.prepare(`
-    INSERT INTO chat_messages (window_id, role, content, emotion, mode)
-    VALUES (?, ?, ?, ?, ?)
-  `).run(windowId, role, content, emotion || null, mode || window.mode);
+    INSERT INTO chat_messages (window_id, role, content, emotion, mode, ephemeral)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run(windowId, role, content, emotion || null, mode || window.mode, ephemeral ? 1 : 0);
   const id = result.lastInsertRowid as number;
   const effectiveMode = mode || window.mode;
   const messageCount = (db.prepare(`
@@ -254,14 +296,21 @@ export function saveChatMessage(
     FROM chat_messages
     WHERE window_id = ?
   `).get(windowId) as { c: number }).c;
-  const summary = buildChatWindowSummary(window.summary, role, content, id);
-  const workingState = buildChatWindowWorkingState(window.working_state_json || window.working_state, {
-    id,
-    role,
-    content,
-    mode: effectiveMode,
-    messageCount,
-  });
+  // The window summary and working state carry message text, so an ephemeral
+  // message must not be folded into them — otherwise the content outlives the
+  // purge in a column nobody thinks of as chat history.
+  const summary = ephemeral
+    ? window.summary
+    : buildChatWindowSummary(window.summary, role, content, id);
+  const workingState = ephemeral
+    ? (window.working_state_json || window.working_state)
+    : buildChatWindowWorkingState(window.working_state_json || window.working_state, {
+      id,
+      role,
+      content,
+      mode: effectiveMode,
+      messageCount,
+    });
   db.prepare(`
     UPDATE chat_windows
     SET mode = ?,

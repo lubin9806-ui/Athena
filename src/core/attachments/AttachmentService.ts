@@ -227,6 +227,20 @@ export class AttachmentService {
     return rows.length;
   }
 
+  // Attachment rows cascade away with their chat_messages row, which would leave
+  // the managed files behind. Must run before purgeEphemeralChatMessages, while
+  // the rows that name those files still exist (ATH-DATA-002).
+  cleanupEphemeralMessageFiles(): number {
+    const rows = getDatabase().prepare(`
+      SELECT ${attachmentFields('ca')}
+      FROM chat_attachments ca
+      JOIN chat_messages cm ON cm.id = ca.message_id
+      WHERE cm.ephemeral = 1
+    `).all() as AttachmentRow[];
+    for (const row of rows) this.deleteRowAndFile(row);
+    return rows.length;
+  }
+
   cleanupWindowFiles(windowId: number): number {
     const rows = getDatabase().prepare(`SELECT ${attachmentFields()} FROM chat_attachments WHERE window_id = ?`).all(windowId) as AttachmentRow[];
     for (const row of rows) this.deleteRowAndFile(row);

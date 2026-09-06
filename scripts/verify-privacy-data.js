@@ -29,6 +29,13 @@ const {
   getDatabase,
   getDatabaseFilePath,
 } = require('../dist/memory/database/index.js');
+const {
+  countEphemeralChatMessages,
+  createChatWindow,
+  purgeEphemeralChatMessages,
+  saveChatMessage,
+  saveContextSnapshot,
+} = require('../dist/memory/index.js');
 const { ComputerToolService } = require('../dist/core/tools/ComputerTools.js');
 const { AgentStore } = require('../dist/core/agent/index.js');
 
@@ -79,6 +86,80 @@ function writeVoiceCache(name, ageHours) {
     const db = getDatabase();
     recordDataActivity('search', 'should-not-persist-while-history-off', { query: 'secret' });
     assert.strictEqual(tableCount(db, 'data_activity_records'), 0);
+
+    // ATH-DATA-002: with history off a turn still has to work for the running
+    // session, but it must not leave a durable copy anywhere. The window summary
+    // and working state carry message text, so they are the easy thing to miss.
+    assert.strictEqual(
+      db.prepare("SELECT COUNT(*) AS c FROM pragma_table_info('chat_messages') WHERE name = 'ephemeral'").get().c,
+      1,
+      'schema 16 must add chat_messages.ephemeral',
+    );
+
+    const historyOffWindow = createChatWindow({ title: 'history-off window' });
+    const ephemeralSecret = 'ephemeral-secret-must-not-outlive-session';
+    const ephemeralMessage = saveChatMessage(historyOffWindow.id, 'user', ephemeralSecret, undefined, 'companion', true);
+    assert.ok(ephemeralMessage, 'history-off turn must still be readable this session');
+    assert.strictEqual(
+      db.prepare('SELECT content FROM chat_messages WHERE id = ?').get(ephemeralMessage.id).content,
+      ephemeralSecret,
+    );
+    assert.strictEqual(db.prepare('SELECT ephemeral FROM chat_messages WHERE id = ?').get(ephemeralMessage.id).ephemeral, 1);
+    const afterEphemeral = db.prepare('SELECT summary, working_state FROM chat_windows WHERE id = ?').get(historyOffWindow.id);
+    assert.ok(!afterEphemeral.summary.includes(ephemeralSecret), 'window summary retained history-off content');
+    assert.ok(!afterEphemeral.working_state.includes(ephemeralSecret), 'window working state retained history-off content');
+
+    // A durable turn in the same window keeps the previous behaviour.
+    const durableSecret = 'durable-turn-stays-in-summary';
+    const durableMessage = saveChatMessage(historyOffWindow.id, 'user', durableSecret, undefined, 'companion');
+    const afterDurable = db.prepare('SELECT summary, working_state FROM chat_windows WHERE id = ?').get(historyOffWindow.id);
+    assert.ok(afterDurable.summary.includes(durableSecret), 'durable turn missing from window summary');
+    assert.ok(afterDurable.working_state.includes(durableSecret), 'durable turn missing from working state');
+
+    // context_snapshots keep previews of the prompt, so they are chat history under
+    // another name. The FK is ON DELETE SET NULL, so the purge has to remove them
+    // explicitly or the preview text survives with a null message id.
+    const snapshotItem = {
+      kind: 'recent', label: 'recent messages', priority: 1, chars: ephemeralSecret.length,
+      estimatedTokens: 8, included: true, reason: 'included', preview: ephemeralSecret,
+    };
+    saveContextSnapshot({
+      windowId: historyOffWindow.id, userMessageId: ephemeralMessage.id, mode: 'companion',
+      budget: {}, included: [snapshotItem], omitted: [],
+      promptMessageCount: 1, promptChars: 1, estimatedPromptTokens: 1,
+    });
+    saveContextSnapshot({
+      windowId: historyOffWindow.id, userMessageId: durableMessage.id, mode: 'companion',
+      budget: {}, included: [], omitted: [],
+      promptMessageCount: 1, promptChars: 1, estimatedPromptTokens: 1,
+    });
+
+    assert.strictEqual(countEphemeralChatMessages(), 1);
+    assert.strictEqual(purgeEphemeralChatMessages(), 1);
+    assert.strictEqual(countEphemeralChatMessages(), 0);
+    assert.strictEqual(
+      db.prepare('SELECT COUNT(*) AS c FROM chat_messages WHERE content = ?').get(ephemeralSecret).c,
+      0,
+      'history-off message survived the startup purge',
+    );
+    assert.strictEqual(
+      db.prepare('SELECT COUNT(*) AS c FROM chat_messages WHERE id = ?').get(durableMessage.id).c,
+      1,
+      'startup purge removed a durable message',
+    );
+    const survivingSnapshots = db
+      .prepare('SELECT included_json FROM context_snapshots WHERE window_id = ?')
+      .all(historyOffWindow.id);
+    assert.strictEqual(survivingSnapshots.length, 1, 'history-off context snapshot survived the purge');
+    assert.ok(
+      !survivingSnapshots.some(row => row.included_json.includes(ephemeralSecret)),
+      'history-off content survived inside a context snapshot preview',
+    );
+    assert.strictEqual(
+      JSON.parse(db.prepare('SELECT working_state FROM chat_windows WHERE id = ?').get(historyOffWindow.id).working_state).messageCount,
+      1,
+      'window message count must be rebuilt after the purge',
+    );
 
     saveSettingsBundle({
       settings: {

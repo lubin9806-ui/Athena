@@ -6,7 +6,7 @@
 
 | 数据类别 | 保存位置 | 是否离开设备 | 保留/清除 |
 |---|---|---|---|
-| 聊天消息 | SQLite `messages`、`memory_index` | Ollama 默认只发往本机；选择远程 Provider 并同意后，请求和相关上下文会发往配置的 API 地址 | `saveHistory=false` 后不再保存；`historyRetentionDays` 自动清理；一键清除删除 |
+| 聊天消息 | SQLite `chat_messages`、`chat_windows`（滚动摘要与工作状态含消息文本）、`context_snapshots`（上下文预览含消息文本）、旧全局 `messages`、`memory_index` | Ollama 默认只发往本机；选择远程 Provider 并同意后，请求和相关上下文会发往配置的 API 地址 | `saveHistory=false` 后：不写 `messages`、不折入窗口摘要与工作状态、不写 `context_snapshots`、不提取长期记忆、不进云同步；`chat_messages` 标记为 `ephemeral` 仅供当前会话使用，在下次启动或历史重新开启时删除（含其附件文件）。`historyRetentionDays` 目前只清理旧 `messages`，尚未覆盖 `chat_messages`（ATH-DATA-003）；一键清除删除全部 |
 | 长期记忆 | SQLite `profile`、`events`、`project_notes`、`memory_index` | 不自动上传；远程模型同意开启后，当前请求所需的相关记忆可能随上下文发送 | 历史关闭后停止自动提取；记忆面板或一键清除删除 |
 | 设置与个性化 | `config/settings.json`、`config/model.json` | 不自动上传 | 用户修改或删除配置目录；导出包含脱敏副本 |
 | 搜索查询 | SQLite `data_activity_records` 的最小活动记录 | 同意后发往 Sogou/Bing/DuckDuckGo 和结果网页 | 历史关闭时不记录；历史保留期自动清理；一键清除删除 |
@@ -15,6 +15,14 @@
 | 任务产物文件 | 当前 Project 根目录下的 `.athena/artifacts/<task-id>` | 文档生成完全本地；本地生图不外发，云端生图仅在独立同意与逐次审批后向当前所选 Provider 发送提示词 | 任务数据库记录可一键清除；实际文件由用户在 Project 中保留或删除 |
 | 日志/崩溃诊断 | stdout/stderr；`%TEMP%\athena\diagnostics\crash-diagnostics.jsonl` | 不自动上传 | 诊断脱敏、单文件 1 MB、最多 3 个轮转文件；隐私中心可导出无聊天内容的支持包或只删除已知诊断文件 |
 | 临时文件 | 语音缓存、导出目录、数据库迁移备份 | 不自动上传 | 语音缓存自动清理；迁移备份用于失败恢复；导出文件由用户管理 |
+
+### 关闭“保存聊天历史”的准确含义
+
+关闭该开关后，对话在当前会话内仍然正常工作——消息要能显示、多轮上下文要能成立，因此这些消息**确实会写入本机 SQLite**，只是被标记为 `ephemeral`，并在下次启动或历史被重新开启时连同附件文件一起删除。
+
+这不等于“完全不落盘”。做到真正不触碰磁盘需要一套内存态消息存储，检索与界面都要改，属于尚未开始的独立工作。在那之前，此处不使用“不保存”的说法。
+
+已经存在的历史不会因为关闭开关而被删除；关闭的含义是“从现在起不再保留新内容”，删除与保留期是另外的控件。
 
 ## 联网能力与首次同意
 

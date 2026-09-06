@@ -129,7 +129,27 @@ try {
   assert.equal(service.removePending(windowB.id, escapeAttempt.id), true);
 
   const schemaVersion = Number(memory.getDatabase().pragma('user_version', { simple: true }));
-  assert.equal(schemaVersion, 15);
+  assert.equal(schemaVersion, 16);
+
+  // Attachment rows cascade away with an ephemeral message, so the managed files
+  // have to be swept before the purge or they are orphaned on disk (ATH-DATA-002).
+  const ephemeralSource = path.join(tempDir, 'history-off.png');
+  fs.writeFileSync(ephemeralSource, PNG_1X1);
+  const ephemeralMessage = memory.saveChatMessage(windowA.id, 'user', 'history-off turn with a file', undefined, 'companion', true);
+  const [ephemeralAttachment] = service.importImages(windowA.id, [ephemeralSource]);
+  service.attachToMessage(windowA.id, ephemeralMessage.id, [ephemeralAttachment.id]);
+  const ephemeralStoragePath = memory.getDatabase()
+    .prepare('SELECT storage_path FROM chat_attachments WHERE id = ?')
+    .get(ephemeralAttachment.id).storage_path;
+  assert.equal(fs.existsSync(ephemeralStoragePath), true, 'attachment file should exist before the purge');
+  assert.equal(service.cleanupEphemeralMessageFiles(), 1);
+  assert.equal(fs.existsSync(ephemeralStoragePath), false, 'history-off attachment file was orphaned on disk');
+  assert.equal(memory.purgeEphemeralChatMessages(), 1);
+  assert.equal(
+    memory.getDatabase().prepare('SELECT COUNT(*) AS c FROM chat_attachments WHERE id = ?').get(ephemeralAttachment.id).c,
+    0,
+  );
+  assert.deepEqual(memory.getDatabase().pragma('foreign_key_check'), []);
   console.log('ATHENA_CHAT_ATTACHMENTS_OK formats=png,jpeg,webp,txt,md,pdf,docx,wav,aiff,flac generated=assistant-chat max=5 isolation=window integrity=sha256 cleanup=temporary,stale');
 } catch (error) {
   console.error(error);

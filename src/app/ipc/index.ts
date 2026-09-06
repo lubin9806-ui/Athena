@@ -719,7 +719,12 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<vo
 
   ipcMain.handle('config:set', async (event, patch: unknown) => {
     if (!isTrustedSender(event)) return null;
+    const historyWasOff = !getAppSettings().conversation.saveHistory;
     const bundle = saveSettingsBundle(cleanSettingsPatch(patch));
+    // Switching history back on ends the unsaved segment. Drop it now instead of at
+    // the next startup, so the durable turns that follow cannot pull its text into
+    // their context snapshots (ATH-DATA-002).
+    if (historyWasOff && bundle.settings.conversation.saveHistory) controller.purgeUnsavedChatSegment();
     controller.reloadModel();
     const desktop = applyDesktopSettings(bundle.settings.general);
     controller.applyToolPermission(bundle.settings.tools, bundle.settings.conversation.activeMode);
