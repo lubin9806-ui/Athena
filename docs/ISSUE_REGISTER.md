@@ -8,9 +8,9 @@
 | 严重级别 | Closed | Open/In Progress/Blocked | 说明 |
 |---|---:|---:|---|
 | Blocker | 7 | 0 | 窗口 01 的仓库、事实源与验证链 Blocker 已全部关闭 |
-| P0 | 7 | 9 | ATH-SEC-001～003、ATH-PRIV-001、ATH-DATA-001、ATH-LEGAL-001、ATH-DATA-002 已关闭；ATH-REL-001 及 Steam/Cloud/Mobile P0 未关闭；2026-09-03 新登记 ATH-SEC-004；2026-09-06 新登记 ATH-CLOUD-004、ATH-SEC-005～007 |
-| P1 | 4 | 6 | ATH-VOICE-001、ATH-WEB-001、ATH-CONFIG-001、ATH-AGENT-001 已关闭；Desktop/运营三项保持 Blocked；2026-09-06 新登记 ATH-DATA-003、ATH-CHAT-005、ATH-SEC-008 |
-| P2/P3 | 4 | 16 | ATH-ARCH-001、ATH-PRODUCT-001、ATH-AUTO-001、ATH-CHAT-001 已关闭；ATH-REPO-001 保持未关闭；2026-09-03 新登记 ATH-VOICE-002、ATH-CLOUD-002、ATH-REPO-002、ATH-CHAT-002～004、ATH-STAB-001、ATH-WEB-002、ATH-IMG-001～003、ATH-CLOUD-003；2026-09-06 新登记 ATH-INIT-001、ATH-PERF-001 |
+| P0 | 8 | 8 | ATH-SEC-001～003、ATH-PRIV-001、ATH-DATA-001、ATH-LEGAL-001、ATH-DATA-002、ATH-SEC-006 已关闭；ATH-REL-001 及 Steam/Cloud/Mobile P0 未关闭；2026-09-03 新登记 ATH-SEC-004；2026-09-06 新登记 ATH-CLOUD-004、ATH-SEC-005、ATH-SEC-007 |
+| P1 | 5 | 5 | ATH-VOICE-001、ATH-WEB-001、ATH-CONFIG-001、ATH-AGENT-001、ATH-DATA-003 已关闭；Desktop/运营三项保持 Blocked；2026-09-06 新登记 ATH-CHAT-005、ATH-SEC-008 |
+| P2/P3 | 5 | 15 | ATH-ARCH-001、ATH-PRODUCT-001、ATH-AUTO-001、ATH-CHAT-001、ATH-CHAT-003 已关闭；ATH-REPO-001 保持未关闭；2026-09-03 新登记 ATH-VOICE-002、ATH-CLOUD-002、ATH-REPO-002、ATH-CHAT-002/004、ATH-STAB-001、ATH-WEB-002、ATH-IMG-001～003、ATH-CLOUD-003；2026-09-06 新登记 ATH-INIT-001、ATH-PERF-001 |
 
 > 2026-09-06 数据库 schema 升至 **16**（`chat_messages.ephemeral`）。迁移为幂等 `ALTER TABLE`，既有行落为 `ephemeral=0`；`test:release` 新增有数据的 15→16 用例，`create-seed-database` 输出 `schema=16 contentRows=0`。各套件中硬编码的 schema 断言已同步更新为 16——这些断言是“改了 schema 请复查本模块”的绊线，本轮正是它暴露了 ephemeral 消息被清除时附件文件会成为磁盘孤儿的问题。
 
