@@ -6,7 +6,7 @@
 
 | 数据类别 | 保存位置 | 是否离开设备 | 保留/清除 |
 |---|---|---|---|
-| 聊天消息 | SQLite `chat_messages`、`chat_windows`（滚动摘要与工作状态含消息文本）、`context_snapshots`（上下文预览含消息文本）、旧全局 `messages`、`memory_index` | Ollama 默认只发往本机；选择远程 Provider 并同意后，请求和相关上下文会发往配置的 API 地址 | `saveHistory=false` 后：不写 `messages`、不折入窗口摘要与工作状态、不写 `context_snapshots`、不提取长期记忆、不进云同步；`chat_messages` 标记为 `ephemeral` 仅供当前会话使用，在下次启动或历史重新开启时删除（含其附件文件）。`historyRetentionDays` 目前只清理旧 `messages`，尚未覆盖 `chat_messages`（ATH-DATA-003）；一键清除删除全部 |
+| 聊天消息 | SQLite `chat_messages`、`chat_windows`（滚动摘要与工作状态含消息文本）、`context_snapshots`（上下文预览含消息文本）、旧全局 `messages`、`memory_index` | Ollama 默认只发往本机；选择远程 Provider 并同意后，请求和相关上下文会发往配置的 API 地址 | `saveHistory=false` 后：不写 `messages`、不折入窗口摘要与工作状态、不写 `context_snapshots`、不提取长期记忆、不进云同步；`chat_messages` 标记为 `ephemeral` 仅供当前会话使用，在下次启动或历史重新开启时删除（含其附件文件）。`historyRetentionDays` 到期后清理旧 `messages` 与窗口聊天 `chat_messages`（含其附件文件、上下文快照，并从窗口滚动摘要中剔除）；一键清除删除全部 |
 | 长期记忆 | SQLite `profile`、`events`、`project_notes`、`memory_index` | 不自动上传；远程模型同意开启后，当前请求所需的相关记忆可能随上下文发送 | 历史关闭后停止自动提取；记忆面板或一键清除删除 |
 | 设置与个性化 | `config/settings.json`、`config/model.json` | 不自动上传 | 用户修改或删除配置目录；导出包含脱敏副本 |
 | 搜索查询 | SQLite `data_activity_records` 的最小活动记录 | 同意后发往 Sogou/Bing/DuckDuckGo 和结果网页 | 历史关闭时不记录；历史保留期自动清理；一键清除删除 |

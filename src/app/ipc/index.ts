@@ -743,7 +743,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<vo
     controller.reloadModel();
     const desktop = applyDesktopSettings(bundle.settings.general);
     controller.applyToolPermission(bundle.settings.tools, bundle.settings.conversation.activeMode);
-    const retention = applyDataRetention();
+    const retention = controller.applyRetention();
     const voiceRemoved = cleanupVoiceCache(bundle.settings.data.voiceCacheRetentionHours);
     recordDataActivity('settings', 'config-set', {
       historyRetentionDays: bundle.settings.data.historyRetentionDays,

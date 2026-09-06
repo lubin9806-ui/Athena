@@ -1074,6 +1074,17 @@ export class AthenaController {
   // and again the moment history is switched back on, so the unsaved segment cannot
   // be pulled into the context snapshots of the durable turns that follow it.
   // Attachment files go first: their rows cascade away with the messages.
+  /**
+   * Applies the retention window, sweeping the managed attachment files whose rows
+   * are about to cascade away. Callers must use this rather than the bare service
+   * function, or expired attachments are orphaned on disk.
+   */
+  applyRetention(now: Date = new Date()) {
+    return applyDataRetention(now, {
+      clearExpiredAttachmentFiles: cutoff => this.attachments.cleanupExpiredMessageFiles(cutoff),
+    });
+  }
+
   purgeUnsavedChatSegment(): { messages: number; attachments: number } {
     const attachments = this.attachments.cleanupEphemeralMessageFiles();
     const messages = purgeEphemeralChatMessages();
@@ -1142,7 +1153,7 @@ export class AthenaController {
     try {
       const staleAttachmentsDeleted = this.attachments.cleanupStalePending();
       if (staleAttachmentsDeleted > 0) logger.info(`Cleaned up ${staleAttachmentsDeleted} stale pending attachments.`);
-      const retention = applyDataRetention();
+      const retention = this.applyRetention();
       if (retention.messagesDeleted > 0 || retention.activityDeleted > 0) {
         logger.info(`Data retention applied: messages=${retention.messagesDeleted}, activity=${retention.activityDeleted}`);
       }

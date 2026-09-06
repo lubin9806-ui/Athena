@@ -9,6 +9,7 @@ import {
   getDatabaseFilePath,
   getStats,
 } from '../../memory/database';
+import { pruneChatMessagesBefore } from '../../memory/working';
 import type { AppSettings, NetworkConsentSettings, PrivacySettings } from '../../shared/types';
 import { APP_VERSION } from '../../shared/constants';
 import { resolveAttachmentRoot } from '../attachments';
@@ -138,15 +139,24 @@ export function recordDataActivity(
   `).run(category, action.slice(0, 80), safeDetail);
 }
 
-export function applyDataRetention(now: Date = new Date()): {
+export interface DataRetentionHooks {
+  /** Sweeps managed attachment files before their rows cascade away. */
+  clearExpiredAttachmentFiles?: (cutoffIso: string) => number;
+}
+
+export function applyDataRetention(now: Date = new Date(), hooks: DataRetentionHooks = {}): {
   messagesDeleted: number;
+  chatMessagesDeleted: number;
+  attachmentFilesDeleted: number;
   activityDeleted: number;
   scheduledJobsDeleted: number;
 } {
   const settings = getAppSettings();
   const days = settings.data.historyRetentionDays;
   cleanupVoiceCache(settings.data.voiceCacheRetentionHours, now);
-  if (days <= 0) return { messagesDeleted: 0, activityDeleted: 0, scheduledJobsDeleted: 0 };
+  if (days <= 0) {
+    return { messagesDeleted: 0, chatMessagesDeleted: 0, attachmentFilesDeleted: 0, activityDeleted: 0, scheduledJobsDeleted: 0 };
+  }
 
   const cutoff = new Date(now.getTime() - days * 24 * 60 * 60 * 1000).toISOString();
   const db = getDatabase();
@@ -164,7 +174,17 @@ export function applyDataRetention(now: Date = new Date()): {
     DELETE FROM scheduled_jobs
     WHERE status IN ('completed', 'cancelled') AND COALESCE(completed_at, created_at) < ?
   `).run(cutoff).changes;
-  return { messagesDeleted: oldMessageIds.length, activityDeleted, scheduledJobsDeleted };
+  // Window chat expires on the same schedule as the legacy messages table; before
+  // this it never expired at all (ATH-DATA-003).
+  const attachmentFilesDeleted = hooks.clearExpiredAttachmentFiles?.(cutoff) ?? 0;
+  const { deleted: chatMessagesDeleted } = pruneChatMessagesBefore(cutoff);
+  return {
+    messagesDeleted: oldMessageIds.length,
+    chatMessagesDeleted,
+    attachmentFilesDeleted,
+    activityDeleted,
+    scheduledJobsDeleted,
+  };
 }
 
 export function cleanupVoiceCache(retentionHours = getAppSettings().data.voiceCacheRetentionHours, now: Date = new Date()): number {

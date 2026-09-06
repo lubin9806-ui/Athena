@@ -150,6 +150,24 @@ try {
     0,
   );
   assert.deepEqual(memory.getDatabase().pragma('foreign_key_check'), []);
+
+  // ATH-DATA-003: retention removes expired window chat, so the files attached to
+  // those messages have to be swept before the rows cascade away.
+  const expiredSource = path.join(tempDir, 'expired.png');
+  fs.writeFileSync(expiredSource, PNG_1X1);
+  const expiredMessage = memory.saveChatMessage(windowA.id, 'user', 'old turn with a file', undefined, 'companion');
+  const [expiredAttachment] = service.importImages(windowA.id, [expiredSource]);
+  service.attachToMessage(windowA.id, expiredMessage.id, [expiredAttachment.id]);
+  const expiredStoragePath = memory.getDatabase()
+    .prepare('SELECT storage_path FROM chat_attachments WHERE id = ?')
+    .get(expiredAttachment.id).storage_path;
+  memory.getDatabase()
+    .prepare("UPDATE chat_messages SET created_at = '2020-01-01T00:00:00.000Z' WHERE id = ?")
+    .run(expiredMessage.id);
+  assert.equal(service.cleanupExpiredMessageFiles('2026-07-15T12:00:00.000Z'), 1);
+  assert.equal(fs.existsSync(expiredStoragePath), false, 'expired attachment file was orphaned on disk');
+  assert.equal(memory.pruneChatMessagesBefore('2026-07-15T12:00:00.000Z').deleted, 1);
+  assert.deepEqual(memory.getDatabase().pragma('foreign_key_check'), []);
   console.log('ATHENA_CHAT_ATTACHMENTS_OK formats=png,jpeg,webp,txt,md,pdf,docx,wav,aiff,flac generated=assistant-chat max=5 isolation=window integrity=sha256 cleanup=temporary,stale');
 } catch (error) {
   console.error(error);

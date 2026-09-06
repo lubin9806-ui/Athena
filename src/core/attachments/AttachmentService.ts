@@ -241,6 +241,19 @@ export class AttachmentService {
     return rows.length;
   }
 
+  // Same ordering rule as the ephemeral sweep: the rows naming these files cascade
+  // away with their messages, so the files go first (ATH-DATA-003).
+  cleanupExpiredMessageFiles(cutoffIso: string): number {
+    const rows = getDatabase().prepare(`
+      SELECT ${attachmentFields('ca')}
+      FROM chat_attachments ca
+      JOIN chat_messages cm ON cm.id = ca.message_id
+      WHERE cm.created_at < ?
+    `).all(cutoffIso) as AttachmentRow[];
+    for (const row of rows) this.deleteRowAndFile(row);
+    return rows.length;
+  }
+
   cleanupWindowFiles(windowId: number): number {
     const rows = getDatabase().prepare(`SELECT ${attachmentFields()} FROM chat_attachments WHERE window_id = ?`).all(windowId) as AttachmentRow[];
     for (const row of rows) this.deleteRowAndFile(row);

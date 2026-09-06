@@ -301,6 +301,42 @@ function writeVoiceCache(name, ageHours) {
     assert.strictEqual(getScheduledJob(pendingReminder.id).status, 'cancelled');
     assert.strictEqual(listPendingScheduledJobs().length, 0);
 
+    // ATH-DATA-003: window chat expires on the same schedule as the legacy table.
+    // Before this it never expired at all, so "到期删除" was only ever half true.
+    const retentionWindow = createChatWindow({ title: 'retention window' });
+    const expiredSecret = 'expired-window-chat-must-go';
+    const keptSecret = 'recent-window-chat-must-stay';
+    const expiredMessage = saveChatMessage(retentionWindow.id, 'user', expiredSecret, undefined, 'companion');
+    const keptMessage = saveChatMessage(retentionWindow.id, 'user', keptSecret, undefined, 'companion');
+    db.prepare("UPDATE chat_messages SET created_at = '2020-01-01T00:00:00.000Z' WHERE id = ?").run(expiredMessage.id);
+    saveContextSnapshot({
+      windowId: retentionWindow.id, userMessageId: expiredMessage.id, mode: 'companion',
+      budget: {}, included: [{
+        kind: 'recent', label: 'recent', priority: 1, chars: expiredSecret.length,
+        estimatedTokens: 8, included: true, reason: 'included', preview: expiredSecret,
+      }], omitted: [], promptMessageCount: 1, promptChars: 1, estimatedPromptTokens: 1,
+    });
+    const summaryBefore = db.prepare('SELECT summary FROM chat_windows WHERE id = ?').get(retentionWindow.id).summary;
+    assert(summaryBefore.includes(expiredSecret), 'fixture must start with the expired text in the summary');
+
+    const chatRetention = applyDataRetention(new Date('2026-07-15T12:00:00.000Z'));
+    assert.strictEqual(chatRetention.chatMessagesDeleted, 1, 'expired window chat must be deleted');
+    assert.strictEqual(
+      db.prepare('SELECT COUNT(*) AS c FROM chat_messages WHERE id = ?').get(expiredMessage.id).c, 0,
+    );
+    assert.strictEqual(
+      db.prepare('SELECT COUNT(*) AS c FROM chat_messages WHERE id = ?').get(keptMessage.id).c, 1,
+      'chat inside the retention window must survive',
+    );
+    const summaryAfter = db.prepare('SELECT summary, working_state FROM chat_windows WHERE id = ?').get(retentionWindow.id);
+    assert(!summaryAfter.summary.includes(expiredSecret), 'the rolling summary must not keep expired message text');
+    assert(summaryAfter.summary.includes(keptSecret), 'surviving messages must stay in the summary');
+    assert.strictEqual(JSON.parse(summaryAfter.working_state).messageCount, 1);
+    assert.strictEqual(
+      db.prepare('SELECT COUNT(*) AS c FROM context_snapshots WHERE window_id = ?').get(retentionWindow.id).c, 0,
+      'context snapshots for expired messages must go with them',
+    );
+
     // Settled jobs expire with the retention window; pending work never does.
     db.prepare("UPDATE scheduled_jobs SET completed_at = '2020-01-01T00:00:00.000Z' WHERE id = 'job-overdue-fixture'").run();
     createScheduledJob({

@@ -238,6 +238,55 @@ export function purgeEphemeralChatMessages(): number {
   })();
 }
 
+/**
+ * Applies the retention window to window chat, which `messages` retention never
+ * covered (ATH-DATA-003). Context snapshots go explicitly because that foreign key
+ * is SET NULL, and the window summary is rewritten because it carries the text of
+ * the messages being removed. Attachment files must be swept first by
+ * AttachmentService, while the rows that name them still exist.
+ */
+export function pruneChatMessagesBefore(cutoffIso: string): { deleted: number; windowsTouched: number } {
+  const db = getDatabase();
+  const rows = db.prepare(`
+    SELECT id, window_id FROM chat_messages WHERE created_at < ?
+  `).all(cutoffIso) as Array<{ id: number; window_id: number }>;
+  if (rows.length === 0) return { deleted: 0, windowsTouched: 0 };
+
+  const removedIds = new Set(rows.map(row => row.id));
+  const windowIds = Array.from(new Set(rows.map(row => row.window_id)));
+  return db.transaction(() => {
+    db.prepare(`
+      DELETE FROM context_snapshots
+      WHERE user_message_id IN (SELECT id FROM chat_messages WHERE created_at < ?)
+    `).run(cutoffIso);
+    const deleted = db.prepare('DELETE FROM chat_messages WHERE created_at < ?').run(cutoffIso).changes;
+    for (const windowId of windowIds) {
+      const window = db.prepare('SELECT summary, working_state FROM chat_windows WHERE id = ?')
+        .get(windowId) as { summary: string; working_state: string } | undefined;
+      if (!window) continue;
+      const remaining = (db.prepare('SELECT COUNT(*) as c FROM chat_messages WHERE window_id = ?')
+        .get(windowId) as { c: number }).c;
+      const state = parseWorkingState(window.working_state);
+      state.messageCount = remaining;
+      db.prepare('UPDATE chat_windows SET summary = ?, working_state = ? WHERE id = ?')
+        .run(dropSummaryLines(window.summary, removedIds), JSON.stringify(state), windowId);
+    }
+    return { deleted, windowsTouched: windowIds.length };
+  })();
+}
+
+// Summary lines are written as "#<id> <role>: <text>", so an expired message can be
+// removed from the rolling summary by its id rather than by matching its text.
+function dropSummaryLines(summary: string, removedIds: Set<number>): string {
+  return (summary || '')
+    .split('\n')
+    .filter(line => {
+      const match = line.match(/^#(\d+)\s/);
+      return !match || !removedIds.has(Number(match[1]));
+    })
+    .join('\n');
+}
+
 export function countEphemeralChatMessages(): number {
   return (getDatabase().prepare('SELECT COUNT(*) as c FROM chat_messages WHERE ephemeral = 1')
     .get() as { c: number }).c;
