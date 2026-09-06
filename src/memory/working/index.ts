@@ -287,6 +287,20 @@ function dropSummaryLines(summary: string, removedIds: Set<number>): string {
     .join('\n');
 }
 
+export function getChatWindowCreativeState(windowId: number): string | null {
+  const row = getDatabase().prepare('SELECT creative_state FROM chat_windows WHERE id = ? AND deleted_at IS NULL')
+    .get(windowId) as { creative_state: string } | undefined;
+  return row ? row.creative_state : null;
+}
+
+export function saveChatWindowCreativeState(windowId: number, serialized: string): boolean {
+  return getDatabase().prepare(`
+    UPDATE chat_windows
+    SET creative_state = ?, updated_at = datetime('now', 'localtime')
+    WHERE id = ? AND deleted_at IS NULL
+  `).run(serialized, windowId).changes > 0;
+}
+
 export function countEphemeralChatMessages(): number {
   return (getDatabase().prepare('SELECT COUNT(*) as c FROM chat_messages WHERE ephemeral = 1')
     .get() as { c: number }).c;

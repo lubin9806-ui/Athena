@@ -7,7 +7,7 @@ import { ensureSufficientDiskSpace } from '../../core/runtime/DiskSpaceGuard';
 
 let db: Database.Database | null = null;
 let resolvedDbPath: string | null = null;
-export const DATABASE_SCHEMA_VERSION = 18;
+export const DATABASE_SCHEMA_VERSION = 19;
 const MIGRATION_BACKUP_RETENTION = 5;
 
 export interface MemoryStats {
@@ -183,6 +183,10 @@ function runMigrations(database: Database.Database, currentVersion: number): voi
       summary TEXT NOT NULL DEFAULT '',
       mode TEXT NOT NULL DEFAULT 'companion' CHECK(mode IN ('create', 'companion', 'reason', 'execute')),
       working_state TEXT NOT NULL DEFAULT '{}',
+      -- schema 19: the accumulated image description for this window, kept apart
+      -- from working_state because that column is rewritten on every turn while
+      -- this one must survive untouched sections (ATH-IMG-002).
+      creative_state TEXT NOT NULL DEFAULT '{}',
       project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL,
       project_instructions_snapshot TEXT NOT NULL DEFAULT '',
       is_temporary INTEGER NOT NULL DEFAULT 0 CHECK(is_temporary IN (0, 1)),
@@ -756,6 +760,11 @@ function runMigrations(database: Database.Database, currentVersion: number): voi
       database.exec('ALTER TABLE chat_messages ADD COLUMN ephemeral INTEGER NOT NULL DEFAULT 0 CHECK(ephemeral IN (0, 1))');
     }
     database.exec('CREATE INDEX IF NOT EXISTS idx_chat_messages_ephemeral ON chat_messages(ephemeral) WHERE ephemeral = 1');
+    // schema 19: per-window accumulated image description (ATH-IMG-002).
+    const creativeStateColumns = database.prepare('PRAGMA table_info(chat_windows)').all() as Array<{ name: string }>;
+    if (!creativeStateColumns.some(column => column.name === 'creative_state')) {
+      database.exec("ALTER TABLE chat_windows ADD COLUMN creative_state TEXT NOT NULL DEFAULT '{}'");
+    }
     // schema 18: per-run computer permission ceiling (ATH-SEC-005).
     const agentRunColumns = database.prepare('PRAGMA table_info(agent_runs)').all() as Array<{ name: string }>;
     if (!agentRunColumns.some(column => column.name === 'permission_ceiling')) {

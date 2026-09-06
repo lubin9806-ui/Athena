@@ -129,7 +129,7 @@ try {
   assert.equal(service.removePending(windowB.id, escapeAttempt.id), true);
 
   const schemaVersion = Number(memory.getDatabase().pragma('user_version', { simple: true }));
-  assert.equal(schemaVersion, 18);
+  assert.equal(schemaVersion, 19);
 
   // Attachment rows cascade away with an ephemeral message, so the managed files
   // have to be swept before the purge or they are orphaned on disk (ATH-DATA-002).
