@@ -702,6 +702,17 @@ function createWindow(): void {
                if (newChatAutoTitleReactive) break;
              }
              if (!newChatAutoTitleReactive) return false;
+             // The auto-title lands while the send is still in flight, and switching
+             // windows mid request is refused so the reply cannot be persisted against
+             // a window the user already left. Wait for it to settle before switching.
+             let chatRequestSettled = false;
+             for (let attempt = 0; attempt < 100; attempt += 1) {
+               const candidate = document.querySelector('[data-chat-window-id="' + previousChatWindowId + '"]');
+               chatRequestSettled = candidate instanceof HTMLButtonElement && !candidate.disabled;
+               if (chatRequestSettled) break;
+               await new Promise(resolve => setTimeout(resolve, 100));
+             }
+             if (!chatRequestSettled) return false;
              const previousChatButton = document.querySelector('[data-chat-window-id="' + previousChatWindowId + '"]');
              if (previousChatButton instanceof HTMLButtonElement) previousChatButton.click();
              for (let attempt = 0; attempt < 20 && Number(chatWindowSelect.value) !== previousChatWindowId; attempt += 1) {

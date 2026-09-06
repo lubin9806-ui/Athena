@@ -13,6 +13,10 @@ interface InternalJob {
   timer?: NodeJS.Timeout;
 }
 
+// setTimeout saturates above this delay and fires immediately instead, so any
+// longer wait has to be split into chunks.
+const MAX_TIMER_DELAY_MS = 2_147_483_647;
+
 export class Scheduler {
   readonly enabled = true;
   private readonly jobs = new Map<string, InternalJob>();
@@ -27,16 +31,28 @@ export class Scheduler {
       createdAt: new Date().toISOString(),
     };
 
-    const delay = Math.max(0, dueAt.getTime() - Date.now());
-    const timer = setTimeout(() => {
+    this.jobs.set(id, { job });
+    this.arm(id, dueAt.getTime(), onDue);
+    return { ...job };
+  }
+
+  // The due time is the source of truth, not the timer: a capped or early-firing
+  // timer (long delay, clock change, sleep/resume) re-arms for the remainder
+  // instead of completing the job.
+  private arm(id: string, dueAtMs: number, onDue?: (job: ScheduledJob) => void): void {
+    const entry = this.jobs.get(id);
+    if (!entry) return;
+    const remaining = Math.max(0, dueAtMs - Date.now());
+    entry.timer = setTimeout(() => {
       const current = this.jobs.get(id);
       if (!current || current.job.status !== 'scheduled') return;
+      if (Date.now() < dueAtMs) {
+        this.arm(id, dueAtMs, onDue);
+        return;
+      }
       current.job.status = 'completed';
       onDue?.({ ...current.job });
-    }, Math.min(delay, 2_147_483_647));
-
-    this.jobs.set(id, { job, timer });
-    return { ...job };
+    }, Math.min(remaining, MAX_TIMER_DELAY_MS));
   }
 
   listJobs(): ScheduledJob[] {

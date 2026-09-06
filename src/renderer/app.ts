@@ -1431,6 +1431,10 @@ const TEMPORARY_CHAT_META = '临时聊天：不写入长期记忆';
 const NEW_CHAT_TITLE = '新对话';
 
 let isStreaming = false;
+// Held from the moment a send is accepted until the request settles. isStreaming
+// only goes up after the routing preflight resolves, so without this the preflight
+// await is a window in which the user can switch windows or submit again.
+let isRequestPending = false;
 let isOcrImporting = false;
 let currentContent = '';
 let live2dStreamingStarted = false;
@@ -1650,7 +1654,7 @@ async function updateLive2dPreferences(
 }
 
 async function sendAvatarInteraction(prompt: string, hotZoneId: string): Promise<void> {
-  if (!prompt.trim() || isStreaming || isVoiceInputBusy()) return;
+  if (!prompt.trim() || isChatRequestBusy() || isVoiceInputBusy()) return;
   if (!currentChatWindowId) await initializeChatWindows();
 
   isStreaming = true;
@@ -1692,12 +1696,21 @@ async function sendAvatarInteraction(prompt: string, hotZoneId: string): Promise
   }
 }
 
+// True while a send is in flight, including the routing preflight that runs before
+// isStreaming is set. Anything that reassigns currentChatWindowId must respect it,
+// otherwise a request can be persisted against a window the user already left.
+function isChatRequestBusy(): boolean {
+  return isStreaming || isRequestPending;
+}
+
 async function sendMessage(text: string): Promise<void> {
   const queuedAttachments = currentPendingAttachments();
   const effectiveText = text.trim() || (queuedAttachments.length > 0 ? '请查看并理解这些附件。' : '');
-  if (!effectiveText || isStreaming || isVoiceInputBusy()) return;
+  if (!effectiveText || isChatRequestBusy() || isVoiceInputBusy()) return;
   if (!currentChatWindowId) await initializeChatWindows();
   const requestChatWindowId = currentChatWindowId;
+  isRequestPending = true;
+  renderChatWindowPicker();
 
   const titleUpdate = autoTitleCurrentChatWindow(effectiveText);
   let forceWebSearch = forceWebSearchForNextMessage;
@@ -1709,7 +1722,7 @@ async function sendMessage(text: string): Promise<void> {
       effectiveText,
       requestMode,
       forceWebSearch,
-      currentChatWindowId ?? undefined,
+      requestChatWindowId ?? undefined,
       queuedAttachments.map(attachment => attachment.id),
     );
     if (routing?.route === 'web_research') forceWebSearch = true;
@@ -1744,8 +1757,8 @@ async function sendMessage(text: string): Promise<void> {
   currentContent = '';
   pendingExecutionGoal = effectiveText;
   pendingExecutionMode = requestMode;
-  if (currentChatWindowId) {
-    pendingChatAttachments.delete(currentChatWindowId);
+  if (requestChatWindowId) {
+    pendingChatAttachments.delete(requestChatWindowId);
     renderComposerAttachments();
   }
 
@@ -1754,7 +1767,7 @@ async function sendMessage(text: string): Promise<void> {
       effectiveText,
       requestMode,
       forceWebSearch,
-      currentChatWindowId ?? undefined,
+      requestChatWindowId ?? undefined,
       queuedAttachments.map(attachment => attachment.id),
     );
     if (response && !directImageGeneration) modelConnected = true;
@@ -1805,6 +1818,7 @@ async function sendMessage(text: string): Promise<void> {
     pendingExecutionGoal = '';
     activeRequestMode = null;
     isStreaming = false;
+    isRequestPending = false;
     setModeSwitchDisabled(false);
     inputBar.setDisabled(false);
     syncVoiceControls();
@@ -3407,10 +3421,10 @@ function renderProjectPicker(): void {
     projectSelect.appendChild(option);
   }
   if (currentProjectId) projectSelect.value = String(currentProjectId);
-  const disabled = isStreaming || projects.length === 0;
+  const disabled = isChatRequestBusy() || projects.length === 0;
   projectSelect.disabled = disabled;
   projectInstructions.disabled = disabled || !currentProjectId;
-  projectNew.disabled = isStreaming;
+  projectNew.disabled = isChatRequestBusy();
 }
 
 function renderChatWindowPicker(): void {
@@ -3437,7 +3451,7 @@ function renderChatWindowPicker(): void {
     item.dataset.active = String(windowRecord.id === currentChatWindowId);
     item.setAttribute('role', 'option');
     item.setAttribute('aria-selected', String(windowRecord.id === currentChatWindowId));
-    item.disabled = isStreaming;
+    item.disabled = isChatRequestBusy();
 
     const label = document.createElement('span');
     label.className = 'chat-window-list-title';
@@ -3449,13 +3463,13 @@ function renderChatWindowPicker(): void {
     chatWindowList.appendChild(item);
   }
   if (currentChatWindowId) chatWindowSelect.value = String(currentChatWindowId);
-  const disabled = isStreaming || chatWindows.length === 0;
+  const disabled = isChatRequestBusy() || chatWindows.length === 0;
   chatWindowSelect.disabled = disabled;
   chatWindowRename.disabled = disabled || !currentChatWindowId;
   chatWindowArchive.disabled = disabled || !currentChatWindowId || temporary;
   chatWindowDelete.disabled = disabled || !currentChatWindowId;
-  chatWindowNew.disabled = isStreaming;
-  chatWindowTemporary.disabled = isStreaming;
+  chatWindowNew.disabled = isChatRequestBusy();
+  chatWindowTemporary.disabled = isChatRequestBusy();
   projectDocumentBtn.disabled = disabled || temporary;
   projectDocumentBtn.title = temporary ? '临时对话不保存 Project 文档' : '导入 Project 文档';
   projectDocumentOcrBtn.disabled = (disabled || temporary) && !isOcrImporting;
@@ -3484,7 +3498,7 @@ async function loadCurrentChatWindowMessages(): Promise<void> {
 }
 
 async function switchProject(id: number): Promise<void> {
-  if (isStreaming || id === currentProjectId) return;
+  if (isChatRequestBusy() || id === currentProjectId) return;
   const target = projects.find(project => project.id === id);
   if (!target) {
     await refreshProjects();
@@ -3508,7 +3522,7 @@ async function switchProject(id: number): Promise<void> {
 }
 
 async function switchChatWindow(id: number): Promise<void> {
-  if (isStreaming || id === currentChatWindowId) return;
+  if (isChatRequestBusy() || id === currentChatWindowId) return;
   const active = await window.athenaAPI.activateChatWindow(id);
   if (!active) {
     await refreshChatWindows();
@@ -3526,7 +3540,7 @@ async function switchChatWindow(id: number): Promise<void> {
 }
 
 async function createNewChatWindow(): Promise<void> {
-  if (isStreaming) return;
+  if (isChatRequestBusy()) return;
   const created = await window.athenaAPI.createChatWindow(NEW_CHAT_TITLE, currentProjectId ?? undefined);
   if (!created) return;
   currentChatWindowId = created.id;
@@ -3571,7 +3585,7 @@ function titleFromFirstMessage(text: string): string {
 }
 
 async function createTemporaryChatWindow(): Promise<void> {
-  if (isStreaming) return;
+  if (isChatRequestBusy()) return;
   const created = await window.athenaAPI.createTemporaryChatWindow(currentProjectId ?? undefined);
   if (!created) return;
   currentChatWindowId = created.id;
@@ -3639,7 +3653,7 @@ async function editCurrentProjectInstructions(): Promise<void> {
 }
 
 async function renameCurrentChatWindow(): Promise<void> {
-  if (!currentChatWindowId || isStreaming) return;
+  if (!currentChatWindowId || isChatRequestBusy()) return;
   const current = chatWindows.find(window => window.id === currentChatWindowId);
   const result = await dialogs.prompt({
     eyebrow: '对话',
@@ -3657,7 +3671,7 @@ async function renameCurrentChatWindow(): Promise<void> {
 }
 
 async function archiveCurrentChatWindow(): Promise<void> {
-  if (!currentChatWindowId || isStreaming) return;
+  if (!currentChatWindowId || isChatRequestBusy()) return;
   const current = chatWindows.find(window => window.id === currentChatWindowId);
   if (!await dialogs.confirm({
     eyebrow: '对话归档',
@@ -3679,7 +3693,7 @@ async function archiveCurrentChatWindow(): Promise<void> {
 }
 
 async function deleteCurrentChatWindow(): Promise<void> {
-  if (!currentChatWindowId || isStreaming) return;
+  if (!currentChatWindowId || isChatRequestBusy()) return;
   const current = getCurrentChatWindow();
   const temporary = current?.is_temporary === true;
   const confirmMessage = temporary

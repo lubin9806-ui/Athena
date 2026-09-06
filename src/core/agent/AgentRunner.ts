@@ -21,6 +21,7 @@ import type {
   AgentRunnerCheckpointV1,
   AgentRunnerOptions,
   AgentRunnerResult,
+  AgentRunVerification,
   CreateAgentExecutionInput,
   PendingAgentToolBatch,
   PendingAgentToolCall,
@@ -622,7 +623,12 @@ export class AgentRunner {
   private buildResult(runId: string): AgentRunnerResult {
     const snapshot = this.store.getRunSnapshot(runId);
     let content = '';
-    try { content = parseCheckpoint(snapshot.run.state).finalContent || ''; }
+    let toolCallCount = 0;
+    try {
+      const state = parseCheckpoint(snapshot.run.state);
+      content = state.finalContent || '';
+      toolCallCount = state.toolCallCount;
+    }
     catch (error) {
       if (!isTerminalStatus(snapshot.run.status)) throw error;
     }
@@ -638,6 +644,7 @@ export class AgentRunner {
       status,
       content,
       error: snapshot.run.error,
+      verification: resolveVerification(snapshot.task, status, toolCallCount),
       snapshot,
     };
   }
@@ -885,6 +892,21 @@ function readPersistedValidations(value: unknown): AgentToolExecutionResult['val
       ? [{ id: item.id, status: item.status, evidence: item.evidence }]
       : []
   ));
+}
+
+// Reaching `completed` only means the model stopped calling tools. That is
+// evidence of acceptance only when the task declared required validations, which
+// assertRequiredValidations then enforced. A run that acted on the machine
+// without declaring any is finished, not verified — callers must not present it
+// as an accepted result.
+function resolveVerification(
+  task: AgentTaskRecord,
+  status: AgentRunnerResult['status'],
+  toolCallCount: number,
+): AgentRunVerification {
+  if (status !== 'completed') return 'not_applicable';
+  if (task.spec.validation.some(item => item.required)) return 'verified';
+  return toolCallCount > 0 ? 'unverified' : 'not_applicable';
 }
 
 function assertRequiredValidations(task: AgentTaskRecord, state: AgentRunnerCheckpointV1): void {

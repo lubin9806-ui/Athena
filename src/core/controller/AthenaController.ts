@@ -1197,7 +1197,14 @@ export class AthenaController {
           ? '任务已停止。'
           : result.status === 'failed'
             ? `任务执行失败：${result.error || '未返回具体错误'}`
-            : '任务已完成。');
+            : result.verification === 'unverified'
+              ? '任务已执行结束。'
+              : '任务已完成。');
+    // Run termination is not acceptance: say so rather than letting the model's
+    // own closing claim stand in for evidence.
+    if (result.verification === 'unverified') {
+      content += '\n\n注意：这次任务没有声明可核对的验收项，以上结果未经自动验证，请自行确认是否达到目标。';
+    }
     const outputGuardrail = evaluateSteamAiContent(content);
     if (!outputGuardrail.allowed) content = steamAiGuardrailRefusal();
     const emotion = this.emotion.analyzeResponse(content);

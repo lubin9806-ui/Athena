@@ -59,11 +59,17 @@ export interface CreateAgentExecutionInput {
   strategy?: string;
 }
 
+// Whether a terminated run carries evidence that the goal was actually met.
+// `verified` means the task declared required validations and they passed;
+// `unverified` means the run acted but declared nothing to check against.
+export type AgentRunVerification = 'verified' | 'unverified' | 'not_applicable';
+
 export interface AgentRunnerResult {
   runId: string;
   status: 'completed' | 'paused' | 'failed' | 'cancelled';
   content: string;
   error: string | null;
+  verification: AgentRunVerification;
   snapshot: AgentRunSnapshot;
 }
 

@@ -365,6 +365,46 @@ async function main() {
   }).result;
   assert.equal(validated.status, 'completed');
   assert.equal(validated.snapshot.run.state.validationResults['fixture-check'].status, 'passed');
+  assert.equal(validated.verification, 'verified');
+
+  // Conversation-created tasks carry `validation: []`, so the runner has nothing to
+  // enforce and reaches `completed` on any run that stops calling tools. Acting
+  // without declared acceptance evidence must read as unverified, not as accepted.
+  const unverifiedTask = createReadyTask(
+    store,
+    'Act without declared acceptance evidence',
+    [{ id: 'workspace.read', access: 'read' }],
+  );
+  const unverified = await new AgentRunner(
+    new FixtureModel([
+      modelResponse('', [toolCall('call-unverified', 'validate_fixture', {})]),
+      modelResponse('Did the work.'),
+    ]),
+    validationRegistry,
+    undefined,
+    store,
+  ).start({
+    taskId: unverifiedTask.id,
+    messages: [{ role: 'user', content: 'Do the work.' }],
+    allowedCapabilities: ['workspace.read'],
+  }).result;
+  assert.equal(unverified.status, 'completed');
+  assert.equal(unverified.verification, 'unverified');
+
+  // A run that only answered, without touching anything, has nothing to verify.
+  const answeredTask = createReadyTask(store, 'Answer without acting', []);
+  const answered = await new AgentRunner(
+    new FixtureModel([modelResponse('Here is the answer.')]),
+    new ToolRegistry(),
+    undefined,
+    store,
+  ).start({
+    taskId: answeredTask.id,
+    messages: [{ role: 'user', content: 'Just answer.' }],
+    allowedCapabilities: [],
+  }).result;
+  assert.equal(answered.status, 'completed');
+  assert.equal(answered.verification, 'not_applicable');
 
   const unvalidatedTask = createReadyTask(
     store,
