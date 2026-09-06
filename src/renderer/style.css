@@ -2203,6 +2203,20 @@ summary:focus-visible {
   word-break: break-word;
 }
 
+/* The merged image description is read and copied verbatim, so it keeps its own
+   line breaks and section headings rather than reflowing like prose. */
+.window-creative-text {
+  margin: 6px 0 0;
+  max-height: 220px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
 .window-context-list {
   display: grid;
   gap: 5px;

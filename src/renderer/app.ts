@@ -143,6 +143,7 @@ declare global {
       onToolStatus: (callback: (status: ToolStatusEvent) => void) => () => void;
       onReminderDue: (callback: (event: ReminderDueEvent) => void) => () => void;
       onProactiveDelivered: (callback: (delivered: ProactiveDelivery) => void) => () => void;
+      getCreativeState: (chatWindowId: number) => Promise<{ text: string; summary: string; version: number; pending: string | null } | null>;
       getSystemInfo: () => Promise<{ modelConnected: boolean; modelConnectionChecked?: boolean; modelProvider: ModelProvider; modelName: string; modelEndpoint: string; ollamaConnected: boolean; hour: number; ollamaModel: string; ollamaEndpoint: string } | null>;
       getFastSystemInfo: () => Promise<{ modelConnected: boolean; modelConnectionChecked?: boolean; modelProvider: ModelProvider; modelName: string; modelEndpoint: string; ollamaConnected: boolean; hour: number; ollamaModel: string; ollamaEndpoint: string } | null>;
       getStartupSystemInfo: () => Promise<{ modelConnected: boolean; modelConnectionChecked?: boolean; modelProvider: ModelProvider; modelName: string; modelEndpoint: string; ollamaConnected: boolean; hour: number; ollamaModel: string; ollamaEndpoint: string } | null>;
@@ -1264,6 +1265,11 @@ const windowPinnedFacts = mustGet<HTMLElement>('window-pinned-facts');
 const windowProjectDocuments = mustGet<HTMLElement>('window-project-documents');
 const windowContextSummary = mustGet<HTMLElement>('window-context-summary');
 const windowContextBudget = mustGet<HTMLElement>('window-context-budget');
+const windowCreativeBlock = mustGet<HTMLElement>('window-creative-block');
+const windowCreativeSummary = mustGet<HTMLElement>('window-creative-summary');
+const windowCreativeText = mustGet<HTMLElement>('window-creative-text');
+const windowCreativePending = mustGet<HTMLElement>('window-creative-pending');
+const windowCreativeCopy = mustGet<HTMLButtonElement>('window-creative-copy');
 const settingsPanel = mustGet<HTMLElement>('settings-panel');
 const btnSettingsClose = mustGet<HTMLButtonElement>('btn-settings-close');
 const settingsForm = mustGet<HTMLFormElement>('settings-form');
@@ -1934,6 +1940,13 @@ function init(): void {
     const target = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('[data-chat-window-id]') : null;
     const id = Number(target?.dataset.chatWindowId);
     if (Number.isInteger(id) && id > 0) void switchChatWindow(id);
+  });
+  windowCreativeCopy.addEventListener('click', () => {
+    const text = windowCreativeText.textContent || '';
+    if (!text) return;
+    void navigator.clipboard.writeText(text)
+      .then(() => toasts.show('画面描述完整版已复制', 'success'))
+      .catch(() => toasts.show('复制失败，可以手动选中文本', 'error'));
   });
   chatWindowNew.addEventListener('click', () => void createNewChatWindow());
   chatWindowTemporary.addEventListener('click', () => void createTemporaryChatWindow());
@@ -3777,6 +3790,26 @@ async function refreshWindowMemoryPanel(): Promise<void> {
     console.error('Failed to load chat window context snapshot', error);
   }
   renderWindowMemoryPanel(current, currentChatWindowMessages, snapshots[0], documents);
+  await refreshCreativeStatePanel(current.id);
+}
+
+// The accumulated image description, so what will actually be drawn is readable
+// rather than only visible in the picture (ATH-IMG-002).
+async function refreshCreativeStatePanel(chatWindowId: number): Promise<void> {
+  let creative: { text: string; summary: string; version: number; pending: string | null } | null = null;
+  try {
+    creative = await window.athenaAPI.getCreativeState(chatWindowId);
+  } catch (error) {
+    console.error('Failed to load creative state', error);
+  }
+  const hasContent = Boolean(creative && (creative.text || creative.pending));
+  windowCreativeBlock.hidden = !hasContent;
+  if (!hasContent || !creative) return;
+  windowCreativeSummary.textContent = creative.summary;
+  windowCreativeText.textContent = creative.text;
+  windowCreativePending.hidden = !creative.pending;
+  windowCreativePending.textContent = creative.pending ? `等待你确认：\n${creative.pending}` : '';
+  windowCreativeCopy.disabled = !creative.text;
 }
 
 function renderEmptyWindowMemoryPanel(): void {

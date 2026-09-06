@@ -145,7 +145,25 @@ try {
   assert.match(htmlSource, /id="agent-run-resume"/);
   assert.match(ipcSource, /resolveAgentApprovalGroup\(projectId, runId/);
 
-  console.log(`ATHENA_PROJECT_WORKSPACE_OK projects=2 tasks=${alpha.tasks.length} approvals=${alpha.selectedRun.approvals.length} revision=${metadata.revision} isolation=project-scoped`);
+  // ATH-CHAT-004: an execution request is described before it runs, so the task is
+  // created as a draft and only becomes runnable once the user agrees.
+  const draft = workspace.createTask({
+    projectId: projectA.id,
+    chatWindowId: windowA.id,
+    goal: '把桌面上的图片整理到海报文件夹。',
+    keepDraft: true,
+    capabilities: [{ id: 'computer.files', access: 'write', reason: 'Move files' }],
+  });
+  assert.equal(draft.status, 'draft', 'a plan awaiting confirmation must not be runnable');
+  assert.equal(workspace.findPendingDraftTask(windowA.id).id, draft.id);
+  assert.equal(workspace.findPendingDraftTask(windowB.id), null, 'drafts do not leak across windows');
+
+  const promoted = workspace.markTaskReady(draft.id);
+  assert.equal(promoted.status, 'ready');
+  assert.equal(workspace.findPendingDraftTask(windowA.id), null, 'a confirmed plan is no longer pending');
+  assert.equal(workspace.markTaskReady(promoted.id).status, 'ready', 'promoting twice is a no-op');
+
+  console.log(`ATHENA_PROJECT_WORKSPACE_OK projects=2 tasks=${alpha.tasks.length} approvals=${alpha.selectedRun.approvals.length} revision=${metadata.revision} isolation=project-scoped confirm=before-running`);
 } catch (error) {
   exitCode = 1;
   console.error(error && error.stack ? error.stack : error);

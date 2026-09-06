@@ -44,6 +44,8 @@ export interface CreateWorkspaceTaskInput {
     access: AgentCapabilityAccess;
     reason: string;
   }>;
+  /** Leaves the task in draft so the caller can confirm the plan with the user. */
+  keepDraft?: boolean;
 }
 
 const TASK_STATUSES: AgentTaskStatus[] = [
@@ -158,7 +160,29 @@ export class ProjectWorkspaceService {
       goal,
       spec,
     });
+    // A draft task is an understanding that has not been agreed yet. Callers that
+    // confirm with the user first leave it in draft and promote it afterwards
+    // (ATH-CHAT-004).
+    if (input.keepDraft) return task;
     return this.store.transitionTask(task.id, 'ready', task.revision);
+  }
+
+  /** Promotes a confirmed draft so a run may start against it. */
+  markTaskReady(taskId: string): AgentTaskRecord {
+    const task = this.store.getTask(taskId);
+    if (!task) throw new Error(`Task not found: ${taskId}`);
+    if (task.status !== 'draft') return task;
+    return this.store.transitionTask(task.id, 'ready', task.revision);
+  }
+
+  /** The most recent understanding still waiting on the user in this window. */
+  findPendingDraftTask(chatWindowId: number): AgentTaskRecord | null {
+    const rows = getDatabase().prepare(`
+      SELECT id FROM agent_tasks
+      WHERE chat_window_id = ? AND status = 'draft' AND archived_at IS NULL
+      ORDER BY created_at DESC LIMIT 1
+    `).all(chatWindowId) as Array<{ id: string }>;
+    return rows.length > 0 ? this.store.getTask(rows[0].id) : null;
   }
 
   buildExecutionMessages(taskId: string, runtimeSystemContext = ''): ModelMessage[] {

@@ -106,6 +106,7 @@ import type {
   AgentWorkspaceMetadata,
   AgentSkillLibrarySnapshot,
   AgentSkillSummary,
+  AgentTaskRecord,
   AgentMessageRouteDecision,
   McpIntegrationSnapshot,
   McpServerConfig,
@@ -128,6 +129,9 @@ import type {
 } from '../../shared/types';
 
 const logger = createLogger('AthenaController');
+
+// Below this a message is chat, not a description worth reading for sections.
+const CREATIVE_SCAN_MIN_CHARS = 300;
 
 /** What a creative turn did, so the caller knows whether to draw, ask, or carry on. */
 type CreativeTurnOutcome =
@@ -336,9 +340,14 @@ export class AthenaController {
     // description, the message is read for what it changes before anything is
     // drawn. Elsewhere the state is left alone so ordinary chat costs nothing.
     const creativeWorkspace = parseCreativeWorkspace(getChatWindowCreativeState(chatWindowId));
+    // The reported case was a visual brief pasted in Companion mode, so this cannot
+    // be limited to Create. Length is the gate rather than a keyword: a short chat
+    // turn is not a character spec, and reading every short message would cost a
+    // model round trip per turn (ATH-CHAT-004).
     const creativeContext = mode === 'create'
       || Boolean(creativeWorkspace.pending)
-      || hasCreativeContent(creativeWorkspace.state);
+      || hasCreativeContent(creativeWorkspace.state)
+      || (mode !== 'execute' && userMessage.trim().length >= CREATIVE_SCAN_MIN_CHARS);
     const creative: CreativeTurnOutcome = creativeContext && !isTemporaryChat
       ? await this.updateCreativeState(chatWindowId, userMessage)
       : { kind: 'none' };
@@ -756,8 +765,35 @@ export class AthenaController {
     }
     this.persistExtractedMemory(goal, savedUser.messageId, chatWindow.id);
     const settings = getAppSettings();
+    // A standing plan is answered before a new one is drafted, so "好" starts the
+    // task that was just described rather than being read as a fresh goal.
+    const pendingDraft = this.projectWorkspace.findPendingDraftTask(chatWindow.id);
+    let task: AgentTaskRecord;
+    if (pendingDraft) {
+      const reply = readCreativeReply(goal);
+      if (reply === 'cancel') {
+        const content = '好，这个任务就不做了。要做别的随时说。';
+        const emotion = this.emotion.analyzeResponse(content);
+        this.saveConversationMessage('assistant', content, emotion.type, 'execute', chatWindow.id);
+        this.agentStore.transitionTask(pendingDraft.id, 'cancelled', pendingDraft.revision);
+        return { content, emotion };
+      }
+      if (reply === 'confirm') {
+        task = this.projectWorkspace.markTaskReady(pendingDraft.id);
+      } else {
+        // A revision replaces the plan rather than stacking another draft on it.
+        this.agentStore.transitionTask(pendingDraft.id, 'cancelled', pendingDraft.revision);
+        task = this.draftExecutionTask(projectId, chatWindow.id, goal);
+        return this.replyWithExecutionPlan(task, chatWindow.id);
+      }
+    } else {
+      task = this.draftExecutionTask(projectId, chatWindow.id, goal);
+      return this.replyWithExecutionPlan(task, chatWindow.id);
+    }
+    // Built from the confirmed task, not from this turn's message: on confirmation
+    // that message is just "好", which would retrieve nothing useful.
     const retrievedForExecution = buildRetrievedContext(
-      goal,
+      task.spec.goal,
       settings.memory,
       settings.conversation.saveHistory,
       'execute',
@@ -766,21 +802,11 @@ export class AthenaController {
       false,
     );
     const executionRuntimePrompt = buildChatPrompt({
-      userMessage: goal,
+      userMessage: task.spec.goal,
       recentMessages: [],
       retrievedContext: { ...retrievedForExecution, recentMessages: [] },
       mode: 'execute',
     }).find(message => message.role === 'system')?.content || '';
-    const task = this.projectWorkspace.createTask({
-      projectId,
-      chatWindowId: chatWindow.id,
-      goal,
-      capabilities: this.agentTools.list().map(tool => ({
-        id: tool.capability,
-        access: capabilityAccess(tool.capability),
-        reason: `${tool.label} is available under the current execute-mode permission tier`,
-      })),
-    });
     const executionMessages = this.projectWorkspace.buildExecutionMessages(task.id, executionRuntimePrompt);
     const current = executionMessages[executionMessages.length - 1];
     if (attachmentText.length > 0) current.content = withChatAttachmentContext(current.content, attachmentText);
@@ -1042,6 +1068,45 @@ export class AthenaController {
    * approval was granted. Consent is re-checked at every entry that continues a run
    * (AC-08, ATH-SEC-007).
    */
+  private draftExecutionTask(projectId: number, chatWindowId: number, goal: string): AgentTaskRecord {
+    return this.projectWorkspace.createTask({
+      projectId,
+      chatWindowId,
+      goal,
+      keepDraft: true,
+      capabilities: this.agentTools.list().map(tool => ({
+        id: tool.capability,
+        access: capabilityAccess(tool.capability),
+        reason: `${tool.label} is available under the current execute-mode permission tier`,
+      })),
+    });
+  }
+
+  /**
+   * Describes the task before running it: the goal as understood, the plan, the
+   * capabilities it would use, and anything still open. Nothing executes until the
+   * user answers (ATH-CHAT-004).
+   */
+  private replyWithExecutionPlan(task: AgentTaskRecord, chatWindowId: number): ChatResponse {
+    const capabilities = Array.from(new Set(task.spec.requiredCapabilities.map(item => item.id))).slice(0, 8);
+    const lines = [`我理解的目标是：${task.spec.goal}`];
+    if (task.spec.plan.length > 0) {
+      lines.push(`打算这样做：${task.spec.plan.map(step => step.title).join(' → ')}`);
+    }
+    if (capabilities.length > 0) {
+      lines.push(`会用到的能力：${capabilities.join('、')}（高风险操作仍会逐次征求你同意）`);
+    }
+    if (task.spec.openQuestions.length > 0) {
+      lines.push(`还需要你定：${task.spec.openQuestions.slice(0, 4).join('、')}`);
+    }
+    lines.push('没问题就说一声，我开始做；要调整直接说。');
+    const content = lines.join('\n');
+    const emotion = this.emotion.analyzeResponse(content);
+    this.saveConversationMessage('assistant', content, emotion.type, 'execute', chatWindowId);
+    logger.info(`Execution plan awaiting confirmation [task=${task.id}, capabilities=${capabilities.length}, openQuestions=${task.spec.openQuestions.length}]`);
+    return { content, emotion };
+  }
+
   private assertAgentRunMayContinue(): void {
     if (!canRouteModelRequest(this.llm.providerName, canUseNetworkCapability('remoteModel'), this.llm.endpoint)) {
       throw new Error(consentRequiredMessage('remoteModel'));
