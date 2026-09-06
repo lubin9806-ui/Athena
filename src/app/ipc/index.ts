@@ -91,6 +91,7 @@ const CONTROLLER_WARMUP_DELAY_MS = 1_500;
 const INVOKE_CHANNELS = [
   'chat:route',
   'chat:send',
+  'creative:state',
   'attachment:chooseImages',
   'attachment:chooseFiles',
   'attachment:preview',
@@ -315,6 +316,15 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<vo
       if (!mainWindow.isDestroyed()) mainWindow.webContents.send('chat:error', failure.message);
       return null;
     }
+  });
+
+  // The merged description a person reads and copies, so the accumulated state is
+  // inspectable rather than something that only shows up in the picture.
+  ipcMain.handle('creative:state', async (event, value: unknown) => {
+    if (!isTrustedSender(event)) return null;
+    const chatWindowId = cleanPositiveInteger(value);
+    if (!chatWindowId) return null;
+    return controller.getCreativeState(chatWindowId);
   });
 
   ipcMain.handle('attachment:chooseImages', async (event, value: unknown) => {

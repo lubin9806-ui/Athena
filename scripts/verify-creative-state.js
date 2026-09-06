@@ -115,4 +115,66 @@ const noop = mergeCreativeState(sceneEdit.state, { sections: {} });
 assert.deepEqual(noop.changed, []);
 assert.equal(noop.state.version, sceneEdit.state.version);
 
+// --- Extraction: a bad parse here silently rewrites the character description ---
+
+const {
+  parseCreativeExtraction,
+  describeCreativeChange,
+} = require(path.join(root, 'dist', 'core', 'creative', 'CreativeExtraction.js'));
+
+const sceneOnly = parseCreativeExtraction(JSON.stringify({
+  kind: 'edit',
+  understanding: '把场景从咖啡馆换成书店',
+  explicitSections: ['scene'],
+  sections: { scene: BOOKSTORE },
+}));
+assert.equal(sceneOnly.kind, 'edit');
+assert.deepEqual(sceneOnly.issues, []);
+assert.deepEqual(Object.keys(sceneOnly.patch.sections), ['scene']);
+assert.deepEqual(sceneOnly.patch.explicitSections, ['scene']);
+assert.equal(sceneOnly.patch.replaceAll, false, 'an edit must never replace the whole description');
+
+const fullSpec = parseCreativeExtraction(JSON.stringify({
+  kind: 'full_spec',
+  understanding: '一整套新的人物设定',
+  sections: { character: FACE, scene: CAFE },
+}));
+assert.equal(fullSpec.patch.replaceAll, true);
+
+// Anything unreadable must leave the accumulated description alone rather than
+// guess at it.
+for (const raw of ['', 'not json', '{}', '[]', '{"kind":"rewrite_everything"}', '{"kind":"edit"}', '{"kind":"edit","sections":"nope"}']) {
+  const parsed = parseCreativeExtraction(raw);
+  assert.equal(parsed.kind, 'not_creative', `unreadable extraction must not edit: ${JSON.stringify(raw)}`);
+  assert.deepEqual(parsed.patch.sections, {});
+  assert(parsed.issues.length > 0);
+}
+
+// Unknown or non-string sections are dropped and reported, never merged.
+const noisy = parseCreativeExtraction(JSON.stringify({
+  kind: 'edit',
+  understanding: 'x',
+  sections: { scene: BOOKSTORE, background: '不存在的段落', pose: 42 },
+  explicitSections: ['scene', 'nonsense'],
+}));
+assert.deepEqual(Object.keys(noisy.patch.sections), ['scene']);
+assert.deepEqual(noisy.patch.explicitSections, ['scene']);
+assert(noisy.issues.some(issue => issue.startsWith('unknown-section:')));
+assert(noisy.issues.some(issue => issue.startsWith('invalid-section:')));
+
+// Recovered from prose, because models wrap JSON in explanations.
+const fenced = parseCreativeExtraction('明白了：\n```json\n{"kind":"edit","understanding":"换场景","sections":{"scene":"新场景"}}\n```');
+assert.equal(fenced.kind, 'edit');
+assert(fenced.issues.includes('json-recovered-from-prose'));
+
+assert.doesNotThrow(() => parseCreativeExtraction(undefined));
+assert.doesNotThrow(() => parseCreativeExtraction(null));
+
+// The extraction feeds straight into the merge, and the face still survives.
+const extracted = mergeCreativeState(initial.state, sceneOnly.patch);
+assert.equal(extracted.state.sections.character, FACE);
+assert.equal(extracted.state.sections.scene, BOOKSTORE);
+assert.match(describeCreativeChange(extracted.changed, extracted.refused), /更新了 场景/);
+assert.match(describeCreativeChange(['scene'], ['character']), /保持了锁定的 五官/);
+
 console.log(`ATHENA_CREATIVE_STATE_OK sections=${CREATIVE_SECTIONS.length} locked=${DEFAULT_LOCKED_SECTIONS.join('+')}`);

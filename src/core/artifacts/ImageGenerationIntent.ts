@@ -50,7 +50,7 @@ export function parseDirectImageGenerationIntent(message: string): DirectImageGe
   return { prompt: stripTerminalImageCommand(text), size, quality };
 }
 
-function isContextualImageCommand(message: string): boolean {
+export function isContextualImageCommand(message: string): boolean {
   return /^(?:(?:请|帮我|给我|现在|直接|开始|再|重新|重新再|继续|换个?|重)\s*)*(?:生成(?:图片|图像|一张图?)?|生图|出图|画图|重做|重画|重出(?:一张|一版)?|再来一张|换一张)(?:一张|一版|一下|吧|看看)?[。.!！?？\s]*$/i.test(message.trim());
 }
 

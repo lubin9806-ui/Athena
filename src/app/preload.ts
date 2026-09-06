@@ -81,6 +81,7 @@ contextBridge.exposeInMainWorld('athenaAPI', {
     ipcRenderer.on('proactive:delivered', handler);
     return () => ipcRenderer.removeListener('proactive:delivered', handler);
   },
+  getCreativeState: (chatWindowId: number) => ipcRenderer.invoke('creative:state', chatWindowId),
   getSystemInfo: () => ipcRenderer.invoke('system:info'),
   getFastSystemInfo: () => ipcRenderer.invoke('system:infoFast'),
   getStartupSystemInfo: () => ipcRenderer.invoke('system:infoStartup'),

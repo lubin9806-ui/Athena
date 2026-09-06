@@ -5,6 +5,20 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { canRouteModelRequest } from '../ai/ModelNetworkPolicy';
 import { TOOL_PERMISSION_RANK } from '../config/SettingsStore';
+import {
+  ModelCreativeSectionExtractor,
+  buildCreativePrompt,
+  creativeStateSummary,
+  describeCreativeChange,
+  formatCreativeStateForDisplay,
+  hasCreativeContent,
+  mergeCreativeState,
+  parseCreativeState,
+  serializeCreativeState,
+  type CreativeExtraction,
+  type CreativeSection,
+  type CreativeState,
+} from '../creative';
 import { classifyModelFailure } from '../ai/ModelFailure';
 import { resolvePersonaCard } from '../ai/Personality';
 import {
@@ -35,6 +49,7 @@ import {
   DocumentArtifactService,
   ElectronPdfRenderer,
   ImageGenerationRouter,
+  isContextualImageCommand,
   resolveDirectImageGenerationIntent,
   type DirectImageGenerationIntent,
 } from '../artifacts';
@@ -61,7 +76,9 @@ import {
   ensureDefaultProject,
   getActiveChatWindow,
   getChatWindow,
+  getChatWindowCreativeState,
   getChatWindowMessages,
+  saveChatWindowCreativeState,
   closeDatabase,
   extractMemoryFromUserMessage,
   getDatabase,
@@ -123,6 +140,7 @@ export class AthenaController {
   private emotion: EmotionEngine;
   private reminder: Reminder;
   private initiative: InitiativeEngine;
+  private creativeExtractor: ModelCreativeSectionExtractor;
   private workflows: WorkflowManager;
   private webSearch: WebSearchService;
   private readonly agentStore: AgentStore;
@@ -152,6 +170,7 @@ export class AthenaController {
     this.emotion = new EmotionEngine();
     this.reminder = new Reminder();
     this.initiative = this.buildInitiativeEngine();
+    this.creativeExtractor = new ModelCreativeSectionExtractor(this.llm);
     this.workflows = new WorkflowManager();
     this.webSearch = new WebSearchService();
     this.attachments = new AttachmentService();
@@ -295,9 +314,33 @@ export class AthenaController {
       this.attachments.attachToMessage(chatWindowId, savedUser.chatMessageId, attachmentIds);
     }
 
-    const imageIntent = resolveDirectImageGenerationIntent(userMessage, recentImageMessages);
+    // In the creative workspace, and whenever this window already holds a
+    // description, the message is read for what it changes before anything is
+    // drawn. Elsewhere the state is left alone so ordinary chat costs nothing.
+    const creativeContext = mode === 'create'
+      || hasCreativeContent(parseCreativeState(getChatWindowCreativeState(chatWindowId)));
+    const creativeUpdate = creativeContext && !isTemporaryChat
+      ? await this.updateCreativeState(chatWindowId, userMessage)
+      : null;
+
+    const merged = parseCreativeState(getChatWindowCreativeState(chatWindowId));
+    // "生成图片" on its own carries no subject, but the window may already hold the
+    // description it refers to. Without this the command has nothing to draw.
+    const imageIntent = resolveDirectImageGenerationIntent(userMessage, recentImageMessages)
+      ?? (isContextualImageCommand(userMessage) && hasCreativeContent(merged)
+        ? { prompt: buildCreativePrompt(merged), size: '1024x1024' as const, quality: 'low' as const }
+        : null);
     if (imageIntent) {
-      const directImage = await this.processDirectImageRequest(imageIntent, mode, chatWindowId, options);
+      // The accumulated description wins: it carries the sections this message did
+      // not mention, which is the whole point of keeping it (ATH-IMG-002).
+      if (hasCreativeContent(merged)) imageIntent.prompt = buildCreativePrompt(merged);
+      const directImage = await this.processDirectImageRequest(
+        imageIntent,
+        mode,
+        chatWindowId,
+        options,
+        creativeUpdate ? describeCreativeChange(creativeUpdate.changed, creativeUpdate.refused) : '',
+      );
       if (effectiveSaveHistory) this.persistExtractedMemory(userMessage, savedUser.messageId, chatWindowId);
       return directImage;
     }
@@ -413,6 +456,7 @@ export class AthenaController {
     mode: ConversationMode,
     chatWindowId: number,
     options?: ProcessMessageOptions,
+    creativeNote = '',
   ): Promise<ChatResponse> {
     const descriptor = this.imageRouter.selectedDescriptor();
     const emotionFor = (content: string) => this.emotion.analyzeResponse(content);
@@ -456,7 +500,11 @@ export class AthenaController {
         quality: intent.quality,
         outputFormat: 'png',
       }, AbortSignal.timeout(10 * 60_000));
-      const content = `已通过 ${descriptor.label} 生成 ${generated.width}×${generated.height} 图片。`;
+      // Saying which sections moved is how the user notices a drift immediately,
+      // rather than after staring at the picture (ATH-IMG-002).
+      const content = creativeNote
+        ? `已通过 ${descriptor.label} 生成 ${generated.width}×${generated.height} 图片。本次${creativeNote}。`
+        : `已通过 ${descriptor.label} 生成 ${generated.width}×${generated.height} 图片。`;
       const emotion = emotionFor(content);
       const saved = this.saveConversationMessage('assistant', content, emotion.type, mode, chatWindowId);
       if (!saved.chatMessageId) throw new Error('生成图片无法绑定到聊天消息。');
@@ -548,6 +596,7 @@ export class AthenaController {
     // would keep calling the provider the user just switched away from.
     this.initiative.stop();
     this.initiative = this.buildInitiativeEngine();
+    this.creativeExtractor = new ModelCreativeSectionExtractor(this.llm);
     const settings = getAppSettings();
     this.applyToolPermission(settings.tools, settings.conversation.activeMode);
     if (this.initialized) this.syncInitiativeLoop();
@@ -1026,6 +1075,58 @@ export class AthenaController {
 
   // Proactive messages belong to the window the user was last in. Temporary,
   // archived and deleted windows are never eligible.
+  /**
+   * Keeps the window's accumulated image description in step with what the user
+   * just said. Returns null when the message changes nothing, which is the common
+   * case and must not be treated as a failure.
+   *
+   * The model decides which sections a message touches; the merge decides what may
+   * be overwritten. That split is why asking to change the scene can no longer
+   * redraw the face (ATH-IMG-002).
+   */
+  private async updateCreativeState(
+    chatWindowId: number,
+    message: string,
+  ): Promise<{ state: CreativeState; changed: CreativeSection[]; refused: CreativeSection[]; understanding: string } | null> {
+    if (!canRouteModelRequest(this.llm.providerName, canUseNetworkCapability('remoteModel'), this.llm.endpoint)) return null;
+    const current = parseCreativeState(getChatWindowCreativeState(chatWindowId));
+    let extraction: CreativeExtraction;
+    try {
+      extraction = await this.creativeExtractor.extract({ message, state: current });
+    } catch (error) {
+      const failure = classifyModelFailure(error);
+      logger.warn(`Creative extraction failed [code=${failure.code}]: ${failure.detail}`);
+      return null;
+    }
+    if (extraction.issues.length > 0) {
+      logger.info(`Creative extraction issues: ${extraction.issues.join('|')}`);
+    }
+    if (extraction.kind === 'not_creative') return null;
+
+    const merged = mergeCreativeState(current, extraction.patch);
+    if (merged.changed.length === 0 && merged.refused.length === 0) return null;
+    if (merged.changed.length > 0) {
+      saveChatWindowCreativeState(chatWindowId, serializeCreativeState(merged.state));
+    }
+    logger.info(`Creative state ${merged.changed.length > 0 ? `v${merged.state.version}` : 'unchanged'} [changed=${merged.changed.join(',') || 'none'}, refused=${merged.refused.join(',') || 'none'}]`);
+    return {
+      state: merged.state,
+      changed: merged.changed,
+      refused: merged.refused,
+      understanding: extraction.understanding,
+    };
+  }
+
+  /** The merged description a person reads and copies. */
+  getCreativeState(chatWindowId: number): { text: string; summary: string; version: number } {
+    const state = parseCreativeState(getChatWindowCreativeState(chatWindowId));
+    return {
+      text: formatCreativeStateForDisplay(state),
+      summary: creativeStateSummary(state),
+      version: state.version,
+    };
+  }
+
   private resolveProactiveChatWindow(preferred?: number | null): ChatWindow | null {
     if (preferred) {
       const window = getChatWindow(preferred);
