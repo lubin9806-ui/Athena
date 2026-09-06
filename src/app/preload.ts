@@ -76,6 +76,11 @@ contextBridge.exposeInMainWorld('athenaAPI', {
     ipcRenderer.on('reminder:due', handler);
     return () => ipcRenderer.removeListener('reminder:due', handler);
   },
+  onProactiveDelivered: (callback: (delivered: any) => void) => {
+    const handler = (_: any, delivered: any) => callback(delivered);
+    ipcRenderer.on('proactive:delivered', handler);
+    return () => ipcRenderer.removeListener('proactive:delivered', handler);
+  },
   getSystemInfo: () => ipcRenderer.invoke('system:info'),
   getFastSystemInfo: () => ipcRenderer.invoke('system:infoFast'),
   getStartupSystemInfo: () => ipcRenderer.invoke('system:infoStartup'),

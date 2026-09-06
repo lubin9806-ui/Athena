@@ -1,6 +1,6 @@
 import { getDatabase } from '../../memory/database';
 
-export type ScheduledJobKind = 'reminder';
+export type ScheduledJobKind = 'reminder' | 'initiative';
 export type ScheduledJobStatus = 'scheduled' | 'completed' | 'cancelled';
 
 export interface ScheduledJobRecord {
@@ -73,6 +73,27 @@ export function markScheduledJobCancelled(id: string): boolean {
     SET status = 'cancelled', completed_at = datetime('now', 'localtime')
     WHERE id = ? AND status = 'scheduled'
   `).run(id).changes > 0;
+}
+
+/**
+ * Records whether an initiative wake actually said something. The daily budget is
+ * counted from these rows rather than from chat messages, so a message the user
+ * later deletes cannot buy Athena another slot.
+ */
+export function recordInitiativeOutcome(id: string, spoke: boolean): void {
+  getDatabase().prepare(`
+    UPDATE scheduled_jobs SET payload_json = ? WHERE id = ? AND kind = 'initiative'
+  `).run(JSON.stringify({ spoke }), id);
+}
+
+export function countInitiativeMessagesSince(since: Date): number {
+  return (getDatabase().prepare(`
+    SELECT COUNT(*) AS c FROM scheduled_jobs
+    WHERE kind = 'initiative'
+      AND status = 'completed'
+      AND payload_json LIKE '%"spoke":true%'
+      AND COALESCE(completed_at, created_at) >= ?
+  `).get(since.toISOString()) as { c: number }).c;
 }
 
 export function deleteScheduledJobsForWindow(windowId: number): number {

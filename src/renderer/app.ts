@@ -142,6 +142,7 @@ declare global {
       onWebSearchStatus: (callback: (status: WebSearchStatus) => void) => () => void;
       onToolStatus: (callback: (status: ToolStatusEvent) => void) => () => void;
       onReminderDue: (callback: (event: ReminderDueEvent) => void) => () => void;
+      onProactiveDelivered: (callback: (delivered: ProactiveDelivery) => void) => () => void;
       getSystemInfo: () => Promise<{ modelConnected: boolean; modelConnectionChecked?: boolean; modelProvider: ModelProvider; modelName: string; modelEndpoint: string; ollamaConnected: boolean; hour: number; ollamaModel: string; ollamaEndpoint: string } | null>;
       getFastSystemInfo: () => Promise<{ modelConnected: boolean; modelConnectionChecked?: boolean; modelProvider: ModelProvider; modelName: string; modelEndpoint: string; ollamaConnected: boolean; hour: number; ollamaModel: string; ollamaEndpoint: string } | null>;
       getStartupSystemInfo: () => Promise<{ modelConnected: boolean; modelConnectionChecked?: boolean; modelProvider: ModelProvider; modelName: string; modelEndpoint: string; ollamaConnected: boolean; hour: number; ollamaModel: string; ollamaEndpoint: string } | null>;
@@ -678,6 +679,7 @@ interface PersonalizationSettings {
   replyLength: ReplyLength;
   initiative: InitiativeLevel;
   proactiveCare: boolean;
+  initiativeMessages: boolean;
   useMemoryInSmallTalk: boolean;
   creatorModeHints: boolean;
   customNotes: string;
@@ -1287,6 +1289,7 @@ const settingTone = mustGet<HTMLSelectElement>('setting-tone');
 const settingReplyLength = mustGet<HTMLSelectElement>('setting-reply-length');
 const settingInitiative = mustGet<HTMLSelectElement>('setting-initiative');
 const settingProactiveCare = mustGet<HTMLInputElement>('setting-proactive-care');
+const settingInitiativeMessages = mustGet<HTMLInputElement>('setting-initiative-messages');
 const settingMemorySmalltalk = mustGet<HTMLInputElement>('setting-memory-smalltalk');
 const settingCreatorHints = mustGet<HTMLInputElement>('setting-creator-hints');
 const settingCustomNotes = mustGet<HTMLTextAreaElement>('setting-custom-notes');
@@ -2316,6 +2319,10 @@ function init(): void {
   window.athenaAPI.onReminderDue((event) => {
     setStatus('提醒', 'ready');
     handleProactiveDelivery(event.delivered, `提醒时间到了：${event.title}`);
+  });
+
+  window.athenaAPI.onProactiveDelivered((delivered) => {
+    handleProactiveDelivery(delivered, delivered.content);
   });
 
   window.athenaAPI.onAgentWorkspaceChanged((event) => {
@@ -5222,6 +5229,7 @@ function populateSettingsForm(bundle: SettingsBundle): void {
   settingReplyLength.value = personalization.replyLength;
   settingInitiative.value = personalization.initiative;
   settingProactiveCare.checked = personalization.proactiveCare;
+  settingInitiativeMessages.checked = personalization.initiativeMessages;
   settingMemorySmalltalk.checked = personalization.useMemoryInSmallTalk;
   settingCreatorHints.checked = personalization.creatorModeHints;
   settingCustomNotes.value = personalization.customNotes;
@@ -5532,6 +5540,7 @@ async function saveSettingsForm(): Promise<void> {
           replyLength: settingReplyLength.value as ReplyLength,
           initiative: settingInitiative.value as InitiativeLevel,
           proactiveCare: settingProactiveCare.checked,
+          initiativeMessages: settingInitiativeMessages.checked,
           useMemoryInSmallTalk: settingMemorySmalltalk.checked,
           creatorModeHints: settingCreatorHints.checked,
           customNotes: settingCustomNotes.value,

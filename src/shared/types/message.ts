@@ -130,8 +130,10 @@ export interface ProactiveDelivery {
   chatMessageId?: number;
   content: string;
   emotion: string;
-  source: 'reminder';
+  source: ProactiveSource;
 }
+
+export type ProactiveSource = 'reminder' | 'initiative';
 
 export interface ReminderDueEvent {
   id: string;

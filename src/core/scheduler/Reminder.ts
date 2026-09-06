@@ -84,6 +84,9 @@ export class Reminder {
   }
 
   private arm(record: ScheduledJobRecord, overdue: boolean): ScheduledJob {
+    // Restoring twice must not throw; the live timer already covers the row.
+    const armed = globalScheduler.listJobs().find(job => job.id === record.id);
+    if (armed && globalScheduler.has(record.id)) return armed;
     return globalScheduler.schedule(record.title, new Date(record.dueAt), () => {
       // The row is the source of truth: if it is no longer scheduled the reminder
       // was cancelled or already delivered, so nothing is emitted.

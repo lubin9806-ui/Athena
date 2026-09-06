@@ -21,6 +21,11 @@ export interface PersonalizationSettings {
   replyLength: ReplyLength;
   initiative: InitiativeLevel;
   proactiveCare: boolean;
+  /**
+   * Lets Athena decide on her own when to look again and whether to say something.
+   * Off by default: it makes unattended model calls and can interrupt.
+   */
+  initiativeMessages: boolean;
   useMemoryInSmallTalk: boolean;
   creatorModeHints: boolean;
   customNotes: string;

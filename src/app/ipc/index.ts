@@ -218,6 +218,12 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<vo
     if (!mainWindow.isDestroyed()) mainWindow.webContents.send('reminder:due', event);
   });
 
+  // Messages Athena decided to send on her own reach the renderer the same way a
+  // due reminder does, so the window placement and mid-request queueing are shared.
+  const removeProactiveListener = globalEventBus.on('proactive:delivered', (delivered) => {
+    if (!mainWindow.isDestroyed()) mainWindow.webContents.send('proactive:delivered', delivered);
+  });
+
   const isTrustedSender = (event: IpcMainInvokeEvent | IpcMainEvent): boolean => {
     return isTrustedIpcSender(event, mainWindow);
   };
@@ -732,6 +738,8 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<vo
     // the next startup, so the durable turns that follow cannot pull its text into
     // their context snapshots (ATH-DATA-002).
     if (historyWasOff && bundle.settings.conversation.saveHistory) controller.purgeUnsavedChatSegment();
+    // Switching initiative off must stop the loop now, not at the next restart.
+    controller.syncInitiativeLoop();
     controller.reloadModel();
     const desktop = applyDesktopSettings(bundle.settings.general);
     controller.applyToolPermission(bundle.settings.tools, bundle.settings.conversation.activeMode);
@@ -1185,6 +1193,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<vo
       documentOcrAbort?.abort(new Error('Athena is shutting down.'));
       clearIpcHandlers();
       removeReminderListener();
+      removeProactiveListener();
       await controller.shutdown();
     })();
     return shutdownPromise;

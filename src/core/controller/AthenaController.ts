@@ -5,6 +5,13 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { canRouteModelRequest } from '../ai/ModelNetworkPolicy';
 import { classifyModelFailure } from '../ai/ModelFailure';
+import { resolvePersonaCard } from '../ai/Personality';
+import {
+  DEFAULT_INITIATIVE_POLICY,
+  InitiativeEngine,
+  ModelInitiativeDecider,
+  type InitiativeContext,
+} from '../initiative';
 import { Conversation } from '../ai/Conversation';
 import { EmotionEngine } from '../ai/Emotion';
 import { buildChatPrompt } from '../ai/PromptBuilder';
@@ -94,6 +101,7 @@ import type {
   ChatAttachment,
   ChatWindow,
   ProactiveDelivery,
+  ProactiveSource,
 } from '../../shared/types';
 
 const logger = createLogger('AthenaController');
@@ -113,6 +121,7 @@ export class AthenaController {
   private conversation: Conversation;
   private emotion: EmotionEngine;
   private reminder: Reminder;
+  private initiative: InitiativeEngine;
   private workflows: WorkflowManager;
   private webSearch: WebSearchService;
   private readonly agentStore: AgentStore;
@@ -141,6 +150,7 @@ export class AthenaController {
     this.conversation = new Conversation(this.llm);
     this.emotion = new EmotionEngine();
     this.reminder = new Reminder();
+    this.initiative = this.buildInitiativeEngine();
     this.workflows = new WorkflowManager();
     this.webSearch = new WebSearchService();
     this.attachments = new AttachmentService();
@@ -230,6 +240,7 @@ export class AthenaController {
     if (reminders.restored > 0) {
       logger.info(`Restored ${reminders.restored} pending reminders (${reminders.overdue} already due).`);
     }
+    this.initiative.start();
     this.emotion.setBaseEmotion(new Date().getHours());
     const settings = getAppSettings();
     this.applyToolPermission(settings.tools, settings.conversation.activeMode);
@@ -532,8 +543,13 @@ export class AthenaController {
     this.conversation = new Conversation(this.llm);
     this.agentRunner = new AgentRunner(this.llm, this.agentTools, undefined, this.agentStore);
     this.messageRouter = this.createMessageRouter();
+    // The initiative engine holds a model client, so it has to be rebuilt too or it
+    // would keep calling the provider the user just switched away from.
+    this.initiative.stop();
+    this.initiative = this.buildInitiativeEngine();
     const settings = getAppSettings();
     this.applyToolPermission(settings.tools, settings.conversation.activeMode);
+    if (this.initialized) this.syncInitiativeLoop();
   }
 
   private createMessageRouter(): AgentMessageRouter {
@@ -958,7 +974,7 @@ export class AthenaController {
    */
   deliverProactiveMessage(input: {
     content: string;
-    source: 'reminder';
+    source: ProactiveSource;
     preferredChatWindowId?: number | null;
   }): ProactiveDelivery | null {
     const content = input.content.trim();
@@ -991,6 +1007,49 @@ export class AthenaController {
       if (window && !window.deleted_at && !window.archived_at && window.is_temporary !== true) return window;
     }
     return getActiveChatWindow();
+  }
+
+  /**
+   * Turns the initiative loop on or off to match the current setting. Called after
+   * settings are saved so switching it off stops the loop immediately rather than
+   * at the next restart.
+   */
+  syncInitiativeLoop(): void {
+    if (getAppSettings().personalization.initiativeMessages && shouldSaveHistory()) this.initiative.start();
+    else this.initiative.stop();
+  }
+
+  private buildInitiativeEngine(): InitiativeEngine {
+    return new InitiativeEngine({
+      client: new ModelInitiativeDecider(
+        this.llm,
+        DEFAULT_INITIATIVE_POLICY,
+        () => resolvePersonaCard().displayName || 'Athena',
+      ),
+      readGate: () => ({
+        enabled: getAppSettings().personalization.initiativeMessages,
+        saveHistory: shouldSaveHistory(),
+      }),
+      readContext: () => this.readInitiativeContext(),
+      speak: (message) => {
+        const delivered = this.deliverProactiveMessage({ content: message, source: 'initiative' });
+        if (delivered) globalEventBus.emit('proactive:delivered', delivered);
+        return delivered;
+      },
+    });
+  }
+
+  private readInitiativeContext(): InitiativeContext {
+    const window = getActiveChatWindow();
+    const messages = window ? getChatWindowMessages(window.id, 12) : [];
+    const lastUser = [...messages].reverse().find(message => message.role === 'user');
+    return {
+      minutesSinceLastUserMessage: lastUser
+        ? Math.max(0, Math.round((Date.now() - new Date(lastUser.created_at).getTime()) / 60_000))
+        : null,
+      recentTurns: messages.map(message => ({ role: message.role, content: message.content })),
+      proactiveMessagesToday: this.initiative.countMessagesToday(),
+    };
   }
 
   private handleReminderDue(reminder: DueReminder): void {

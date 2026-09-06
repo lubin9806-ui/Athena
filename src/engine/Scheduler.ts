@@ -58,6 +58,11 @@ export class Scheduler {
     }, Math.min(remaining, MAX_TIMER_DELAY_MS));
   }
 
+  /** Whether a timer is currently armed for this id. */
+  has(id: string): boolean {
+    return this.jobs.get(id)?.job.status === 'scheduled';
+  }
+
   listJobs(): ScheduledJob[] {
     return Array.from(this.jobs.values()).map(item => ({ ...item.job }));
   }
