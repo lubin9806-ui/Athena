@@ -34,14 +34,20 @@ async function main() {
   }));
 }
 
-main().finally(() => {
+// The cleanup used to quit the app before the catch could set an exit code, so a
+// failure still reported success.
+function cleanupVoiceE2e() {
   delete process.env.ATHENA_CONFIG_DIR;
   delete process.env.ATHENA_DB_DIR;
   delete process.env.ATHENA_VOICE_TEMP_DIR;
   delete process.env.ATHENA_VOICE_SCRIPT_DIR;
-  fs.rmSync(scratch, { recursive: true, force: true });
-  app.quit();
-}).catch(error => {
-  console.error(`ATHENA_VOICE_E2E_FAILED ${error.message}`);
-  process.exitCode = 1;
-});
+  try { fs.rmSync(scratch, { recursive: true, force: true }); } catch {}
+}
+
+main()
+  .then(() => { cleanupVoiceE2e(); app.exit(0); })
+  .catch(error => {
+    console.error(`ATHENA_VOICE_E2E_FAILED ${error?.message || error}`);
+    cleanupVoiceE2e();
+    app.exit(1);
+  });

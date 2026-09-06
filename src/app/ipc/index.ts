@@ -913,7 +913,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<vo
   ipcMain.handle('model:testConnection', async (event) => {
     if (!isTrustedSender(event)) return null;
     const client = new LLMClient();
-    if (!canRouteModelRequest(client.providerName, canUseNetworkCapability('remoteModel'))) {
+    if (!canRouteModelRequest(client.providerName, canUseNetworkCapability('remoteModel'), client.endpoint)) {
       throw new Error('请先明确同意将请求发送给所选远程模型服务。');
     }
     return diagnoseModelConnection(client);
@@ -922,7 +922,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<vo
   ipcMain.handle('model:listOptions', async (event) => {
     if (!isTrustedSender(event)) return null;
     const client = new LLMClient();
-    if (!canRouteModelRequest(client.providerName, canUseNetworkCapability('remoteModel'))) {
+    if (!canRouteModelRequest(client.providerName, canUseNetworkCapability('remoteModel'), client.endpoint)) {
       throw new Error('请先明确同意将请求发送给所选远程模型服务。');
     }
     return {

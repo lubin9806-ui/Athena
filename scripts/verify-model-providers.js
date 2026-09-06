@@ -77,6 +77,37 @@ async function main() {
     assert.strictEqual(canRouteModelRequest('deepseek', false), false);
     assert.strictEqual(canRouteModelRequest('deepseek', true), true);
 
+    // ATH-SEC-006: the provider name is not a destination. An Ollama base URL can
+    // point at another machine, and the conversation leaves this device either way.
+    const { classifyModelEndpoint } = require('../dist/core/ai/ModelNetworkPolicy.js');
+    for (const [endpoint, expected] of [
+      ['http://127.0.0.1:11434', 'loopback'],
+      ['http://localhost:11434', 'loopback'],
+      ['http://[::1]:11434', 'loopback'],
+      ['http://ollama.localhost:11434', 'loopback'],
+      ['http://192.168.1.50:11434', 'private-network'],
+      ['http://10.0.0.9:11434', 'private-network'],
+      ['http://172.20.3.4:11434', 'private-network'],
+      ['http://nas.local:11434', 'private-network'],
+      ['https://models.example.com', 'remote'],
+      ['http://203.0.113.10:11434', 'remote'],
+      ['', 'unknown'],
+      ['not a url at all', 'unknown'],
+    ]) {
+      assert.strictEqual(classifyModelEndpoint(endpoint), expected, `endpoint scope for ${endpoint || '<empty>'}`);
+    }
+    // An address that cannot be parsed is not assumed local.
+    assert.strictEqual(canRouteModelRequest('ollama', false, 'not a url at all'), false);
+
+    assert.strictEqual(canRouteModelRequest('ollama', false, 'http://127.0.0.1:11434'), true, 'loopback needs no consent');
+    assert.strictEqual(
+      canRouteModelRequest('ollama', false, 'http://192.168.1.50:11434'), false,
+      'an Ollama server on the LAN still sends the conversation off this device',
+    );
+    assert.strictEqual(canRouteModelRequest('ollama', false, 'https://models.example.com'), false);
+    assert.strictEqual(canRouteModelRequest('ollama', true, 'http://192.168.1.50:11434'), true, 'consent unblocks it');
+    assert.strictEqual(canRouteModelRequest('openai', false, 'http://127.0.0.1:8080'), true, 'a local OpenAI-compatible server is still local');
+
     const normalized = saveSettingsBundle({ model: {
       remote: {
         openai: { baseUrl: 'https://api.openai.com/chat/completions', model: 'gpt-test' },
@@ -164,12 +195,14 @@ async function main() {
     delete process.env.OPENAI_API_KEY;
     await new Promise(resolve => server.close(resolve));
     fs.rmSync(scratch, { recursive: true, force: true });
-    app.quit();
   }
 }
 
-main().catch(error => {
-  console.error(error);
-  app.quit();
-  process.exitCode = 1;
-});
+// app.quit() used to run in the finally, before the catch could set an exit code,
+// so a failing assertion still reported success and this was not a gate at all.
+main()
+  .then(() => app.exit(0))
+  .catch(error => {
+    console.error(error?.stack || error);
+    app.exit(1);
+  });

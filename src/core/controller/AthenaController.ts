@@ -304,7 +304,7 @@ export class AthenaController {
     const localCommand = attachmentIds.length === 0 ? this.processLocalCommand(userMessage, mode, chatWindowId) : null;
     if (localCommand) return localCommand;
 
-    if (!canRouteModelRequest(this.llm.providerName, canUseNetworkCapability('remoteModel'))) {
+    if (!canRouteModelRequest(this.llm.providerName, canUseNetworkCapability('remoteModel'), this.llm.endpoint)) {
       const content = consentRequiredMessage('remoteModel');
       this.saveConversationMessage('assistant', content, this.emotion.analyzeResponse(content).type, mode, chatWindowId);
       return { content, emotion: this.emotion.analyzeResponse(content) };
@@ -508,7 +508,7 @@ export class AthenaController {
       canStartDurableExecution,
       recentMessages,
       semanticRoutingAllowed: evaluateSteamAiContent(userMessage).allowed
-        && canRouteModelRequest(this.llm.providerName, canUseNetworkCapability('remoteModel')),
+        && canRouteModelRequest(this.llm.providerName, canUseNetworkCapability('remoteModel'), this.llm.endpoint),
     });
     logger.info(`Message routed [route=${route.route}, reason=${route.reason}, method=${route.routingMethod}, confidence=${route.confidence}, autoSwitch=${route.autoSwitch}]`);
     return route;
@@ -633,7 +633,7 @@ export class AthenaController {
       const content = steamAiGuardrailRefusal();
       return { content, emotion: this.emotion.analyzeResponse(content) };
     }
-    if (!canRouteModelRequest(this.llm.providerName, canUseNetworkCapability('remoteModel'))) {
+    if (!canRouteModelRequest(this.llm.providerName, canUseNetworkCapability('remoteModel'), this.llm.endpoint)) {
       throw new Error(consentRequiredMessage('remoteModel'));
     }
     const chatWindow = (requestedChatWindowId ? getChatWindow(requestedChatWindowId) : null)
@@ -1112,7 +1112,7 @@ export class AthenaController {
   }
 
   private async applyMemoryRetentionMaintenance(): Promise<MemoryRetentionPolicyResult> {
-    if (!canRouteModelRequest(this.llm.providerName, canUseNetworkCapability('remoteModel'))) {
+    if (!canRouteModelRequest(this.llm.providerName, canUseNetworkCapability('remoteModel'), this.llm.endpoint)) {
       return applyMemoryRetentionPolicy();
     }
     const connected = await this.llm.checkConnection();
