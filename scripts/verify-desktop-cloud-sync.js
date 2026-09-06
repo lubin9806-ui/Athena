@@ -29,6 +29,37 @@ async function main() {
   assert.equal(payload.origin, 'desktop');
   assert.equal(payload.turns.length, 1);
 
+  // ATH-CLOUD-004: the window label is not a classification of its contents. A
+  // window sitting in Companion mode can still hold the Execute turns from earlier,
+  // and those carry computer operations and their results.
+  const mixed = mapper.toConversationPayload(
+    { title: 'Mixed window', mode: 'companion' },
+    [
+      { role: 'user', content: 'chat turn', mode: 'companion', created_at: '2026-09-02T00:00:00.000Z' },
+      { role: 'user', content: 'delete everything under D:\\work', mode: 'execute', created_at: '2026-09-02T00:01:00.000Z' },
+      { role: 'assistant', content: 'removed 42 files', mode: 'execute', created_at: '2026-09-02T00:02:00.000Z' },
+      { role: 'assistant', content: 'chat reply', mode: 'create', created_at: '2026-09-02T00:03:00.000Z' },
+      { role: 'system', content: 'internal note', mode: 'companion', created_at: '2026-09-02T00:04:00.000Z' },
+    ],
+  );
+  assert.deepEqual(mixed.turns.map(turn => turn.content), ['chat turn', 'chat reply']);
+  const serialized = JSON.stringify(mixed);
+  assert(!serialized.includes('delete everything'), 'execute turns must not leave the device');
+  assert(!serialized.includes('removed 42 files'), 'execute results must not leave the device');
+  assert(!serialized.includes('internal note'), 'system turns are not synced');
+
+  assert.equal(mapper.shouldSyncMessage({ role: 'user', mode: 'execute' }), false);
+  assert.equal(mapper.shouldSyncMessage({ role: 'assistant', mode: 'execute' }), false);
+  assert.equal(mapper.shouldSyncMessage({ role: 'user', mode: 'companion' }), true);
+  assert.equal(mapper.shouldSyncMessage({ role: 'system', mode: 'companion' }), false);
+
+  // A window whose syncable turns were all filtered out has nothing to send.
+  const executeOnly = mapper.toConversationPayload(
+    { title: 'Was execute', mode: 'reason' },
+    [{ role: 'user', content: 'run the build', mode: 'execute', created_at: '2026-09-02T00:00:00.000Z' }],
+  );
+  assert.equal(executeOnly.turns.length, 0);
+
   assert.throws(() => CloudProtocol.assertBaseUrl(''), /基址为空/);
   assert.throws(() => CloudProtocol.assertBaseUrl('http://example.test', true), /HTTPS/);
   assert.equal(CloudProtocol.assertBaseUrl('http://127.0.0.1:8787'), 'http://127.0.0.1:8787');

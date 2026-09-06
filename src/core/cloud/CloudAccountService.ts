@@ -154,6 +154,9 @@ async function pushLocalState(client: CloudProtocol): Promise<void> {
     if (!shouldSyncWindow(window)) continue;
     const messages = getChatWindowMessages(window.id, 80);
     const payload = toConversationPayload(window, messages);
+    // A window whose syncable turns were all filtered out has nothing to send;
+    // pushing an empty conversation would only create a record of its existence.
+    if (payload.turns.length === 0) continue;
     const first = await client.putRecord({
       resourceId: conversationResourceId(window.id),
       resourceType: 'conversation',
