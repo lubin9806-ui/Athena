@@ -94,6 +94,35 @@ assert.equal(router.route({
   recentMessages: [],
 }).route, 'conversation', 'regeneration without image context must not invent an image prompt');
 
+// ATH-IMG-002: a bare command carries no subject. Sending it to the engine as the
+// prompt produced a confidently unrelated picture, which is worse than asking.
+assert.equal(resolveDirectImageGenerationIntent('生成图片'), null, 'a bare image command must not become its own prompt');
+assert.equal(resolveDirectImageGenerationIntent('生成图片', [
+  { role: 'user', content: '帮我看看这个报错的堆栈是什么意思' },
+  { role: 'assistant', content: '这是一个空指针异常。' },
+]), null, 'an unrelated prior message must not be drafted as an image prompt');
+
+// ATH-CHAT-001: a long visual brief accidentally carries every soft trigger -
+// "将" as a preposition, "桌面" meaning a tabletop, "刚刚" describing a pose, and
+// "list" inside "realistic". None of that is a computer action or a search.
+const visualBrief = [
+  '角色五官：24岁现代东亚年轻女性，鹅蛋脸，面部轮廓柔和流畅，杏仁形深棕色眼眸，自然窄双眼皮，眼神安静克制，皮肤白皙偏暖，真实细腻肌理。',
+  '服装描写：将原来的灰紫色针织上衣改为低饱和燕麦米色修身针织开衫，内搭同色系简洁方领吊带，垂坠面料，腰部结构简洁，无明显品牌标识。',
+  '环境背景：场景由咖啡馆改为现代城市独立书店内的临窗阅读区，深胡桃木书架、暖灰色微水泥墙面、原木桌椅、少量绿植和陶瓷摆件。',
+  '桌面放置一本翻开的摄影集、一杯白色陶瓷拿铁和一副细框眼镜，避免蛋糕与原图桌面陈设。',
+  '角色 Pose：她侧身坐在靠窗的木质扶手椅上，右手握住白色咖啡杯杯耳，杯子刚刚离开桌面，视线落向窗外而不是镜头。',
+  '画面关键词：cinematic lifestyle portrait, Rembrandt lighting, natural skin texture, realistic pores, photorealistic, 8K detail.',
+].join('\n');
+assert(visualBrief.length > 400, 'the regression brief must stay long enough to exercise the long-text path');
+for (const mode of ['companion', 'create', 'reason']) {
+  assert.equal(router.route({
+    message: visualBrief,
+    mode,
+    webSearchEnabled: true,
+    canStartDurableExecution: true,
+  }).route, 'conversation', `a long visual brief must stay conversational in ${mode} mode`);
+}
+
 const accuracy = correct / fixture.cases.length;
 const recalls = Object.fromEntries(routes.map(route => {
   const total = routes.reduce((sum, actual) => sum + matrix[route][actual], 0);

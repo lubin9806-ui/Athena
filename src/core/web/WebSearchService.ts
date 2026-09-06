@@ -388,6 +388,12 @@ export class WebSearchService {
   }
 }
 
+// A single recency word inside a long description ("杯子刚刚离开桌面") is about the
+// content, not a request for fresh information. Explicit search requests and URLs
+// stay decisive at any length; the keyword heuristics only apply to short messages
+// that could plausibly be a question (ATH-CHAT-001).
+const SOFT_SEARCH_INTENT_MAX_CHARS = 400;
+
 export function shouldAutoSearch(message: string, detectedActionType?: string): boolean {
   const text = message.trim();
   if (!text) return false;
@@ -398,11 +404,9 @@ export function shouldAutoSearch(message: string, detectedActionType?: string): 
   const english = /\b(?:search the web|web search|look it up|latest|breaking news|today|current|currently|real[- ]?time|weather|score|stock price|exchange rate)\b/i;
   const url = /https?:\/\/[^\s]+/i;
 
-  return isExplicitSearchRequest(text)
-    || freshness.test(text)
-    || unstableRole.test(text)
-    || english.test(text)
-    || url.test(text);
+  if (isExplicitSearchRequest(text) || url.test(text)) return true;
+  if (text.length > SOFT_SEARCH_INTENT_MAX_CHARS) return false;
+  return freshness.test(text) || unstableRole.test(text) || english.test(text);
 }
 
 export function isExplicitSearchRequest(message: string): boolean {

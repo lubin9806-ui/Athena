@@ -363,28 +363,38 @@ export class ToolRuntime {
   }
 }
 
+// Keyword pairing cannot survive long free text: a 2000-character scene
+// description will contain some trigger by accident ("桌面" meaning a tabletop,
+// "list" inside "realistic"). Hard signals — a path, a terminal, a port, an
+// explicit tool phrase — stay decisive at any length; the soft pairings only hold
+// for short, request-shaped messages (ATH-CHAT-001).
+const SOFT_COMPUTER_INTENT_MAX_CHARS = 400;
+
 export function shouldPlanComputerTools(message: string): boolean {
   const text = message.trim();
   if (!text) return false;
 
   const explicitTool = /(?:使用|调用|用一下|通过).{0,8}(?:工具|电脑|本机|文件系统|终端)|\b(?:use|call)\s+(?:a\s+)?tool\b/i;
   const pathLike = /(?:[a-z]:[\\/]|\\\\[^\\]+\\|(?:^|\s)\/[\w./-]+|\b[\w.-]+\.(?:txt|md|json|ya?ml|toml|ini|log|csv|ts|tsx|js|jsx|py|ps1|bat|cmd|html|css|xml|docx?|xlsx?|pdf|png|jpe?g|exe)\b)/i;
-  const fileAction = /(?:读取|看看|查看|列出|扫描|查找|搜索|检查|确认|是否存在|存在吗|内容|多大|大小|是什么|有哪些|打开|写入|保存|创建|新建|建立|生成|建一个|修改|编辑|替换|追加|复制|移动|移到|移入|挪到|搬到|放到|放进|放入|放在|整理|归档|分类|收拾|集中|重命名|删除|清空|read|list|find|search|inspect|check|exists|size|open|write|create|edit|replace|append|copy|move|rename|delete|organize|sort|archive|put|place)/i;
-  const fileNoun = /(?:文件|文件夹|目录|路径|磁盘|硬盘|桌面|下载|文档|图片|照片|视频|音频|压缩包|代码|配置|日志|file|folder|directory|path|drive|desktop|download|document|image|photo)/i;
+  const fileAction = /(?:读取|看看|查看|列出|扫描|查找|搜索|检查|确认|是否存在|存在吗|内容|多大|大小|是什么|有哪些|打开|写入|保存|创建|新建|建立|生成|建一个|修改|编辑|替换|追加|复制|移动|移到|移入|挪到|搬到|放到|放进|放入|放在|整理|归档|分类|收拾|集中|重命名|删除|清空|\b(?:read|list|find|search|inspect|check|exists|size|open|write|create|edit|replace|append|copy|move|rename|delete|organize|sort|archive|put|place)\b)/i;
+  const fileNoun = /(?:文件|文件夹|目录|路径|磁盘|硬盘|桌面|下载|文档|图片|照片|视频|音频|压缩包|代码|配置|日志|\b(?:files?|folders?|director(?:y|ies)|paths?|drives?|desktop|downloads?|documents?|images?|photos?)\b)/i;
   const commandOrProgram = /(?:执行|运行|启动|打开|关闭|重启).{0,16}(?:命令|脚本|程序|软件|应用|服务|服务器|终端|powershell|cmd|npm|node|python|ollama|计算器|记事本)|\b(?:run|execute|launch|start|stop|restart)\b.{0,24}\b(?:command|script|program|app|service|server|powershell|cmd|npm|node|python)\b/i;
   const directProgramRequest = /^(?:(?:请|请你|帮我|麻烦|替我|给我)\s*)?(?:打开|启动|运行|关闭|重启)\s*[^？?]{1,80}[。！!]?$/i;
-  const politeLocalRequest = /(?:请|请你|帮我|麻烦|替我|给我|能否|能不能|可以帮我|把|将)/i;
   const terminalIntent = /(?:终端|powershell|cmd|terminal).{0,24}(?:启动|打开|输入|写入|读取|查看|继续|输出|关闭|会话|命令)|(?:启动|打开|输入|写入|读取|查看|继续|关闭).{0,24}(?:终端|powershell|cmd|terminal)/i;
   const portOrHttp = /(?:端口|localhost|127\.0\.0\.1|https?:\/\/|检查连接|访问接口|请求接口|port\b|http request|api endpoint)/i;
 
-  return explicitTool.test(text)
+  const hasHardSignal = explicitTool.test(text)
     || (pathLike.test(text) && fileAction.test(text))
-    || (fileAction.test(text) && fileNoun.test(text))
-    || (politeLocalRequest.test(text) && fileNoun.test(text))
     || commandOrProgram.test(text)
     || directProgramRequest.test(text)
     || terminalIntent.test(text)
     || portOrHttp.test(text);
+  if (hasHardSignal) return true;
+
+  // A bare politeness marker with a bare noun ("将 ... 照片") carries no action and
+  // matched ordinary prose, so it is no longer a signal on its own.
+  if (text.length > SOFT_COMPUTER_INTENT_MAX_CHARS) return false;
+  return fileAction.test(text) && fileNoun.test(text);
 }
 
 export function requiresComputerAction(message: string): boolean {

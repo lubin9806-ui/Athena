@@ -108,6 +108,24 @@ assert.match(
 assert.strictEqual(shouldAutoSearch('Python 是什么？'), false, 'Stable encyclopedia questions should stay local.');
 assert.strictEqual(shouldAutoSearch('今天 OpenAI 有什么最新新闻？'), true, 'Fresh information should trigger search.');
 assert.strictEqual(shouldAutoSearch('谁是现任美国总统？'), true, 'Unstable public roles should trigger search.');
+
+// ATH-CHAT-001: "刚刚" describing a pose is not a request for fresh information.
+// Recency keywords cannot carry a 2000-character description on their own.
+const longVisualBrief = [
+  '角色五官：24岁现代东亚年轻女性，鹅蛋脸，面部轮廓柔和流畅，杏仁形深棕色眼眸，自然窄双眼皮，眼神安静克制，皮肤白皙偏暖，真实细腻肌理。',
+  '服装描写：将原来的灰紫色针织上衣改为低饱和燕麦米色修身针织开衫，内搭同色系简洁方领吊带，垂坠面料，腰部结构简洁，无明显品牌标识。',
+  '环境背景：场景由咖啡馆改为现代城市独立书店内的临窗阅读区，深胡桃木书架、暖灰色微水泥墙面、原木桌椅、少量绿植和陶瓷摆件。',
+  '桌面放置一本翻开的摄影集、一杯白色陶瓷拿铁和一副细框眼镜，避免蛋糕与原图桌面陈设。',
+  '角色 Pose：她侧身坐在靠窗的木质扶手椅上，右手握住白色咖啡杯杯耳，杯子刚刚离开桌面，视线落向窗外而不是镜头。',
+  '画面关键词：cinematic lifestyle portrait, Rembrandt lighting, natural skin texture, realistic pores, photorealistic, 8K detail.',
+].join('\n');
+assert(longVisualBrief.length > 400);
+assert.strictEqual(shouldAutoSearch(longVisualBrief), false, 'A long visual brief must not auto-search on an incidental recency word.');
+assert.strictEqual(
+  shouldAutoSearch(`${longVisualBrief}\n帮我联网搜索一下这种布光的名字。`),
+  true,
+  'An explicit search request must survive even when it trails a long description.',
+);
 assert.strictEqual(extractSearchQuery('帮我联网搜索一下 2026 年最新显卡'), '2026 年最新显卡');
 assert.match(
   buildSecondarySearchQuery('OpenAI 最新消息', sources, [], new Date('2026-07-13T12:00:00Z')),

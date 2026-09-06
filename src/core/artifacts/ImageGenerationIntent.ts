@@ -37,6 +37,10 @@ export function parseDirectImageGenerationIntent(message: string): DirectImageGe
   const terminalIntent = /(?:^|[，。！？、；：,.!?;:\s])(?:(?:请|现在|直接|开始|给我)\s*)?(?:生图|出图|生成)(?:一张|一下|吧|看看)?[。.!！?？\s]*$/i;
   const englishIntent = /\b(?:generate|create|draw|make|render|design)\b.{0,28}\b(?:an?\s+)?(?:image|picture|illustration|poster|wallpaper|avatar|concept art)\b/i;
   if (!chineseIntent.test(text) && !compactIntent.test(text) && !terminalIntent.test(text) && !englishIntent.test(text)) return null;
+  // A bare command carries no subject. Sending "生成图片" to the engine as the prompt
+  // produces a confidently unrelated picture, which is worse than asking what to
+  // draw, so report no intent and let the conversation resolve it (ATH-IMG-002).
+  if (!isDescriptivePrompt(stripTerminalImageCommand(text))) return null;
   const size: ImageSize = /(?:横图|横版|宽屏|landscape|16\s*[:：]\s*9)/i.test(text)
     ? '1536x1024'
     : /(?:竖图|竖版|手机壁纸|portrait|9\s*[:：]\s*16)/i.test(text)
