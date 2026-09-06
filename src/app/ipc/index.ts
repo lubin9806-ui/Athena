@@ -47,6 +47,8 @@ import {
   pullOllamaModel,
 } from '../../core/ai/OllamaSetupService';
 import { globalEventBus } from '../../engine/EventBus';
+import { createLogger } from '../../engine/Logger';
+import { classifyModelFailure } from '../../core/ai/ModelFailure';
 import {
   commitChatRecordImport,
   activateChatWindow,
@@ -194,6 +196,7 @@ const INVOKE_CHANNELS = [
   'voice:cancel',
 ] as const;
 
+const logger = createLogger('Ipc');
 const EVENT_CHANNELS = ['window:minimize', 'window:close'] as const;
 const MEMORY_KINDS = new Set<MemoryKind>(['profile', 'procedure', 'fact', 'event', 'daily', 'project', 'message']);
 
@@ -298,10 +301,12 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<vo
       }
       return response;
     } catch (error) {
-      if (!mainWindow.isDestroyed()) {
-        const message = error instanceof Error ? error.message : '未知错误';
-        mainWindow.webContents.send('chat:error', message);
-      }
+      // Raw parser text ("Unterminated string in JSON at position 412") used to be
+      // forwarded verbatim, which reads as a refusal rather than a broken response
+      // (ATH-CHAT-003). The redacted original stays in the log.
+      const failure = classifyModelFailure(error);
+      logger.warn(`Chat request failed [code=${failure.code}, retryable=${failure.retryable}]: ${failure.detail}`);
+      if (!mainWindow.isDestroyed()) mainWindow.webContents.send('chat:error', failure.message);
       return null;
     }
   });

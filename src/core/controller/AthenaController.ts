@@ -4,6 +4,7 @@ import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import { canRouteModelRequest } from '../ai/ModelNetworkPolicy';
+import { classifyModelFailure } from '../ai/ModelFailure';
 import { Conversation } from '../ai/Conversation';
 import { EmotionEngine } from '../ai/Emotion';
 import { buildChatPrompt } from '../ai/PromptBuilder';
@@ -1286,7 +1287,7 @@ export class AthenaController {
         || (result.status === 'cancelled'
           ? '任务已停止。'
           : result.status === 'failed'
-            ? `任务执行失败：${result.error || '未返回具体错误'}`
+            ? `任务执行失败：${result.error ? classifyModelFailure(new Error(result.error)).message : '未返回具体错误'}`
             : result.verification === 'unverified'
               ? '任务已执行结束。'
               : '任务已完成。');

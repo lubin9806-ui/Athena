@@ -364,6 +364,47 @@ async function main() {
       ModelCapabilityError,
     );
 
+    // ATH-CHAT-003: a broken response reads as a refusal when the parser text is
+    // forwarded verbatim. Machine-facing categories get rewritten; messages that
+    // were already written for a person must survive untouched.
+    const { classifyModelFailure, redactModelFailureDetail } = require(path.join(root, 'dist', 'core', 'ai', 'ModelFailure.js'));
+
+    const truncated = classifyModelFailure(new ModelProtocolError(
+      'Tool write_file returned invalid JSON arguments: Unterminated string in JSON at position 412',
+    ));
+    assert.equal(truncated.kind, 'protocol');
+    assert.equal(truncated.retryable, true);
+    assert(!/Unterminated|JSON at position|write_file/.test(truncated.message), 'parser text must not reach the user');
+    assert.match(truncated.message, /没有执行任何操作/);
+    assert.match(truncated.detail, /Unterminated string/, 'the original stays available for the log');
+
+    const auth = classifyModelFailure(new Error('DeepSeek request failed: 401 Authorization Required - {"error":{"message":"Authentication Fails"}}'));
+    assert.equal(auth.kind, 'auth');
+    assert.equal(auth.retryable, false);
+    assert.match(auth.message, /API Key/);
+    assert(!/401|Authorization Required/.test(auth.message));
+
+    assert.equal(classifyModelFailure(new Error('429 Too Many Requests')).kind, 'rate_limit');
+    assert.equal(classifyModelFailure(new Error('request timed out after 8000ms')).kind, 'timeout');
+    assert.equal(classifyModelFailure(new Error('fetch failed: ECONNREFUSED 127.0.0.1:11434')).kind, 'connection');
+    const cancelled = classifyModelFailure(Object.assign(new Error('The operation was aborted'), { name: 'AbortError' }));
+    assert.equal(cancelled.kind, 'cancelled');
+    assert.equal(cancelled.retryable, false);
+
+    // Product guidance is already user-facing and must not become a generic sentence.
+    const consent = '远程模型服务需要先在“隐私与数据中心”阅读说明并明确同意。';
+    const passthrough = classifyModelFailure(new Error(consent));
+    assert.equal(passthrough.kind, 'passthrough');
+    assert.equal(passthrough.message, consent);
+    const capability = classifyModelFailure(new ModelCapabilityError('当前模型不支持原生工具调用。'));
+    assert.equal(capability.kind, 'capability');
+    assert.equal(capability.message, '当前模型不支持原生工具调用。');
+
+    // Nothing key-shaped may survive into a log line.
+    const secret = redactModelFailureDetail('auth failed for sk-0123456789abcdef0123 with Bearer abcdefghijklmnop');
+    assert(!/sk-0123456789abcdef0123|abcdefghijklmnop/.test(secret), 'credentials must be redacted from diagnostics');
+    assert.match(secret, /\[REDACTED\]/);
+
     console.log(`ATHENA_MODEL_ADAPTERS_OK openaiCalls=${requests.filter(item => item.url === '/v1/chat/completions').length} ollamaCalls=${requests.filter(item => item.url === '/api/chat').length}`);
     fs.rmSync(imagePath, { force: true });
   } finally {

@@ -1,4 +1,6 @@
 import { LLMClient, type ChatMessage } from '../ai/Client';
+import { classifyModelFailure } from '../ai/ModelFailure';
+import { createLogger } from '../../engine/Logger';
 import {
   ComputerToolService,
   type ComputerToolResult,
@@ -18,6 +20,7 @@ import type {
   ToolStatusEvent,
 } from '../../shared/types';
 
+const logger = createLogger('ToolRuntime');
 const MAX_CALLS_PER_ROUND = 3;
 const MAX_TOOL_OUTPUT_FOR_MODEL = 12_000;
 const MAX_TOOL_OUTPUT_PREVIEW = 4_000;
@@ -295,11 +298,14 @@ export class ToolRuntime {
       emit(input.onStatus, { phase: 'done', message: '已达到工具轮次上限，正在返回现有结果' });
       return { content, executions };
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      emit(input.onStatus, { phase: 'failed', message: `工具规划失败：${message}` });
+      // A truncated tool-call payload is a broken response, not a refusal, and the
+      // parser text that explains it is not for the user (ATH-CHAT-003).
+      const failure = classifyModelFailure(error);
+      logger.warn(`Tool planning failed [code=${failure.code}]: ${failure.detail}`);
+      emit(input.onStatus, { phase: 'failed', message: `工具规划失败：${failure.message}` });
       const content = executions.length > 0
-        ? `电脑操作在后续规划时出错，已完成的 ${executions.filter(item => item.status === 'completed').length} 项不会自动撤销。错误：${message}`
-        : `我理解这是一次真实电脑操作，但工具规划失败了，所以本轮没有改动任何文件。错误：${message}`;
+        ? `电脑操作在后续规划时出错，已完成的 ${executions.filter(item => item.status === 'completed').length} 项不会自动撤销。${failure.message}`
+        : `本轮没有改动任何文件。${failure.message}`;
       if (input.onStream) input.onStream(content);
       return { content, executions };
     }
