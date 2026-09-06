@@ -16,7 +16,14 @@ import type {
   AgentTaskSpec,
   AgentTaskStatus,
   AgentValidationStatus,
+  ToolPermissionLevel,
 } from '../../shared/types';
+
+const TOOL_PERMISSION_RANK: Record<ToolPermissionLevel, number> = { off: 0, read: 1, files: 2, full: 3 };
+
+function isToolPermissionLevel(value: string): value is ToolPermissionLevel {
+  return value === 'off' || value === 'read' || value === 'files' || value === 'full';
+}
 import {
   assertRunPhaseTransition,
   assertStepTransition,
@@ -211,6 +218,48 @@ export class AgentStore {
   getRun(id: string): AgentRunRecord | null {
     const row = this.database.prepare('SELECT * FROM agent_runs WHERE id = ?').get(id);
     return row ? rowToRun(row) : null;
+  }
+
+  /**
+   * The highest computer permission this run may use. Null means none was recorded,
+   * which only happens for runs created before schema 18 (ATH-SEC-005).
+   */
+  getRunPermissionCeiling(id: string): ToolPermissionLevel | null {
+    const row = this.database.prepare('SELECT permission_ceiling FROM agent_runs WHERE id = ?')
+      .get(id) as { permission_ceiling: string | null } | undefined;
+    const value = row?.permission_ceiling;
+    return value && isToolPermissionLevel(value) ? value : null;
+  }
+
+  /** Records a ceiling only if the run has none yet; never raises an existing one. */
+  initializeRunPermissionCeiling(id: string, level: ToolPermissionLevel): void {
+    this.database.prepare(`
+      UPDATE agent_runs SET permission_ceiling = ? WHERE id = ? AND permission_ceiling IS NULL
+    `).run(level, id);
+  }
+
+  /**
+   * Lowers the ceiling of every run that is not finished. Revoking a permission has
+   * to reach runs that are paused or queued too, or resuming one would restore what
+   * the user just took away.
+   */
+  lowerActiveRunPermissionCeilings(level: ToolPermissionLevel): number {
+    const rank = TOOL_PERMISSION_RANK[level];
+    const rows = this.database.prepare(`
+      SELECT id, permission_ceiling FROM agent_runs
+      WHERE status IN ('queued', 'running', 'paused')
+    `).all() as Array<{ id: string; permission_ceiling: string | null }>;
+    let lowered = 0;
+    const update = this.database.prepare('UPDATE agent_runs SET permission_ceiling = ? WHERE id = ?');
+    for (const row of rows) {
+      const current = row.permission_ceiling && isToolPermissionLevel(row.permission_ceiling)
+        ? row.permission_ceiling
+        : null;
+      if (current !== null && TOOL_PERMISSION_RANK[current] <= rank) continue;
+      update.run(level, row.id);
+      lowered += 1;
+    }
+    return lowered;
   }
 
   listRuns(taskId: string, limit = 100): AgentRunRecord[] {

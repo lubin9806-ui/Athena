@@ -6,7 +6,12 @@ import type { ComputerToolDefinition } from './ComputerToolCatalog';
 
 export interface ComputerAgentToolBridgeOptions {
   registry: ToolRegistry;
-  getSettings: () => ToolSettings;
+  /**
+   * Resolved for a specific run when one is executing, so the run's permission
+   * ceiling can cap the current setting (ATH-SEC-005). Called without a run id when
+   * only the tool catalogue is being built.
+   */
+  getSettings: (runId?: string) => ToolSettings;
   service?: ComputerToolService;
 }
 
@@ -85,7 +90,9 @@ export class ComputerAgentToolBridge {
       redactArguments: redactComputerArguments,
       execute: async (argumentsValue, context) => {
         if (context.signal.aborted) throw context.signal.reason || new Error('Tool execution cancelled');
-        const settings = this.options.getSettings();
+        // Resolved per call and per run: a permission the user revoked mid-run must
+        // stop the next tool, and raising the setting again must not restore it.
+        const settings = this.options.getSettings(context.runId);
         this.service.applyPermissionLevel(settings.permissionLevel);
         const result = await this.service.execute(
           definition.name,

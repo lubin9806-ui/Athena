@@ -4,6 +4,7 @@ import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import { canRouteModelRequest } from '../ai/ModelNetworkPolicy';
+import { TOOL_PERMISSION_RANK } from '../config/SettingsStore';
 import { classifyModelFailure } from '../ai/ModelFailure';
 import { resolvePersonaCard } from '../ai/Personality';
 import {
@@ -161,7 +162,7 @@ export class AthenaController {
     this.agentTools = new ToolRegistry();
     this.agentComputerTools = new ComputerAgentToolBridge({
       registry: this.agentTools,
-      getSettings: () => this.resolveAgentToolSettings(),
+      getSettings: runId => this.resolveAgentToolSettings(runId),
     });
     this.projectWorkspace = new ProjectWorkspaceService(this.agentStore);
     this.skillLibrary = new SkillLibrary();
@@ -562,6 +563,11 @@ export class AthenaController {
     const resolved = resolveToolSettingsForMode(settings, mode);
     resolved.allowExternalNetwork = canUseNetworkCapability('externalToolNetwork');
     this.conversation.setToolPermissionLevel(resolved.permissionLevel);
+    // Revoking a permission has to reach runs that are queued or paused as well,
+    // or resuming one would hand back what the user just took away (ATH-SEC-005).
+    const executeLevel = resolveToolSettingsForMode(settings, 'execute').permissionLevel;
+    const lowered = this.agentStore.lowerActiveRunPermissionCeilings(executeLevel);
+    if (lowered > 0) logger.info(`Lowered the permission ceiling of ${lowered} unfinished agent runs to ${executeLevel}.`);
     return resolved;
   }
 
@@ -705,6 +711,11 @@ export class AthenaController {
       scene: 'project-workspace',
       strategy: 'native-tools',
     });
+    // The ceiling is the permission the run was granted at the moment it started.
+    this.agentStore.initializeRunPermissionCeiling(
+      handle.run.id,
+      resolveToolSettingsForMode(getAppSettings().tools, 'execute').permissionLevel,
+    );
     onState?.(this.agentStore.getRunSnapshot(handle.run.id));
     const result = this.materializeAgentResultArtifact(await handle.result);
     onState?.(result.snapshot);
@@ -905,6 +916,7 @@ export class AthenaController {
         scope: 'approval-group',
       }, item.revision);
     }
+    this.assertAgentRunMayContinue();
     this.agentComputerTools.refresh();
     this.researchTools.refresh();
     this.artifactTools.refresh();
@@ -928,6 +940,7 @@ export class AthenaController {
     if (snapshot.approvals.some(item => item.status === 'pending')) {
       throw new Error('当前运行仍有待审批操作，不能直接继续。');
     }
+    this.assertAgentRunMayContinue();
     this.agentComputerTools.refresh();
     this.researchTools.refresh();
     this.artifactTools.refresh();
@@ -936,6 +949,18 @@ export class AthenaController {
     onState?.(result.snapshot);
     this.persistTerminalAgentResponse(result);
     return result;
+  }
+
+  /**
+   * Only the start path checked remote-model consent, so revoking it left paused
+   * runs able to keep calling the provider the moment they were resumed or an
+   * approval was granted. Consent is re-checked at every entry that continues a run
+   * (AC-08, ATH-SEC-007).
+   */
+  private assertAgentRunMayContinue(): void {
+    if (!canRouteModelRequest(this.llm.providerName, canUseNetworkCapability('remoteModel'), this.llm.endpoint)) {
+      throw new Error(consentRequiredMessage('remoteModel'));
+    }
   }
 
   async cancelAgentRun(projectId: number, runId: string, onState?: (snapshot: AgentRunSnapshot) => void): Promise<AgentRunnerResult> {
@@ -1343,10 +1368,20 @@ export class AthenaController {
     return images;
   }
 
-  private resolveAgentToolSettings(): ToolSettings {
+  /**
+   * Agent tools always run under the Execute permission, capped by the ceiling the
+   * run was granted. The ceiling only ratchets down, so raising the setting during a
+   * run cannot restore access the user revoked (AC-06, ATH-SEC-005).
+   */
+  private resolveAgentToolSettings(runId?: string): ToolSettings {
     const settings = getAppSettings();
     const resolved = resolveToolSettingsForMode(settings.tools, 'execute');
     resolved.allowExternalNetwork = canUseNetworkCapability('externalToolNetwork');
+    if (!runId) return resolved;
+    const ceiling = this.agentStore.getRunPermissionCeiling(runId);
+    if (ceiling && TOOL_PERMISSION_RANK[ceiling] < TOOL_PERMISSION_RANK[resolved.permissionLevel]) {
+      resolved.permissionLevel = ceiling;
+    }
     return resolved;
   }
 

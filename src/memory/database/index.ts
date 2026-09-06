@@ -7,7 +7,7 @@ import { ensureSufficientDiskSpace } from '../../core/runtime/DiskSpaceGuard';
 
 let db: Database.Database | null = null;
 let resolvedDbPath: string | null = null;
-export const DATABASE_SCHEMA_VERSION = 17;
+export const DATABASE_SCHEMA_VERSION = 18;
 const MIGRATION_BACKUP_RETENTION = 5;
 
 export interface MemoryStats {
@@ -501,6 +501,10 @@ function runMigrations(database: Database.Database, currentVersion: number): voi
       model TEXT,
       state_json TEXT NOT NULL DEFAULT '{}',
       approval_group_id TEXT,
+      -- schema 18: the highest computer permission this run may ever use. It only
+      -- ratchets down, so raising the global setting mid-run cannot restore access
+      -- the user revoked (AC-06, ATH-SEC-005).
+      permission_ceiling TEXT CHECK(permission_ceiling IS NULL OR permission_ceiling IN ('off', 'read', 'files', 'full')),
       error TEXT,
       revision INTEGER NOT NULL DEFAULT 1 CHECK(revision > 0),
       created_at DATETIME DEFAULT (datetime('now', 'localtime')),
@@ -752,6 +756,11 @@ function runMigrations(database: Database.Database, currentVersion: number): voi
       database.exec('ALTER TABLE chat_messages ADD COLUMN ephemeral INTEGER NOT NULL DEFAULT 0 CHECK(ephemeral IN (0, 1))');
     }
     database.exec('CREATE INDEX IF NOT EXISTS idx_chat_messages_ephemeral ON chat_messages(ephemeral) WHERE ephemeral = 1');
+    // schema 18: per-run computer permission ceiling (ATH-SEC-005).
+    const agentRunColumns = database.prepare('PRAGMA table_info(agent_runs)').all() as Array<{ name: string }>;
+    if (!agentRunColumns.some(column => column.name === 'permission_ceiling')) {
+      database.exec("ALTER TABLE agent_runs ADD COLUMN permission_ceiling TEXT CHECK(permission_ceiling IS NULL OR permission_ceiling IN ('off', 'read', 'files', 'full'))");
+    }
     database.exec('CREATE INDEX IF NOT EXISTS idx_chat_windows_temporary ON chat_windows(is_temporary, deleted_at, archived_at)');
     database.exec('CREATE INDEX IF NOT EXISTS idx_chat_windows_project ON chat_windows(project_id, deleted_at, archived_at, last_active_at DESC)');
     database.exec('CREATE INDEX IF NOT EXISTS idx_memory_review_queue_group ON memory_review_queue(group_key, status)');

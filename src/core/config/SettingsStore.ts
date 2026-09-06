@@ -234,7 +234,7 @@ const IMAGE_LOCAL_BACKENDS = new Set<LocalImageBackend>(['auto', 'cuda', 'vulkan
 const IMAGE_LOCAL_ENGINES = new Set<ImageGenerationSettings['local']['engine']>(['auto', 'athena', 'comfyui']);
 const IMAGE_LOCAL_PROFILES = new Set<LocalImageProfile>(['fast', 'balanced', 'quality', 'custom']);
 const IMAGE_CLOUD_FALLBACKS = new Set<ImageCloudFallback>(['never', 'ask']);
-const TOOL_PERMISSION_RANK: Record<ToolPermissionLevel, number> = { off: 0, read: 1, files: 2, full: 3 };
+export const TOOL_PERMISSION_RANK: Record<ToolPermissionLevel, number> = { off: 0, read: 1, files: 2, full: 3 };
 
 export function getSettingsBundle(): SettingsBundle {
   const settings = loadAppSettings();

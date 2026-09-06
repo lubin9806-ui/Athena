@@ -31,7 +31,7 @@ const {
 let exitCode = 0;
 try {
   const db = memory.getDatabase();
-  assert.equal(db.pragma('user_version', { simple: true }), 17, 'agent foundation records must survive the current schema');
+  assert.equal(db.pragma('user_version', { simple: true }), 18, 'agent foundation records must survive the current schema');
   assert.equal(db.prepare('SELECT value FROM migration_probe').get().value, 'preserved', 'migration must retain existing data');
   assert.ok(fs.readdirSync(path.join(databaseDir, 'backups')).some(name => name.endsWith('.bak')), 'migration should create a backup');
 
@@ -168,6 +168,39 @@ try {
     AgentStateTransitionError,
     'terminal runs must reject further execution',
   );
+
+  // ATH-SEC-005: a run carries the permission it was granted, and that ceiling only
+  // ever ratchets down. Raising the global setting mid-run must not hand back access
+  // the user revoked, and the revocation has to reach paused runs too.
+  let ceilingTask = store.createTask({
+    title: 'Permission ceiling',
+    goal: 'Prove the run permission ceiling only lowers.',
+    projectId: project.id,
+    chatWindowId: chatWindow.id,
+  });
+  ceilingTask = store.transitionTask(ceilingTask.id, 'ready', ceilingTask.revision);
+  let ceilingRun = store.createRun({ taskId: ceilingTask.id });
+  assert.equal(store.getRunPermissionCeiling(ceilingRun.id), null, 'a new run starts with no recorded ceiling');
+
+  store.initializeRunPermissionCeiling(ceilingRun.id, 'full');
+  assert.equal(store.getRunPermissionCeiling(ceilingRun.id), 'full');
+  store.initializeRunPermissionCeiling(ceilingRun.id, 'off');
+  assert.equal(store.getRunPermissionCeiling(ceilingRun.id), 'full', 'initialization must not overwrite an existing ceiling');
+
+  ceilingRun = store.startRun(ceilingRun.id, ceilingRun.revision);
+  assert.equal(store.lowerActiveRunPermissionCeilings('read'), 1, 'revoking must reach the running job');
+  assert.equal(store.getRunPermissionCeiling(ceilingRun.id), 'read');
+  assert.equal(store.lowerActiveRunPermissionCeilings('full'), 0, 'raising the setting must not raise any ceiling');
+  assert.equal(store.getRunPermissionCeiling(ceilingRun.id), 'read', 'a revoked permission must not come back');
+  assert.equal(store.lowerActiveRunPermissionCeilings('off'), 1, 'a further revocation must still apply');
+  assert.equal(store.getRunPermissionCeiling(ceilingRun.id), 'off');
+
+  // A finished run is not a live grant, so it is left alone.
+  const settledCeiling = store.getRunPermissionCeiling(run.id);
+  assert.equal(settledCeiling, null, 'the completed run never recorded a ceiling');
+  store.initializeRunPermissionCeiling(run.id, 'full');
+  assert.equal(store.lowerActiveRunPermissionCeilings('off'), 0, 'terminal runs are not lowered');
+  assert.equal(store.getRunPermissionCeiling(run.id), 'full');
 
   console.log(`ATHENA_AGENT_FOUNDATION_OK task=${task.id} run=${run.id} events=${snapshot.events.length}`);
 } catch (error) {

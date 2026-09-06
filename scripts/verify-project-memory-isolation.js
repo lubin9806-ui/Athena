@@ -70,7 +70,7 @@ const { buildManagedContext } = require(path.join(root, 'dist', 'core', 'ai', 'C
 let exitCode = 0;
 try {
   const db = memory.getDatabase();
-  assert.equal(db.pragma('user_version', { simple: true }), 17);
+  assert.equal(db.pragma('user_version', { simple: true }), 18);
   assert.deepEqual(db.pragma('foreign_key_check'), []);
   assert.equal(db.prepare("SELECT project_id FROM project_notes WHERE title = 'unique legacy note'").get().project_id, 1);
   assert.equal(db.prepare("SELECT project_id FROM project_notes WHERE title = 'ambiguous legacy note'").get().project_id, null);
