@@ -44,6 +44,17 @@ export interface VoiceCapabilities {
 
 interface ProcessResult { code: number | null; stdout: string; stderr: string }
 
+interface SttReadiness {
+  ready: boolean;
+  python: string;
+  model: string;
+  code?: VoiceFailureCode;
+  reason?: string;
+}
+
+const STT_RUNTIME_MISSING = '本地语音运行时未安装。正式包必须提供受管 Python 3.11 sidecar。';
+const STT_MODEL_MISSING = '本地 Whisper 模型缺失；Athena 不会在运行时自动下载。';
+
 const PROJECT_ROOT = resolveProjectRoot();
 const SCRIPT_ROOT = resolveVoiceScriptRoot();
 const TEMP_DIR = getVoiceTempDir();
@@ -100,9 +111,9 @@ export class VoiceService {
         runtimePath: python,
         modelPath,
         reason: !pythonReady
-          ? '本地语音运行时未安装。正式包必须提供受管 Python 3.11 sidecar。'
+          ? STT_RUNTIME_MISSING
           : !modelReady
-            ? '本地 Whisper 模型缺失；Athena 不会在运行时自动下载。'
+            ? STT_MODEL_MISSING
             : undefined,
       },
       tts: {
@@ -176,15 +187,15 @@ export class VoiceService {
     }
     if (!stat.isFile()) return failure('input_error', '音频路径不是普通文件。');
 
-    const capabilities = await this.getCapabilities();
-    if (!capabilities.stt.ready) {
-      return failure(capabilities.stt.reason?.includes('模型') ? 'model_missing' : 'runtime_missing', capabilities.stt.reason || '本地语音识别不可用。');
+    const readiness = resolveSttReadiness();
+    if (!readiness.ready) {
+      return failure(readiness.code ?? 'runtime_missing', readiness.reason ?? '本地语音识别不可用。');
     }
     const operation = this.beginOperation(signal);
     try {
       const result = await runProcess(
-        capabilities.stt.runtimePath,
-        [path.join(SCRIPT_ROOT, 'stt_whisper.py'), sourcePath, capabilities.stt.modelPath],
+        readiness.python,
+        [path.join(SCRIPT_ROOT, 'stt_whisper.py'), sourcePath, readiness.model],
         90_000,
         operation.signal,
       );
@@ -248,6 +259,30 @@ function resolvePythonRuntime(): string {
   // System Python is a development-only fallback. Packaged builds never silently
   // bind to an arbitrary machine installation.
   return process.resourcesPath ? managed : 'python';
+}
+
+/**
+ * Filesystem-only readiness for the transcription hot path.
+ *
+ * getCapabilities() is the full report for the settings panel: it spawns
+ * `python --version` and a PowerShell SAPI voice enumeration. Neither says
+ * anything about recognition, and transcribe() used to pay both on every
+ * utterance - measured at ~343 ms against a ~449 ms decode. Missing pieces are
+ * still classified correctly here, and anything this check cannot see (a broken
+ * interpreter, a corrupt model) is classified by the child process itself.
+ */
+function resolveSttReadiness(): SttReadiness {
+  const python = resolvePythonRuntime();
+  const model = resolveWhisperModelPath();
+  // A bare command name is resolved through PATH by the OS, so only an absolute
+  // managed path can be checked from here.
+  if (path.isAbsolute(python) && !fs.existsSync(python)) {
+    return { ready: false, python, model, code: 'runtime_missing', reason: STT_RUNTIME_MISSING };
+  }
+  if (!isWhisperModelDirectory(model)) {
+    return { ready: false, python, model, code: 'model_missing', reason: STT_MODEL_MISSING };
+  }
+  return { ready: true, python, model };
 }
 
 function resolveWhisperModelPath(): string {
