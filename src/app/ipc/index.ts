@@ -207,10 +207,12 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<vo
   let documentOcrAbort: AbortController | null = null;
   let documentOcrBusy = false;
   let shuttingDown = false;
-  const removeReminderListener = globalEventBus.on('reminder:due', (job) => {
+  const removeReminderListener = globalEventBus.on('reminder:due', (event) => {
     const settings = getAppSettings();
-    showReminderNotification(job.title, settings.general.desktopNotifications);
-    if (!mainWindow.isDestroyed()) mainWindow.webContents.send('reminder:due', job);
+    showReminderNotification(event.title, settings.general.desktopNotifications);
+    // `delivered` carries the window the message was actually written to, so the
+    // renderer can place it instead of inventing a transient bubble.
+    if (!mainWindow.isDestroyed()) mainWindow.webContents.send('reminder:due', event);
   });
 
   const isTrustedSender = (event: IpcMainInvokeEvent | IpcMainEvent): boolean => {

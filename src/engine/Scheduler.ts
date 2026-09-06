@@ -21,8 +21,11 @@ export class Scheduler {
   readonly enabled = true;
   private readonly jobs = new Map<string, InternalJob>();
 
-  schedule(title: string, dueAt: Date, onDue?: (job: ScheduledJob) => void): ScheduledJob {
-    const id = `job-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  // `id` lets a persistent caller keep its stored row and the in-memory timer under
+  // the same identity, so a restored job can be cancelled by the id the user saw.
+  schedule(title: string, dueAt: Date, onDue?: (job: ScheduledJob) => void, options: { id?: string } = {}): ScheduledJob {
+    const id = options.id || `job-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    if (this.jobs.has(id)) throw new Error(`Scheduled job already exists: ${id}`);
     const job: ScheduledJob = {
       id,
       title: title.trim() || 'Reminder',

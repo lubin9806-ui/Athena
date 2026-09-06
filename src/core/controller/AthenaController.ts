@@ -41,7 +41,7 @@ import {
   consentRequiredMessage,
   recordDataActivity,
 } from '../privacy/PrivacyDataService';
-import { Reminder } from '../scheduler/Reminder';
+import { Reminder, type DueReminder } from '../scheduler/Reminder';
 import { WorkflowManager } from '../workflow/WorkflowManager';
 import {
   applyMemoryRetentionPolicy,
@@ -50,6 +50,7 @@ import {
   deleteChatWindow,
   ensureDefaultChatWindow,
   ensureDefaultProject,
+  getActiveChatWindow,
   getChatWindow,
   getChatWindowMessages,
   closeDatabase,
@@ -90,6 +91,8 @@ import type {
   WebSearchStatus,
   ToolCatalog,
   ChatAttachment,
+  ChatWindow,
+  ProactiveDelivery,
 } from '../../shared/types';
 
 const logger = createLogger('AthenaController');
@@ -221,6 +224,11 @@ export class AthenaController {
       logger.info(`Cleaned up ${temporaryWindowsDeleted} temporary chat windows and ${temporaryAttachmentsDeleted} attachment files.`);
     }
     this.purgeUnsavedChatSegment();
+    this.reminder.setDueHandler(reminder => this.handleReminderDue(reminder));
+    const reminders = this.reminder.restorePending();
+    if (reminders.restored > 0) {
+      logger.info(`Restored ${reminders.restored} pending reminders (${reminders.overdue} already due).`);
+    }
     this.emotion.setBaseEmotion(new Date().getHours());
     const settings = getAppSettings();
     this.applyToolPermission(settings.tools, settings.conversation.activeMode);
@@ -938,6 +946,70 @@ export class AthenaController {
     logger.info('Athena shutdown complete.');
   }
 
+  /**
+   * Writes a message Athena produced on her own into a real chat window, so it is
+   * part of the conversation rather than a transient banner. Returns null when
+   * nothing was delivered, which callers must treat as "stay silent".
+   *
+   * The whole initiative surface is off while chat history is off: waking up to
+   * read context and then writing a message is precisely what that switch refuses
+   * (ATH-DATA-002, ATH-INIT-001).
+   */
+  deliverProactiveMessage(input: {
+    content: string;
+    source: 'reminder';
+    preferredChatWindowId?: number | null;
+  }): ProactiveDelivery | null {
+    const content = input.content.trim();
+    if (!content) return null;
+    if (!shouldSaveHistory()) {
+      logger.info(`Proactive message from ${input.source} suppressed because chat history is off.`);
+      return null;
+    }
+    const target = this.resolveProactiveChatWindow(input.preferredChatWindowId);
+    if (!target) {
+      logger.warn(`Proactive message from ${input.source} had no eligible chat window.`);
+      return null;
+    }
+    const emotion = this.emotion.analyzeResponse(content);
+    const saved = this.saveConversationMessage('assistant', content, emotion.type, target.mode, target.id);
+    return {
+      chatWindowId: target.id,
+      chatMessageId: saved.chatMessageId,
+      content,
+      emotion: emotion.type,
+      source: input.source,
+    };
+  }
+
+  // Proactive messages belong to the window the user was last in. Temporary,
+  // archived and deleted windows are never eligible.
+  private resolveProactiveChatWindow(preferred?: number | null): ChatWindow | null {
+    if (preferred) {
+      const window = getChatWindow(preferred);
+      if (window && !window.deleted_at && !window.archived_at && window.is_temporary !== true) return window;
+    }
+    return getActiveChatWindow();
+  }
+
+  private handleReminderDue(reminder: DueReminder): void {
+    const content = reminder.overdue
+      ? `提醒时间到了：${reminder.title}（原定 ${new Date(reminder.dueAt).toLocaleString('zh-CN')}，Athena 当时没有运行）`
+      : `提醒时间到了：${reminder.title}`;
+    const delivered = this.deliverProactiveMessage({
+      content,
+      source: 'reminder',
+      preferredChatWindowId: reminder.chatWindowId,
+    });
+    globalEventBus.emit('reminder:due', {
+      id: reminder.id,
+      title: reminder.title,
+      dueAt: reminder.dueAt,
+      overdue: reminder.overdue,
+      delivered,
+    });
+  }
+
   // Drops the turns recorded while "save chat history" was off. Called at startup
   // and again the moment history is switched back on, so the unsaved segment cannot
   // be pulled into the context snapshots of the durable turns that follow it.
@@ -1112,9 +1184,7 @@ export class AthenaController {
 
     const reminderRequest = parseReminderRequest(userMessage);
     if (reminderRequest) {
-      const job = this.reminder.schedule(reminderRequest, (dueJob) => {
-        globalEventBus.emit('reminder:due', dueJob);
-      });
+      const job = this.reminder.schedule({ ...reminderRequest, chatWindowId });
       const content = `好，记下了：${job.title}。我会在 ${new Date(job.dueAt).toLocaleString('zh-CN')} 提醒你。`;
       const emotion = this.emotion.analyzeResponse(content);
       this.saveConversationMessage('assistant', content, emotion.type, mode, chatWindowId);

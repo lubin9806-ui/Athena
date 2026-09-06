@@ -1,4 +1,4 @@
-const assert = require('node:assert/strict');
+﻿const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -198,7 +198,7 @@ async function run() {
     memory.getDatabase().prepare('UPDATE project_documents SET storage_path = ? WHERE id = ?').run(tamperRecord.storage_path, tamperDocument.id);
     assert.equal(service.delete(alpha.id, tamperDocument.id), true);
     assert.deepEqual(memory.getDatabase().pragma('foreign_key_check'), []);
-    assert.equal(memory.getDatabase().pragma('user_version', { simple: true }), 16);
+    assert.equal(memory.getDatabase().pragma('user_version', { simple: true }), 17);
 
     const controllerSource = fs.readFileSync(path.join(root, 'src', 'core', 'controller', 'AthenaController.ts'), 'utf8');
     assert.match(controllerSource, /Temporary Chat cannot create persistent Project documents/);

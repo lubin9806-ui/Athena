@@ -1,4 +1,4 @@
-const assert = require('node:assert/strict');
+﻿const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -28,7 +28,7 @@ try {
   const memory = require(path.join(root, 'dist', 'memory', 'index.js'));
   const now = new Date('2026-08-10T12:00:00.000Z');
   const db = memory.getDatabase();
-  assert.equal(db.pragma('user_version', { simple: true }), 16, 'memory schema should match the current attachment-capable schema');
+  assert.equal(db.pragma('user_version', { simple: true }), 17, 'memory schema should match the current attachment-capable schema');
 
   const cases = [
     addEvent(db, now, 100, 2, 'fresh-low-kept'),

@@ -36,6 +36,13 @@ const {
   saveChatMessage,
   saveContextSnapshot,
 } = require('../dist/memory/index.js');
+const { globalScheduler } = require('../dist/engine/Scheduler.js');
+const { Reminder } = require('../dist/core/scheduler/Reminder.js');
+const {
+  createScheduledJob,
+  getScheduledJob,
+  listPendingScheduledJobs,
+} = require('../dist/core/scheduler/ScheduledJobStore.js');
 const { ComputerToolService } = require('../dist/core/tools/ComputerTools.js');
 const { AgentStore } = require('../dist/core/agent/index.js');
 
@@ -248,6 +255,65 @@ function writeVoiceCache(name, ageHours) {
     assert.equal(JSON.stringify(exportedJson.integrations).includes('secret-token-value'), false);
     assert(exportedJson.files.voiceCache.some(file => file.path === freshVoice && file.contentBase64));
 
+    // ATH-INIT-001 / DEBT-007: scheduled work has to outlive the process. Timers
+    // cannot be serialised, so the row is the source of truth and startup re-arms.
+    const reminderWindow = createChatWindow({ title: 'reminder window' });
+    const beforeRestart = [];
+    const reminder = new Reminder();
+    reminder.setDueHandler(item => beforeRestart.push(item));
+    const pendingReminder = reminder.schedule({
+      title: '喝水',
+      dueAt: new Date(Date.now() + 3_600_000),
+      chatWindowId: reminderWindow.id,
+    });
+    const storedReminder = getScheduledJob(pendingReminder.id);
+    assert.ok(storedReminder, 'a reminder must be persisted, not only armed in memory');
+    assert.strictEqual(storedReminder.status, 'scheduled');
+    assert.strictEqual(storedReminder.chatWindowId, reminderWindow.id);
+
+    // One that came due while Athena was closed.
+    createScheduledJob({
+      id: 'job-overdue-fixture',
+      kind: 'reminder',
+      title: '过期提醒',
+      dueAt: new Date(Date.now() - 60_000),
+      chatWindowId: reminderWindow.id,
+    });
+
+    // Simulate a restart: every in-memory timer is gone, the rows are all that remain.
+    globalScheduler.shutdown();
+    const afterRestart = [];
+    const restoredReminder = new Reminder();
+    restoredReminder.setDueHandler(item => afterRestart.push(item));
+    const restoreResult = restoredReminder.restorePending();
+    assert.strictEqual(restoreResult.restored, 2, 'both pending reminders must be re-armed after a restart');
+    assert.strictEqual(restoreResult.overdue, 1);
+    await new Promise(resolve => setTimeout(resolve, 60));
+    assert.strictEqual(afterRestart.length, 1, 'only the reminder that is already due fires on restore');
+    assert.strictEqual(afterRestart[0].title, '过期提醒');
+    assert.strictEqual(afterRestart[0].overdue, true, 'a reminder missed while closed must be reported as overdue');
+    assert.strictEqual(getScheduledJob('job-overdue-fixture').status, 'completed');
+    assert.strictEqual(getScheduledJob(pendingReminder.id).status, 'scheduled');
+    assert.strictEqual(beforeRestart.length, 0, 'timers from before the restart must not fire');
+
+    // Cancelling settles the row, so a later restore cannot resurrect it.
+    assert.strictEqual(restoredReminder.cancel(pendingReminder.id), true);
+    assert.strictEqual(getScheduledJob(pendingReminder.id).status, 'cancelled');
+    assert.strictEqual(listPendingScheduledJobs().length, 0);
+
+    // Settled jobs expire with the retention window; pending work never does.
+    db.prepare("UPDATE scheduled_jobs SET completed_at = '2020-01-01T00:00:00.000Z' WHERE id = 'job-overdue-fixture'").run();
+    createScheduledJob({
+      id: 'job-future-fixture',
+      kind: 'reminder',
+      title: '未来提醒',
+      dueAt: new Date(Date.now() + 86_400_000),
+    });
+    const jobRetention = applyDataRetention(new Date('2026-07-15T12:00:00.000Z'));
+    assert.strictEqual(jobRetention.scheduledJobsDeleted, 1, 'settled jobs past the retention window must be pruned');
+    assert.strictEqual(getScheduledJob('job-overdue-fixture'), null);
+    assert.ok(getScheduledJob('job-future-fixture'), 'pending scheduled work must survive retention');
+
     db.prepare("INSERT INTO profile (category, fact) VALUES ('preference', 'clear me')").run();
     db.prepare("INSERT INTO events (date, summary) VALUES ('2026-07-15', 'clear event')").run();
     db.prepare("INSERT INTO daily_memory_summaries (date, summary) VALUES ('2026-07-15', 'clear daily')").run();
@@ -269,7 +335,7 @@ function writeVoiceCache(name, ageHours) {
     assert(cleared.deletedTables.includes('messages'));
     assert.strictEqual(cleared.skillInvocationsDeleted, 1);
     assert.strictEqual(skillInvocations, 0);
-    for (const table of ['agent_run_events', 'agent_approvals', 'agent_artifacts', 'agent_steps', 'agent_runs', 'agent_tasks', 'context_snapshots', 'chat_messages', 'chat_windows', 'projects', 'messages', 'profile', 'events', 'daily_memory_summaries', 'procedural_memories', 'memory_entities', 'memory_facts', 'memory_fact_sources', 'memory_review_queue', 'project_notes', 'memory_index', 'data_activity_records']) {
+    for (const table of ['scheduled_jobs', 'agent_run_events', 'agent_approvals', 'agent_artifacts', 'agent_steps', 'agent_runs', 'agent_tasks', 'context_snapshots', 'chat_messages', 'chat_windows', 'projects', 'messages', 'profile', 'events', 'daily_memory_summaries', 'procedural_memories', 'memory_entities', 'memory_facts', 'memory_fact_sources', 'memory_review_queue', 'project_notes', 'memory_index', 'data_activity_records']) {
       assert.strictEqual(tableCount(db, table), 0, `${table} should be empty after clear`);
     }
     assert.strictEqual(fs.existsSync(freshVoice), false);

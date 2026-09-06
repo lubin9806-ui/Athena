@@ -123,3 +123,22 @@ export interface ChatStreamChunk {
   content: string;
   done: boolean;
 }
+
+/** A message Athena produced on her own, persisted into a real chat window. */
+export interface ProactiveDelivery {
+  chatWindowId: number;
+  chatMessageId?: number;
+  content: string;
+  emotion: string;
+  source: 'reminder';
+}
+
+export interface ReminderDueEvent {
+  id: string;
+  title: string;
+  dueAt: string;
+  /** The due time passed while Athena was not running. */
+  overdue: boolean;
+  /** Null when nothing was written, for example because chat history is off. */
+  delivered: ProactiveDelivery | null;
+}

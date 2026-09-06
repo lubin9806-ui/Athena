@@ -138,11 +138,15 @@ export function recordDataActivity(
   `).run(category, action.slice(0, 80), safeDetail);
 }
 
-export function applyDataRetention(now: Date = new Date()): { messagesDeleted: number; activityDeleted: number } {
+export function applyDataRetention(now: Date = new Date()): {
+  messagesDeleted: number;
+  activityDeleted: number;
+  scheduledJobsDeleted: number;
+} {
   const settings = getAppSettings();
   const days = settings.data.historyRetentionDays;
   cleanupVoiceCache(settings.data.voiceCacheRetentionHours, now);
-  if (days <= 0) return { messagesDeleted: 0, activityDeleted: 0 };
+  if (days <= 0) return { messagesDeleted: 0, activityDeleted: 0, scheduledJobsDeleted: 0 };
 
   const cutoff = new Date(now.getTime() - days * 24 * 60 * 60 * 1000).toISOString();
   const db = getDatabase();
@@ -155,7 +159,12 @@ export function applyDataRetention(now: Date = new Date()): { messagesDeleted: n
   });
   deleteMessages(oldMessageIds);
   const activityDeleted = db.prepare('DELETE FROM data_activity_records WHERE created_at < ?').run(cutoff).changes;
-  return { messagesDeleted: oldMessageIds.length, activityDeleted };
+  // Pending jobs are future work and are never pruned; only settled rows expire.
+  const scheduledJobsDeleted = db.prepare(`
+    DELETE FROM scheduled_jobs
+    WHERE status IN ('completed', 'cancelled') AND COALESCE(completed_at, created_at) < ?
+  `).run(cutoff).changes;
+  return { messagesDeleted: oldMessageIds.length, activityDeleted, scheduledJobsDeleted };
 }
 
 export function cleanupVoiceCache(retentionHours = getAppSettings().data.voiceCacheRetentionHours, now: Date = new Date()): number {
@@ -189,6 +198,7 @@ export function clearAllLocalData(hooks: LocalDataClearHooks = {}): {
   const attachmentFilesDeleted = hooks.clearAttachmentFiles?.() ?? 0;
   const projectDocumentFilesDeleted = hooks.clearProjectDocumentFiles?.() ?? 0;
   const deletedTables = [
+    'scheduled_jobs',
     'agent_run_events',
     'agent_approvals',
     'agent_artifacts',

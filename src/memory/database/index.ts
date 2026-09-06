@@ -7,7 +7,7 @@ import { ensureSufficientDiskSpace } from '../../core/runtime/DiskSpaceGuard';
 
 let db: Database.Database | null = null;
 let resolvedDbPath: string | null = null;
-export const DATABASE_SCHEMA_VERSION = 16;
+export const DATABASE_SCHEMA_VERSION = 17;
 const MIGRATION_BACKUP_RETENTION = 5;
 
 export interface MemoryStats {
@@ -439,6 +439,22 @@ function runMigrations(database: Database.Database, currentVersion: number): voi
       created_at DATETIME DEFAULT (datetime('now', 'localtime'))
     );
     CREATE INDEX IF NOT EXISTS idx_data_activity_category_created ON data_activity_records(category, created_at);
+
+    -- schema 17: scheduled work outlives the process. The window reference is
+    -- SET NULL rather than CASCADE so tidying up a chat cannot silently drop a
+    -- reminder; delivery falls back to the most recent ordinary window.
+    CREATE TABLE IF NOT EXISTS scheduled_jobs (
+      id TEXT PRIMARY KEY,
+      kind TEXT NOT NULL,
+      title TEXT NOT NULL,
+      due_at DATETIME NOT NULL,
+      status TEXT NOT NULL DEFAULT 'scheduled' CHECK(status IN ('scheduled', 'completed', 'cancelled')),
+      chat_window_id INTEGER REFERENCES chat_windows(id) ON DELETE SET NULL,
+      payload_json TEXT NOT NULL DEFAULT '{}',
+      created_at DATETIME DEFAULT (datetime('now', 'localtime')),
+      completed_at DATETIME
+    );
+    CREATE INDEX IF NOT EXISTS idx_scheduled_jobs_pending ON scheduled_jobs(status, due_at);
 
     CREATE TABLE IF NOT EXISTS context_snapshots (
       id INTEGER PRIMARY KEY AUTOINCREMENT,

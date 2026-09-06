@@ -14,6 +14,7 @@ import { MicrophoneRecorder } from './voice/MicrophoneRecorder';
 import type { AvatarLayoutMode } from '../shared/types/avatar';
 import type { AthenaAvatarEvent } from './avatar/AvatarRuntime';
 import type { EmotionType } from '../shared/types/emotion';
+import type { ProactiveDelivery, ReminderDueEvent } from '../shared/types/message';
 import { RELEASE_FEATURES } from '../shared/releaseFeatures';
 
 interface DisabledLive2DPreferences {
@@ -140,7 +141,7 @@ declare global {
       onChatError: (callback: (error: string) => void) => () => void;
       onWebSearchStatus: (callback: (status: WebSearchStatus) => void) => () => void;
       onToolStatus: (callback: (status: ToolStatusEvent) => void) => () => void;
-      onReminderDue: (callback: (job: { title: string; dueAt: string }) => void) => () => void;
+      onReminderDue: (callback: (event: ReminderDueEvent) => void) => () => void;
       getSystemInfo: () => Promise<{ modelConnected: boolean; modelConnectionChecked?: boolean; modelProvider: ModelProvider; modelName: string; modelEndpoint: string; ollamaConnected: boolean; hour: number; ollamaModel: string; ollamaEndpoint: string } | null>;
       getFastSystemInfo: () => Promise<{ modelConnected: boolean; modelConnectionChecked?: boolean; modelProvider: ModelProvider; modelName: string; modelEndpoint: string; ollamaConnected: boolean; hour: number; ollamaModel: string; ollamaEndpoint: string } | null>;
       getStartupSystemInfo: () => Promise<{ modelConnected: boolean; modelConnectionChecked?: boolean; modelProvider: ModelProvider; modelName: string; modelEndpoint: string; ollamaConnected: boolean; hour: number; ollamaModel: string; ollamaEndpoint: string } | null>;
@@ -1703,6 +1704,39 @@ function isChatRequestBusy(): boolean {
   return isStreaming || isRequestPending;
 }
 
+// Messages Athena produced on her own arrive whenever they come due, including
+// mid-request. They are already persisted, so the only question is when to show
+// them: inserting one into a streaming reply would interleave two speakers, so
+// they wait for the request to settle.
+const pendingProactiveDeliveries: ProactiveDelivery[] = [];
+
+function handleProactiveDelivery(delivered: ProactiveDelivery | null, fallbackText: string): void {
+  if (!delivered) {
+    // Nothing was written — chat history is off, or no ordinary window was
+    // eligible. A toast is honest; a chat bubble would vanish on the next reload.
+    toasts.show(fallbackText, 'neutral');
+    return;
+  }
+  if (isChatRequestBusy()) {
+    pendingProactiveDeliveries.push(delivered);
+    return;
+  }
+  showProactiveDelivery(delivered);
+}
+
+function showProactiveDelivery(delivered: ProactiveDelivery): void {
+  if (delivered.chatWindowId === currentChatWindowId) {
+    chatPanel.addMessage(delivered.content, 'assistant', delivered.emotion, undefined, undefined, true);
+  } else {
+    toasts.show(delivered.content, 'neutral');
+  }
+  void refreshChatWindows();
+}
+
+function flushPendingProactiveDeliveries(): void {
+  for (const delivered of pendingProactiveDeliveries.splice(0)) showProactiveDelivery(delivered);
+}
+
 async function sendMessage(text: string): Promise<void> {
   const queuedAttachments = currentPendingAttachments();
   const effectiveText = text.trim() || (queuedAttachments.length > 0 ? '请查看并理解这些附件。' : '');
@@ -1832,6 +1866,7 @@ async function sendMessage(text: string): Promise<void> {
     }
     await refreshChatWindows();
     await refreshWindowMemoryPanel();
+    flushPendingProactiveDeliveries();
   }
 }
 
@@ -2278,9 +2313,9 @@ function init(): void {
     setStatus('电脑操作完成，正在整理回复', 'working');
   });
 
-  window.athenaAPI.onReminderDue((job) => {
-    chatPanel.addMessage(`提醒时间到了：${job.title}`, 'assistant', '提醒');
+  window.athenaAPI.onReminderDue((event) => {
     setStatus('提醒', 'ready');
+    handleProactiveDelivery(event.delivered, `提醒时间到了：${event.title}`);
   });
 
   window.athenaAPI.onAgentWorkspaceChanged((event) => {
