@@ -13,9 +13,11 @@ import {
   formatCreativeStateForDisplay,
   formatCreativeProposal,
   hasCreativeContent,
+  localCreativeExtraction,
   mergeCreativeState,
   needsCreativeConfirmation,
   parseCreativeWorkspace,
+  parseLabeledCreativeSpec,
   readCreativeReply,
   serializeCreativeWorkspace,
   type CreativeExtraction,
@@ -341,13 +343,16 @@ export class AthenaController {
     // drawn. Elsewhere the state is left alone so ordinary chat costs nothing.
     const creativeWorkspace = parseCreativeWorkspace(getChatWindowCreativeState(chatWindowId));
     // The reported case was a visual brief pasted in Companion mode, so this cannot
-    // be limited to Create. Length is the gate rather than a keyword: a short chat
-    // turn is not a character spec, and reading every short message would cost a
-    // model round trip per turn (ATH-CHAT-004).
+    // be limited to Create. The length gate is about cost - reading every short
+    // message used to mean a model round trip per turn - so a brief that carries its
+    // own headings is admitted regardless of length, because reading it is free
+    // (ATH-CHAT-004, ATH-IMG-004).
     const creativeContext = mode === 'create'
       || Boolean(creativeWorkspace.pending)
       || hasCreativeContent(creativeWorkspace.state)
-      || (mode !== 'execute' && userMessage.trim().length >= CREATIVE_SCAN_MIN_CHARS);
+      || (mode !== 'execute' && (
+        userMessage.trim().length >= CREATIVE_SCAN_MIN_CHARS
+        || parseLabeledCreativeSpec(userMessage) !== null));
     const creative: CreativeTurnOutcome = creativeContext && !isTemporaryChat
       ? await this.updateCreativeState(chatWindowId, userMessage)
       : { kind: 'none' };
@@ -379,6 +384,10 @@ export class AthenaController {
       // The accumulated description wins: it carries the sections this message did
       // not mention, which is the whole point of keeping it (ATH-IMG-002).
       if (hasCreativeContent(merged)) imageIntent.prompt = buildCreativePrompt(merged);
+      // A short request - "画一张雪山日出" - is too thin to be worth a model call, but
+      // it is still the description this window is now about. Keeping it verbatim is
+      // what gives the next message ("把天空换成傍晚") something to edit.
+      else if (!isTemporaryChat) this.seedCreativeState(chatWindowId, imageIntent.prompt);
       const directImage = await this.processDirectImageRequest(
         imageIntent,
         mode,
@@ -1209,20 +1218,30 @@ export class AthenaController {
       }
     }
 
+    // A brief that carries its own headings is read off the page. That is the case
+    // that used to cost the longest model call of the turn, and the one where the
+    // model was most likely to come back with nothing (ATH-IMG-004).
+    const labelled = parseLabeledCreativeSpec(message);
     let extraction: CreativeExtraction;
-    try {
-      extraction = await this.creativeExtractor.extract({ message, state: workspace.state });
-    } catch (error) {
-      const failure = classifyModelFailure(error);
-      logger.warn(`Creative extraction failed [code=${failure.code}]: ${failure.detail}`);
-      return { kind: 'none' };
+    if (labelled) {
+      extraction = localCreativeExtraction(labelled);
+      logger.info(`Creative brief read locally [sections=${labelled.explicitSections.join(',')}, coverage=${labelled.coverage.toFixed(2)}]`);
+    } else {
+      try {
+        extraction = await this.creativeExtractor.extract({ message, state: workspace.state });
+      } catch (error) {
+        const failure = classifyModelFailure(error);
+        logger.warn(`Creative extraction failed [code=${failure.code}]: ${failure.detail}`);
+        return { kind: 'none' };
+      }
+      if (extraction.issues.length > 0) logger.info(`Creative extraction issues: ${extraction.issues.join('|')}`);
     }
-    if (extraction.issues.length > 0) logger.info(`Creative extraction issues: ${extraction.issues.join('|')}`);
     if (extraction.kind === 'not_creative') return { kind: 'none' };
 
-    // Understanding first, acting second. A whole new character, or a request with
-    // a genuine gap, gets a sentence back rather than a picture (ATH-CHAT-004).
-    if (needsCreativeConfirmation(extraction)) {
+    // Understanding first, acting second. Replacing a description that already
+    // exists, or a request with a genuine gap, gets a sentence back rather than a
+    // picture. A first request into an empty window just runs (ATH-CHAT-004).
+    if (needsCreativeConfirmation(extraction, { hasExistingContent: hasCreativeContent(workspace.state) })) {
       const proposal: CreativePendingProposal = {
         patch: extraction.patch,
         understanding: extraction.understanding,
@@ -1245,6 +1264,22 @@ export class AthenaController {
         createdAt: new Date().toISOString(),
       },
     });
+  }
+
+  /**
+   * Records a plain image request as the window's description, so the next message
+   * can edit it. Free of a model call on purpose: nothing here is interpreted, the
+   * text is kept as written under `notes` until someone says what it should become.
+   */
+  private seedCreativeState(chatWindowId: number, prompt: string): void {
+    const text = prompt.trim();
+    if (!text) return;
+    const workspace = parseCreativeWorkspace(getChatWindowCreativeState(chatWindowId));
+    if (hasCreativeContent(workspace.state)) return;
+    const merged = mergeCreativeState(workspace.state, { sections: { notes: text } });
+    if (merged.changed.length === 0) return;
+    saveChatWindowCreativeState(chatWindowId, serializeCreativeWorkspace({ state: merged.state, pending: null }));
+    logger.info(`Creative state seeded from image request [chars=${text.length}]`);
   }
 
   private applyCreativeProposal(chatWindowId: number, workspace: CreativeWorkspace): CreativeTurnOutcome {

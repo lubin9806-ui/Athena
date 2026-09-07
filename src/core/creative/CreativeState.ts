@@ -1,4 +1,24 @@
-export const CREATIVE_SECTIONS = ['character', 'hair', 'outfit', 'scene', 'pose', 'technical'] as const;
+/**
+ * The vocabulary an image description is kept in.
+ *
+ * Every section is optional. A landscape fills `subject` and `scene` and nothing
+ * else; a pasted character sheet fills most of them; a one-line request may fill
+ * only `notes`. The list exists so an edit can name what it touches, not to
+ * demand that a picture be a portrait (ATH-IMG-002).
+ *
+ * The order is the order the merged prompt is written in.
+ */
+export const CREATIVE_SECTIONS = [
+  'subject',
+  'character',
+  'hair',
+  'outfit',
+  'pose',
+  'scene',
+  'style',
+  'technical',
+  'notes',
+] as const;
 export type CreativeSection = typeof CREATIVE_SECTIONS[number];
 
 /**
@@ -11,7 +31,7 @@ export const DEFAULT_LOCKED_SECTIONS: CreativeSection[] = ['character', 'hair', 
 export interface CreativeState {
   version: number;
   sections: Record<CreativeSection, string>;
-  /** Sections that an edit may not touch unless it names them explicitly. */
+  /** Sections that an edit may not overwrite unless it names them explicitly. */
   locked: CreativeSection[];
   updatedAt: string;
 }
@@ -28,24 +48,31 @@ export interface CreativePatch {
 export interface CreativeMergeResult {
   state: CreativeState;
   changed: CreativeSection[];
-  /** Locked sections an edit tried to change without naming them. */
+  /** Locked sections an edit tried to overwrite without naming them. */
   refused: CreativeSection[];
 }
 
 const MAX_SECTION_CHARS = 4_000;
 const SECTION_LABELS: Record<CreativeSection, string> = {
+  subject: '画面主体',
   character: '角色五官',
   hair: '头发与发饰',
   outfit: '服装',
-  scene: '环境背景',
   pose: '姿态与动作',
+  scene: '环境背景',
+  style: '风格',
   technical: '画面与摄影',
+  notes: '其他说明',
 };
+
+export function creativeSectionLabel(section: CreativeSection): string {
+  return SECTION_LABELS[section];
+}
 
 export function emptyCreativeState(now: Date = new Date()): CreativeState {
   return {
     version: 0,
-    sections: { character: '', hair: '', outfit: '', scene: '', pose: '', technical: '' },
+    sections: blankSections(),
     locked: [...DEFAULT_LOCKED_SECTIONS],
     updatedAt: now.toISOString(),
   };
@@ -58,6 +85,10 @@ export function emptyCreativeState(now: Date = new Date()): CreativeState {
  * verbatim. That is the whole point: asking to change the scene must not be an
  * invitation to rewrite the face. A locked section changes only when the edit
  * named it, and the refusal is reported rather than applied silently.
+ *
+ * A lock protects what is already written, not the slot. An empty section can
+ * always be filled - otherwise a scene-only picture could never gain a character
+ * without the user first learning that "character" is a section name.
  */
 export function mergeCreativeState(
   current: CreativeState,
@@ -73,7 +104,9 @@ export function mergeCreativeState(
   for (const section of CREATIVE_SECTIONS) {
     const incoming = normalizeSection(patch.sections[section]);
     if (incoming === null) continue;
-    const locked = !patch.replaceAll && base.locked.includes(section);
+    const locked = !patch.replaceAll
+      && base.locked.includes(section)
+      && base.sections[section].length > 0;
     if (locked && !explicit.has(section)) {
       if (incoming !== sections[section]) refused.push(section);
       continue;
@@ -117,6 +150,10 @@ export function hasCreativeContent(state: CreativeState): boolean {
   return CREATIVE_SECTIONS.some(section => state.sections[section].length > 0);
 }
 
+export function filledCreativeSections(state: CreativeState): CreativeSection[] {
+  return CREATIVE_SECTIONS.filter(section => state.sections[section].length > 0);
+}
+
 /** The merged description that is actually sent to the image model. */
 export function buildCreativePrompt(state: CreativeState): string {
   return CREATIVE_SECTIONS
@@ -127,8 +164,7 @@ export function buildCreativePrompt(state: CreativeState): string {
 
 /** The version a person reads and copies, with the section names kept. */
 export function formatCreativeStateForDisplay(state: CreativeState): string {
-  const blocks = CREATIVE_SECTIONS
-    .filter(section => state.sections[section])
+  const blocks = filledCreativeSections(state)
     .map(section => `【${SECTION_LABELS[section]}${state.locked.includes(section) ? ' · 已锁定' : ''}】\n${state.sections[section]}`);
   return blocks.join('\n\n');
 }
@@ -144,7 +180,9 @@ export function parseCreativeState(raw: string | null | undefined, now: Date = n
   }
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return fallback;
   const value = parsed as Record<string, unknown>;
-  const sections = { ...fallback.sections };
+  // Blobs written before a section existed simply leave it empty, which is the
+  // same thing a picture that never needed it looks like.
+  const sections = blankSections();
   const incoming = value.sections;
   if (incoming && typeof incoming === 'object' && !Array.isArray(incoming)) {
     for (const section of CREATIVE_SECTIONS) {
@@ -165,6 +203,10 @@ export function parseCreativeState(raw: string | null | undefined, now: Date = n
 
 export function serializeCreativeState(state: CreativeState): string {
   return JSON.stringify(state);
+}
+
+function blankSections(): Record<CreativeSection, string> {
+  return Object.fromEntries(CREATIVE_SECTIONS.map(section => [section, ''])) as Record<CreativeSection, string>;
 }
 
 function normalizeSection(value: unknown): string | null {
