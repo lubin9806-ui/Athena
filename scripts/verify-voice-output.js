@@ -249,48 +249,77 @@ async function main() {
 
   const voice = new VoiceService();
   const capabilities = await voice.getCapabilities();
-  assert.strictEqual(capabilities.tts.ready, true, capabilities.tts.reason || 'Local TTS is not ready.');
   assert(capabilities.tts.voices.length > 0, 'No enabled Windows SAPI voices were detected.');
   const voiceName = capabilities.tts.voices[0].name;
+  assert.strictEqual(capabilities.tts.piper.ready, true, capabilities.tts.piper.reason || 'The neural voice is not packaged.');
+  assert.strictEqual(capabilities.tts.sapi.ready, true, capabilities.tts.sapi.reason || 'SAPI is not available.');
 
-  const base = { ttsVoice: voiceName, ttsRate: 0, ttsVolume: 100, ttsPitch: 0 };
-  const normal = await synthesizeWith(voice, base, 'baseline');
-  const faster = await synthesizeWith(voice, { ...base, ttsRate: FASTER_RATE }, `rate=${FASTER_RATE}`);
-  const quiet = await synthesizeWith(voice, { ...base, ttsVolume: 20 }, 'volume=20');
-  const lower = await synthesizeWith(voice, { ...base, ttsPitch: -30 }, 'pitch=-30');
+  /** Rate and volume are the two controls both engines implement. */
+  async function verifyProfile(engine, label) {
+    const base = { ttsEngine: engine, ttsVoice: voiceName, ttsRate: 0, ttsVolume: 100, ttsPitch: 0 };
+    const normal = await synthesizeWith(voice, base, `${label} baseline`);
+    const faster = await synthesizeWith(voice, { ...base, ttsRate: FASTER_RATE }, `${label} rate=${FASTER_RATE}`);
+    const quiet = await synthesizeWith(voice, { ...base, ttsVolume: 20 }, `${label} volume=20`);
 
-  const shortening = 1 - faster.durationMs / normal.durationMs;
-  assert(
-    shortening >= MIN_RATE_SHORTENING,
-    `voice.ttsRate never reached SAPI: rate ${FASTER_RATE} shortened the sample by `
-    + `${round(shortening * 100)}%, under the ${round(MIN_RATE_SHORTENING * 100)}% floor `
-    + `(${round(normal.durationMs)}ms -> ${round(faster.durationMs)}ms).`,
+    const shortening = 1 - faster.durationMs / normal.durationMs;
+    assert(
+      shortening >= MIN_RATE_SHORTENING,
+      `${label}: voice.ttsRate never reached the engine - rate ${FASTER_RATE} shortened the sample by `
+      + `${round(shortening * 100)}%, under the ${round(MIN_RATE_SHORTENING * 100)}% floor `
+      + `(${round(normal.durationMs)}ms -> ${round(faster.durationMs)}ms).`,
+    );
+
+    const peakRatio = quiet.peak / normal.peak;
+    assert(
+      peakRatio <= MAX_QUIET_PEAK_RATIO,
+      `${label}: voice.ttsVolume never reached the engine - volume 20 peaked at `
+      + `${round(peakRatio * 100)}% of volume 100, over the ${round(MAX_QUIET_PEAK_RATIO * 100)}% ceiling.`,
+    );
+    assert(normal.peak > 0.01, `${label}: the engine produced silence.`);
+
+    console.log(
+      `  ok  ${label}: rate ${round(normal.durationMs)}ms->${round(faster.durationMs)}ms `
+      + `(-${round(shortening * 100)}%), volume peak ${round(normal.peak * 100)}%->${round(quiet.peak * 100)}%`,
+    );
+    return normal;
+  }
+
+  const piper = await verifyProfile('piper', 'piper');
+  const sapi = await verifyProfile('sapi', 'sapi');
+
+  // Pitch runs through SpeakSsml, which only exists on SAPI. A mismatched
+  // xml:lang makes SAPI substitute another voice for the whole prompt, and that
+  // shows up as a changed output format.
+  const lower = await synthesizeWith(
+    voice,
+    { ttsEngine: 'sapi', ttsVoice: voiceName, ttsRate: 0, ttsVolume: 100, ttsPitch: -30 },
+    'sapi pitch=-30',
   );
-
-  const peakRatio = quiet.peak / normal.peak;
-  assert(
-    peakRatio <= MAX_QUIET_PEAK_RATIO,
-    `voice.ttsVolume never reached SAPI: volume 20 peaked at ${round(peakRatio * 100)}% of volume 100, `
-    + `over the ${round(MAX_QUIET_PEAK_RATIO * 100)}% ceiling.`,
-  );
-
-  // Pitch runs through SpeakSsml, a different code path in the script. It has to
-  // still produce real audio at the same format - a mismatched xml:lang makes
-  // SAPI substitute another voice, which shows up as a changed sample rate.
-  assert(lower.bytes > 0, 'voice.ttsPitch produced an empty WAV.');
   assert(lower.peak > 0.01, 'voice.ttsPitch produced silence; the SSML path is broken.');
   assert.strictEqual(
     lower.sampleRate,
-    normal.sampleRate,
+    sapi.sampleRate,
     'The SSML pitch path changed the output format, which means SAPI substituted a different voice.',
   );
-
-  console.log(
-    `ATHENA_VOICE_OUTPUT_OK voice="${voiceName}" `
-    + `rate=${round(normal.durationMs)}ms->${round(faster.durationMs)}ms (-${round(shortening * 100)}%) `
-    + `volume=peak ${round(normal.peak * 100)}%->${round(quiet.peak * 100)}% `
-    + `pitch=ssml ok at ${lower.sampleRate}Hz`,
+  assert.strictEqual(
+    capabilities.tts.supportsPitch,
+    capabilities.tts.provider === 'sapi',
+    'supportsPitch must track the engine that will actually speak; piper has no pitch parameter.',
   );
+
+  // The engine setting has to pick the engine, not just be stored. Two different
+  // synthesisers cannot produce the same bytes for the same sentence.
+  assert.notStrictEqual(
+    piper.bytes,
+    sapi.bytes,
+    'voice.ttsEngine never reached synthesis: both engines produced identically sized audio.',
+  );
+  console.log(
+    `  ok  voice.ttsEngine selects the engine: piper ${round(piper.durationMs)}ms `
+    + `vs sapi ${round(sapi.durationMs)}ms for the same sentence`,
+  );
+
+  console.log(`ATHENA_VOICE_OUTPUT_OK piper="${capabilities.tts.piper.voice}" sapi="${voiceName}"`);
 }
 
 function cleanupVoiceOutput() {

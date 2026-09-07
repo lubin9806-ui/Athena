@@ -50,16 +50,30 @@ trademark signoff are supplied.
 
 ## Voice Assets
 
-The installer includes only Athena-owned helper scripts and
-`requirements-voice.txt`. It does not bundle third-party Python wheels,
-Whisper/faster-whisper models, microphone samples, TTS voices, or recorded
-audio. Declared Python packages remain install-time/runtime requirements and
-must be re-audited if bundled later.
+The installer bundles the managed voice runtime under `resources/voice`. This
+paragraph previously said the opposite - that no wheels, models or voices were
+bundled - which stopped being true when the offline sidecar was introduced and
+was corrected on 2026-09-07 while adding the neural voice.
 
-Window 05 packages only `stt_whisper.py`, `tts-local.ps1`,
-`play_audio_local.ps1`, and the exact requirements file. Legacy online
-`stt.py`/`tts.py` and Python playback helpers remain source history only and
-are excluded from release resources.
+What ships, and under what terms:
+
+| Payload | Source | Licence |
+|---|---|---|
+| CPython 3.11.9 embeddable (Windows x64) | python.org, SHA-256 pinned in `prepare-voice-runtime.js` | PSF |
+| Python wheels | `requirements-voice.lock.txt`, exact pinned closure, `--no-deps --only-binary` | per package; re-audit on any lock change |
+| `Systran/faster-whisper-tiny` STT model | Hugging Face, pinned commit | MIT |
+| `rhasspy/piper-voices` `zh_CN-huayan-medium` TTS voice | Hugging Face, pinned commit | MIT |
+| Athena helper scripts | this repository | Athena-owned |
+
+Every packaged file is listed in `voice-runtime-manifest.json` with its size and
+SHA-256, and `verify-voice-runtime.js` fails the build on any drift. Windows SAPI
+voices are **not** bundled: they are whatever the user's system already has, so
+no voice resource is redistributed or resold.
+
+Athena-owned helpers packaged: `stt_whisper.py`, `tts_piper.py`, `tts-local.ps1`,
+`tts-capabilities.ps1`, `play_audio_local.ps1`, and the two requirements files.
+Legacy online `stt.py`/`tts.py` and Python playback helpers remain source history
+only and are excluded from release resources.
 
 ## Model And Binary Assets
 

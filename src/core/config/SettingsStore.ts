@@ -32,6 +32,7 @@ import type {
   SettingsPatch,
   SttEngine,
   SttLanguage,
+  TtsEngine,
   ThemeMode,
   ToolModePermissions,
   ToolPermissionLevel,
@@ -114,6 +115,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     autoPlayAssistant: false,
     sttEngine: 'local_whisper',
     sttLanguage: 'auto',
+    ttsEngine: 'piper',
     ttsVoice: '',
     ttsRate: 0,
     ttsVolume: 100,
@@ -234,6 +236,7 @@ const ANIMATION_LEVELS = new Set<AnimationLevel>(['low', 'balanced', 'high']);
 const THEME_MODES = new Set<ThemeMode>(['day', 'night', 'system']);
 const STT_ENGINES = new Set<SttEngine>(['local_whisper']);
 const STT_LANGUAGES = new Set<SttLanguage>(['auto', 'zh', 'en', 'ja', 'ko', 'fr', 'de', 'es', 'ru', 'it', 'pt']);
+const TTS_ENGINES = new Set<TtsEngine>(['piper', 'sapi']);
 const CONVERSATION_MODES = new Set<ConversationMode>(['create', 'companion', 'reason', 'execute']);
 const WEB_SEARCH_MODES = new Set<WebSearchMode>(['auto', 'manual']);
 const TOOL_PERMISSION_LEVELS = new Set<ToolPermissionLevel>(['off', 'read', 'files', 'full']);
@@ -614,6 +617,9 @@ function sanitizeVoice(value: unknown): VoiceSettings {
     // Settings written before ATH-VOICE-003 have no language and were decoded as
     // Chinese regardless of what was spoken; they migrate to detection.
     sttLanguage: cleanEnum(source.sttLanguage, STT_LANGUAGES, DEFAULT_SETTINGS.voice.sttLanguage),
+    // Settings written before the neural voice shipped have no engine and
+    // migrate to it; VoiceService still falls back to SAPI if it is not packaged.
+    ttsEngine: cleanEnum(source.ttsEngine, TTS_ENGINES, DEFAULT_SETTINGS.voice.ttsEngine),
     ttsVoice,
     // Ranges are SAPI's own; tts-local.ps1 refuses anything outside them.
     ttsRate: clampInteger(source.ttsRate, -10, 10, DEFAULT_SETTINGS.voice.ttsRate),

@@ -1168,6 +1168,13 @@
             <div id="voice-capability-status" class="settings-note" role="status">正在检查本地语音组件…</div>
             <button id="voice-capability-refresh" class="settings-panel-link" type="button">重新检测语音组件</button>
             <label class="settings-field">
+              <span>朗读引擎</span>
+              <select id="setting-tts-engine">
+                <option value="piper">本地神经语音（自然）</option>
+                <option value="sapi">Windows 系统语音</option>
+              </select>
+            </label>
+            <label class="settings-field">
               <span>Windows 已安装声音（留空使用系统默认）</span>
               <input id="setting-tts-voice" type="text" list="setting-tts-voice-options" placeholder="系统默认" />
               <datalist id="setting-tts-voice-options"></datalist>

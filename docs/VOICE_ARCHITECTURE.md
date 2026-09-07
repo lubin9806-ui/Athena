@@ -7,7 +7,10 @@
 - STT：本地 `faster-whisper==1.2.1`，CPython 3.11.9 Windows x64 受管 sidecar，模型必须作为审核过的本地目录预置。`HF_HUB_OFFLINE=1`、`TRANSFORMERS_OFFLINE=1` 和 `local_files_only=True` 三层禁止运行时下载。
 - STT 进程模型：`--serve` 常驻 sidecar 复用已加载模型（实测短句 1439ms→608ms），空闲 5 分钟回收，stdin EOF 自退。**常驻是优化不是依赖**——握手完成前、忙碌时、以及 worker 崩溃时一律回落一次性 spawn，起不来只是慢。`ATHENA_STT_WORKER=0` 关闭。
 - STT 语言：`auto`（默认，由 Whisper 从音频判定）或钉死一个 ISO 639-1 码。默认不钉死是因为钉错语言会把语音解成通顺的胡话——实测英文按 `zh` 解码为 0% 且慢 2.7 倍，而 `auto` 在中英素材上与钉死同语言准确率相同。
-- TTS：Windows SAPI (`System.Speech`) 本地合成 WAV；使用用户系统已安装声音，不捆绑或转售声音资源。音色档为声音名 + 语速(-10..10) + 音量(0..100) + 音高(-50%..50%)；音高经 `SpeakSsml` 的 `<prosody>` 实现，`xml:lang` 必须取实际选中声音的 culture，否则 SAPI 会整段换成别的声音。**不含声音克隆**：那需要本地神经 TTS payload，属发行决策，未实现也不进宣传。
+- TTS：默认 **Piper 本地神经语音**（`zh_CN-huayan-medium`，ONNX，MIT，与 faster-whisper 共用同一份 `onnxruntime`）。选它是因为 SAPI 是神经网络之前的拼接式引擎，参数怎么调都不像人在说话；而 Piper 的发音引擎是 Python 扩展模块（`espeakbridge.pyd`）而非独立 exe，能通过「受管运行时只允许 `python.exe`」那条发布门。
+- TTS 回退：Windows SAPI (`System.Speech`)，用于没有打包神经音色的构建；使用用户系统已安装声音，不捆绑或转售声音资源。
+- 音色档：语速(-10..10) 与音量(0..100) 两个引擎都支持——Piper 侧语速映射为 `length_scale = 2^(-rate/10)`（关于 0 对称，线性映射会让慢的一端早早不可用）。**音高只有 SAPI 有**（经 `SpeakSsml` 的 `<prosody>`，`xml:lang` 必须取实际选中声音的 culture，否则 SAPI 会整段换声）；Piper 没有音高参数，该控件在其下禁用而非假装可调。
+- **已知不足**：Piper 的韵律是固定的，`noise_w_scale` 调的是随机性不是意图，因此**不会随说话内容改变语气**。要做到那样需要指令/情感可控的 TTS（体积与算力都高一个量级）或语音到语音模型，均未实现也不进宣传。**不含声音克隆**。
 - 播放：Windows `System.Media.SoundPlayer` 本地播放 Athena 生成的 WAV，不依赖 Python。**开启打断时改用应用内播放**——浏览器回声消除只对本页播放的音频有参考信号，交给 PowerShell 播放就等于让 Athena 听见自己。
 - 打断（barge-in）：默认关闭。开启后朗读期间常开麦克风做响度判定（不录制、不落盘、不转写），残余回声成为检测器测得的本底，人声须显著高于它。判定门槛比听写更严（绝对下限 0.02、需高出本底 4 倍、连续 ~340ms），因为误打断比漏打断更扰人。
 - 在线 STT/TTS：当前没有 provider、设置或入口，不进入 Desktop/Steam 1.0 宣传。未来签约适配器必须分别复用窗口 03 的 `onlineSpeechToText` / `onlineTextToSpeech` 同意门，禁止隐式 fallback。

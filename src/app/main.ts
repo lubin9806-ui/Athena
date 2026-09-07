@@ -1004,9 +1004,16 @@ function createWindow(): void {
             // the elapsed time is reported with it.
             const inputAura = document.getElementById('input-aura');
             const glowStartedAt = Date.now();
-            const glowArrived = await waitFor(
+            // Every part of the contract is waited for together. Waiting for one
+            // and then sampling the others reads whichever is still mid-flight:
+            // the aura fades in over 160ms, so it was caught at 36% once the
+            // glow stopped being the slow one. Opacity is compared as "clearly
+            // on" rather than exactly 1 for the same reason.
+            const animationLive = await waitFor(
               () => inputForm.style.getPropertyValue('--voice-glow') !== ''
-                && inputForm.style.getPropertyValue('--voice-button-glow') !== '',
+                && inputForm.style.getPropertyValue('--voice-button-glow') !== ''
+                && inputForm.dataset.voiceState === 'recording'
+                && Boolean(inputAura) && Number(getComputedStyle(inputAura).opacity) > 0.5,
               4000,
             );
             const recordingAnimation = {
@@ -1014,11 +1021,8 @@ function createWindow(): void {
               auraOpacity: inputAura ? getComputedStyle(inputAura).opacity : '',
               glow: inputForm.style.getPropertyValue('--voice-glow'),
               buttonGlow: inputForm.style.getPropertyValue('--voice-button-glow'),
-              glowWaitMs: Date.now() - glowStartedAt,
+              waitMs: Date.now() - glowStartedAt,
             };
-            const animationLive = glowArrived
-              && recordingAnimation.voiceState === 'recording'
-              && recordingAnimation.auraOpacity === '1';
             if (!animationLive) return voiceSmokeFail('recording-animation', recordingAnimation);
 
             window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));

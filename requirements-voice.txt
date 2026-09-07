@@ -1,5 +1,10 @@
-# Desktop 1.0 managed offline STT sidecar (CPython 3.11.9, Windows x64).
+# Desktop 1.0 managed offline voice sidecar (CPython 3.11.9, Windows x64).
 # Online Google STT and unofficial Edge TTS are intentionally excluded.
 faster-whisper==1.2.1
 av==17.1.0
 numpy==2.4.6
+# Neural TTS. Windows SAPI is pre-neural concatenative and cannot be tuned into
+# sounding natural; piper runs the same ONNX runtime faster-whisper already
+# brings, and its phonemiser is a Python extension rather than a separate exe -
+# which matters because the release gate allows python.exe and nothing else.
+piper-tts==1.8.0

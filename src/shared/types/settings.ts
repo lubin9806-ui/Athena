@@ -5,6 +5,14 @@ export type AnimationLevel = 'low' | 'balanced' | 'high';
 export type ThemeMode = 'day' | 'night' | 'system';
 export type SttEngine = 'local_whisper';
 /**
+ * Which engine speaks.
+ *
+ * 'piper' is a local neural voice; 'sapi' is the Windows built-in, which is
+ * pre-neural and sounds it. SAPI stays because it needs no packaged model, so
+ * it is what a build without the voice payload falls back to.
+ */
+export type TtsEngine = 'piper' | 'sapi';
+/**
  * Recognition language. 'auto' lets Whisper identify it from the audio, which
  * matches a pinned code on accuracy and avoids the failure mode where the wrong
  * pin turns speech into confident nonsense (ATH-VOICE-003). A pin is offered
@@ -87,6 +95,8 @@ export interface VoiceSettings {
   autoPlayAssistant: boolean;
   sttEngine: SttEngine;
   sttLanguage: SttLanguage;
+  ttsEngine: TtsEngine;
+  /** Windows voice name; applies to the SAPI engine only. */
   ttsVoice: string;
   /** SAPI speaking rate, -10 (slowest) to 10 (fastest); 0 is the voice's own. */
   ttsRate: number;

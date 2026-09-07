@@ -6,7 +6,8 @@ import { getAppSettings } from '../config/SettingsStore';
 import { cleanupVoiceCache, getVoiceTempDir } from '../privacy/PrivacyDataService';
 import { resolveProjectRoot, resolveVoiceRootCandidates } from '../runtime/Paths';
 import { ensureSufficientDiskSpace, InsufficientDiskSpaceError } from '../runtime/DiskSpaceGuard';
-import { SttWorker, SttWorkerReply } from './SttWorker';
+import { PythonWorker, PythonWorkerReply } from './PythonWorker';
+import type { TtsEngine } from '../../shared/types';
 
 export interface VoiceResult {
   ok: boolean;
@@ -34,9 +35,15 @@ export interface VoiceCapabilities {
   tts: {
     mode: 'local';
     ready: boolean;
-    provider: 'windows-sapi';
+    /** The engine that will actually speak, after falling back if needed. */
+    provider: TtsEngine;
+    /** Windows voices, which only apply to the SAPI engine. */
     voices: Array<{ name: string; culture: string }>;
     reason?: string;
+    piper: { ready: boolean; voice: string; modelPath: string; reason?: string };
+    sapi: { ready: boolean; reason?: string };
+    /** Piper has no pitch parameter, so the control is inert on that engine. */
+    supportsPitch: boolean;
   };
   onlineStt: { available: false; consentGate: 'onlineSpeechToText' };
   onlineTts: { available: false; consentGate: 'onlineTextToSpeech' };
@@ -55,9 +62,13 @@ interface SttReadiness {
 
 const STT_RUNTIME_MISSING = '本地语音运行时未安装。正式包必须提供受管 Python 3.11 sidecar。';
 const STT_MODEL_MISSING = '本地 Whisper 模型缺失；Athena 不会在运行时自动下载。';
+const TTS_MODEL_MISSING = '本地神经语音模型缺失；Athena 不会在运行时自动下载。';
 const STT_TIMEOUT_MS = 90_000;
-const STT_WORKER_OPTIONS = {
-  // The first load reads the model off disk cold, so this is generous.
+const TTS_TIMEOUT_MS = 45_000;
+const PIPER_VOICE = 'zh_CN-huayan-medium';
+
+/** The first load reads a model off disk cold, so the handshake wait is generous. */
+const WORKER_OPTIONS = {
   handshakeTimeoutMs: 120_000,
   // An idle model holds a few hundred megabytes for nothing.
   idleShutdownMs: 5 * 60_000,
@@ -65,6 +76,7 @@ const STT_WORKER_OPTIONS = {
   requestTimeoutMs: STT_TIMEOUT_MS,
   maxLineBytes: 1_000_000,
 };
+const TTS_WORKER_OPTIONS = { ...WORKER_OPTIONS, requestTimeoutMs: TTS_TIMEOUT_MS };
 
 const PROJECT_ROOT = resolveProjectRoot();
 const SCRIPT_ROOT = resolveVoiceScriptRoot();
@@ -75,20 +87,23 @@ const TRANSCRIBE_EXTENSIONS = new Set(['.wav', '.aiff', '.aif', '.flac']);
 
 export class VoiceService {
   private readonly activeOperations = new Set<AbortController>();
-  private worker: SttWorker | null = null;
+  private sttWorker: PythonWorker | null = null;
+  private ttsWorker: PythonWorker | null = null;
 
-  /** Release the resident recogniser; the next utterance warms a fresh one. */
+  /** Release the resident models; the next request warms fresh ones. */
   dispose(): void {
     this.cancelAll();
-    this.worker?.dispose();
-    this.worker = null;
+    this.sttWorker?.dispose();
+    this.ttsWorker?.dispose();
+    this.sttWorker = null;
+    this.ttsWorker = null;
   }
 
-  private getWorker(): SttWorker {
+  private getSttWorker(): PythonWorker {
     // Paths are resolved per spawn rather than captured, so a settings or
     // environment change takes effect on the next start instead of being
     // frozen into the first one.
-    this.worker ||= new SttWorker(
+    this.sttWorker ||= new PythonWorker(
       () => {
         const current = resolveSttReadiness();
         return spawn(
@@ -97,9 +112,21 @@ export class VoiceService {
           voiceProcessOptions(),
         );
       },
-      STT_WORKER_OPTIONS,
+      WORKER_OPTIONS,
     );
-    return this.worker;
+    return this.sttWorker;
+  }
+
+  private getTtsWorker(): PythonWorker {
+    this.ttsWorker ||= new PythonWorker(
+      () => spawn(
+        resolveSttReadiness().python,
+        [path.join(SCRIPT_ROOT, 'tts_piper.py'), '--serve', resolvePiperModelPath()],
+        voiceProcessOptions(),
+      ),
+      TTS_WORKER_OPTIONS,
+    );
+    return this.ttsWorker;
   }
 
   cancelAll(): number {
@@ -153,19 +180,41 @@ export class VoiceService {
             ? STT_MODEL_MISSING
             : undefined,
       },
-      tts: {
-        mode: 'local',
-        ready: sapiReady,
-        provider: 'windows-sapi',
-        voices,
-        reason: sapiReady
-          ? undefined
-          : !sapiScriptsReady
-            ? '本地朗读组件缺失。'
-            : voices.length === 0
-              ? 'Windows 没有已启用的系统声音。'
-              : `设置的系统声音不存在：${selectedVoice}`,
-      },
+      tts: (() => {
+        const piperModel = resolvePiperModelPath();
+        const piperReady = pythonReady && fs.existsSync(piperModel);
+        const sapiReason = !sapiScriptsReady
+          ? '本地朗读组件缺失。'
+          : voices.length === 0
+            ? 'Windows 没有已启用的系统声音。'
+            : !selectedVoiceReady
+              ? `设置的系统声音不存在：${selectedVoice}`
+              : undefined;
+        // What will actually speak, after the fallback: a build without the
+        // neural voice packaged still reads aloud, just not as well.
+        const engine = resolveTtsEngine() === 'piper' && piperReady ? 'piper' : 'sapi';
+        const ready = engine === 'piper' ? piperReady : sapiReady;
+        return {
+          mode: 'local' as const,
+          ready,
+          provider: engine,
+          voices,
+          reason: ready
+            ? undefined
+            : engine === 'piper'
+              ? (!pythonReady ? STT_RUNTIME_MISSING : TTS_MODEL_MISSING)
+              : sapiReason,
+          piper: {
+            ready: piperReady,
+            voice: PIPER_VOICE,
+            modelPath: piperModel,
+            reason: piperReady ? undefined : !pythonReady ? STT_RUNTIME_MISSING : TTS_MODEL_MISSING,
+          },
+          sapi: { ready: sapiReady, reason: sapiReason },
+          // Piper's synthesis config has length, volume and noise, but no pitch.
+          supportsPitch: engine === 'sapi',
+        };
+      })(),
       onlineStt: { available: false, consentGate: 'onlineSpeechToText' },
       onlineTts: { available: false, consentGate: 'onlineTextToSpeech' },
       runtimeDownloadsAllowed: false,
@@ -176,7 +225,12 @@ export class VoiceService {
     const content = text.trim();
     if (!content) return failure('input_error', '没有可朗读的文本。');
     if (content.length > MAX_SYNTHESIZE_CHARS) return failure('input_error', `朗读文本超过 ${MAX_SYNTHESIZE_CHARS} 个字符上限，请缩短后重试。`);
-    if (process.platform !== 'win32') return failure('service_unavailable', '当前版本的本地朗读仅支持 Windows。');
+    const piperModel = resolvePiperModelPath();
+    const usePiper = resolveTtsEngine() === 'piper' && fs.existsSync(piperModel);
+    // SAPI is the only Windows-bound engine; piper runs wherever the sidecar does.
+    if (!usePiper && process.platform !== 'win32') {
+      return failure('service_unavailable', '当前版本的本地朗读仅支持 Windows。');
+    }
 
     const operation = this.beginOperation(signal);
     try {
@@ -189,6 +243,14 @@ export class VoiceService {
       fs.writeFileSync(textPath, content, 'utf8');
 
       const settings = getAppSettings().voice;
+      if (usePiper) {
+        const spoken = await this.speakWithPiper(textPath, audioPath, piperModel, settings, operation.signal);
+        safeUnlink(textPath);
+        if (!spoken.ok) safeUnlink(audioPath);
+        else cleanupVoiceCache(getAppSettings().data.voiceCacheRetentionHours);
+        return spoken;
+      }
+
       const voiceName = process.env.ATHENA_TTS_VOICE ?? settings.ttsVoice;
       const ttsArgs = [
         '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File',
@@ -212,6 +274,45 @@ export class VoiceService {
     } finally {
       operation.end();
     }
+  }
+
+  /**
+   * Synthesize with the local neural voice.
+   *
+   * Same shape as transcription: the resident worker when it is warm, a one-shot
+   * spawn otherwise, and a worker that dies mid-sentence falls back rather than
+   * failing - an optimisation breaking is not the voice breaking.
+   */
+  private async speakWithPiper(
+    textPath: string,
+    audioPath: string,
+    model: string,
+    settings: { ttsRate: number; ttsVolume: number },
+    signal: AbortSignal,
+  ): Promise<VoiceResult> {
+    const rate = clamp(settings.ttsRate, -10, 10);
+    const volume = clamp(settings.ttsVolume, 0, 100);
+
+    const viaWorker = await this.getTtsWorker().run(
+      { textFile: textPath, out: audioPath, rate, volume },
+      signal,
+    );
+    if (viaWorker && viaWorker.code !== 'WORKER_LOST') {
+      if (viaWorker.ok && fs.existsSync(audioPath)) return { ok: true, audioPath };
+      return mapVoiceFailure(
+        { code: 1, stdout: '', stderr: `[${viaWorker.code || 'TTS_ERROR'}] ${viaWorker.message || ''}` },
+        '本地朗读失败。',
+      );
+    }
+
+    const result = await runProcess(
+      resolveSttReadiness().python,
+      [path.join(SCRIPT_ROOT, 'tts_piper.py'), textPath, model, audioPath, String(rate), String(volume)],
+      TTS_TIMEOUT_MS,
+      signal,
+    );
+    if (result.code === 0 && fs.existsSync(audioPath)) return { ok: true, audioPath };
+    return mapVoiceFailure(result, '本地朗读失败。');
   }
 
   async transcribe(audioPath: string, signal?: AbortSignal): Promise<VoiceResult> {
@@ -238,7 +339,7 @@ export class VoiceService {
     try {
       const language = resolveSttLanguage();
       const viaWorker = isSttWorkerEnabled()
-        ? await this.getWorker().run({ audio: sourcePath, language }, operation.signal)
+        ? await this.getSttWorker().run({ audio: sourcePath, language }, operation.signal)
         : null;
       // A worker that died mid-utterance is an optimisation failing, not a
       // transcription failing, so the one-shot path still gets its turn.
@@ -345,6 +446,18 @@ function isSttWorkerEnabled(): boolean {
   return process.env.ATHENA_STT_WORKER !== '0';
 }
 
+/** The packaged neural voice; absent in a build without the voice payload. */
+function resolvePiperModelPath(): string {
+  if (process.env.ATHENA_PIPER_MODEL?.trim()) return path.resolve(process.env.ATHENA_PIPER_MODEL.trim());
+  return path.join(SCRIPT_ROOT, 'models', PIPER_VOICE, `${PIPER_VOICE}.onnx`);
+}
+
+function resolveTtsEngine(): TtsEngine {
+  const override = process.env.ATHENA_TTS_ENGINE?.trim();
+  if (override === 'piper' || override === 'sapi') return override;
+  return getAppSettings().voice.ttsEngine;
+}
+
 /** The recognition language the sidecar is asked for; 'auto' lets it detect. */
 function resolveSttLanguage(): string {
   const override = process.env.ATHENA_STT_LANGUAGE?.trim();
@@ -405,8 +518,10 @@ function voiceProcessOptions() {
 }
 
 /** Classify a worker reply with the same table the one-shot path uses. */
-function fromWorkerReply(reply: SttWorkerReply): VoiceResult {
-  const text = reply.text?.trim();
+function fromWorkerReply(reply: PythonWorkerReply): VoiceResult {
+  // The reply is whatever the sidecar sent, so its shape is checked rather than
+  // trusted before it becomes what the user sees.
+  const text = typeof reply.text === 'string' ? reply.text.trim() : '';
   if (reply.ok && text) return { ok: true, text };
   return mapVoiceFailure(
     { code: 1, stdout: '', stderr: `[${reply.code || 'STT_ERROR'}] ${reply.message || ''}` },

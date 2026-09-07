@@ -12,6 +12,13 @@ const PYTHON_SHA256 = '009d6bf7e3b2ddca3d784fa09f90fe54336d5b60f0e0f305c37f400bf
 const MODEL_REPOSITORY = 'Systran/faster-whisper-tiny';
 const MODEL_REVISION = 'd90ca5fe260221311c53c58e660288d3deb8d356';
 const MODEL_FILES = ['README.md', 'config.json', 'model.bin', 'tokenizer.json', 'vocabulary.txt'];
+// Neural TTS voice. MIT, and pinned to a commit for the same reason the Whisper
+// model is: a moving `main` would change the packaged bytes without a change here.
+const TTS_REPOSITORY = 'rhasspy/piper-voices';
+const TTS_REVISION = '1162a9173d0ce503555aed757976b7a9912eae4c';
+const TTS_VOICE = 'zh_CN-huayan-medium';
+const TTS_VOICE_PATH = 'zh/zh_CN/huayan/medium';
+const TTS_VOICE_FILES = [`${TTS_VOICE}.onnx`, `${TTS_VOICE}.onnx.json`];
 
 function assertInsideWorkspace(target) {
   const resolved = path.resolve(target);
@@ -47,6 +54,7 @@ function verifyHash(filePath, expected) {
 /** Hand-written voice scripts, copied in rather than downloaded or installed. */
 const RUNTIME_INPUTS = [
   'stt_whisper.py',
+  'tts_piper.py',
   'tts-local.ps1',
   'tts-capabilities.ps1',
   'play_audio_local.ps1',
@@ -166,6 +174,13 @@ function writeManifest() {
       modelRevision: MODEL_REVISION,
       modelLicense: 'MIT',
     },
+    tts: {
+      implementation: 'piper',
+      voice: TTS_VOICE,
+      modelRepository: TTS_REPOSITORY,
+      modelRevision: TTS_REVISION,
+      modelLicense: 'MIT',
+    },
     files: entries,
   };
   fs.writeFileSync(path.join(OUTPUT, 'voice-runtime-manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
@@ -212,6 +227,13 @@ function main() {
   for (const name of MODEL_FILES) {
     const url = `https://huggingface.co/${MODEL_REPOSITORY}/resolve/${MODEL_REVISION}/${name}?download=true`;
     download(url, path.join(modelDir, name));
+  }
+
+  const voiceDir = path.join(OUTPUT, 'models', TTS_VOICE);
+  fs.mkdirSync(voiceDir, { recursive: true });
+  for (const name of TTS_VOICE_FILES) {
+    const url = `https://huggingface.co/${TTS_REPOSITORY}/resolve/${TTS_REVISION}/${TTS_VOICE_PATH}/${name}?download=true`;
+    download(url, path.join(voiceDir, name));
   }
 
   copyRuntimeInputs();

@@ -30,6 +30,11 @@ process.env.ATHENA_CONFIG_DIR = path.join(scratch, 'config');
 process.env.ATHENA_DB_DIR = path.join(scratch, 'database');
 process.env.ATHENA_VOICE_TEMP_DIR = path.join(scratch, 'voice-cache');
 process.env.ATHENA_VOICE_SCRIPT_DIR = RUNTIME;
+// Fixtures are spoken by SAPI, not by the packaged neural voice: this suite
+// needs an English speaker as well as a Chinese one, and the packaged piper
+// voice is Chinese-only - it renders English as noise, which then measures the
+// fixture rather than the recogniser.
+process.env.ATHENA_TTS_ENGINE = 'sapi';
 
 const { VoiceService } = require('../dist/core/voice/VoiceService.js');
 const { saveSettingsBundle } = require('../dist/core/config/SettingsStore.js');
@@ -398,6 +403,7 @@ async function main() {
 }
 
 function cleanupVoiceInput() {
+  delete process.env.ATHENA_TTS_ENGINE;
   delete process.env.ATHENA_STT_WORKER;
   delete process.env.ATHENA_TTS_VOICE;
   delete process.env.ATHENA_CONFIG_DIR;

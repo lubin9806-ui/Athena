@@ -1,39 +1,41 @@
 import { ChildProcess } from 'child_process';
 
-export interface SttWorkerRequest {
-  audio: string;
-  language: string;
-}
-
-export interface SttWorkerReply {
+export interface PythonWorkerReply {
   ok: boolean;
-  text?: string;
-  /** Mirrors the one-shot script's stderr categories so both paths classify alike. */
+  /** Mirrors the one-shot scripts' stderr categories so both paths classify alike. */
   code?: string;
   message?: string;
+  /** Whatever the sidecar returns: transcribed text, a written file path. */
+  [field: string]: unknown;
+}
+
+export interface PythonWorkerOptions {
+  handshakeTimeoutMs: number;
+  idleShutdownMs: number;
+  startCooldownMs: number;
+  requestTimeoutMs: number;
+  maxLineBytes: number;
 }
 
 /**
- * A resident stt_whisper.py that keeps the Whisper model loaded between
- * utterances (ATH-VOICE-005).
+ * A resident Python sidecar that keeps its model loaded between requests.
  *
- * Measured on whisper-tiny, a short sentence cost ~1250 ms end to end, of which
- * interpreter start, the faster_whisper import and model construction were
- * ~850 ms. That is paid once here instead of once per sentence.
+ * Both voice models cost far more to load than to use - measured at ~850ms
+ * against a ~450ms transcription, and ~1.7s against a ~2.4s synthesis - so the
+ * load is paid once per session instead of once per sentence.
  *
  * The worker is an optimisation, never a dependency. It warms in the background,
- * and until it answers the handshake every request goes down the one-shot path
- * exactly as before - so a machine where the resident process cannot start is
- * slower, not broken.
+ * and until it answers the handshake every request goes down the one-shot path,
+ * so a machine where the resident process cannot start is slower, not broken.
  */
-export class SttWorker {
+export class PythonWorker {
   private child: ChildProcess | null = null;
   private ready = false;
   private starting = false;
   private retryAfter = 0;
   private stdoutBuffer = '';
   private stderrTail = '';
-  private settlePending: ((reply: SttWorkerReply) => void) | null = null;
+  private settlePending: ((reply: PythonWorkerReply) => void) | null = null;
   private pendingId = 0;
   private nextId = 1;
   private idleTimer: NodeJS.Timeout | null = null;
@@ -41,13 +43,7 @@ export class SttWorker {
 
   constructor(
     private readonly spawnWorker: () => ChildProcess,
-    private readonly options: {
-      handshakeTimeoutMs: number;
-      idleShutdownMs: number;
-      startCooldownMs: number;
-      requestTimeoutMs: number;
-      maxLineBytes: number;
-    },
+    private readonly options: PythonWorkerOptions,
   ) {}
 
   get isReady(): boolean {
@@ -61,13 +57,13 @@ export class SttWorker {
   }
 
   /**
-   * Transcribe through the resident model, or return null to say "not mine".
+   * Run one request through the resident model, or return null to say "not mine".
    *
    * null means the caller should use the one-shot path: the worker is still
-   * warming, unavailable, or already busy with another utterance. Only one job
-   * runs at a time because the model is constructed with a single worker.
+   * warming, unavailable, or already busy. Only one job runs at a time because
+   * the models are constructed single-threaded.
    */
-  run(request: SttWorkerRequest, signal: AbortSignal): Promise<SttWorkerReply | null> {
+  run(request: Record<string, unknown>, signal: AbortSignal): Promise<PythonWorkerReply | null> {
     if (!this.isReady || this.settlePending || signal.aborted) {
       this.warm();
       return Promise.resolve(null);
@@ -77,18 +73,18 @@ export class SttWorker {
     const id = this.nextId++;
     this.clearIdleTimer();
 
-    return new Promise<SttWorkerReply | null>((resolve) => {
+    return new Promise<PythonWorkerReply | null>((resolve) => {
       let timer: NodeJS.Timeout | null = null;
-      const finish = (reply: SttWorkerReply): void => {
+      const finish = (reply: PythonWorkerReply): void => {
         if (timer) clearTimeout(timer);
         signal.removeEventListener('abort', onAbort);
         resolve(reply);
       };
 
       const onAbort = (): void => {
-        // faster-whisper cannot be interrupted part way through a decode, so
-        // ending the process is the only way to honour a cancel promptly. The
-        // next utterance re-warms it.
+        // Neither model can be interrupted part way through, so ending the
+        // process is the only way to honour a cancel promptly. The next request
+        // re-warms it.
         this.halt('语音操作已取消。', 'CANCELLED', 0);
       };
 
@@ -102,7 +98,7 @@ export class SttWorker {
       timer.unref?.();
 
       try {
-        child?.stdin?.write(`${JSON.stringify({ id, audio: request.audio, language: request.language })}\n`);
+        child?.stdin?.write(`${JSON.stringify({ ...request, id })}\n`);
       } catch (error) {
         this.halt(error instanceof Error ? error.message : String(error), 'WORKER_LOST', this.options.startCooldownMs);
       }
@@ -119,7 +115,7 @@ export class SttWorker {
     let child: ChildProcess;
     try {
       child = this.spawnWorker();
-    } catch (error) {
+    } catch {
       this.starting = false;
       this.retryAfter = Date.now() + this.options.startCooldownMs;
       return;
@@ -184,15 +180,15 @@ export class SttWorker {
     }
 
     const settle = this.settlePending;
-    // A reply that does not match the request in flight would put one person's
-    // words in another utterance, so it is dropped rather than returned.
+    // A reply that does not match the request in flight would answer one
+    // utterance with another's result, so it is dropped rather than returned.
     if (!settle || record.id !== this.pendingId) return;
     this.settlePending = null;
     this.pendingId = 0;
     this.armIdleTimer();
     settle({
+      ...record,
       ok: record.ok === true,
-      text: typeof record.text === 'string' ? record.text : undefined,
       code: typeof record.code === 'string' ? record.code : undefined,
       message: typeof record.message === 'string' ? record.message : undefined,
     });

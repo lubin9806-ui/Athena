@@ -492,6 +492,7 @@ type InitiativeLevel = 'low' | 'balanced' | 'high';
 type AnimationLevel = 'low' | 'balanced' | 'high';
 type ThemeMode = 'day' | 'night' | 'system';
 type SttEngine = 'local_whisper';
+type TtsEngine = 'piper' | 'sapi';
 type SttLanguage = 'auto' | 'zh' | 'en' | 'ja' | 'ko' | 'fr' | 'de' | 'es' | 'ru' | 'it' | 'pt';
 type WebSearchMode = 'auto' | 'manual';
 type MemoryImportContentMode = 'normal' | 'adult';
@@ -762,6 +763,7 @@ interface VoiceSettings {
   autoPlayAssistant: boolean;
   sttEngine: SttEngine;
   sttLanguage: SttLanguage;
+  ttsEngine: TtsEngine;
   ttsVoice: string;
   ttsRate: number;
   ttsVolume: number;
@@ -1428,6 +1430,7 @@ const settingBargeIn = mustGet<HTMLInputElement>('setting-barge-in');
 const settingAutoSendDictation = mustGet<HTMLInputElement>('setting-auto-send-dictation');
 const settingHandsFree = mustGet<HTMLInputElement>('setting-hands-free');
 const settingSttLanguage = mustGet<HTMLSelectElement>('setting-stt-language');
+const settingTtsEngine = mustGet<HTMLSelectElement>('setting-tts-engine');
 const settingTtsVoice = mustGet<HTMLInputElement>('setting-tts-voice');
 const settingTtsRate = mustGet<HTMLInputElement>('setting-tts-rate');
 const settingTtsVolume = mustGet<HTMLInputElement>('setting-tts-volume');
@@ -2277,6 +2280,7 @@ function init(): void {
   for (const control of [settingTtsRate, settingTtsVolume, settingTtsPitch]) {
     control.addEventListener('input', syncVoiceProfileReadout);
   }
+  settingTtsEngine.addEventListener('change', syncVoiceProfileReadout);
   window.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && (voiceInputState === 'recording' || voiceInputState === 'requesting')) {
       event.preventDefault();
@@ -5403,6 +5407,7 @@ function populateSettingsForm(bundle: SettingsBundle): void {
   settingAutoSendDictation.checked = voice.autoSendDictation;
   settingHandsFree.checked = voice.handsFree;
   settingSttLanguage.value = voice.sttLanguage;
+  settingTtsEngine.value = voice.ttsEngine;
   settingTtsVoice.value = voice.ttsVoice;
   settingTtsRate.value = String(voice.ttsRate);
   settingTtsVolume.value = String(voice.ttsVolume);
@@ -6798,6 +6803,7 @@ function voicePatchFromForm(): VoiceSettings {
     handsFree: settingHandsFree.checked,
     sttEngine: 'local_whisper',
     sttLanguage: settingSttLanguage.value as SttLanguage,
+    ttsEngine: settingTtsEngine.value as TtsEngine,
     ttsVoice: settingTtsVoice.value,
     ttsRate: Number(settingTtsRate.value),
     ttsVolume: Number(settingTtsVolume.value),
@@ -6810,7 +6816,16 @@ function syncVoiceProfileReadout(): void {
   const pitch = Number(settingTtsPitch.value);
   settingTtsRateValue.textContent = rate > 0 ? `+${rate}` : String(rate);
   settingTtsVolumeValue.textContent = settingTtsVolume.value;
-  settingTtsPitchValue.textContent = pitch > 0 ? `+${pitch}%` : `${pitch}%`;
+
+  // The neural engine has no pitch parameter and does not use a Windows voice
+  // name. Both controls are disabled rather than left looking adjustable while
+  // doing nothing (ATH-CONFIG-001).
+  const isSapi = settingTtsEngine.value === 'sapi';
+  settingTtsPitch.disabled = !isSapi;
+  settingTtsVoice.disabled = !isSapi;
+  settingTtsPitchValue.textContent = isSapi
+    ? (pitch > 0 ? `+${pitch}%` : `${pitch}%`)
+    : '本地神经语音不支持';
 }
 
 /**
