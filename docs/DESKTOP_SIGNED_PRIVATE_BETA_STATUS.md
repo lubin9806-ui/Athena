@@ -6,6 +6,8 @@
 
 **阶段已启动，但签名候选构建仍为 Blocked / No-Go。** 本机没有可用代码签名证书/私钥，未配置批准 publisher DN，也未配置 HTTPS update feed。现有 installer 和 EXE 都是 `NotSigned`，不得交付 Private Beta 参与者。
 
+2026-09-07 工程证据刷新：`main@33eb0ba` 从干净来源完成 `0.9.6-beta.1` 构建，构建脚本显式复用已安装的 Electron 42.7.0 分发，当前网络无法访问 GitHub 时不再临时下载。`test:desktop-package` 输出 `ATHENA_DESKTOP_PACKAGE_OK`，打包 EXE smoke 输出 `ATHENA_SMOKE_READY_TO_SHOW` / `ATHENA_SMOKE_DOM_OK`。安装器为 507,834,417 bytes，SHA-256 `9D50DFC7C16021AADBEFF2F74ADD1E95EF39EAD8F2CF9105937C5ED1980B6AF1`。这些只更新 unsigned engineering evidence；`PRODUCTION_UPDATE_FEED_DISABLED` 与 `AUTHENTICODE_OR_TIMESTAMP_INVALID` 仍使分发保持 No-Go。
+
 2026-07-18 的未签名工程构建验证了新候选门：manifest 自动枚举 `win-unpacked/Athena.exe` 和 `win-unpacked/resources/elevate.exe`，验收器同时拒绝未签名 installer、两个未签名执行文件和 dirty source，并以退出码 2 结束。该构建只作为 fail-closed 证据，不是可分发候选。
 
 ## 已关闭的本地前置

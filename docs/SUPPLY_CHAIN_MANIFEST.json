@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-08-30T02:30:27.363Z",
+  "generatedAt": "2026-09-07T04:17:20.219Z",
   "project": {
     "name": "athena",
     "version": "0.9.6-beta.1",
@@ -1362,7 +1362,7 @@
     }
   ],
   "localOllamaRuntime": {
-    "installedVersion": "0.33.1",
+    "installedVersion": "0.33.2",
     "defaultModel": {
       "runtimeTag": "qwen2.5:14b",
       "localOllamaId": "7cdf5a0187d5",
@@ -1528,6 +1528,16 @@
       "path": "resources/icon.png",
       "bytes": 9222,
       "sha256": "7B93DE63E3800F30D341750BC25A02F0ADA79002BEB5E203FF2D1D3EB198E95D"
+    },
+    {
+      "path": "resources/image-runtime/README.md",
+      "bytes": 1367,
+      "sha256": "AA556FEC1E510510742248641B00E44E871742C0137433D9046599E9E5D3BDFC"
+    },
+    {
+      "path": "resources/image-runtime/runtime-manifest.json",
+      "bytes": 1954,
+      "sha256": "9FE50205E2E29614A96A21BFD049403A6D641357412C5F78C82E2B755619347E"
     },
     {
       "path": "resources/skills/local-ocr/SKILL.md",
@@ -17931,8 +17941,8 @@
     },
     {
       "path": "resources/voice-runtime/stt_whisper.py",
-      "bytes": 1895,
-      "sha256": "6C52D1CF472B54879AB77FB6EB21DEDDC89919B9F03048A702D2B4FE97B3F625"
+      "bytes": 6517,
+      "sha256": "88A489C068B7D68DA4F090581B3E8746A38FEE2C068312A5754B57429F9941F5"
     },
     {
       "path": "resources/voice-runtime/tts-capabilities.ps1",
@@ -17941,18 +17951,18 @@
     },
     {
       "path": "resources/voice-runtime/tts-local.ps1",
-      "bytes": 709,
-      "sha256": "947CC5BA8E4B9780A09AEB220A31A6929FD54C573FD2DF5369F26D319FE05DA1"
+      "bytes": 2486,
+      "sha256": "E4EEC3CEC90586778F5E1BD11C0A1A26B12E6018235F84D9867EE0CFB364F5EE"
     },
     {
       "path": "resources/voice-runtime/voice-runtime-manifest.json",
-      "bytes": 632245,
-      "sha256": "0222CBDEC06BB109EAE89A2E9081130775DB42A3F398ED910A4E2D013E26764E"
+      "bytes": 632246,
+      "sha256": "FB76993A859EA6A70A56FA75096DCB802FD747A9D5AAB1BF1EFA38AE2BD2C919"
     },
     {
       "path": "stt_whisper.py",
-      "bytes": 1895,
-      "sha256": "6C52D1CF472B54879AB77FB6EB21DEDDC89919B9F03048A702D2B4FE97B3F625"
+      "bytes": 6517,
+      "sha256": "88A489C068B7D68DA4F090581B3E8746A38FEE2C068312A5754B57429F9941F5"
     },
     {
       "path": "stt.py",
@@ -18001,6 +18011,16 @@
         "path": "resources/icon.png",
         "bytes": 9222,
         "sha256": "7B93DE63E3800F30D341750BC25A02F0ADA79002BEB5E203FF2D1D3EB198E95D"
+      },
+      {
+        "path": "resources/image-runtime/README.md",
+        "bytes": 1367,
+        "sha256": "AA556FEC1E510510742248641B00E44E871742C0137433D9046599E9E5D3BDFC"
+      },
+      {
+        "path": "resources/image-runtime/runtime-manifest.json",
+        "bytes": 1954,
+        "sha256": "9FE50205E2E29614A96A21BFD049403A6D641357412C5F78C82E2B755619347E"
       },
       {
         "path": "resources/skills/local-ocr/SKILL.md",
@@ -34404,8 +34424,8 @@
       },
       {
         "path": "resources/voice-runtime/stt_whisper.py",
-        "bytes": 1895,
-        "sha256": "6C52D1CF472B54879AB77FB6EB21DEDDC89919B9F03048A702D2B4FE97B3F625"
+        "bytes": 6517,
+        "sha256": "88A489C068B7D68DA4F090581B3E8746A38FEE2C068312A5754B57429F9941F5"
       },
       {
         "path": "resources/voice-runtime/tts-capabilities.ps1",
@@ -34414,18 +34434,18 @@
       },
       {
         "path": "resources/voice-runtime/tts-local.ps1",
-        "bytes": 709,
-        "sha256": "947CC5BA8E4B9780A09AEB220A31A6929FD54C573FD2DF5369F26D319FE05DA1"
+        "bytes": 2486,
+        "sha256": "E4EEC3CEC90586778F5E1BD11C0A1A26B12E6018235F84D9867EE0CFB364F5EE"
       },
       {
         "path": "resources/voice-runtime/voice-runtime-manifest.json",
-        "bytes": 632245,
-        "sha256": "0222CBDEC06BB109EAE89A2E9081130775DB42A3F398ED910A4E2D013E26764E"
+        "bytes": 632246,
+        "sha256": "FB76993A859EA6A70A56FA75096DCB802FD747A9D5AAB1BF1EFA38AE2BD2C919"
       },
       {
         "path": "stt_whisper.py",
-        "bytes": 1895,
-        "sha256": "6C52D1CF472B54879AB77FB6EB21DEDDC89919B9F03048A702D2B4FE97B3F625"
+        "bytes": 6517,
+        "sha256": "88A489C068B7D68DA4F090581B3E8746A38FEE2C068312A5754B57429F9941F5"
       },
       {
         "path": "stt.py",
@@ -34904,7 +34924,7 @@
     ]
   },
   "repositoryProvenance": {
-    "gitRemote": "none configured",
+    "gitRemote": "backup\tG:\\Athena-backups\\Athena.git (fetch)\nbackup\tG:\\Athena-backups\\Athena.git (push)\norigin\tgit@github.com:lubin9806-ui/Athena.git (fetch)\norigin\tgit@github.com:lubin9806-ui/Athena.git (push)",
     "unknownOrExcludedPayloads": [
       {
         "path": "models/",
@@ -34930,13 +34950,13 @@
   "buildArtifacts": [
     {
       "path": "release/Athena Setup 0.9.6-beta.1.exe",
-      "bytes": 507756584,
-      "sha256": "8092A312FC4E7414151967789647EDA69919FA0FB9DFBBA031391DC73504BF72"
+      "bytes": 507834417,
+      "sha256": "9D50DFC7C16021AADBEFF2F74ADD1E95EF39EAD8F2CF9105937C5ED1980B6AF1"
     },
     {
       "path": "release/win-unpacked/Athena.exe",
-      "bytes": 232771072,
-      "sha256": "68947820AD734EB1C3243F2C7C039096B6162FFF58ADE5F83E8F398CC8EA2ACE"
+      "bytes": 232771584,
+      "sha256": "E46AD687D3377F21DA08072B5F58CC2561F2EC5C7A9FD022C2F7920EBD1C02F8"
     }
   ],
   "packagingDecisions": [
