@@ -22,6 +22,8 @@
 
 > 2026-09-07 验证链修复：`test:modes` 原在 Node ABI 下吞掉 `better-sqlite3` ABI 错误后仍绿；现改为隔离 Electron 数据库运行，并强制断言上下文快照真实落库，成功标记为 `ATHENA_CONVERSATION_MODES_OK persistence=verified runtime=electron`。
 
+> 2026-09-07 ATH-PERF-001 继续收口：新增可选 `assistModel`，只在当前 Provider、端点、凭据与联网同意内替换辅助模型 ID；Renderer 路由预检改为一次性 ticket，`chat:send` 消费既有判定而不再重跑，并把真实 routing 时长并入同一 `TurnProfile`。动态 fixture 证明 ticket 精确绑定且不可重放，开发 smoke 输出 `routing=4ms/rules creative=0ms/skipped`。新增 `test:model-profile:live` 后立即以当前 DeepSeek 配置复测，凭据可解密但 `/models` 不通，真实聊天返回 HTTP 401（脱敏 key 尾部为 `chat`）；因此代码项已交付，真实 Provider 时延验收仍保持 Open，等待用户更新有效凭据，不以 fixture 冒充 live 通过。
+
 窗口 07 判定：ATH-PRODUCT-001 有可重复营销审计证据并关闭；ATH-DESKTOP-002 的 SKU/策略/本地接口已定义，但因真实主体、支付/许可证平台、公开渠道和签字缺失转为 Blocked。Desktop 1.0 仍因 ATH-REL-001、ATH-DESKTOP-001、ATH-DESKTOP-002 及 Universal/Desktop 清单未完成项保持 No-Go。
 
 ## 2. 窗口 01 基线问题

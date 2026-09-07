@@ -170,6 +170,32 @@ export class LLMClient {
   }
 }
 
+/**
+ * Builds the cheap/fast client used by bounded helper calls. A blank setting is
+ * deliberately the main client: no provider, credential, or privacy boundary is
+ * changed implicitly. When configured, only the model id changes and the selected
+ * provider's endpoint and credential remain exactly the same (ATH-PERF-001).
+ */
+export function createAssistModelClient(mainClient: LLMClient): LLMClient {
+  const config = getModelSettings();
+  const assistModel = config.assistModel.trim();
+  if (!assistModel) return mainClient;
+  if (config.provider === 'ollama') {
+    return new LLMClient({
+      ...config,
+      ollama: { ...config.ollama, model: assistModel },
+    });
+  }
+  const provider = config.provider;
+  return new LLMClient({
+    ...config,
+    remote: {
+      ...config.remote,
+      [provider]: { ...config.remote[provider], model: assistModel },
+    },
+  });
+}
+
 function loadModelConfig(): ModelClientConfig {
   // Unpackaged Electron persists the user's provider in gitignored overlays.
   // Reading tracked config/model.json here would keep chat and connection tests

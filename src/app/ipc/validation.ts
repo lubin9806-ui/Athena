@@ -23,6 +23,7 @@ export function cleanChatPayload(value: unknown, fallbackMode: ConversationMode)
   forceWebSearch: boolean;
   chatWindowId?: number;
   attachmentIds: string[];
+  routingTicket?: string;
 } | null {
   const payload = isRecord(value) ? value : null;
   const textValue = payload?.text ?? value;
@@ -38,7 +39,14 @@ export function cleanChatPayload(value: unknown, fallbackMode: ConversationMode)
     forceWebSearch: payload?.forceWebSearch === true,
     chatWindowId: chatWindowId || undefined,
     attachmentIds: cleanAttachmentIds(payload?.attachmentIds),
+    routingTicket: cleanRoutingTicket(payload?.routingTicket),
   };
+}
+
+function cleanRoutingTicket(value: unknown): string | undefined {
+  return typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
+    ? value
+    : undefined;
 }
 
 export function cleanAttachmentIds(value: unknown): string[] {

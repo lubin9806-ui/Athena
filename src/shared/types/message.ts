@@ -102,6 +102,10 @@ export interface AgentMessageRouteDecision {
   routingMethod: AgentMessageRoutingMethod;
   autoSwitch: boolean;
   query?: string;
+  /** Opaque, short-lived proof that the main process already routed this exact turn. */
+  routingTicket?: string;
+  /** Main-process wall time for the route decision, included in the turn profile. */
+  routingDurationMs?: number;
 }
 
 export interface ChatResponse {

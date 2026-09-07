@@ -2,7 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 
 contextBridge.exposeInMainWorld('athenaAPI', {
   routeMessage: (text: string, mode: 'create' | 'companion' | 'reason' | 'execute', forceWebSearch = false, chatWindowId?: number, attachmentIds: string[] = []) => ipcRenderer.invoke('chat:route', { text, mode, forceWebSearch, chatWindowId, attachmentIds }),
-  sendMessage: (text: string, mode: 'create' | 'companion' | 'reason' | 'execute', forceWebSearch = false, chatWindowId?: number, attachmentIds: string[] = []) => ipcRenderer.invoke('chat:send', { text, mode, forceWebSearch, chatWindowId, attachmentIds }),
+  sendMessage: (text: string, mode: 'create' | 'companion' | 'reason' | 'execute', forceWebSearch = false, chatWindowId?: number, attachmentIds: string[] = [], routingTicket?: string) => ipcRenderer.invoke('chat:send', { text, mode, forceWebSearch, chatWindowId, attachmentIds, routingTicket }),
   chooseChatImages: (chatWindowId: number) => ipcRenderer.invoke('attachment:chooseImages', chatWindowId),
   chooseChatFiles: (chatWindowId: number, maxFiles = 5) => ipcRenderer.invoke('attachment:chooseFiles', { chatWindowId, maxFiles }),
   getChatAttachmentPreview: (chatWindowId: number, attachmentId: string) => ipcRenderer.invoke('attachment:preview', { chatWindowId, attachmentId }),

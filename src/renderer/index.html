@@ -843,6 +843,11 @@
                 <option value="custom">自定义 OpenAI-compatible API</option>
               </select>
             </label>
+            <label class="settings-field settings-field-full">
+              <span>辅助模型（可选）</span>
+              <input id="setting-assist-model" type="text" spellcheck="false" placeholder="留空则使用主模型，例如 deepseek-v4-flash" />
+              <small>只用于画面描述抽取等短任务；沿用同一 Provider、API 地址、凭据与联网同意，不会自动切换服务。</small>
+            </label>
             <div id="model-ollama-fields" class="model-provider-fields">
               <label class="settings-field">
                 <span>Ollama 地址</span>

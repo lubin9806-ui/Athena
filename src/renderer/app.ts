@@ -75,7 +75,7 @@ declare global {
   interface Window {
     athenaAPI: {
       routeMessage: (text: string, mode: AthenaMode, forceWebSearch?: boolean, chatWindowId?: number, attachmentIds?: string[]) => Promise<AgentMessageRouteDecision | null>;
-      sendMessage: (text: string, mode: AthenaMode, forceWebSearch?: boolean, chatWindowId?: number, attachmentIds?: string[]) => Promise<{
+      sendMessage: (text: string, mode: AthenaMode, forceWebSearch?: boolean, chatWindowId?: number, attachmentIds?: string[], routingTicket?: string) => Promise<{
         content: string;
         emotion?: { label: string };
         webSearch?: {
@@ -226,8 +226,11 @@ interface AgentMessageRouteDecision {
   effectiveMode: AthenaMode;
   confidence: 'high' | 'medium';
   reason: string;
+  routingMethod: 'rules' | 'model' | 'rules_fallback';
   autoSwitch: boolean;
   query?: string;
+  routingTicket?: string;
+  routingDurationMs?: number;
 }
 type VoiceInputState = 'idle' | 'requesting' | 'recording' | 'transcribing' | 'error';
 type AppStatusState = 'ready' | 'working' | 'offline' | 'error';
@@ -989,6 +992,7 @@ interface PersonaCardPatch {
 interface ModelSettings {
   provider: ModelProvider;
   setupComplete: boolean;
+  assistModel: string;
   ollama: {
     baseUrl: string;
     model: string;
@@ -1340,6 +1344,7 @@ const settingTheme = mustGet<HTMLSelectElement>('setting-theme');
 const modelSettingsSection = mustGet<HTMLDetailsElement>('model-settings-section');
 const modelFirstRunChoice = mustGet<HTMLElement>('model-first-run-choice');
 const settingModelProvider = mustGet<HTMLSelectElement>('setting-model-provider');
+const settingAssistModel = mustGet<HTMLInputElement>('setting-assist-model');
 const modelOllamaFields = mustGet<HTMLElement>('model-ollama-fields');
 const modelRemoteFields = mustGet<HTMLElement>('model-remote-fields');
 const settingOllamaUrl = mustGet<HTMLInputElement>('setting-ollama-url');
@@ -1797,6 +1802,7 @@ async function sendMessage(text: string): Promise<void> {
   let forceWebSearch = forceWebSearchForNextMessage;
   let requestMode = currentMode;
   let directImageGeneration = false;
+  let routingTicket: string | undefined;
   forceWebSearchForNextMessage = false;
   try {
     const routing = await window.athenaAPI.routeMessage(
@@ -1807,6 +1813,7 @@ async function sendMessage(text: string): Promise<void> {
       queuedAttachments.map(attachment => attachment.id),
     );
     if (routing?.route === 'web_research') forceWebSearch = true;
+    routingTicket = routing?.routingTicket;
     directImageGeneration = routing?.route === 'image_generation';
     if (routing?.route === 'durable_execution' && routing.autoSwitch && requestMode !== 'execute') {
       await selectMode('execute');
@@ -1850,6 +1857,7 @@ async function sendMessage(text: string): Promise<void> {
       forceWebSearch,
       requestChatWindowId ?? undefined,
       queuedAttachments.map(attachment => attachment.id),
+      routingTicket,
     );
     if (response && !directImageGeneration) modelConnected = true;
     const serverRoutedExecution = requestMode !== 'execute'
@@ -5128,12 +5136,14 @@ function modelPatchFromForm(setupComplete: boolean): SettingsPatch['model'] {
     return {
       provider,
       setupComplete,
+      assistModel: settingAssistModel.value.trim(),
       ollama: { baseUrl: settingOllamaUrl.value, model: settingOllamaModel.value, ...generation },
     };
   }
   return {
     provider,
     setupComplete,
+    assistModel: settingAssistModel.value.trim(),
     remote: {
       [provider]: { baseUrl: normalizeRemoteBaseUrl(provider, settingRemoteUrl.value), model: settingRemoteModel.value, ...generation },
     },
@@ -5342,6 +5352,7 @@ function populateSettingsForm(bundle: SettingsBundle): void {
   settingAnimationLevel.value = appearance.animationLevel;
   settingTheme.value = appearance.theme;
   settingModelProvider.value = bundle.model.provider;
+  settingAssistModel.value = bundle.model.assistModel;
   modelFirstRunChoice.hidden = bundle.model.setupComplete;
   settingOllamaUrl.value = bundle.model.ollama.baseUrl;
   settingOllamaModel.value = bundle.model.ollama.model;

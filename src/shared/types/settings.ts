@@ -177,6 +177,8 @@ export interface RemoteModelSettings {
 export interface ModelSettings {
   provider: ModelProvider;
   setupComplete: boolean;
+  /** Optional model on the selected provider for short classification/extraction work. */
+  assistModel: string;
   ollama: {
     baseUrl: string;
     model: string;

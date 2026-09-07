@@ -85,6 +85,7 @@
     "test:tools:live": "tsc && node scripts/verify-computer-tools.js --live",
     "test:model-providers": "tsc && electron scripts/verify-model-providers.js",
     "test:model-adapters": "tsc && node scripts/verify-model-adapters.js",
+    "test:model-profile:live": "tsc && electron scripts/verify-current-model-profile.js",
     "test:agent-foundation": "tsc && electron scripts/verify-agent-foundation.js",
     "test:agent-runtime": "tsc && electron scripts/verify-agent-runtime.js",
     "test:project-workspace": "tsc && electron scripts/verify-project-workspace.js",

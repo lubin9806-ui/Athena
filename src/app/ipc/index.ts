@@ -264,10 +264,10 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<vo
     const settings = getAppSettings();
     const payload = cleanChatPayload(value, settings.conversation.activeMode);
     if (!payload) return null;
-    const { text: userMessage, mode, forceWebSearch, chatWindowId, attachmentIds } = payload;
+    const { text: userMessage, mode, forceWebSearch, chatWindowId, attachmentIds, routingTicket } = payload;
 
     try {
-      const routing = await controller.routeMessage(userMessage, mode, { forceWebSearch, chatWindowId });
+      const routing = await controller.consumeRouteMessage(userMessage, mode, { forceWebSearch, chatWindowId, routingTicket });
       const effectiveMode = routing.effectiveMode;
       const response = routing.route === 'durable_execution'
         ? await controller.executeAgentMessage(
@@ -300,6 +300,10 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<vo
           },
           onToolConfirm: (request: ToolConfirmationRequest) => confirmToolExecution(mainWindow, request),
           attachmentIds,
+          routingStage: {
+            durationMs: routing.routingDurationMs ?? 0,
+            outcome: routing.routingMethod,
+          },
         },
         );
       response.routing = routing;

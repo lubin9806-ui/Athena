@@ -183,6 +183,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
 const DEFAULT_MODEL: ModelSettings = {
   provider: 'ollama',
   setupComplete: false,
+  assistModel: '',
   ollama: {
     baseUrl: 'http://127.0.0.1:11434',
     model: 'qwen2.5:14b',
@@ -724,6 +725,7 @@ function sanitizeModelSettings(value: unknown): ModelSettings {
   return {
     provider: cleanEnum(source.provider, MODEL_PROVIDERS, DEFAULT_MODEL.provider),
     setupComplete: cleanBoolean(source.setupComplete, DEFAULT_MODEL.setupComplete),
+    assistModel: cleanString(source.assistModel, 160, DEFAULT_MODEL.assistModel),
     ollama: {
       baseUrl: cleanString(ollama.baseUrl, 200, DEFAULT_MODEL.ollama.baseUrl).replace(/\/$/, ''),
       model: cleanString(ollama.model, 120, DEFAULT_MODEL.ollama.model),

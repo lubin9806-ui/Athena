@@ -1,4 +1,4 @@
-import { LLMClient } from '../ai/Client';
+import { createAssistModelClient, LLMClient } from '../ai/Client';
 import { nativeImage } from 'electron';
 import * as crypto from 'crypto';
 import * as fs from 'fs';
@@ -166,6 +166,22 @@ interface ProcessMessageOptions {
   onToolConfirm?: (request: ToolConfirmationRequest) => Promise<boolean>;
   chatWindowId?: number;
   attachmentIds?: string[];
+  routingStage?: { durationMs: number; outcome: string };
+}
+
+interface RouteMessageOptions {
+  forceWebSearch?: boolean;
+  chatWindowId?: number;
+  routingTicket?: string;
+}
+
+interface PendingRoute {
+  expiresAt: number;
+  message: string;
+  requestedMode: ConversationMode;
+  forceWebSearch: boolean;
+  chatWindowId?: number;
+  decision: AgentMessageRouteDecision;
 }
 
 export class AthenaController {
@@ -177,6 +193,7 @@ export class AthenaController {
   private creativeExtractor: ModelCreativeSectionExtractor;
   /** In-flight foreground requests, so background work can stand aside (ATH-PERF-001). */
   private foregroundRequests = 0;
+  private readonly pendingRoutes = new Map<string, PendingRoute>();
   private workflows: WorkflowManager;
   private webSearch: WebSearchService;
   private readonly agentStore: AgentStore;
@@ -206,7 +223,7 @@ export class AthenaController {
     this.emotion = new EmotionEngine();
     this.reminder = new Reminder();
     this.initiative = this.buildInitiativeEngine();
-    this.creativeExtractor = new ModelCreativeSectionExtractor(this.llm);
+    this.creativeExtractor = new ModelCreativeSectionExtractor(createAssistModelClient(this.llm));
     this.workflows = new WorkflowManager();
     this.webSearch = new WebSearchService();
     this.attachments = new AttachmentService();
@@ -325,6 +342,9 @@ export class AthenaController {
     options?: ProcessMessageOptions,
   ): Promise<ChatResponse> {
     const profile = new TurnProfile();
+    if (options?.routingStage) {
+      profile.record('routing', options.routingStage.durationMs, options.routingStage.outcome);
+    }
     this.foregroundRequests += 1;
     try {
       return await this.runMessage(userMessage, requestedMode, onStream, options, profile);
@@ -635,7 +655,7 @@ export class AthenaController {
   async routeMessage(
     userMessage: string,
     requestedMode: ConversationMode,
-    options: { forceWebSearch?: boolean; chatWindowId?: number } = {},
+    options: RouteMessageOptions = {},
   ): Promise<AgentMessageRouteDecision> {
     if (!this.initialized) await this.initialize();
     const settings = getAppSettings();
@@ -663,10 +683,60 @@ export class AthenaController {
         && evaluateSteamAiContent(userMessage).allowed
         && canRouteModelRequest(this.llm.providerName, canUseNetworkCapability('remoteModel'), this.llm.endpoint),
     });
-    // Routing is its own IPC call ahead of the turn, so it carries its own number
-    // rather than appearing inside the turn profile (ATH-PERF-001).
-    logger.info(`Message routed in ${Date.now() - routingStartedAt}ms [route=${route.route}, reason=${route.reason}, method=${route.routingMethod}, confidence=${route.confidence}, autoSwitch=${route.autoSwitch}]`);
-    return route;
+    // Routing starts in its own IPC preflight so the renderer can switch modes
+    // before drawing the message. Its duration travels with the one-use ticket and
+    // is inserted into the same turn profile when chat:send consumes it.
+    const routingDurationMs = Date.now() - routingStartedAt;
+    const routingTicket = crypto.randomUUID();
+    const routed = { ...route, routingDurationMs, routingTicket };
+    this.rememberPendingRoute(routingTicket, {
+      expiresAt: Date.now() + 30_000,
+      message: userMessage,
+      requestedMode,
+      forceWebSearch: options.forceWebSearch === true,
+      chatWindowId: options.chatWindowId,
+      decision: routed,
+    });
+    logger.info(`Message routed in ${routingDurationMs}ms [route=${route.route}, reason=${route.reason}, method=${route.routingMethod}, confidence=${route.confidence}, autoSwitch=${route.autoSwitch}]`);
+    return routed;
+  }
+
+  /**
+   * Consumes the renderer preflight instead of routing the same turn twice. The
+   * opaque ticket is bound to the exact message/window/options and remains valid
+   * when an approved auto-switch changes the UI to the decision's effective mode.
+   */
+  async consumeRouteMessage(
+    userMessage: string,
+    requestedMode: ConversationMode,
+    options: RouteMessageOptions = {},
+  ): Promise<AgentMessageRouteDecision> {
+    const ticket = options.routingTicket;
+    const pending = ticket ? this.pendingRoutes.get(ticket) : undefined;
+    if (ticket) this.pendingRoutes.delete(ticket);
+    if (pending
+      && pending.expiresAt >= Date.now()
+      && pending.message === userMessage
+      && (pending.requestedMode === requestedMode || pending.decision.effectiveMode === requestedMode)
+      && (pending.forceWebSearch === (options.forceWebSearch === true)
+        || (pending.decision.route === 'web_research' && options.forceWebSearch === true))
+      && pending.chatWindowId === options.chatWindowId) {
+      return { ...pending.decision };
+    }
+    return this.routeMessage(userMessage, requestedMode, options);
+  }
+
+  private rememberPendingRoute(ticket: string, pending: PendingRoute): void {
+    const now = Date.now();
+    for (const [candidate, value] of this.pendingRoutes) {
+      if (value.expiresAt < now) this.pendingRoutes.delete(candidate);
+    }
+    while (this.pendingRoutes.size >= 8) {
+      const oldest = this.pendingRoutes.keys().next().value as string | undefined;
+      if (!oldest) break;
+      this.pendingRoutes.delete(oldest);
+    }
+    this.pendingRoutes.set(ticket, pending);
   }
 
   async getSystemInfo(options: { checkModel?: boolean; timeoutMs?: number } = {}): Promise<SystemInfo> {
@@ -702,7 +772,7 @@ export class AthenaController {
     // would keep calling the provider the user just switched away from.
     this.initiative.stop();
     this.initiative = this.buildInitiativeEngine();
-    this.creativeExtractor = new ModelCreativeSectionExtractor(this.llm);
+    this.creativeExtractor = new ModelCreativeSectionExtractor(createAssistModelClient(this.llm));
     const settings = getAppSettings();
     this.applyToolPermission(settings.tools, settings.conversation.activeMode);
     if (this.initialized) this.syncInitiativeLoop();

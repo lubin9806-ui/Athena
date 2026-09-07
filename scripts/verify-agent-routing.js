@@ -171,10 +171,13 @@ const ipc = fs.readFileSync(path.join(root, 'src', 'app', 'ipc', 'index.ts'), 'u
 const preload = fs.readFileSync(path.join(root, 'src', 'app', 'preload.ts'), 'utf8');
 const renderer = fs.readFileSync(path.join(root, 'src', 'renderer', 'app.ts'), 'utf8');
 assert.match(ipc, /ipcMain\.handle\('chat:route'.*isTrustedSender/s);
-assert.match(ipc, /const routing = await controller\.routeMessage/);
+assert.match(ipc, /const routing = await controller\.consumeRouteMessage/);
 assert.match(ipc, /forceWebSearch \|\| routing\.route === 'web_research'/);
 assert.match(preload, /routeMessage:.*ipcRenderer\.invoke\('chat:route'/);
+assert.match(preload, /sendMessage:.*routingTicket.*ipcRenderer\.invoke\('chat:send'.*routingTicket/s);
 assert.match(renderer, /routing\?\.route === 'durable_execution'.*selectMode\('execute'\)/s);
+assert.match(renderer, /routingTicket = routing\?\.routingTicket/);
+assert.match(ipc, /routingStage:\s*\{\s*durationMs: routing\.routingDurationMs \?\? 0,\s*outcome: routing\.routingMethod/s);
 
 // ATH-PERF-001: the preflight is a model round trip ahead of the reply, measured at
 // several seconds even for a short message, so it must be possible to turn off

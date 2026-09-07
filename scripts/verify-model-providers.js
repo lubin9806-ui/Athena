@@ -11,6 +11,7 @@ async function main() {
   const originalCwd = process.cwd();
   process.env.ATHENA_CREDENTIALS_DIR = path.join(scratch, 'credentials');
   process.env.ATHENA_CONFIG_DIR = path.join(scratch, 'config');
+  process.env.ATHENA_DB_DIR = path.join(scratch, 'database');
   const requests = [];
   const server = http.createServer(async (request, response) => {
     const chunks = [];
@@ -78,11 +79,37 @@ async function main() {
     const bundle = saveSettingsBundle({ model: {
       provider: 'openai',
       setupComplete: true,
+      assistModel: 'fixture-assist-model',
       remote: { openai: { baseUrl, model: 'fixture-model', temperature: 0.2, maxTokens: 512, numCtx: 8192 } },
     } });
     assert.strictEqual(bundle.model.provider, 'openai');
     assert.strictEqual(bundle.model.remote.openai.baseUrl, baseUrl);
+    assert.strictEqual(bundle.model.assistModel, 'fixture-assist-model');
     assert(!JSON.stringify(bundle.model).toLowerCase().includes('apikey'));
+
+    const { createAssistModelClient } = require('../dist/core/ai/Client.js');
+    const mainClient = new LLMClient();
+    const assistClient = createAssistModelClient(mainClient);
+    assert.notStrictEqual(assistClient, mainClient, 'configured assist model should get its own client');
+    assert.strictEqual(assistClient.providerName, 'openai');
+    assert.strictEqual(assistClient.modelName, 'fixture-assist-model');
+    assert.strictEqual(assistClient.endpoint, baseUrl);
+
+    const { AthenaController } = require('../dist/core/controller/AthenaController.js');
+    const controller = new AthenaController();
+    await controller.initialize();
+    const routed = await controller.routeMessage('这个配色你怎么看', 'companion');
+    assert.match(routed.routingTicket, /^[0-9a-f-]{36}$/i);
+    assert(Number.isInteger(routed.routingDurationMs) && routed.routingDurationMs >= 0);
+    const consumed = await controller.consumeRouteMessage('这个配色你怎么看', 'companion', {
+      routingTicket: routed.routingTicket,
+    });
+    assert.strictEqual(consumed.routingTicket, routed.routingTicket, 'an exact route ticket must be consumed without re-routing');
+    const replayed = await controller.consumeRouteMessage('这个配色你怎么看', 'companion', {
+      routingTicket: routed.routingTicket,
+    });
+    assert.notStrictEqual(replayed.routingTicket, routed.routingTicket, 'a route ticket must be one-use');
+    await controller.shutdown();
 
     const deepseekDefaults = new LLMClient({ provider: 'deepseek' }, () => null);
     assert.strictEqual(deepseekDefaults.endpoint, '');
