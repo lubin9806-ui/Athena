@@ -6542,6 +6542,10 @@ function setVoiceInputState(state: VoiceInputState): void {
     voiceSttLabel.textContent = '00:00';
   }
 
+  // Voice state changes alter the microphone button's contents and width. Keep
+  // the composer and its bottom metadata row in one measured layout before the
+  // next paint, including after programmatic dictation clears the textarea.
+  resizeInputBox();
   syncVoiceControls();
 }
 
@@ -6707,7 +6711,7 @@ async function stopAndTranscribeRecording(): Promise<void> {
     // typed goes with it, and it clears first exactly as submitting does.
     if (autoSend) {
       const outgoing = inputBar.getValue().trim();
-      inputBar.setValue('');
+      inputBar.clear();
       void sendMessage(outgoing);
     }
   } catch (error) {

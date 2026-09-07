@@ -14,12 +14,18 @@ export class MotionSystem {
 
   setMotionReduced(reduced: boolean): void {
     this.settingsReducedMotion = reduced;
+    if (!this.isMotionReduced()) return;
+    window.clearTimeout(this.transitionTimer);
+    delete this.shell.dataset.spaceMoving;
+    delete this.shell.dataset.spaceFrom;
+    delete this.shell.dataset.spaceTo;
+    for (const cleanup of [...this.activeMessageCleanups]) cleanup();
   }
 
   beginSpaceTransition(from: AthenaSpace, to: AthenaSpace): void {
     if (from === to || this.isMotionReduced()) return;
     window.clearTimeout(this.transitionTimer);
-    const duration = this.hasChangedSpace ? 480 : 860;
+    const duration = this.hasChangedSpace ? 260 : 320;
     this.hasChangedSpace = true;
     this.shell.dataset.spaceFrom = from;
     this.shell.dataset.spaceTo = to;
@@ -41,24 +47,19 @@ export class MotionSystem {
     message.dataset.entry = 'sending';
     this.composer.dataset.sendMotion = 'true';
 
-    const duration = text.length > 80 ? 210 : 180;
+    const duration = text.length > 80 ? 190 : 160;
     const animation = message.animate([
       {
-        opacity: 0.62,
-        transform: 'translate3d(0, 5px, 0) scale(0.985)',
+        opacity: 0.7,
+        transform: 'translate3d(0, 4px, 0)',
       },
       {
         opacity: 1,
-        offset: 0.78,
-        transform: 'translate3d(0, -1px, 0) scale(1.002)',
-      },
-      {
-        opacity: 1,
-        transform: 'translate3d(0, 0, 0) scale(1)',
+        transform: 'translate3d(0, 0, 0)',
       },
     ], {
       duration,
-      easing: 'cubic-bezier(0.2, 0.72, 0.18, 1)',
+      easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
     });
 
     let settled = false;

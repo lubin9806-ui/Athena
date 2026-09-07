@@ -403,6 +403,7 @@ function createWindow(): void {
              const api = window.athenaAPI;
              const micButton = document.getElementById('voice-stt-btn');
              const appShell = document.getElementById('app-shell');
+             const chatContainer = document.getElementById('chat-container');
              const stage = document.getElementById('stage');
              const titlebar = document.getElementById('titlebar');
              const lifeCore = document.getElementById('life-core');
@@ -448,7 +449,7 @@ function createWindow(): void {
                 .find(button => getComputedStyle(button).display !== 'none');
               const uiReady = Boolean(
                appShell &&
-               document.getElementById('chat-container') &&
+               chatContainer &&
                inputForm &&
                stage &&
                titlebar &&
@@ -842,6 +843,9 @@ function createWindow(): void {
              const composerMetaRect = composerMeta?.getBoundingClientRect();
              const composerMetaStyle = composerMeta ? window.getComputedStyle(composerMeta) : null;
              const inputFormRect = inputForm?.getBoundingClientRect();
+             const composerInViewport = Boolean(inputFormRect
+               && inputFormRect.top >= 0
+               && inputFormRect.bottom <= window.innerHeight);
              const composerMetaVisible = Boolean(inputFormRect
                && composerMetaRect
                && composerMetaRect.width > 120
@@ -898,10 +902,11 @@ function createWindow(): void {
                  height: composerMetaRect.height,
                } : null,
                metaVisible: composerMetaVisible,
+               composerInViewport,
                windowHeight: window.innerHeight,
                windowWidth: window.innerWidth,
              }));
-             if (!composerToolsVisible || !composerMetaVisible) return false;
+             if (!composerToolsVisible || !composerMetaVisible || !composerInViewport) return false;
              availableToolsButton.click();
              let toolCatalogReactive = false;
              for (let attempt = 0; attempt < 20; attempt += 1) {
@@ -929,6 +934,27 @@ function createWindow(): void {
              originalButton.click();
              await new Promise(resolve => setTimeout(resolve, 90));
              const executionModeRestored = appShell.dataset.mode === originalMode;
+             const previousStreamingState = chatContainer.dataset.streaming;
+             const idleScrollBehavior = getComputedStyle(chatContainer).scrollBehavior;
+             chatContainer.dataset.streaming = 'true';
+             const streamingScrollBehavior = getComputedStyle(chatContainer).scrollBehavior;
+             if (previousStreamingState === undefined) {
+               delete chatContainer.dataset.streaming;
+             } else {
+               chatContainer.dataset.streaming = previousStreamingState;
+             }
+             const streamingScrollPolicyReady = idleScrollBehavior === 'smooth'
+               && streamingScrollBehavior === 'auto';
+             const historyMotionSuppressed = ['user', 'assistant'].every(role => {
+               const historyMotionProbe = document.createElement('div');
+               historyMotionProbe.className = 'message ' + role;
+               historyMotionProbe.dataset.mode = originalMode;
+               historyMotionProbe.dataset.entry = 'history';
+               chatContainer.appendChild(historyMotionProbe);
+               const animationName = getComputedStyle(historyMotionProbe).animationName;
+               historyMotionProbe.remove();
+               return animationName === 'none';
+             });
              console.log('ATHENA_SMOKE_UI_STATE', JSON.stringify({
                panelReactive,
                panelAfterClose: memoryPanel.dataset.open,
@@ -966,11 +992,13 @@ function createWindow(): void {
                 toolCatalogReactive,
                 composerToolsVisible,
                 composerMetaVisible,
+                streamingScrollPolicyReady,
+                historyMotionSuppressed,
                 webSearchForceReactive,
                 webSearchForceRestored,
                 presenceQuickActionReactive,
               }));
-             if (!panelReactive || memoryPanel.dataset.open !== 'false' || !executionModeReactive || !executionWorkspaceReactive || !executionPermissionReactive || !executionModeRestored) return false;
+             if (!panelReactive || memoryPanel.dataset.open !== 'false' || !executionModeReactive || !executionWorkspaceReactive || !executionPermissionReactive || !executionModeRestored || !streamingScrollPolicyReady || !historyMotionSuppressed) return false;
 
              const ipcProbe = await api.transcribeRecording(new Uint8Array());
             if (!ipcProbe || ipcProbe.ok !== false || !/(empty|disabled)/i.test(ipcProbe.error || '')) return false;
@@ -1058,6 +1086,30 @@ function createWindow(): void {
               waitMs: Date.now() - glowStartedAt,
             };
             if (!animationLive) return voiceSmokeFail('recording-animation', recordingAnimation);
+
+             const recordingFormRect = inputForm.getBoundingClientRect();
+             const recordingMeta = document.getElementById('composer-meta');
+             const recordingMetaRect = recordingMeta?.getBoundingClientRect();
+             const recordingMicRect = micButton.getBoundingClientRect();
+             const recordingSendRect = document.getElementById('send-btn')?.getBoundingClientRect();
+             const recordingLayout = {
+               composerInViewport: recordingFormRect.top >= 0
+                 && recordingFormRect.bottom <= window.innerHeight,
+               metaContained: Boolean(recordingMetaRect
+                 && recordingMetaRect.top >= recordingFormRect.top
+                 && recordingMetaRect.bottom <= recordingFormRect.bottom - 2),
+               actionsSeparated: Boolean(recordingSendRect
+                 && recordingMicRect.right <= recordingSendRect.left),
+               form: { top: recordingFormRect.top, bottom: recordingFormRect.bottom },
+               meta: recordingMetaRect ? { top: recordingMetaRect.top, bottom: recordingMetaRect.bottom } : null,
+               mic: { left: recordingMicRect.left, right: recordingMicRect.right },
+               send: recordingSendRect ? { left: recordingSendRect.left, right: recordingSendRect.right } : null,
+             };
+             if (!recordingLayout.composerInViewport
+               || !recordingLayout.metaContained
+               || !recordingLayout.actionsSeparated) {
+               return voiceSmokeFail('recording-layout', recordingLayout);
+             }
 
             window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
             const recordingStopped = await waitFor(() => micButton.getAttribute('aria-pressed') === 'false');
@@ -1158,6 +1210,7 @@ function createWindow(): void {
               ok: true,
               stage: 'recording-cancel',
               animation: recordingAnimation,
+              layout: recordingLayout,
               session: sessionOpenState,
               holdToTalk: { cancelHint },
             }));

@@ -1,8 +1,8 @@
 {
   "name": "athena",
-  "version": "0.9.6-beta.1",
+  "version": "0.9.7-beta.1",
   "private": true,
-  "description": "Athena - local-first AI desktop companion (Desktop 0.9.6-beta.1 private beta candidate)",
+  "description": "Athena - local-first AI desktop companion (Desktop 0.9.7-beta.1 private beta candidate)",
   "author": "Athena Project",
   "license": "UNLICENSED",
   "main": "dist/app/main.js",

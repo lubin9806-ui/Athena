@@ -35,7 +35,11 @@ export class LiveGlass {
     }
     this.shell?.style.setProperty('--glass-energy', this.voiceLevel.toFixed(3));
     this.lifeCore?.style.setProperty('--glass-energy', this.voiceLevel.toFixed(3));
-    this.applyMaterialPosition();
+    if (this.shouldBypassAnimationFrame()) {
+      this.applyMaterialPosition();
+    } else if (!this.frame) {
+      this.frame = requestAnimationFrame(this.update);
+    }
   }
 
   setMotionReduced(reduced: boolean): void {
@@ -57,6 +61,8 @@ export class LiveGlass {
 
   dispose(): void {
     cancelAnimationFrame(this.frame);
+    window.clearTimeout(this.idleTimer);
+    this.frame = 0;
     window.removeEventListener('pointermove', this.handlePointerMove);
     for (const surface of this.rippleSurfaces) surface.removeEventListener('pointerdown', this.handlePointerDown);
   }
@@ -128,6 +134,14 @@ export class LiveGlass {
   };
 
   private applyMaterialPosition(): void {
+    // Read every moving surface before writing custom properties. Interleaving
+    // these reads and writes forced repeated layout work during pointer and
+    // microphone animation frames.
+    const lifeCoreRect = this.lifeCore?.getBoundingClientRect();
+    const surfaceRects = this.surfaces.map(surface => ({
+      surface,
+      rect: surface.getBoundingClientRect(),
+    }));
     const viewportX = Math.max(0, Math.min(1, this.pointerX / Math.max(1, window.innerWidth)));
     const viewportY = Math.max(0, Math.min(1, this.pointerY / Math.max(1, window.innerHeight)));
     const velocity = Math.min(1, Math.hypot(this.velocityX, this.velocityY));
@@ -137,8 +151,8 @@ export class LiveGlass {
     this.shell?.style.setProperty('--scene-velocity-y', this.velocityY.toFixed(3));
     this.shell?.style.setProperty('--scene-velocity', velocity.toFixed(3));
 
-    if (this.lifeCore) {
-      const coreRect = this.lifeCore.getBoundingClientRect();
+    if (this.lifeCore && lifeCoreRect) {
+      const coreRect = lifeCoreRect;
       const coreX = coreRect.left + coreRect.width * 0.5;
       const coreY = coreRect.top + coreRect.height * 0.5;
       const distance = Math.hypot(this.pointerX - coreX, this.pointerY - coreY);
@@ -154,8 +168,7 @@ export class LiveGlass {
       this.lifeCore.dataset.attentive = String(proximity > 0.08);
     }
 
-    for (const surface of this.surfaces) {
-      const rect = surface.getBoundingClientRect();
+    for (const { surface, rect } of surfaceRects) {
       if (!rect.width || !rect.height) continue;
       const x = Math.max(-0.2, Math.min(1.2, (this.pointerX - rect.left) / rect.width));
       const y = Math.max(-0.5, Math.min(1.5, (this.pointerY - rect.top) / rect.height));

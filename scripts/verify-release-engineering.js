@@ -21,7 +21,7 @@ function verifyVersionIdentity() {
   const pkg = packageMetadata();
   const lock = readJson(path.join(ROOT, 'package-lock.json'));
   const constants = fs.readFileSync(path.join(ROOT, 'src', 'shared', 'constants', 'index.ts'), 'utf8');
-  assert.strictEqual(pkg.version, '0.9.6-beta.1');
+  assert.strictEqual(pkg.version, '0.9.7-beta.1');
   assert.strictEqual(lock.version, pkg.version);
   assert.strictEqual(lock.packages[''].version, pkg.version);
   assert.match(constants, /APP_VERSION = packageMetadata\.version/);
@@ -257,7 +257,7 @@ function main() {
     verifyMigrationRecovery(scratch);
     verifyVersion3ChatWindowMigration(scratch);
     verifyVersion15EphemeralMigration(scratch);
-    console.log('ATHENA_RELEASE_ENGINEERING_OK version=0.9.6-beta.1 channels=beta,stable migrationBackup=verified rollback=verified');
+    console.log('ATHENA_RELEASE_ENGINEERING_OK version=0.9.7-beta.1 channels=beta,stable migrationBackup=verified rollback=verified');
   } finally {
     fs.rmSync(scratch, { recursive: true, force: true });
   }

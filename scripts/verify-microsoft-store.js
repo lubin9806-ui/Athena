@@ -130,9 +130,9 @@ function verifySource() {
   assert(!/(?:G:\\Athena|d:\\vs\\vs\.6|QWEATHER_KEY\s*=\s*['"][a-f0-9]{24,}['"]|require\(['"]puppeteer['"]\))/i.test(legacyActions), 'Legacy actions contain developer paths, a hard-coded credential, or a missing dependency.');
 
   const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
-  assert.equal(pkg.version, '0.9.6-beta.1');
+  assert.equal(pkg.version, '0.9.7-beta.1');
   const storePackageVersion = expectedStorePackageVersion(pkg.version);
-  assert.equal(storePackageVersion, '0.9.6.0');
+  assert.equal(storePackageVersion, '0.9.7.0');
   assert.equal(pkg.scripts['build:store'], 'node scripts/build-microsoft-store.js --require-clean');
   assert.equal(pkg.scripts['rebuild:sqlite:electron'], 'node scripts/rebuild-sqlite-electron.js');
   const rebuildSqliteScript = fs.readFileSync(path.join(ROOT, 'scripts', 'rebuild-sqlite-electron.js'), 'utf8');

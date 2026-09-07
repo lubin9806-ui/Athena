@@ -1,6 +1,6 @@
 # Athena 文档索引
 
-Athena 当前工程版本为 **Desktop 0.9 Private Beta candidate (`0.9.6-beta.1`)**。更新协议、候选内容门和 packaged smoke 已有可重复工程证据；签名证书、生产更新源、clean-checkout CI 和真实 20–50 人 Beta 尚未完成，因此发行结论仍为 **No-Go**。文档按以下优先级解释；低优先级文档不得覆盖高优先级结论。
+Athena 当前工程版本为 **Desktop 0.9 Private Beta candidate (`0.9.7-beta.1`)**。更新协议、候选内容门和 packaged smoke 已有可重复工程证据；签名证书、生产更新源、clean-checkout CI 和真实 20–50 人 Beta 尚未完成，因此发行结论仍为 **No-Go**。文档按以下优先级解释；低优先级文档不得覆盖高优先级结论。
 
 ## 当前开发交接
 

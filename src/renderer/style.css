@@ -605,6 +605,10 @@ summary:focus-visible {
   scroll-behavior: smooth;
 }
 
+#chat-container[data-streaming="true"] {
+  scroll-behavior: auto;
+}
+
 .message {
   display: none;
   position: relative;
@@ -3233,8 +3237,8 @@ summary:focus-visible {
 }
 
 @keyframes status-breathe {
-  0%, 100% { opacity: 0.62; box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 0%, transparent); }
-  50% { opacity: 1; box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 10%, transparent); }
+  0%, 100% { opacity: 0.64; transform: scale(0.9); }
+  50% { opacity: 1; transform: scale(1.08); }
 }
 
 @keyframes execution-workspace-in {
@@ -3250,12 +3254,12 @@ summary:focus-visible {
 
 @keyframes recording-breathe {
   0%, 100% { transform: scale(1); }
-  50% { transform: scale(0.97); }
+  50% { transform: scale(0.985); }
 }
 
 @keyframes send-thinking {
-  0%, 100% { opacity: 0.58; filter: saturate(0.78); }
-  50% { opacity: 0.9; filter: saturate(1); }
+  0%, 100% { opacity: 0.62; }
+  50% { opacity: 0.92; }
 }
 
 @media (max-width: 400px) {
@@ -5607,16 +5611,16 @@ html[data-theme="night"] body {
     linear-gradient(180deg, var(--material-highlight), transparent 140px),
     var(--panel-bg);
   box-shadow: -20px 0 60px var(--material-shadow), inset 1px 0 color-mix(in srgb, white 5%, transparent);
-  transform: translateX(calc(100% + 16px)) scale(0.995);
+  transform: translate3d(calc(100% + 16px), 0, 0);
   transition:
-    opacity 170ms ease,
-    visibility 0s linear var(--motion-emphasis),
-    transform var(--motion-emphasis) cubic-bezier(0.16, 1, 0.3, 1);
+    opacity 160ms ease,
+    visibility 0s linear 260ms,
+    transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 #app-shell:is([data-theme="day"], [data-theme="night"]) .side-panel[data-open="true"] {
   visibility: visible;
-  transform: translateX(0) scale(1);
+  transform: translate3d(0, 0, 0);
   transition-delay: 0s;
 }
 
@@ -6900,6 +6904,11 @@ html[data-theme="night"] body {
   display: none;
 }
 
+.message.assistant,
+.message.user {
+  animation: none;
+}
+
 .message-content {
   min-width: 0;
   white-space: pre-wrap;
@@ -6921,11 +6930,11 @@ html[data-theme="night"] body {
 }
 
 .message[data-entry="new"] .message-segment[data-fresh="true"] {
-  animation: semantic-material-in 560ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: semantic-material-in 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 @keyframes semantic-material-in {
-  from { opacity: 0; transform: translate3d(0, 7px, 0); }
+  from { opacity: 0.72; transform: translate3d(0, 4px, 0); }
   to { opacity: 1; transform: translate3d(0, 0, 0); }
 }
 
@@ -7392,12 +7401,12 @@ html[data-theme="night"] body {
 }
 
 @keyframes ui-toast-in {
-  from { opacity: 0; transform: translateY(-8px) scale(0.985); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+  from { opacity: 0; transform: translate3d(0, -6px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
 }
 
 @keyframes ui-toast-out {
-  to { opacity: 0; transform: translateY(-5px) scale(0.99); }
+  to { opacity: 0; transform: translate3d(0, -4px, 0); }
 }
 
 .message-time,
@@ -7436,11 +7445,16 @@ html[data-theme="night"] body {
 }
 
 #input-form[data-send-motion="true"] {
-  transform: translateY(1px) scale(0.998);
+  transform: none;
+}
+
+#input-form[data-send-motion="true"] #send-btn {
+  filter: brightness(1.08);
+  transform: scale(0.92);
 }
 
 #input-form[data-send-motion="true"] #send-btn .icon {
-  transform: translate3d(1px, -1px, 0) rotate(-8deg) scale(0.94);
+  transform: translate3d(1.5px, -1.5px, 0) rotate(-6deg);
 }
 
 #send-btn {
@@ -7503,9 +7517,8 @@ html[data-theme="night"] body {
 }
 
 @keyframes space-material-shift {
-  0% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
-  42% { opacity: 0.78; transform: translate3d(0, 3px, 0) scale(1.006); }
-  100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+  0% { opacity: 0.9; transform: translate3d(0, 4px, 0); }
+  100% { opacity: 1; transform: translate3d(0, 0, 0); }
 }
 
 @media (max-width: 1160px) {
@@ -8179,9 +8192,9 @@ html[data-theme="night"] body {
 #input-form,
 #app-shell:is([data-theme="day"], [data-theme="night"]) #input-form {
   align-self: end;
-  height: var(--composer-height, 88px);
-  min-height: 0;
-  max-height: 170px;
+  height: auto;
+  min-height: var(--composer-height, 88px);
+  max-height: none;
   border-radius: 25px;
   box-shadow:
     0 16px 38px rgba(42, 48, 44, 0.11),

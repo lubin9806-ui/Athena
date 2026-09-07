@@ -73,6 +73,7 @@ export class ChatPanel {
   setActiveMode(mode: ChatMode): void {
     this.activeMode = mode;
     this.container.dataset.activeMode = mode;
+    delete this.container.dataset.streaming;
     this.streamingMessage = null;
     const messages = this.container.querySelectorAll<HTMLDivElement>(`.message.assistant[data-mode="${mode}"]`);
     this.lastAssistantMessage = messages.length > 0 ? messages.item(messages.length - 1) : null;
@@ -82,6 +83,7 @@ export class ChatPanel {
 
   clear(): void {
     this.container.replaceChildren();
+    delete this.container.dataset.streaming;
     this.streamingMessage = null;
     this.lastAssistantMessage = null;
     this.lastAssistantContent = '';
@@ -170,6 +172,7 @@ export class ChatPanel {
   }
 
   updateStreamingMessage(content: string): void {
+    this.container.dataset.streaming = 'true';
     if (!this.streamingMessage) {
       this.streamingMessage = this.addMessage('', 'assistant');
     }
@@ -188,6 +191,7 @@ export class ChatPanel {
       this.appendEmotion(this.streamingMessage, emotion);
     }
     this.streamingMessage = null;
+    delete this.container.dataset.streaming;
     this.scrollToBottom();
   }
 

@@ -11,9 +11,14 @@ export class InputBar {
       const value = this.input.value.trim();
       if ((!value && !canSubmitEmpty()) || this.input.disabled || this.button.disabled) return;
 
-      this.input.value = '';
+      this.clear();
       void handler(value);
     });
+  }
+
+  clear(): void {
+    this.input.value = '';
+    this.input.dispatchEvent(new Event('input', { bubbles: true }));
   }
 
   setDisabled(disabled: boolean): void {
