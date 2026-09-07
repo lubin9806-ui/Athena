@@ -37,7 +37,7 @@ export class ModelInitiativeDecider implements InitiativeDecisionClient {
     private readonly personaName: () => string,
   ) {}
 
-  async decide(input: { context: InitiativeContext; now: Date }): Promise<string> {
+  async decide(input: { context: InitiativeContext; now: Date; signal?: AbortSignal }): Promise<string> {
     const { context, now } = input;
     const remaining = Math.max(0, this.policy.maxMessagesPerDay - context.proactiveMessagesToday);
     return this.client.chatJson(
@@ -69,6 +69,7 @@ export class ModelInitiativeDecider implements InitiativeDecisionClient {
       INITIATIVE_SCHEMA as unknown as Record<string, unknown>,
       'companion',
       { temperature: 0.4, topP: 0.8, maxTokens: 300 },
+      input.signal,
     );
   }
 }

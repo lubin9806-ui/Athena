@@ -132,9 +132,17 @@ function pendingInitiativeJobs() {
 
 function buildEngine(overrides = {}) {
   const spoken = [];
+  const calls = [];
   const gate = { enabled: true, saveHistory: true, ...overrides.gate };
   const engine = new InitiativeEngine({
-    client: { decide: async () => overrides.reply ?? JSON.stringify({ action: 'wait', nextCheckMinutes: 30, reason: 'quiet' }) },
+    client: {
+      decide: async (input) => {
+        calls.push(input);
+        if (overrides.reject) throw overrides.reject();
+        return overrides.reply ?? JSON.stringify({ action: 'wait', nextCheckMinutes: 30, reason: 'quiet' });
+      },
+    },
+    isForegroundBusy: overrides.isForegroundBusy,
     readGate: () => gate,
     readContext: () => ({
       minutesSinceLastUserMessage: 20,
@@ -148,7 +156,7 @@ function buildEngine(overrides = {}) {
     },
     now: overrides.now,
   });
-  return { engine, spoken, gate };
+  return { engine, spoken, gate, calls };
 }
 
 function resetJobs() {
@@ -244,6 +252,60 @@ async function run() {
   const nightJob = pendingInitiativeJobs()[0];
   assert.equal(isQuietHour(new Date(nightJob.dueAt).getHours()), false, 'a scheduled wake must never sit inside the quiet window');
 
+  // --- Not competing with the user, and not holding a slot forever (ATH-PERF-001) ---
+
+  // A wake is never urgent. If the user is waiting on a reply, it must cost nothing
+  // at all - no call, no budget - and look again shortly.
+  resetJobs();
+  const busy = buildEngine({
+    isForegroundBusy: () => true,
+    reply: JSON.stringify({ action: 'speak', nextCheckMinutes: 30, reason: 'x', message: '在忙什么' }),
+  });
+  const busyResult = await busy.engine.wake();
+  assert.deepEqual(busy.calls, [], 'a wake must not call the model while a foreground request is in flight');
+  assert.equal(busyResult.spoke, false);
+  assert.deepEqual(busy.spoken, []);
+  assert(busyResult.issues.includes('deferred:foreground-busy'));
+  assert.equal(pendingInitiativeJobs().length, 1, 'a deferred wake still schedules the next look');
+  assert(busyResult.nextCheckMinutes > 0 && busyResult.nextCheckMinutes <= 5, 'a deferred wake looks again soon, not in half an hour');
+
+  // The same engine proceeds normally once the foreground is clear.
+  resetJobs();
+  let foregroundBusy = true;
+  const clearing = buildEngine({ isForegroundBusy: () => foregroundBusy });
+  await clearing.engine.wake();
+  assert.equal(clearing.calls.length, 0);
+  foregroundBusy = false;
+  await clearing.engine.wake();
+  assert.equal(clearing.calls.length, 1, 'the wake proceeds once nothing is in flight');
+
+  // The decision is given its own deadline rather than inheriting the adapter's.
+  resetJobs();
+  const budgeted = buildEngine();
+  await budgeted.engine.wake();
+  assert.equal(budgeted.calls.length, 1);
+  const passedSignal = budgeted.calls[0].signal;
+  assert(passedSignal instanceof AbortSignal, 'the decision must carry an abort signal');
+  assert.equal(passedSignal.aborted, false, 'the signal must not already be spent');
+
+  // A decision that runs past its deadline is reported as a timeout, and the loop
+  // survives it exactly as it survives an outright failure.
+  resetJobs();
+  const timedOut = buildEngine({
+    reject: () => Object.assign(new Error('The operation was aborted due to timeout'), { name: 'TimeoutError' }),
+  });
+  const timeoutResult = await timedOut.engine.wake();
+  assert.equal(timeoutResult.action, 'wait');
+  assert(timeoutResult.issues.includes('decision-timeout'), `expected a timeout issue, got ${timeoutResult.issues.join('|')}`);
+  assert.deepEqual(timedOut.spoken, []);
+  assert.equal(pendingInitiativeJobs().length, 1, 'a timed-out decision must still schedule the next wake');
+
+  // One wake is one call. A retry loop here would multiply background cost silently.
+  resetJobs();
+  const counted = buildEngine();
+  await counted.engine.wake();
+  assert.equal(counted.calls.length, 1, 'a wake makes exactly one model call');
+
   // Stopping cancels what is outstanding.
   resetJobs();
   const stopping = buildEngine();
@@ -252,8 +314,78 @@ async function run() {
   stopping.engine.stop();
   assert.equal(pendingInitiativeJobs().length, 0, 'stop must cancel the outstanding wake');
 
+  // --- Per-stage timing, so a serial pile-up is visible (ATH-PERF-001) ---
+
+  const { TurnProfile, isAbort } = require(path.join(root, 'dist', 'core', 'runtime', 'TurnProfile.js'));
+
+  let fakeClock = 1_000;
+  const profile = new TurnProfile(() => fakeClock);
+  await profile.measure('routing', async () => { fakeClock += 40; return 'rules'; }, value => value);
+  profile.record('creative', 0, 'skipped');
+  await profile.measure('reply', async () => { fakeClock += 3_200; return 'done'; });
+  assert.deepEqual(profile.list(), [
+    { name: 'routing', ms: 40, outcome: 'rules' },
+    { name: 'creative', ms: 0, outcome: 'skipped' },
+    { name: 'reply', ms: 3200, outcome: 'ok' },
+  ]);
+  assert.equal(profile.callCount(), 2, 'a skipped stage is not a call');
+  assert.equal(profile.totalMs(), 3240);
+  assert.equal(profile.format(), 'total=3240ms routing=40ms/rules creative=0ms/skipped reply=3200ms/ok');
+
+  // A stage that overruns is recorded as a timeout rather than a generic failure,
+  // which is the difference between "the provider is slow" and "we gave up".
+  const failing2 = new TurnProfile(() => fakeClock);
+  await assert.rejects(() => failing2.measure('creative', async () => {
+    fakeClock += 6_000;
+    throw Object.assign(new Error('aborted'), { name: 'TimeoutError' });
+  }));
+  assert.deepEqual(failing2.list(), [{ name: 'creative', ms: 6000, outcome: 'timeout' }]);
+  const failing3 = new TurnProfile(() => fakeClock);
+  await assert.rejects(() => failing3.measure('creative', async () => { throw new Error('500 from provider'); }));
+  assert.equal(failing3.list()[0].outcome, 'failed');
+
+  assert.equal(isAbort(Object.assign(new Error('x'), { name: 'AbortError' })), true);
+  assert.equal(isAbort(Object.assign(new Error('x'), { name: 'TimeoutError' })), true);
+  assert.equal(isAbort(new Error('ordinary')), false);
+  assert.equal(isAbort(null), false);
+  assert.equal(isAbort('AbortError'), false);
+
+  // --- Which messages may reach the extraction at all (ATH-PERF-001) ---
+
+  const { isCreativeCandidate, countVisualTerms } = require(path.join(root, 'dist', 'core', 'creative', 'index.js'));
+
+  // The reported case: a long visual brief pasted into ordinary conversation.
+  const visualBrief = '她坐在靠窗的位置，画面整体偏暖，逆光穿过发丝，浅景深把背景虚化开，'
+    + '服装是低饱和的燕麦色针织衫，构图留白偏右，质感要真实的皮肤肌理，超写实摄影风格。';
+  assert.equal(isCreativeCandidate(visualBrief), true);
+  assert(countVisualTerms(visualBrief) >= 3);
+
+  // An outright request needs no corroboration, however short.
+  for (const request of ['画一张雪山日出', '生成一张图', '再来一张', '帮我出张图', 'draw me a picture of a cat', '重新画一下']) {
+    assert.equal(isCreativeCandidate(request), true, `an image request must qualify: ${request}`);
+  }
+
+  // What must NOT reach the extraction: long, but not about a picture. This is the
+  // case that was paying for a model call in series ahead of its own answer.
+  const longDiscussion = '我最近在想我们那个项目的架构问题，数据库这块儿如果继续用现在的方案，'
+    + '迁移的时候会很麻烦，因为每次改表结构都要手写一遍迁移脚本，而且回滚路径也没有测过。'
+    + '我倾向于先把迁移做成可重放的，然后再考虑要不要换 ORM。你觉得这个顺序合理吗，还是说'
+    + '应该先把测试补齐再动迁移？另外部署脚本那边也有类似的问题，配置是散在好几个地方的，'
+    + '有一份在仓库里，有一份在环境变量里，还有一份是打包的时候生成的，每次排查问题都要'
+    + '先花十几分钟确认到底哪一份生效了。我想的是把它们合并成一个来源，然后其余的都从那里'
+    + '派生出来，这样至少出问题的时候只有一个地方要看。不过这么改的话，现有的部署流程要跟着'
+    + '动，可能得分两步走，先加新的来源并让旧的继续可用，等确认没问题了再把旧的删掉。';
+  assert(longDiscussion.length > 300, 'the fixture must be long enough to have passed the old gate');
+  assert.equal(isCreativeCandidate(longDiscussion), false, 'a long technical discussion must not trigger creative extraction');
+
+  for (const ordinary of ['', '   ', '今天怎么样', '帮我看看这段代码为什么报错，栈里说是空指针']) {
+    assert.equal(isCreativeCandidate(ordinary), false, `must not qualify: ${JSON.stringify(ordinary)}`);
+  }
+  assert.doesNotThrow(() => isCreativeCandidate(undefined));
+  assert.doesNotThrow(() => isCreativeCandidate(null));
+
   globalScheduler.shutdown();
-  console.log(`ATHENA_INITIATIVE_OK bounds=${minMinutes}-${maxMinutes}m default=${defaultMinutes}m quiet=${bounds.quietHoursStart}-${bounds.quietHoursEnd} maxPerDay=${bounds.maxMessagesPerDay}`);
+  console.log(`ATHENA_INITIATIVE_OK bounds=${minMinutes}-${maxMinutes}m default=${defaultMinutes}m quiet=${bounds.quietHoursStart}-${bounds.quietHoursEnd} maxPerDay=${bounds.maxMessagesPerDay} defersToForeground=yes stageTiming=yes`);
 }
 
 function cleanup(exitCode) {

@@ -29,7 +29,7 @@ export interface InitiativeContext {
 }
 
 export interface InitiativeDecisionClient {
-  decide(input: { context: InitiativeContext; now: Date }): Promise<string>;
+  decide(input: { context: InitiativeContext; now: Date; signal?: AbortSignal }): Promise<string>;
 }
 
 export interface InitiativeEngineOptions {
@@ -37,6 +37,12 @@ export interface InitiativeEngineOptions {
   readGate: () => { enabled: boolean; saveHistory: boolean };
   readContext: () => InitiativeContext;
   speak: (message: string) => { chatWindowId: number } | null;
+  /**
+   * Whether the user is currently waiting on a reply. A wake is not urgent and
+   * competing for the same provider - or the same GPU, locally - makes the
+   * foreground request slower for no gain (ATH-PERF-001).
+   */
+  isForegroundBusy?: () => boolean;
   policy?: InitiativePolicy;
   now?: () => Date;
 }
@@ -53,6 +59,10 @@ type InitiativeAction = InitiativeIntent['action'];
 
 const MAX_CONTEXT_TURNS = 6;
 const MAX_TURN_CHARS = 400;
+/** A background decision has no one waiting on it, but it must not hold a slot for the adapter's full 30s. */
+const DECISION_TIMEOUT_MS = 15_000;
+/** How soon to look again when the wake landed on top of a foreground request. */
+const BUSY_RETRY_MINUTES = 3;
 
 /**
  * Decides when Athena looks again, and on waking whether she says anything.
@@ -115,16 +125,37 @@ export class InitiativeEngine {
       return { action: 'wait', nextCheckMinutes: 0, blocked, issues: [], spoke: false };
     }
 
+    // Nobody is waiting on this. Someone is waiting on the foreground request, so
+    // the wake steps aside without spending a call, and looks again shortly. It is
+    // not recorded as an outcome: nothing was decided (ATH-PERF-001).
+    if (this.options.isForegroundBusy?.()) {
+      const deferred = this.scheduleWake(BUSY_RETRY_MINUTES);
+      logger.info(`Initiative wake deferred: a foreground request is in flight, retrying in ${BUSY_RETRY_MINUTES}m`);
+      return {
+        action: 'wait',
+        nextCheckMinutes: deferred ? BUSY_RETRY_MINUTES : 0,
+        blocked,
+        issues: ['deferred:foreground-busy'],
+        spoke: false,
+      };
+    }
+
     let raw = '';
     let issues: string[] = [];
+    const startedAt = Date.now();
     try {
-      raw = await this.options.client.decide({ context: trimContext(context), now });
+      raw = await this.options.client.decide({
+        context: trimContext(context),
+        now,
+        signal: AbortSignal.timeout(DECISION_TIMEOUT_MS),
+      });
     } catch (error) {
       // An unreachable or failing model must not stop the loop; it just means this
       // wake produced nothing and the next one is scheduled normally.
       const failure = classifyModelFailure(error);
-      logger.warn(`Initiative decision failed [code=${failure.code}]: ${failure.detail}`);
-      issues = [`decision-failed:${failure.code}`];
+      const timedOut = error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError');
+      logger.warn(`Initiative decision ${timedOut ? 'timed out' : 'failed'} after ${Date.now() - startedAt}ms [code=${failure.code}]: ${failure.detail}`);
+      issues = [timedOut ? 'decision-timeout' : `decision-failed:${failure.code}`];
     }
 
     const parsed = raw ? parseInitiativeIntent(raw, this.policy) : null;
@@ -144,7 +175,7 @@ export class InitiativeEngine {
     if (jobId) recordInitiativeOutcome(jobId, spoke);
 
     const scheduled = this.scheduleWake(intent.nextCheckMinutes);
-    logger.info(`Initiative wake done [action=${intent.action}, spoke=${spoke}, next=${intent.nextCheckMinutes}m, blocked=${blocked ?? 'none'}, issues=${issues.join('|') || 'none'}]`);
+    logger.info(`Initiative wake done in ${Date.now() - startedAt}ms [action=${intent.action}, spoke=${spoke}, next=${intent.nextCheckMinutes}m, blocked=${blocked ?? 'none'}, issues=${issues.join('|') || 'none'}]`);
     return {
       action: intent.action,
       nextCheckMinutes: scheduled ? intent.nextCheckMinutes : 0,

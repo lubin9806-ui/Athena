@@ -13,6 +13,7 @@ import {
   formatCreativeStateForDisplay,
   formatCreativeProposal,
   hasCreativeContent,
+  isCreativeCandidate,
   localCreativeExtraction,
   mergeCreativeState,
   needsCreativeConfirmation,
@@ -100,6 +101,7 @@ import {
 import type { ModelImageInput } from '../ai/model';
 import { globalEventBus } from '../../engine/EventBus';
 import { createLogger } from '../../engine/Logger';
+import { TurnProfile, isAbort } from '../runtime/TurnProfile';
 import type { DailyMemoryRefinement, DailyMemoryRefinementInput, MemoryRetentionPolicyResult } from '../../memory';
 import type {
   AgentCapabilityAccess,
@@ -135,6 +137,14 @@ const logger = createLogger('AthenaController');
 // Below this a message is chat, not a description worth reading for sections.
 const CREATIVE_SCAN_MIN_CHARS = 300;
 
+/**
+ * How long the creative extraction may hold the turn before the reply proceeds
+ * without it. This step sits in series ahead of the answer the user is waiting
+ * for, so it fails fast and degrades to leaving the description alone - which is
+ * the same thing an unreadable reply already does (ATH-PERF-001).
+ */
+const CREATIVE_EXTRACTION_TIMEOUT_MS = 6_000;
+
 /** What a creative turn did, so the caller knows whether to draw, ask, or carry on. */
 type CreativeTurnOutcome =
   | { kind: 'none' }
@@ -165,6 +175,8 @@ export class AthenaController {
   private reminder: Reminder;
   private initiative: InitiativeEngine;
   private creativeExtractor: ModelCreativeSectionExtractor;
+  /** In-flight foreground requests, so background work can stand aside (ATH-PERF-001). */
+  private foregroundRequests = 0;
   private workflows: WorkflowManager;
   private webSearch: WebSearchService;
   private readonly agentStore: AgentStore;
@@ -300,11 +312,34 @@ export class AthenaController {
     globalEventBus.emit('athena:ready');
   }
 
+  /**
+   * One turn, with its stages timed and a foreground marker held for the duration.
+   * The marker is what lets an initiative wake stand aside rather than compete for
+   * the same provider; the timings are what make a serial pile-up visible in the
+   * log instead of showing up only as "it felt slow" (ATH-PERF-001).
+   */
   async processMessage(
     userMessage: string,
     requestedMode?: ConversationMode,
     onStream?: (chunk: string) => void,
     options?: ProcessMessageOptions,
+  ): Promise<ChatResponse> {
+    const profile = new TurnProfile();
+    this.foregroundRequests += 1;
+    try {
+      return await this.runMessage(userMessage, requestedMode, onStream, options, profile);
+    } finally {
+      this.foregroundRequests = Math.max(0, this.foregroundRequests - 1);
+      logger.info(`Turn profile: ${profile.format()}`);
+    }
+  }
+
+  private async runMessage(
+    userMessage: string,
+    requestedMode: ConversationMode | undefined,
+    onStream: ((chunk: string) => void) | undefined,
+    options: ProcessMessageOptions | undefined,
+    profile: TurnProfile,
   ): Promise<ChatResponse> {
     if (!this.initialized) await this.initialize();
 
@@ -347,15 +382,21 @@ export class AthenaController {
     // message used to mean a model round trip per turn - so a brief that carries its
     // own headings is admitted regardless of length, because reading it is free
     // (ATH-CHAT-004, ATH-IMG-004).
+    // Length alone admitted every long discussion, and the extraction it paid for
+    // sits in series ahead of the reply. A message now has to look like it is about
+    // a picture as well as being long enough to be one (ATH-PERF-001).
     const creativeContext = mode === 'create'
       || Boolean(creativeWorkspace.pending)
       || hasCreativeContent(creativeWorkspace.state)
       || (mode !== 'execute' && (
-        userMessage.trim().length >= CREATIVE_SCAN_MIN_CHARS
-        || parseLabeledCreativeSpec(userMessage) !== null));
-    const creative: CreativeTurnOutcome = creativeContext && !isTemporaryChat
-      ? await this.updateCreativeState(chatWindowId, userMessage)
-      : { kind: 'none' };
+        parseLabeledCreativeSpec(userMessage) !== null
+        || (userMessage.trim().length >= CREATIVE_SCAN_MIN_CHARS && isCreativeCandidate(userMessage))));
+    let creative: CreativeTurnOutcome = { kind: 'none' };
+    if (creativeContext && !isTemporaryChat) {
+      creative = await this.updateCreativeState(chatWindowId, userMessage, profile);
+    } else {
+      profile.record('creative', 0, 'skipped');
+    }
 
     // Understanding is delivered before acting: the proposal is the reply, and
     // nothing is drawn until the user answers it (ATH-CHAT-004).
@@ -1201,8 +1242,10 @@ export class AthenaController {
   private async updateCreativeState(
     chatWindowId: number,
     message: string,
+    profile?: TurnProfile,
   ): Promise<CreativeTurnOutcome> {
     if (!canRouteModelRequest(this.llm.providerName, canUseNetworkCapability('remoteModel'), this.llm.endpoint)) {
+      profile?.record('creative', 0, 'skipped');
       return { kind: 'none' };
     }
     const workspace = parseCreativeWorkspace(getChatWindowCreativeState(chatWindowId));
@@ -1225,16 +1268,29 @@ export class AthenaController {
     let extraction: CreativeExtraction;
     if (labelled) {
       extraction = localCreativeExtraction(labelled);
+      profile?.record('creative', 0, 'local');
       logger.info(`Creative brief read locally [sections=${labelled.explicitSections.join(',')}, coverage=${labelled.coverage.toFixed(2)}]`);
     } else {
+      const started = Date.now();
       try {
-        extraction = await this.creativeExtractor.extract({ message, state: workspace.state });
+        extraction = await this.creativeExtractor.extract({
+          message,
+          state: workspace.state,
+          // Its own budget, rather than the adapter's general 30s. This runs ahead
+          // of the reply, so overrunning it costs the user the wait twice over.
+          signal: AbortSignal.timeout(CREATIVE_EXTRACTION_TIMEOUT_MS),
+        });
       } catch (error) {
         const failure = classifyModelFailure(error);
-        logger.warn(`Creative extraction failed [code=${failure.code}]: ${failure.detail}`);
+        const elapsed = Date.now() - started;
+        const timedOut = isAbort(error);
+        profile?.record('creative', elapsed, timedOut ? 'timeout' : 'failed');
+        logger.warn(`Creative extraction ${timedOut ? 'timed out' : 'failed'} after ${elapsed}ms [code=${failure.code}]: ${failure.detail}`);
         return { kind: 'none' };
       }
-      if (extraction.issues.length > 0) logger.info(`Creative extraction issues: ${extraction.issues.join('|')}`);
+      const elapsed = Date.now() - started;
+      profile?.record('creative', elapsed, extraction.issues.length > 0 ? `issues:${extraction.issues[0]}` : extraction.kind);
+      logger.info(`Creative extraction via model in ${elapsed}ms [kind=${extraction.kind}, issues=${extraction.issues.join('|') || 'none'}]`);
     }
     if (extraction.kind === 'not_creative') return { kind: 'none' };
 
@@ -1343,6 +1399,7 @@ export class AthenaController {
         saveHistory: shouldSaveHistory(),
       }),
       readContext: () => this.readInitiativeContext(),
+      isForegroundBusy: () => this.foregroundRequests > 0,
       speak: (message) => {
         const delivered = this.deliverProactiveMessage({ content: message, source: 'initiative' });
         if (delivered) globalEventBus.emit('proactive:delivered', delivered);
