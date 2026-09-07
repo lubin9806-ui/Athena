@@ -8,6 +8,16 @@ export interface ModelCredentialStatus {
   configured: boolean;
   source: 'environment' | 'local-env-file' | 'windows-safe-storage' | 'none';
   encryptionAvailable: boolean;
+  error: CredentialStatusError | null;
+}
+
+export type CredentialStatusError = 'credential.encryption_unavailable' | 'credential.decrypt_failed';
+
+export class CredentialStoreError extends Error {
+  constructor(public readonly code: CredentialStatusError, message: string) {
+    super(message);
+    this.name = 'CredentialStoreError';
+  }
 }
 
 interface CredentialFile {
@@ -84,15 +94,28 @@ export function resolveImageCredential(provider: ImageCloudProvider): string | n
 function getCredentialStatus(provider: CredentialProvider): ModelCredentialStatus | ImageCredentialStatus {
   assertProvider(provider);
   const environment = resolveProcessEnvironmentCredential(provider);
-  if (environment) return { provider, configured: true, source: environment.source, encryptionAvailable: encryptionReady() } as ModelCredentialStatus | ImageCredentialStatus;
+  if (environment) return { provider, configured: true, source: environment.source, encryptionAvailable: encryptionReady(), error: null } as ModelCredentialStatus | ImageCredentialStatus;
   const file = readCredentialFile();
-  if (file.entries[provider]) {
-    return {
-      provider,
-      configured: true,
-      source: 'windows-safe-storage',
-      encryptionAvailable: encryptionReady(),
-    } as ModelCredentialStatus | ImageCredentialStatus;
+  const encrypted = file.entries[provider];
+  if (encrypted !== undefined) {
+    try {
+      decryptStoredCredential(provider, encrypted);
+      return {
+        provider,
+        configured: true,
+        source: 'windows-safe-storage',
+        encryptionAvailable: encryptionReady(),
+        error: null,
+      } as ModelCredentialStatus | ImageCredentialStatus;
+    } catch (error) {
+      return {
+        provider,
+        configured: false,
+        source: 'windows-safe-storage',
+        encryptionAvailable: encryptionReady(),
+        error: error instanceof CredentialStoreError ? error.code : 'credential.decrypt_failed',
+      } as ModelCredentialStatus | ImageCredentialStatus;
+    }
   }
   const localEnvironment = resolveLocalEnvironmentCredential(provider);
   return {
@@ -100,6 +123,7 @@ function getCredentialStatus(provider: CredentialProvider): ModelCredentialStatu
     configured: Boolean(localEnvironment),
     source: localEnvironment?.source ?? 'none',
     encryptionAvailable: encryptionReady(),
+    error: null,
   } as ModelCredentialStatus | ImageCredentialStatus;
 }
 
@@ -125,14 +149,28 @@ function resolveCredential(provider: CredentialProvider): string | null {
   const environment = resolveProcessEnvironmentCredential(provider);
   if (environment) return environment.value;
   const encrypted = readCredentialFile().entries[provider];
-  if (encrypted && encryptionReady()) {
-    try {
-      return safeStorage.decryptString(Buffer.from(encrypted, 'base64'));
-    } catch {
-      // Fall through to a local env file when the encrypted value is unreadable.
-    }
-  }
+  if (encrypted !== undefined) return decryptStoredCredential(provider, encrypted);
   return resolveLocalEnvironmentCredential(provider)?.value ?? null;
+}
+
+function decryptStoredCredential(provider: CredentialProvider, encrypted: string): string {
+  if (!encryptionReady()) {
+    throw new CredentialStoreError(
+      'credential.encryption_unavailable',
+      `${provider} 的 Windows 加密凭据当前不可读取，请恢复当前 Windows 用户配置或重新保存 API Key。`,
+    );
+  }
+  try {
+    const value = safeStorage.decryptString(Buffer.from(encrypted, 'base64')).trim();
+    if (!value) throw new Error('decrypted credential is empty');
+    return value;
+  } catch (error) {
+    if (error instanceof CredentialStoreError) throw error;
+    throw new CredentialStoreError(
+      'credential.decrypt_failed',
+      `${provider} 的已保存 API Key 无法解密，请清除后重新保存；Athena 未改用其他凭据来源。`,
+    );
+  }
 }
 
 function resolveProcessEnvironmentCredential(provider: CredentialProvider): { value: string; source: 'environment' } | null {

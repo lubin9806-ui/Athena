@@ -802,6 +802,7 @@ interface ImageCredentialStatus {
   configured: boolean;
   source: 'environment' | 'local-env-file' | 'windows-safe-storage' | 'none';
   encryptionAvailable: boolean;
+  error: 'credential.encryption_unavailable' | 'credential.decrypt_failed' | null;
 }
 
 interface LocalImageRuntimeStatus {
@@ -1055,6 +1056,7 @@ interface ModelCredentialStatus {
   configured: boolean;
   source: 'environment' | 'local-env-file' | 'windows-safe-storage' | 'none';
   encryptionAvailable: boolean;
+  error: 'credential.encryption_unavailable' | 'credential.decrypt_failed' | null;
 }
 
 interface ModelConnectionStatus {
@@ -4711,11 +4713,16 @@ async function refreshModelCredentialStatus(): Promise<void> {
     modelCredentialStatus.textContent = '无法读取凭据状态。';
     return;
   }
-  modelCredentialStatus.textContent = status.configured
+  modelCredentialStatus.textContent = status.error === 'credential.decrypt_failed'
+    ? '已保存的 API Key 无法解密，请清除后重新保存；Athena 不会改用本地环境文件。'
+    : status.error === 'credential.encryption_unavailable'
+      ? 'Windows 安全凭据当前不可读取，请恢复当前 Windows 用户配置或重新保存 API Key。'
+      : status.configured
     ? `API Key 已配置（${status.source === 'environment' ? '临时环境变量' : status.source === 'local-env-file' ? '本地环境文件' : 'Windows 加密存储'}）。`
     : status.encryptionAvailable
       ? '尚未保存 API Key。'
       : 'Windows 安全凭据加密不可用，Key 不会保存。';
+  modelCredentialStatus.dataset.kind = status.error ? 'error' : status.configured ? 'success' : 'pending';
 }
 
 async function saveModelCredential(): Promise<void> {
@@ -4847,12 +4854,16 @@ async function refreshImageProviderStatus(): Promise<void> {
     : status.source === 'local-env-file'
       ? '本地环境文件'
       : 'Windows 加密存储';
-  imageCredentialStatus.textContent = status.configured
+  imageCredentialStatus.textContent = status.error === 'credential.decrypt_failed'
+    ? '已保存的生图 API Key 无法解密，请清除后重新保存；Athena 不会改用本地环境文件。'
+    : status.error === 'credential.encryption_unavailable'
+      ? 'Windows 安全凭据当前不可读取，请恢复当前 Windows 用户配置或重新保存 API Key。'
+      : status.configured
     ? `API Key 已配置（${source}）。`
     : status.encryptionAvailable
       ? '尚未保存该通道的 API Key。'
       : 'Windows 安全凭据加密不可用，无法保存 Key。';
-  imageCredentialStatus.dataset.kind = status.configured ? 'success' : 'pending';
+  imageCredentialStatus.dataset.kind = status.error ? 'error' : status.configured ? 'success' : 'pending';
 }
 
 async function discoverLocalImageResources(showToast: boolean): Promise<void> {

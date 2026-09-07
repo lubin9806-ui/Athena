@@ -56,6 +56,7 @@ export interface ImageCredentialStatus {
   configured: boolean;
   source: 'environment' | 'local-env-file' | 'windows-safe-storage' | 'none';
   encryptionAvailable: boolean;
+  error: 'credential.encryption_unavailable' | 'credential.decrypt_failed' | null;
 }
 
 export interface LocalImageRuntimeStatus {

@@ -55,6 +55,21 @@ async function main() {
     process.chdir(scratch);
     assert.strictEqual(credentials.getModelCredentialStatus('openai').source, 'windows-safe-storage');
     assert.strictEqual(credentials.resolveModelCredential('openai'), 'sk-athena-provider-fixture');
+
+    const encryptedCredentialFile = JSON.parse(fs.readFileSync(credentialFile, 'utf8'));
+    encryptedCredentialFile.entries.openai = 'not-a-readable-safe-storage-payload';
+    fs.writeFileSync(credentialFile, `${JSON.stringify(encryptedCredentialFile, null, 2)}\n`, 'utf8');
+    const unreadableStatus = credentials.getModelCredentialStatus('openai');
+    assert.strictEqual(unreadableStatus.configured, false, 'an unreadable encrypted credential must not be reported as configured');
+    assert.strictEqual(unreadableStatus.source, 'windows-safe-storage');
+    assert.strictEqual(unreadableStatus.error, 'credential.decrypt_failed');
+    assert.throws(
+      () => credentials.resolveModelCredential('openai'),
+      error => error?.code === 'credential.decrypt_failed' && /未改用其他凭据来源/.test(error.message),
+      'an unreadable encrypted credential must fail closed instead of falling back to .env',
+    );
+    credentials.setModelCredential('openai', 'sk-athena-provider-fixture');
+
     process.env.OPENAI_API_KEY = 'sk-explicit-process-environment';
     assert.strictEqual(credentials.getModelCredentialStatus('openai').source, 'environment');
     assert.strictEqual(credentials.resolveModelCredential('openai'), 'sk-explicit-process-environment');
