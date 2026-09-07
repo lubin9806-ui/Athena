@@ -11,6 +11,7 @@
 | 设置与个性化 | `config/settings.json`、`config/model.json` | 不自动上传 | 用户修改或删除配置目录；导出包含脱敏副本 |
 | 搜索查询 | SQLite `data_activity_records` 的最小活动记录 | 同意后发往 Sogou/Bing/DuckDuckGo 和结果网页 | 历史关闭时不记录；历史保留期自动清理；一键清除删除 |
 | 语音文件 | `%TEMP%\athena\voice` 或 `ATHENA_VOICE_TEMP_DIR` | Desktop 当前 Whisper STT 与 Windows SAPI TTS 均在本机处理 | 录音转写后删除；WAV TTS 缓存按小时清理；一键清除删除 |
+| 麦克风开启时机 | 不落盘 | 默认仅在用户点击录音期间开启。打开「朗读时可以开口打断」后，朗读期间也会开启，用于判断你是否开口 | 该开关默认关闭，需显式打开；打断监听只做响度判定，不录制、不落盘、不转写，朗读结束或停止即释放设备 |
 | 工具记录 | SQLite 最小活动记录；执行面板内存态详细记录 | 外部 HTTP/TCP 需外网工具同意和逐次确认；localhost 不算外部网络 | 历史关闭时不记录；历史保留期自动清理；当前窗口执行记录不持久化 |
 | 任务产物文件 | 当前 Project 根目录下的 `.athena/artifacts/<task-id>` | 文档生成完全本地；本地生图不外发，云端生图仅在独立同意与逐次审批后向当前所选 Provider 发送提示词 | 任务数据库记录可一键清除；实际文件由用户在 Project 中保留或删除 |
 | 日志/崩溃诊断 | stdout/stderr；`%TEMP%\athena\diagnostics\crash-diagnostics.jsonl` | 不自动上传 | 诊断脱敏、单文件 1 MB、最多 3 个轮转文件；隐私中心可导出无聊天内容的支持包或只删除已知诊断文件 |

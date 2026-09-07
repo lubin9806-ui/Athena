@@ -8,7 +8,8 @@
 - STT 进程模型：`--serve` 常驻 sidecar 复用已加载模型（实测短句 1439ms→608ms），空闲 5 分钟回收，stdin EOF 自退。**常驻是优化不是依赖**——握手完成前、忙碌时、以及 worker 崩溃时一律回落一次性 spawn，起不来只是慢。`ATHENA_STT_WORKER=0` 关闭。
 - STT 语言：`auto`（默认，由 Whisper 从音频判定）或钉死一个 ISO 639-1 码。默认不钉死是因为钉错语言会把语音解成通顺的胡话——实测英文按 `zh` 解码为 0% 且慢 2.7 倍，而 `auto` 在中英素材上与钉死同语言准确率相同。
 - TTS：Windows SAPI (`System.Speech`) 本地合成 WAV；使用用户系统已安装声音，不捆绑或转售声音资源。音色档为声音名 + 语速(-10..10) + 音量(0..100) + 音高(-50%..50%)；音高经 `SpeakSsml` 的 `<prosody>` 实现，`xml:lang` 必须取实际选中声音的 culture，否则 SAPI 会整段换成别的声音。**不含声音克隆**：那需要本地神经 TTS payload，属发行决策，未实现也不进宣传。
-- 播放：Windows `System.Media.SoundPlayer` 本地播放 Athena 生成的 WAV，不依赖 Python。
+- 播放：Windows `System.Media.SoundPlayer` 本地播放 Athena 生成的 WAV，不依赖 Python。**开启打断时改用应用内播放**——浏览器回声消除只对本页播放的音频有参考信号，交给 PowerShell 播放就等于让 Athena 听见自己。
+- 打断（barge-in）：默认关闭。开启后朗读期间常开麦克风做响度判定（不录制、不落盘、不转写），残余回声成为检测器测得的本底，人声须显著高于它。判定门槛比听写更严（绝对下限 0.02、需高出本底 4 倍、连续 ~340ms），因为误打断比漏打断更扰人。
 - 在线 STT/TTS：当前没有 provider、设置或入口，不进入 Desktop/Steam 1.0 宣传。未来签约适配器必须分别复用窗口 03 的 `onlineSpeechToText` / `onlineTextToSpeech` 同意门，禁止隐式 fallback。
 
 顶层依赖约束记录在 `requirements-voice.txt`，完整可重复依赖闭包锁在 `requirements-voice.lock.txt`。`npm.cmd run prepare:voice-runtime` 从 Python 官方来源生成 CPython 3.11.9 Windows x64 sidecar，并从固定提交生成 `Systran/faster-whisper-tiny` 本地模型。输出位于被 Git 忽略的 `resources/voice-runtime`，每个交付文件记录在 `voice-runtime-manifest.json` 中并使用 SHA-256 验证。
@@ -35,6 +36,8 @@
 - `npm.cmd run prepare:voice-scripts`：只重新拷贝六个语音脚本并重新固定 manifest。改 `stt_whisper.py` 或任一 `.ps1` 后必须执行，否则哈希失配。它不是绕过完整性门：其余文件必须逐一匹配旧 manifest，且目录内不得出现未登记文件，任一条不满足就退回完整 `prepare:voice-runtime`。
 - `npm.cmd run test:voice-input`：分段度量（能力探测/解释器/import/模型加载/解码）、中英素材准确率下限、听写热路径 150ms 预算，以及「把设置钉成错误语言后准确率必须下降」的端到端断言。
 - `npm.cmd run test:voice-output`：直接对合成音频断言音色档生效——语速改变时长、音量改变峰值、音高走 SSML 后不换声。
+- `npm.cmd run test:voice-activity`：纯函数端点检测的 13 个合成场景，含听写与打断两套参数。
+- `npm.cmd run smoke:electron:voice`：真实录音下的动画契约守卫（`data-voice-state`、`#input-aura` 不透明度、两个 glow 变量的写入与清空）。
 - `npm.cmd run test:voice:e2e`：SAPI 中文合成后由内置 Whisper 离线转写。
 - `npm.cmd run smoke:electron`：Electron UI、IPC 和麦克风权限边界。
 - 临时目录静默安装验证：确认安装后的 `resources/voice/python`、`resources/voice/models/whisper-tiny` 和 `Athena.exe --smoke-test`，完成后卸载并删除测试目录。

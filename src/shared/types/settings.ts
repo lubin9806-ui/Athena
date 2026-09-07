@@ -98,6 +98,13 @@ export interface VoiceSettings {
    */
   ttsPitch: number;
   silenceAutoStop: boolean;
+  /**
+   * Listen while reading aloud so speaking interrupts it.
+   *
+   * Off by default because it opens the microphone for the whole time Athena is
+   * speaking, which is a thing to opt into rather than discover.
+   */
+  bargeIn: boolean;
 }
 
 export interface DataSettings {

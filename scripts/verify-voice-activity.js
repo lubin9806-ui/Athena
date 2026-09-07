@@ -12,6 +12,7 @@ const {
   SpeechActivityDetector,
   RECORDING_ACTIVITY_OPTIONS,
 } = require('../dist/renderer/voice/SpeechActivityDetector.js');
+const { BARGE_IN_ACTIVITY_OPTIONS } = require('../dist/renderer/voice/BargeInMonitor.js');
 
 /** The rule this detector replaced: any two consecutive frames over 0.008. */
 const OLD_FIXED_THRESHOLD = 0.008;
@@ -27,6 +28,10 @@ function oldRuleFires(levels) {
 
 function detector() {
   return new SpeechActivityDetector(RECORDING_ACTIVITY_OPTIONS);
+}
+
+function bargeInDetector() {
+  return new SpeechActivityDetector(BARGE_IN_ACTIVITY_OPTIONS);
 }
 
 function feed(instance, levels) {
@@ -147,6 +152,47 @@ function main() {
     );
     const states = feed(instance, steady(0.2, 6));
     assert(states.includes('speech'), 'speech after a loud calibration was ignored');
+  });
+
+  // Barge-in listens while Athena is speaking, so the first thing it must not do
+  // is hear Athena. These cover the decision; whether the browser's echo
+  // canceller leaves a residue this quiet is a real-hardware question.
+  check('the reading does not interrupt itself', () => {
+    const instance = bargeInDetector();
+    feed(instance, noisy(0.03, 60, 0.15));
+    assert.strictEqual(
+      instance.hasHeardSpeech,
+      false,
+      `residual echo was taken for a speaker (floor ${instance.noiseFloor.toFixed(4)}, `
+      + `threshold ${instance.threshold.toFixed(4)})`,
+    );
+  });
+
+  check('a person speaking over the reading interrupts it', () => {
+    const instance = bargeInDetector();
+    feed(instance, noisy(0.03, 20, 0.15));
+    const states = feed(instance, noisy(0.25, 8, 0.1));
+    assert(states.includes('speech'), 'speaking over the reading did not interrupt it');
+  });
+
+  check('a short noise over the reading does not interrupt it', () => {
+    // Cutting Athena off mid-sentence because a chair moved is worse than having
+    // to press the button, so onset is longer here than for dictation.
+    const instance = bargeInDetector();
+    feed(instance, noisy(0.03, 20, 0.15));
+    feed(instance, [0.4, 0.35]);
+    assert.strictEqual(instance.hasHeardSpeech, false, 'a short noise stopped the reading');
+  });
+
+  check('interrupting asks for more evidence than dictation', () => {
+    const stricter = ['minimumLevel', 'floorMultiplier', 'onsetFrames'];
+    for (const key of stricter) {
+      assert(
+        BARGE_IN_ACTIVITY_OPTIONS[key] > RECORDING_ACTIVITY_OPTIONS[key],
+        `barge-in ${key} (${BARGE_IN_ACTIVITY_OPTIONS[key]}) is not stricter than dictation `
+        + `(${RECORDING_ACTIVITY_OPTIONS[key]}); a false interrupt costs more than a missed one`,
+      );
+    }
   });
 
   console.log('ATHENA_VOICE_ACTIVITY_OK');

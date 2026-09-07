@@ -119,6 +119,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     ttsVolume: 100,
     ttsPitch: 0,
     silenceAutoStop: true,
+    bargeIn: false,
   },
   imageGeneration: {
     provider: 'local',
@@ -616,6 +617,7 @@ function sanitizeVoice(value: unknown): VoiceSettings {
     ttsVolume: clampInteger(source.ttsVolume, 0, 100, DEFAULT_SETTINGS.voice.ttsVolume),
     ttsPitch: clampInteger(source.ttsPitch, -50, 50, DEFAULT_SETTINGS.voice.ttsPitch),
     silenceAutoStop: cleanBoolean(source.silenceAutoStop, DEFAULT_SETTINGS.voice.silenceAutoStop),
+    bargeIn: cleanBoolean(source.bargeIn, DEFAULT_SETTINGS.voice.bargeIn),
   };
 }
 

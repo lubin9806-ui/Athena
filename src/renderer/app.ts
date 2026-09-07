@@ -12,6 +12,7 @@ import { DialogSystem } from './ui/DialogSystem';
 import { ToastSystem } from './ui/ToastSystem';
 import { MicrophoneRecorder } from './voice/MicrophoneRecorder';
 import { RECORDING_ACTIVITY_OPTIONS, SpeechActivityDetector } from './voice/SpeechActivityDetector';
+import { BARGE_IN_ACTIVITY_OPTIONS, BargeInMonitor } from './voice/BargeInMonitor';
 import type { AvatarLayoutMode } from '../shared/types/avatar';
 import type { AthenaAvatarEvent } from './avatar/AvatarRuntime';
 import type { EmotionType } from '../shared/types/emotion';
@@ -760,6 +761,7 @@ interface VoiceSettings {
   ttsVolume: number;
   ttsPitch: number;
   silenceAutoStop: boolean;
+  bargeIn: boolean;
 }
 
 interface ImageGenerationSettings {
@@ -1410,6 +1412,7 @@ const settingSttEnabled = mustGet<HTMLInputElement>('setting-stt-enabled');
 const settingTtsEnabled = mustGet<HTMLInputElement>('setting-tts-enabled');
 const settingAutoPlayAssistant = mustGet<HTMLInputElement>('setting-auto-play-assistant');
 const settingSilenceAutoStop = mustGet<HTMLInputElement>('setting-silence-auto-stop');
+const settingBargeIn = mustGet<HTMLInputElement>('setting-barge-in');
 const settingSttLanguage = mustGet<HTMLSelectElement>('setting-stt-language');
 const settingTtsVoice = mustGet<HTMLInputElement>('setting-tts-voice');
 const settingTtsRate = mustGet<HTMLInputElement>('setting-tts-rate');
@@ -1513,6 +1516,14 @@ const microphoneRecorder = new MicrophoneRecorder({
   onVolume: updateMicrophoneMeter,
   onError: handleMicrophoneRecorderError,
 });
+
+const bargeInMonitor = new BargeInMonitor({
+  onSpeech: () => { void handleBargeIn(); },
+  onError: (error) => {
+    // Losing the interrupt listener must not interrupt the reading itself.
+    showVoiceFeedback(`打断监听不可用：${error.message}`, 'error', 4000);
+  },
+}, BARGE_IN_ACTIVITY_OPTIONS);
 
 function setStatus(text: string, state: AppStatusState): void {
   statusText.textContent = text;
@@ -5340,6 +5351,7 @@ function populateSettingsForm(bundle: SettingsBundle): void {
   settingTtsEnabled.checked = voice.ttsEnabled;
   settingAutoPlayAssistant.checked = voice.autoPlayAssistant;
   settingSilenceAutoStop.checked = voice.silenceAutoStop;
+  settingBargeIn.checked = voice.bargeIn;
   settingSttLanguage.value = voice.sttLanguage;
   settingTtsVoice.value = voice.ttsVoice;
   settingTtsRate.value = String(voice.ttsRate);
@@ -6717,6 +6729,7 @@ function voicePatchFromForm(): VoiceSettings {
     ttsEnabled: settingTtsEnabled.checked,
     autoPlayAssistant: settingAutoPlayAssistant.checked,
     silenceAutoStop: settingSilenceAutoStop.checked,
+    bargeIn: settingBargeIn.checked,
     sttEngine: 'local_whisper',
     sttLanguage: settingSttLanguage.value as SttLanguage,
     ttsVoice: settingTtsVoice.value,
@@ -6775,7 +6788,10 @@ async function synthesizeAndPlay(text: string, playingMessage: string): Promise<
     stopCurrentAudio();
     showVoiceFeedback(playingMessage);
     setStatus('正在朗读', 'working');
-    if (RELEASE_FEATURES.live2d && live2dCompanion.isEnabled) {
+    // Interrupting needs the browser's echo canceller, and that only has a
+    // reference signal for audio this page is playing - so arming barge-in also
+    // means keeping playback in the renderer rather than handing it to PowerShell.
+    if ((RELEASE_FEATURES.live2d && live2dCompanion.isEnabled) || isBargeInArmed()) {
       await playAudioInRenderer(result.audioPath);
     } else {
       const playback = await window.athenaAPI.playAudioFile(result.audioPath);
@@ -6801,12 +6817,14 @@ async function playAudioInRenderer(audioPath: string): Promise<void> {
   audio.addEventListener('ended', () => {
     if (currentAudio !== audio) return;
     currentAudio = null;
+    void bargeInMonitor.stop();
     showVoiceFeedback('朗读完成', 'success', 1800);
     restoreIdleStatus();
   }, { once: true });
   audio.addEventListener('error', () => {
     if (currentAudio !== audio) return;
     currentAudio = null;
+    void bargeInMonitor.stop();
     showVoiceFeedback('朗读失败：无法播放生成的音频', 'error', 4800);
     restoreIdleStatus();
   }, { once: true });
@@ -6821,6 +6839,29 @@ async function playAudioInRenderer(audioPath: string): Promise<void> {
   await live2dCompanion.attachAudio(audio);
   await waitForAudioReady(audio);
   await audio.play();
+  // Listening starts only once sound is actually coming out, so the echo the
+  // detector settles on as its floor is the reading itself.
+  if (isBargeInArmed()) void bargeInMonitor.start();
+}
+
+/** Interrupting needs voice input available, not just the preference set. */
+function isBargeInArmed(): boolean {
+  const voice = currentSettingsBundle?.settings.voice;
+  return Boolean(voice?.bargeIn && voice.sttEnabled) && currentVoiceCapabilities?.stt.ready === true;
+}
+
+/**
+ * The user spoke over the reading: stop it and start listening.
+ *
+ * toggleMicrophoneRecording already stops playback and cancels any main-process
+ * voice work before it opens the microphone, so this hands over rather than
+ * unwinding the reading itself - and the recording animation is driven by the
+ * ordinary recording path, not by the monitor.
+ */
+async function handleBargeIn(): Promise<void> {
+  if (!currentAudio) return;
+  showVoiceFeedback('听到你开口，已停止朗读');
+  await toggleMicrophoneRecording();
 }
 
 function waitForAudioReady(audio: HTMLAudioElement): Promise<void> {
@@ -6845,6 +6886,8 @@ function waitForAudioReady(audio: HTMLAudioElement): Promise<void> {
 }
 
 function stopCurrentAudio(): void {
+  // Nothing is being read, so nothing is left to interrupt.
+  void bargeInMonitor.stop();
   if (currentAudio) {
     currentAudio.pause();
     currentAudio.currentTime = 0;
