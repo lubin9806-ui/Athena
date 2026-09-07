@@ -1053,6 +1053,13 @@ summary:focus-visible {
   height: 16px;
 }
 
+#voice-stt-btn {
+  /* Hold-to-talk tracks an upward drag to arm cancel; without this the gesture
+     is claimed as a scroll or a text selection before pointermove arrives. */
+  touch-action: none;
+  user-select: none;
+}
+
 #voice-stt-label {
   display: none;
   font-size: 10px;

@@ -10,7 +10,7 @@
 | Execute | mode permission、轮数和命令超时进入 ToolRuntime；其他模式强制 Off |
 | 搜索 | enabled/mode/result/page/deep-read/secondary 与独立同意同时进入主进程搜索计划 |
 | 个性化/记忆 | PromptBuilder、检索类别/深度、自动提取和重要度门读取设置 |
-| 语音 | 本地 STT/TTS/自动朗读/停顿/打断/自动发送/自动聆听/识别语言/朗读引擎/声音名/语速/音量/音高均有运行路径；选 Piper 时「音高」与「Windows 声音」自动禁用（该引擎不支持，不留可调假象）；打断开关同时改变播放通道（应用内播放以便回声消除）；识别语言经 `VoiceService` 传入 `stt_whisper.py`（默认 `auto`），音色档经 `tts-local.ps1` 传入 SAPI，「试听当前音色」先持久化再走正常播放链路；两者分别由 `test:voice-input`、`test:voice-output` 对真实音频断言而非只查往返；旧 auto/Google STT 和不可用在线语音同意控件已移除 |
+| 语音 | 本地 STT/TTS/自动朗读/停顿/打断/自动发送/自动聆听/识别语言/朗读引擎/声音名/语速/音量/音高均有运行路径；语音对话面板与「按住说话」不设开关（前者进入即授权，后者由按压时长自动区分），故不在设置中出现也不留无效控件；选 Piper 时「音高」与「Windows 声音」自动禁用（该引擎不支持，不留可调假象）；打断开关同时改变播放通道（应用内播放以便回声消除）；识别语言经 `VoiceService` 传入 `stt_whisper.py`（默认 `auto`），音色档经 `tts-local.ps1` 传入 SAPI，「试听当前音色」先持久化再走正常播放链路；两者分别由 `test:voice-input`、`test:voice-output` 对真实音频断言而非只查往返；旧 auto/Google STT 和不可用在线语音同意控件已移除 |
 | 数据 | 删除确认、历史保留、语音缓存保留和导出格式均有执行路径 |
 | 模型 | Ollama URL/model/temperature/maxTokens/numCtx 进入 LLMClient |
 

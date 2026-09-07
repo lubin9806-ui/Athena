@@ -265,6 +265,14 @@ const MIN_RECORDING_MS = 350;
 // The old fixed speech threshold now lives in the detector as a lower bound.
 const VOICE_MIN_SIGNAL_LEVEL = 0.001;
 const VOICE_SILENCE_STOP_MS = 1_600;
+/**
+ * Below this a press is a tap, which toggles; at or above it the press is a
+ * hold, which sends on release. One button, both interactions, no setting to
+ * find - and a tap still behaves exactly as it did before.
+ */
+const MIC_HOLD_MS = 350;
+/** Upward travel while holding that arms "release to cancel", as in WeChat. */
+const MIC_CANCEL_DISTANCE = 60;
 /** How long a hands-free turn waits for an answer before ending the loop. */
 const HANDS_FREE_LISTEN_TIMEOUT_MS = 8_000;
 
@@ -1546,6 +1554,11 @@ let voiceSessionStartedAt = 0;
 let voiceSessionRetries = 0;
 const VOICE_SESSION_MAX_RETRIES = 5;
 const VOICE_SESSION_RETRY_MS = 800;
+/** Set when a pointer gesture already acted, so the click it produces is ignored. */
+let micPointerHandled = false;
+let micPressedAt = 0;
+let micPressedY = 0;
+let micCancelArmed = false;
 let modelConnected: boolean | null = null;
 let currentVoiceCapabilities: VoiceCapabilities | null = null;
 let forceWebSearchForNextMessage = false;
@@ -2282,7 +2295,19 @@ function init(): void {
   });
   btnMinimize.addEventListener('click', () => window.athenaAPI.minimize());
   btnClose.addEventListener('click', () => window.athenaAPI.close());
-  voiceSttBtn.addEventListener('click', toggleMicrophoneRecording);
+  // Tap toggles, hold talks. A synthetic .click() fires no pointer events, so
+  // scripted clicks keep the toggle path they always had.
+  voiceSttBtn.addEventListener('click', () => {
+    if (micPointerHandled) {
+      micPointerHandled = false;
+      return;
+    }
+    void toggleMicrophoneRecording();
+  });
+  voiceSttBtn.addEventListener('pointerdown', handleMicPointerDown);
+  voiceSttBtn.addEventListener('pointermove', handleMicPointerMove);
+  voiceSttBtn.addEventListener('pointerup', handleMicPointerUp);
+  voiceSttBtn.addEventListener('pointercancel', handleMicPointerUp);
   voiceFileBtn.addEventListener('click', () => {
     toggleComposerTools(false);
     void transcribeAudioFile();
@@ -6507,7 +6532,7 @@ function setVoiceInputState(state: VoiceInputState): void {
   if (!wasRecording && isRecording) void dispatchLive2dEvent({ type: 'voice.listening.start' });
   if (wasRecording && !isRecording) void dispatchLive2dEvent({ type: 'voice.listening.end' });
   voiceSttBtn.setAttribute('aria-pressed', String(isRecording));
-  voiceSttBtn.title = isRecording ? '停止录音并识别' : '开始录音';
+  voiceSttBtn.title = isRecording ? '停止录音并识别（按住时松开即发送）' : '点击开始录音，按住说话松开发送';
   voiceSttBtn.setAttribute('aria-label', voiceSttBtn.title);
 
   if (!isRecording) {
@@ -6544,6 +6569,56 @@ function restoreIdleStatus(): void {
   if (isStreaming || isVoiceInputBusy() || isVoiceOutputBusy) return;
   if (modelConnected === false) setStatus('模型离线', 'offline');
   else setStatus('就绪', 'ready');
+}
+
+/**
+ * Press-and-hold dictation, the way a walkie-talkie or WeChat works.
+ *
+ * The same button still toggles on a tap. Which one happened is decided on
+ * release by how long the button was held, so nothing has to be configured and
+ * the tap behaviour that already existed is untouched. Pointer capture keeps
+ * move and release coming here after the finger leaves the button, which is
+ * what makes slide-to-cancel possible at all.
+ */
+function handleMicPointerDown(event: PointerEvent): void {
+  if (event.button !== 0 || voiceSttBtn.disabled) return;
+  micPointerHandled = true;
+  micCancelArmed = false;
+
+  // A press while already recording is the second tap of a toggle: finish.
+  if (voiceInputState === 'recording') {
+    micPressedAt = 0;
+    void stopAndTranscribeRecording();
+    return;
+  }
+
+  micPressedAt = performance.now();
+  micPressedY = event.clientY;
+  try { voiceSttBtn.setPointerCapture(event.pointerId); } catch { /* Capture is best effort. */ }
+  void toggleMicrophoneRecording();
+}
+
+function handleMicPointerMove(event: PointerEvent): void {
+  if (!micPressedAt || voiceInputState !== 'recording') return;
+  const armed = micPressedY - event.clientY > MIC_CANCEL_DISTANCE;
+  if (armed === micCancelArmed) return;
+  micCancelArmed = armed;
+  showVoiceFeedback(armed ? '松开取消' : '松开发送 · 上滑取消');
+}
+
+function handleMicPointerUp(event: PointerEvent): void {
+  try { voiceSttBtn.releasePointerCapture(event.pointerId); } catch { /* Already released. */ }
+  const pressedAt = micPressedAt;
+  micPressedAt = 0;
+  if (!pressedAt) return;
+
+  const cancelled = micCancelArmed;
+  micCancelArmed = false;
+  // A quick tap leaves the recording running - that is the toggle. Only a real
+  // hold ends on release.
+  if (!cancelled && performance.now() - pressedAt < MIC_HOLD_MS) return;
+  if (cancelled) void cancelMicrophoneRecording();
+  else void stopAndTranscribeRecording();
 }
 
 async function toggleMicrophoneRecording(): Promise<void> {
@@ -6690,10 +6765,16 @@ function updateRecordingDuration(durationMs: number): void {
 
   const elapsed = formatRecordingDuration(durationMs);
   voiceSttLabel.textContent = elapsed;
-  showVoiceFeedback(`正在聆听 ${elapsed} · ${currentMicrophoneLabel} · 说完会自动识别`);
+  // One owner for this line: the ticker rewrites it every 250ms, so a hold hint
+  // set anywhere else would be wiped within a quarter second.
+  showVoiceFeedback(micPressedAt
+    ? (micCancelArmed ? '松开取消' : `松开发送 ${elapsed} · 上滑取消`)
+    : `正在聆听 ${elapsed} · ${currentMicrophoneLabel} · 说完会自动识别`);
 
   if (
     (currentSettingsBundle?.settings.voice.silenceAutoStop ?? true)
+    // A held button is the signal: releasing ends the recording, not a pause.
+    && !micPressedAt
     && recordingSpeechDetected
     && performance.now() - recordingLastSpeechAt >= VOICE_SILENCE_STOP_MS
     && !autoStopRequested

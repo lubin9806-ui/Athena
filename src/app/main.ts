@@ -1084,11 +1084,48 @@ function createWindow(): void {
               });
             }
 
+            // Hold-to-talk shares the button with tap-to-toggle, and which one
+            // happened is decided by how long it was held. A synthetic click
+            // fires no pointer events, so the toggle path above and this one are
+            // genuinely separate and both need exercising.
+            const settled = () => inputForm.dataset.voiceState === 'idle'
+              || inputForm.dataset.voiceState === 'error';
+            const micPointer = (type, clientY) => micButton.dispatchEvent(new PointerEvent(type, {
+              bubbles: true, cancelable: true, pointerId: 1, button: 0, buttons: 1, clientY,
+            }));
+
+            await waitFor(settled, 8000);
+            micPointer('pointerdown', 400);
+            if (!await waitFor(() => micButton.getAttribute('aria-pressed') === 'true', 6000)) {
+              return voiceSmokeFail('hold-start', { state: inputForm.dataset.voiceState });
+            }
+            // Past the tap threshold, so releasing must send rather than leave
+            // the recording running the way a tap does.
+            await new Promise(resolve => setTimeout(resolve, 520));
+            micPointer('pointerup', 400);
+            if (!await waitFor(() => inputForm.dataset.voiceState !== 'recording', 8000)) {
+              return voiceSmokeFail('hold-release', { state: inputForm.dataset.voiceState });
+            }
+
+            await waitFor(settled, 8000);
+            micPointer('pointerdown', 400);
+            if (!await waitFor(() => micButton.getAttribute('aria-pressed') === 'true', 6000)) {
+              return voiceSmokeFail('hold-cancel-start', { state: inputForm.dataset.voiceState });
+            }
+            micPointer('pointermove', 300);
+            const cancelHint = document.getElementById('voice-feedback')?.textContent || '';
+            micPointer('pointerup', 300);
+            const cancelled = await waitFor(() => inputForm.dataset.voiceState === 'idle', 8000);
+            if (!cancelled || !cancelHint.includes('取消')) {
+              return voiceSmokeFail('hold-cancel', { cancelHint, state: inputForm.dataset.voiceState });
+            }
+
             console.log('ATHENA_SMOKE_VOICE_STATE', JSON.stringify({
               ok: true,
               stage: 'recording-cancel',
               animation: recordingAnimation,
               session: sessionOpenState,
+              holdToTalk: { cancelHint },
             }));
             return true;
           } catch (error) {
