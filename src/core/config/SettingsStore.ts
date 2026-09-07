@@ -120,6 +120,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
     ttsPitch: 0,
     silenceAutoStop: true,
     bargeIn: false,
+    autoSendDictation: false,
+    handsFree: false,
   },
   imageGeneration: {
     provider: 'local',
@@ -618,6 +620,8 @@ function sanitizeVoice(value: unknown): VoiceSettings {
     ttsPitch: clampInteger(source.ttsPitch, -50, 50, DEFAULT_SETTINGS.voice.ttsPitch),
     silenceAutoStop: cleanBoolean(source.silenceAutoStop, DEFAULT_SETTINGS.voice.silenceAutoStop),
     bargeIn: cleanBoolean(source.bargeIn, DEFAULT_SETTINGS.voice.bargeIn),
+    autoSendDictation: cleanBoolean(source.autoSendDictation, DEFAULT_SETTINGS.voice.autoSendDictation),
+    handsFree: cleanBoolean(source.handsFree, DEFAULT_SETTINGS.voice.handsFree),
   };
 }
 

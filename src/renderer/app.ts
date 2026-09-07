@@ -259,6 +259,8 @@ const MIN_RECORDING_MS = 350;
 // The old fixed speech threshold now lives in the detector as a lower bound.
 const VOICE_MIN_SIGNAL_LEVEL = 0.001;
 const VOICE_SILENCE_STOP_MS = 1_600;
+/** How long a hands-free turn waits for an answer before ending the loop. */
+const HANDS_FREE_LISTEN_TIMEOUT_MS = 8_000;
 
 interface MemoryListOptions {
   kind?: MemoryKind | 'all';
@@ -762,6 +764,8 @@ interface VoiceSettings {
   ttsPitch: number;
   silenceAutoStop: boolean;
   bargeIn: boolean;
+  autoSendDictation: boolean;
+  handsFree: boolean;
 }
 
 interface ImageGenerationSettings {
@@ -1413,6 +1417,8 @@ const settingTtsEnabled = mustGet<HTMLInputElement>('setting-tts-enabled');
 const settingAutoPlayAssistant = mustGet<HTMLInputElement>('setting-auto-play-assistant');
 const settingSilenceAutoStop = mustGet<HTMLInputElement>('setting-silence-auto-stop');
 const settingBargeIn = mustGet<HTMLInputElement>('setting-barge-in');
+const settingAutoSendDictation = mustGet<HTMLInputElement>('setting-auto-send-dictation');
+const settingHandsFree = mustGet<HTMLInputElement>('setting-hands-free');
 const settingSttLanguage = mustGet<HTMLSelectElement>('setting-stt-language');
 const settingTtsVoice = mustGet<HTMLInputElement>('setting-tts-voice');
 const settingTtsRate = mustGet<HTMLInputElement>('setting-tts-rate');
@@ -1505,6 +1511,9 @@ let currentMicrophoneLabel = '默认麦克风';
 let voiceOperationId = 0;
 let autoStopRequested = false;
 let isVoiceOutputBusy = false;
+/** A turn finished with hands-free on and is waiting for the reading to end. */
+let handsFreePending = false;
+let handsFreeSilenceTimer: number | undefined;
 let modelConnected: boolean | null = null;
 let currentVoiceCapabilities: VoiceCapabilities | null = null;
 let forceWebSearchForNextMessage = false;
@@ -1896,9 +1905,12 @@ async function sendMessage(text: string): Promise<void> {
     inputBar.focus();
     restoreIdleStatus();
     if ((requestMode !== 'execute' || directImageGeneration) && currentSettingsBundle?.settings.voice.autoPlayAssistant) {
+      // Listening resumes after the reading, not on top of it.
+      handsFreePending = isHandsFreeArmed();
       void speakLastAssistantMessage();
     } else if (requestMode !== 'execute' || directImageGeneration) {
       void dispatchLive2dEvent({ type: 'app.ready' });
+      void resumeHandsFreeListening();
     }
     await refreshChatWindows();
     await refreshWindowMemoryPanel();
@@ -5352,6 +5364,8 @@ function populateSettingsForm(bundle: SettingsBundle): void {
   settingAutoPlayAssistant.checked = voice.autoPlayAssistant;
   settingSilenceAutoStop.checked = voice.silenceAutoStop;
   settingBargeIn.checked = voice.bargeIn;
+  settingAutoSendDictation.checked = voice.autoSendDictation;
+  settingHandsFree.checked = voice.handsFree;
   settingSttLanguage.value = voice.sttLanguage;
   settingTtsVoice.value = voice.ttsVoice;
   settingTtsRate.value = String(voice.ttsRate);
@@ -6530,9 +6544,17 @@ async function stopAndTranscribeRecording(): Promise<void> {
       throw new Error(result.error || '没有识别到清晰的语音。');
     }
 
+    const autoSend = currentSettingsBundle?.settings.voice.autoSendDictation === true;
     inputBar.insertAtCursor(text);
     inputBar.focus();
-    completeVoiceInput('听写完成，已插入输入框');
+    completeVoiceInput(autoSend ? '听写完成，正在发送' : '听写完成，已插入输入框');
+    // Sending reads the composer rather than the transcript, so anything already
+    // typed goes with it, and it clears first exactly as submitting does.
+    if (autoSend) {
+      const outgoing = inputBar.getValue().trim();
+      inputBar.setValue('');
+      void sendMessage(outgoing);
+    }
   } catch (error) {
     if (operationId !== voiceOperationId) return;
     failVoiceInput(error);
@@ -6542,6 +6564,8 @@ async function stopAndTranscribeRecording(): Promise<void> {
 async function cancelMicrophoneRecording(): Promise<void> {
   if (voiceInputState !== 'recording' && voiceInputState !== 'requesting') return;
 
+  // Escape means stop, including stopping the loop that would listen again.
+  handsFreePending = false;
   const operationId = ++voiceOperationId;
   clearRecordingTimers();
   resetRecordingActivity();
@@ -6574,8 +6598,10 @@ function startRecordingTimers(): void {
 function clearRecordingTimers(): void {
   if (recordingTicker) window.clearInterval(recordingTicker);
   if (recordingDeadlineTimer) window.clearTimeout(recordingDeadlineTimer);
+  if (handsFreeSilenceTimer) window.clearTimeout(handsFreeSilenceTimer);
   recordingTicker = undefined;
   recordingDeadlineTimer = undefined;
+  handsFreeSilenceTimer = undefined;
   recordingStartedAt = 0;
 }
 
@@ -6651,6 +6677,8 @@ function completeVoiceInput(message: string): void {
 }
 
 function failVoiceInput(error: unknown): void {
+  // A turn that heard nothing ends the hands-free loop rather than restarting it.
+  handsFreePending = false;
   clearRecordingTimers();
   resetRecordingActivity();
   setVoiceInputState('error');
@@ -6730,6 +6758,8 @@ function voicePatchFromForm(): VoiceSettings {
     autoPlayAssistant: settingAutoPlayAssistant.checked,
     silenceAutoStop: settingSilenceAutoStop.checked,
     bargeIn: settingBargeIn.checked,
+    autoSendDictation: settingAutoSendDictation.checked,
+    handsFree: settingHandsFree.checked,
     sttEngine: 'local_whisper',
     sttLanguage: settingSttLanguage.value as SttLanguage,
     ttsVoice: settingTtsVoice.value,
@@ -6796,7 +6826,10 @@ async function synthesizeAndPlay(text: string, playingMessage: string): Promise<
     } else {
       const playback = await window.athenaAPI.playAudioFile(result.audioPath);
       if (!playback.ok) await playAudioInRenderer(result.audioPath);
-      else showVoiceFeedback('朗读完成', 'success', 1800);
+      else {
+        showVoiceFeedback('朗读完成', 'success', 1800);
+        if (handsFreePending) void resumeHandsFreeListening();
+      }
     }
   } catch (error) {
     stopCurrentAudio();
@@ -6820,6 +6853,7 @@ async function playAudioInRenderer(audioPath: string): Promise<void> {
     void bargeInMonitor.stop();
     showVoiceFeedback('朗读完成', 'success', 1800);
     restoreIdleStatus();
+    if (handsFreePending) void resumeHandsFreeListening();
   }, { once: true });
   audio.addEventListener('error', () => {
     if (currentAudio !== audio) return;
@@ -6842,6 +6876,36 @@ async function playAudioInRenderer(audioPath: string): Promise<void> {
   // Listening starts only once sound is actually coming out, so the echo the
   // detector settles on as its floor is the reading itself.
   if (isBargeInArmed()) void bargeInMonitor.start();
+}
+
+/**
+ * Listen again once the turn is finished, so a spoken conversation needs no
+ * clicks between turns.
+ *
+ * The loop has one exit that matters: a turn that hears no speech fails through
+ * failVoiceInput, which clears the pending flag. A quiet room therefore ends the
+ * conversation instead of cycling on its own noise.
+ */
+async function resumeHandsFreeListening(): Promise<void> {
+  handsFreePending = false;
+  if (!isHandsFreeArmed()) return;
+  if (isStreaming || isVoiceInputBusy() || isVoiceOutputBusy || currentAudio) return;
+
+  await toggleMicrophoneRecording();
+  if (voiceInputState !== 'recording') return;
+  // Without this the loop would hold the microphone open to the 60s cap before
+  // deciding nobody answered. Leaving a room should end the conversation in
+  // seconds, not after a minute of recording an empty room.
+  handsFreeSilenceTimer = window.setTimeout(() => {
+    if (voiceInputState !== 'recording' || recordingSpeechDetected) return;
+    showVoiceFeedback('没有听到说话，已结束自动聆听', 'info', 2600);
+    void cancelMicrophoneRecording();
+  }, HANDS_FREE_LISTEN_TIMEOUT_MS);
+}
+
+function isHandsFreeArmed(): boolean {
+  const voice = currentSettingsBundle?.settings.voice;
+  return Boolean(voice?.handsFree && voice.sttEnabled) && currentVoiceCapabilities?.stt.ready === true;
 }
 
 /** Interrupting needs voice input available, not just the preference set. */

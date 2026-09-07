@@ -105,6 +105,14 @@ export interface VoiceSettings {
    * speaking, which is a thing to opt into rather than discover.
    */
   bargeIn: boolean;
+  /** Send a dictation as soon as it is transcribed, without a second click. */
+  autoSendDictation: boolean;
+  /**
+   * Listen again once a turn is finished, so a spoken conversation needs no
+   * clicks between turns. Off by default, and it ends itself the moment a turn
+   * produces no speech rather than cycling on room noise.
+   */
+  handsFree: boolean;
 }
 
 export interface DataSettings {

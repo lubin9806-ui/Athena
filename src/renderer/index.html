@@ -1134,6 +1134,15 @@
               <span>朗读时可以开口打断</span>
             </label>
             <div class="settings-note">打开后，Athena 朗读期间会一直开着麦克风；你开口说话时会停止朗读并转入听写。朗读改由应用内播放以便消除回声。默认关闭。</div>
+            <label class="settings-toggle">
+              <input id="setting-auto-send-dictation" type="checkbox" />
+              <span>听写完成后直接发送</span>
+            </label>
+            <label class="settings-toggle">
+              <input id="setting-hands-free" type="checkbox" />
+              <span>回复结束后自动继续聆听</span>
+            </label>
+            <div class="settings-note">两项一起打开即为全程免手对话。听写有错字时会直接发出去，所以默认关闭；自动聆听在某一轮没听到说话时会自行结束，不会空转。</div>
             <label class="settings-field">
               <span>识别语言</span>
               <select id="setting-stt-language">
