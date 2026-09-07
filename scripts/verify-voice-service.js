@@ -123,12 +123,22 @@ async function main() {
   assert.equal(secondResult.code, 'cancelled');
   assert.equal(service.cancelAll(), 0, 'cancelAll with no in-flight operations must report zero');
 
-  fs.rmSync(scratch, { recursive: true, force: true });
-  console.log('ATHENA_VOICE_SERVICE_OK cancelled=classified input=validated');
+  // VoiceService now owns a resident recogniser whose working directory is the
+  // fixture tree, so the scratch directory cannot be removed until it is let go.
+  // The fake runtime never completes the handshake, which is also what proves
+  // every assertion above ran through the one-shot fallback.
+  service.dispose();
+  removeScratch();
+  console.log('ATHENA_VOICE_SERVICE_OK cancelled=classified input=validated fallback=one-shot');
+}
+
+function removeScratch() {
+  // A killed child releases its working directory a moment later on Windows.
+  fs.rmSync(scratch, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 });
 }
 
 main().catch(async (error) => {
-  fs.rmSync(scratch, { recursive: true, force: true });
   console.error(error);
   process.exitCode = 1;
+  try { removeScratch(); } catch { /* Reporting the real failure matters more. */ }
 });

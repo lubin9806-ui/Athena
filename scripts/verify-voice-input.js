@@ -43,6 +43,18 @@ const MAX_HOT_PATH_OVERHEAD_MS = 150;
 /** The language VoiceService passes when the suite runs with default settings. */
 const SERVICE_LANGUAGE = 'auto';
 
+/**
+ * Enough calls for the background warm-up to finish and the resident path to be
+ * exercised; the first ones still go one-shot while the model loads.
+ */
+const RESIDENT_ATTEMPTS = 5;
+/**
+ * Interpreter start, import and model construction were ~850ms of a ~1250ms
+ * utterance, so keeping the model loaded should take a large bite out of it.
+ * The floor is well under the measured saving to leave room for slower disks.
+ */
+const MIN_RESIDENT_SPEEDUP = 0.25;
+
 const FIXTURES = [
   {
     id: 'zh',
@@ -137,8 +149,68 @@ function similarity(expected, actual, culture) {
   return Math.max(0, 1 - editDistance(left, right) / left.length);
 }
 
+/**
+ * Time the same audio with the resident recogniser off and then on.
+ *
+ * The worker warms in the background, so the first calls with it enabled still
+ * take the one-shot path; the run continues until the timings settle, and the
+ * fastest of each mode is compared.
+ */
+async function measureResidentWorker(probe) {
+  const withoutWorker = new VoiceService();
+  process.env.ATHENA_STT_WORKER = '0';
+  let coldMs = Infinity;
+  let coldText = '';
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const run = await timed(() => withoutWorker.transcribe(probe.audioPath));
+    assert.strictEqual(run.value.ok, true, `resident/off: ${run.value.error}`);
+    if (run.ms < coldMs) coldMs = run.ms;
+    coldText = (run.value.text || '').trim();
+  }
+
+  delete process.env.ATHENA_STT_WORKER;
+  const withWorker = new VoiceService();
+  let warmMs = Infinity;
+  let warmText = '';
+  try {
+    for (let attempt = 0; attempt < RESIDENT_ATTEMPTS; attempt += 1) {
+      const run = await timed(() => withWorker.transcribe(probe.audioPath));
+      assert.strictEqual(run.value.ok, true, `resident/on: ${run.value.error}`);
+      warmText = (run.value.text || '').trim();
+      // The warming calls are one-shot and would drown the signal, so only runs
+      // that beat the one-shot baseline count towards the warm figure.
+      if (run.ms < warmMs) warmMs = run.ms;
+    }
+  } finally {
+    withWorker.dispose();
+    withoutWorker.dispose();
+  }
+
+  const speedup = 1 - warmMs / coldMs;
+  assert(
+    speedup >= MIN_RESIDENT_SPEEDUP,
+    `The resident recogniser never engaged: best ${round(warmMs)}ms against a ${round(coldMs)}ms one-shot `
+    + `is ${round(speedup * 100)}%, under the ${round(MIN_RESIDENT_SPEEDUP * 100)}% floor.`,
+  );
+  assert.strictEqual(
+    warmText,
+    coldText,
+    'The resident recogniser returned different text than the one-shot path for the same audio.',
+  );
+
+  console.log(
+    `[resident] one-shot ${round(coldMs)}ms -> resident ${round(warmMs)}ms (-${round(speedup * 100)}%), same text`,
+  );
+  return { coldMs: round(coldMs), warmMs: round(warmMs), speedup: Math.round(speedup * 1000) / 1000 };
+}
+
 async function main() {
   assert(fs.existsSync(RUNTIME), `Managed voice runtime is missing at ${RUNTIME}. Run npm.cmd run prepare:voice-runtime.`);
+  // The hot-path budget compares transcribe() against an equivalent one-shot
+  // spawn, so the resident recogniser stays off until it is measured on its own.
+  // Leaving it on made transcribe() ~850ms faster than the spawn it is compared
+  // with, which would have hidden a probe put back on the hot path.
+  process.env.ATHENA_STT_WORKER = '0';
   const voice = new VoiceService();
 
   const capabilities = await voice.getCapabilities();
@@ -287,8 +359,14 @@ async function main() {
     + `${round(probe.accuracy * 100)}% -> ${round(pinnedAccuracy * 100)}%, so the control reaches the sidecar`,
   );
 
+  // The resident recogniser keeps the model loaded between utterances. Compare
+  // the two paths on the same audio: it has to be faster, and it has to return
+  // the same words - a faster answer that says something else is not the answer.
+  const resident = await measureResidentWorker(probe);
+
   const report = {
     marker: 'ATHENA_VOICE_INPUT_OK',
+    resident,
     model: path.basename(modelDir),
     phases: {
       preflightMs: round(preflightMs),
@@ -320,6 +398,7 @@ async function main() {
 }
 
 function cleanupVoiceInput() {
+  delete process.env.ATHENA_STT_WORKER;
   delete process.env.ATHENA_TTS_VOICE;
   delete process.env.ATHENA_CONFIG_DIR;
   delete process.env.ATHENA_DB_DIR;

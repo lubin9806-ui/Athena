@@ -1,5 +1,21 @@
-"""Athena offline STT. A local model directory is mandatory; downloads are forbidden."""
+"""Athena offline STT. A local model directory is mandatory; downloads are forbidden.
+
+Two modes:
+
+  stt_whisper.py <audio> <model> [language]   one shot; loads the model, decodes,
+                                              exits. Used by the packaging probe
+                                              and as the fallback path.
+  stt_whisper.py --serve <model>              resident worker; loads the model
+                                              once, then answers one JSON request
+                                              per line on stdin.
+
+Loading the model costs far more than decoding a short utterance, so the resident
+mode exists to stop paying it per sentence (ATH-VOICE-005). One shot stays
+because it is the honest way to verify the runtime and to recover when the worker
+cannot start.
+"""
 from pathlib import Path
+import json
 import os
 import sys
 
@@ -27,10 +43,10 @@ def normalize_language(value: str) -> str:
     return base
 
 
-def transcribe(audio_path: str, model_path: str, language: str) -> str:
+def load_model(model_path: str):
     from faster_whisper import WhisperModel
 
-    model = WhisperModel(
+    return WhisperModel(
         model_path,
         device="cpu",
         compute_type="int8",
@@ -39,6 +55,8 @@ def transcribe(audio_path: str, model_path: str, language: str) -> str:
         local_files_only=True,
     )
 
+
+def run_transcription(model, audio_path: str, language: str) -> str:
     # None asks faster-whisper to detect the language from the audio. A pinned
     # code skips detection, which is faster and steadier when the speaker's
     # language is known - and produces confident nonsense when it is wrong.
@@ -57,7 +75,70 @@ def transcribe(audio_path: str, model_path: str, language: str) -> str:
     return " ".join(seg.text for seg in segments).strip()
 
 
+def transcribe(audio_path: str, model_path: str, language: str) -> str:
+    return run_transcription(load_model(model_path), audio_path, language)
+
+
+def emit(payload: dict) -> None:
+    """One JSON object per line; the caller reads line by line."""
+    sys.stdout.write(json.dumps(payload, ensure_ascii=False) + "\n")
+    sys.stdout.flush()
+
+
+def handle_request(model, request: dict) -> dict:
+    audio_path = Path(str(request.get("audio", "")))
+    if not audio_path.is_file():
+        return {"ok": False, "code": "INPUT_ERROR", "message": "Audio file does not exist."}
+    try:
+        language = normalize_language(str(request.get("language", AUTO_LANGUAGE)))
+    except ValueError as error:
+        return {"ok": False, "code": "USAGE_ERROR", "message": str(error)}
+    try:
+        text = run_transcription(model, str(audio_path), language)
+    except Exception as error:
+        return {"ok": False, "code": "STT_ERROR", "message": f"{type(error).__name__}: {error}"}
+    if not text:
+        return {"ok": False, "code": "NO_SPEECH", "message": "No recognizable speech was found."}
+    return {"ok": True, "text": text}
+
+
+def serve(model_path: Path) -> int:
+    if not model_path.is_dir():
+        return fail("MODEL_MISSING", "The preinstalled local Whisper model is missing; runtime download is disabled.", 3)
+    try:
+        model = load_model(str(model_path))
+    except ImportError as error:
+        return fail("DEPENDENCY_ERROR", f"Managed voice dependency is unavailable: {error}", 4)
+    except Exception as error:
+        return fail("STT_ERROR", f"{type(error).__name__}: {error}", 1)
+
+    # The caller waits for this line before sending work, and keeps using the one
+    # shot path until it arrives. Anything printed before it would be read as the
+    # handshake, so nothing else may write to stdout.
+    emit({"ready": True})
+
+    for line in sys.stdin:
+        line = line.strip()
+        if not line:
+            continue
+        request_id = None
+        try:
+            request = json.loads(line)
+            request_id = request.get("id")
+            response = handle_request(model, request)
+        except json.JSONDecodeError as error:
+            response = {"ok": False, "code": "USAGE_ERROR", "message": f"Malformed request: {error}"}
+        # Echoing the id lets the caller reject a reply that does not belong to
+        # the request it is waiting on, instead of returning someone else's text.
+        if request_id is not None:
+            response["id"] = request_id
+        emit(response)
+    return 0
+
+
 def main() -> int:
+    if len(sys.argv) == 3 and sys.argv[1] == "--serve":
+        return serve(Path(sys.argv[2]))
     if not 3 <= len(sys.argv) <= 4:
         return fail("USAGE_ERROR", "Expected audio path, local Whisper model directory and an optional language.", 2)
     audio_path = Path(sys.argv[1])

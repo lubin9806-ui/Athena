@@ -6,6 +6,7 @@ import { getAppSettings } from '../config/SettingsStore';
 import { cleanupVoiceCache, getVoiceTempDir } from '../privacy/PrivacyDataService';
 import { resolveProjectRoot, resolveVoiceRootCandidates } from '../runtime/Paths';
 import { ensureSufficientDiskSpace, InsufficientDiskSpaceError } from '../runtime/DiskSpaceGuard';
+import { SttWorker, SttWorkerReply } from './SttWorker';
 
 export interface VoiceResult {
   ok: boolean;
@@ -54,6 +55,16 @@ interface SttReadiness {
 
 const STT_RUNTIME_MISSING = '本地语音运行时未安装。正式包必须提供受管 Python 3.11 sidecar。';
 const STT_MODEL_MISSING = '本地 Whisper 模型缺失；Athena 不会在运行时自动下载。';
+const STT_TIMEOUT_MS = 90_000;
+const STT_WORKER_OPTIONS = {
+  // The first load reads the model off disk cold, so this is generous.
+  handshakeTimeoutMs: 120_000,
+  // An idle model holds a few hundred megabytes for nothing.
+  idleShutdownMs: 5 * 60_000,
+  startCooldownMs: 60_000,
+  requestTimeoutMs: STT_TIMEOUT_MS,
+  maxLineBytes: 1_000_000,
+};
 
 const PROJECT_ROOT = resolveProjectRoot();
 const SCRIPT_ROOT = resolveVoiceScriptRoot();
@@ -64,6 +75,32 @@ const TRANSCRIBE_EXTENSIONS = new Set(['.wav', '.aiff', '.aif', '.flac']);
 
 export class VoiceService {
   private readonly activeOperations = new Set<AbortController>();
+  private worker: SttWorker | null = null;
+
+  /** Release the resident recogniser; the next utterance warms a fresh one. */
+  dispose(): void {
+    this.cancelAll();
+    this.worker?.dispose();
+    this.worker = null;
+  }
+
+  private getWorker(): SttWorker {
+    // Paths are resolved per spawn rather than captured, so a settings or
+    // environment change takes effect on the next start instead of being
+    // frozen into the first one.
+    this.worker ||= new SttWorker(
+      () => {
+        const current = resolveSttReadiness();
+        return spawn(
+          current.python,
+          [path.join(SCRIPT_ROOT, 'stt_whisper.py'), '--serve', current.model],
+          voiceProcessOptions(),
+        );
+      },
+      STT_WORKER_OPTIONS,
+    );
+    return this.worker;
+  }
 
   cancelAll(): number {
     let cancelled = 0;
@@ -199,10 +236,18 @@ export class VoiceService {
     }
     const operation = this.beginOperation(signal);
     try {
+      const language = resolveSttLanguage();
+      const viaWorker = isSttWorkerEnabled()
+        ? await this.getWorker().run({ audio: sourcePath, language }, operation.signal)
+        : null;
+      // A worker that died mid-utterance is an optimisation failing, not a
+      // transcription failing, so the one-shot path still gets its turn.
+      if (viaWorker && viaWorker.code !== 'WORKER_LOST') return fromWorkerReply(viaWorker);
+
       const result = await runProcess(
         readiness.python,
-        [path.join(SCRIPT_ROOT, 'stt_whisper.py'), sourcePath, readiness.model, resolveSttLanguage()],
-        90_000,
+        [path.join(SCRIPT_ROOT, 'stt_whisper.py'), sourcePath, readiness.model, language],
+        STT_TIMEOUT_MS,
         operation.signal,
       );
       const text = result.stdout.trim();
@@ -291,6 +336,15 @@ function resolveSttReadiness(): SttReadiness {
   return { ready: true, python, model };
 }
 
+/**
+ * The resident recogniser can be switched off without touching settings, which
+ * is how the measurement suite compares the two paths and how a machine with a
+ * misbehaving sidecar gets back to the one-shot behaviour.
+ */
+function isSttWorkerEnabled(): boolean {
+  return process.env.ATHENA_STT_WORKER !== '0';
+}
+
 /** The recognition language the sidecar is asked for; 'auto' lets it detect. */
 function resolveSttLanguage(): string {
   const override = process.env.ATHENA_STT_LANGUAGE?.trim();
@@ -334,20 +388,35 @@ async function inspectWindowsVoices(): Promise<Array<{ name: string; culture: st
   }
 }
 
+/** Shared by the one-shot spawns and the resident worker so both stay offline. */
+function voiceProcessOptions() {
+  return {
+    cwd: SCRIPT_ROOT,
+    windowsHide: true,
+    env: {
+      ...process.env,
+      PYTHONIOENCODING: 'utf-8',
+      PYTHONDONTWRITEBYTECODE: '1',
+      PYTHONUTF8: '1',
+      HF_HUB_OFFLINE: '1',
+      TRANSFORMERS_OFFLINE: '1',
+    },
+  };
+}
+
+/** Classify a worker reply with the same table the one-shot path uses. */
+function fromWorkerReply(reply: SttWorkerReply): VoiceResult {
+  const text = reply.text?.trim();
+  if (reply.ok && text) return { ok: true, text };
+  return mapVoiceFailure(
+    { code: 1, stdout: '', stderr: `[${reply.code || 'STT_ERROR'}] ${reply.message || ''}` },
+    '本地语音识别失败。',
+  );
+}
+
 function runProcess(command: string, args: string[], timeoutMs: number, signal?: AbortSignal): Promise<ProcessResult> {
   return new Promise((resolve) => {
-    const child = spawn(command, args, {
-      cwd: SCRIPT_ROOT,
-      windowsHide: true,
-      env: {
-        ...process.env,
-        PYTHONIOENCODING: 'utf-8',
-        PYTHONDONTWRITEBYTECODE: '1',
-        PYTHONUTF8: '1',
-        HF_HUB_OFFLINE: '1',
-        TRANSFORMERS_OFFLINE: '1',
-      },
-    });
+    const child = spawn(command, args, voiceProcessOptions());
     let stdout = '';
     let stderr = '';
     let settled = false;

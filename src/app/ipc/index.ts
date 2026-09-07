@@ -1204,6 +1204,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<vo
       clearIpcHandlers();
       removeReminderListener();
       removeProactiveListener();
+      voice.dispose();
       await controller.shutdown();
     })();
     return shutdownPromise;
