@@ -508,18 +508,22 @@ export class AthenaController {
       savedUser.chatMessageId,
       isTemporaryChat,
     );
-    const response = await this.conversation.process(
-      promptUserMessage,
-      retrieved.recentMessages,
-      retrieved,
-      mode,
-      isSteamSku() ? undefined : onStream,
-      webSearchContext,
-      modeToolSettings,
-      options?.onToolStatus,
-      options?.onToolConfirm,
-      { chatWindowId, userMessageId: savedUser.chatMessageId },
-      modelImages,
+    const response = await profile.measure(
+      'reply',
+      () => this.conversation.process(
+        promptUserMessage,
+        retrieved.recentMessages,
+        retrieved,
+        mode,
+        isSteamSku() ? undefined : onStream,
+        webSearchContext,
+        modeToolSettings,
+        options?.onToolStatus,
+        options?.onToolConfirm,
+        { chatWindowId, userMessageId: savedUser.chatMessageId },
+        modelImages,
+      ),
+      value => (value.toolExecutions?.length ? `tools:${value.toolExecutions.length}` : 'ok'),
     );
 
     const outputGuardrail = evaluateSteamAiContent(response.content);
@@ -644,6 +648,7 @@ export class AthenaController {
     const canStartDurableExecution = this.llm.capabilities.nativeToolCalls
       && chatWindow.is_temporary !== true
       && Boolean(chatWindow.project_id);
+    const routingStartedAt = Date.now();
     const route = await this.messageRouter.routeAdaptive({
       message: userMessage,
       mode: requestedMode,
@@ -658,7 +663,9 @@ export class AthenaController {
         && evaluateSteamAiContent(userMessage).allowed
         && canRouteModelRequest(this.llm.providerName, canUseNetworkCapability('remoteModel'), this.llm.endpoint),
     });
-    logger.info(`Message routed [route=${route.route}, reason=${route.reason}, method=${route.routingMethod}, confidence=${route.confidence}, autoSwitch=${route.autoSwitch}]`);
+    // Routing is its own IPC call ahead of the turn, so it carries its own number
+    // rather than appearing inside the turn profile (ATH-PERF-001).
+    logger.info(`Message routed in ${Date.now() - routingStartedAt}ms [route=${route.route}, reason=${route.reason}, method=${route.routingMethod}, confidence=${route.confidence}, autoSwitch=${route.autoSwitch}]`);
     return route;
   }
 

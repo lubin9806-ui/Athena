@@ -84,7 +84,13 @@ export class ModelCreativeSectionExtractor {
       ],
       EXTRACTION_SCHEMA as unknown as Record<string, unknown>,
       'create',
-      { temperature: 0.2, topP: 0.8, maxTokens: 1_200 },
+      // 1200 was not a size limit, it was a silent failure. Reasoning models spend
+      // output tokens before emitting any content, so a cap this tight was reached
+      // mid-thought: `finish=length`, `outputTokens == maxTokens`, zero characters
+      // returned. That parsed as `not_creative` and the description quietly never
+      // updated. Measured against DeepSeek: at 1200 roughly one call in three came
+      // back empty on both v4-pro and v4-flash; at 3000 none did (ATH-IMG-004).
+      { temperature: 0.2, topP: 0.8, maxTokens: 3_000 },
       input.signal,
     );
     return parseCreativeExtraction(raw);

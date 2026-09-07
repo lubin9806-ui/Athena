@@ -321,6 +321,55 @@ assert.equal(creativeStateSummary(empty), 'v0 · 还没有画面描述');
 assert.equal(creativeStateSummary(landscape.state), 'v1 · 主体、场景');
 assert(!creativeStateSummary(sceneEdit.state).includes('/'), 'no denominator: sections are optional');
 
+// --- What the extractor asks the provider for (ATH-IMG-004, ATH-PERF-001) ---
+
+const {
+  ModelCreativeSectionExtractor,
+} = require(path.join(root, 'dist', 'core', 'creative', 'CreativeSectionExtractor.js'));
+
+async function verifyExtractorRequest() {
+  const seen = [];
+  const spyExtractor = new ModelCreativeSectionExtractor({
+    chatJson: async (messages, schema, mode, overrides, signal) => {
+      seen.push({ messages, schema, mode, overrides, signal });
+      return JSON.stringify({ kind: 'edit', understanding: '换场景', sections: { scene: BOOKSTORE } });
+    },
+  });
+  const spySignal = AbortSignal.timeout(5_000);
+  const spyResult = await spyExtractor.extract({
+    message: '把场景换成书店',
+    state: initial.state,
+    signal: spySignal,
+  });
+  assert.equal(spyResult.kind, 'edit');
+  assert.equal(seen.length, 1, 'one extraction is one call');
+
+  // The output budget is not a size preference. Reasoning models spend output tokens
+  // before emitting content, so a tight cap is reached mid-thought and the provider
+  // returns finish=length with zero characters - which parses as not_creative and
+  // silently abandons the edit. Measured: at 1200 roughly one DeepSeek call in three
+  // came back empty; at 3000 none did.
+  assert(
+    seen[0].overrides.maxTokens >= 3_000,
+    `the extraction budget must leave room for reasoning tokens, got ${seen[0].overrides.maxTokens}`,
+  );
+
+  // The caller's deadline has to reach the provider, or the call falls back to the
+  // adapter's general 30s and holds the turn.
+  assert.equal(seen[0].signal, spySignal, 'the abort signal must be passed through to the provider');
+
+  // Only the sections that exist are sent. Six empty slots taught the model that a
+  // picture is supposed to have six of them, and cost payload on every call.
+  const sentPayload = JSON.parse(seen[0].messages[seen[0].messages.length - 1].content);
+  assert.deepEqual(
+    Object.keys(sentPayload.currentSections).sort(),
+    [...PORTRAIT_SECTIONS].sort(),
+    'empty sections must not be sent as null placeholders',
+  );
+  assert(!Object.values(sentPayload.currentSections).includes(null));
+  assert.equal(sentPayload.message, '把场景换成书店');
+}
+
 // --- Confirm before acting (ATH-CHAT-004) ---
 
 const {
@@ -399,4 +448,11 @@ for (const raw of [null, '', 'not json', '[]', '{"pending":"nope"}', '{"pending"
 }
 assert.equal(emptyCreativeWorkspace().pending, null);
 
-console.log(`ATHENA_CREATIVE_STATE_OK sections=${CREATIVE_SECTIONS.length}/optional locked=${DEFAULT_LOCKED_SECTIONS.join('+')}/when-written brief=read-locally`);
+verifyExtractorRequest()
+  .then(() => {
+    console.log(`ATHENA_CREATIVE_STATE_OK sections=${CREATIVE_SECTIONS.length}/optional locked=${DEFAULT_LOCKED_SECTIONS.join('+')}/when-written brief=read-locally budget=reasoning-safe`);
+  })
+  .catch((error) => {
+    console.error(error?.stack || error);
+    process.exit(1);
+  });
