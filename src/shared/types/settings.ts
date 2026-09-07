@@ -88,6 +88,15 @@ export interface VoiceSettings {
   sttEngine: SttEngine;
   sttLanguage: SttLanguage;
   ttsVoice: string;
+  /** SAPI speaking rate, -10 (slowest) to 10 (fastest); 0 is the voice's own. */
+  ttsRate: number;
+  /** SAPI output volume, 0 to 100. */
+  ttsVolume: number;
+  /**
+   * Pitch shift in percent, -50 to 50. SpeechSynthesizer has no pitch property,
+   * so a non-zero value makes synthesis go through SSML prosody instead.
+   */
+  ttsPitch: number;
   silenceAutoStop: boolean;
 }
 

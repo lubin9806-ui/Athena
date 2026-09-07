@@ -78,6 +78,7 @@
     "test:voice-runtime": "node scripts/verify-voice-runtime.js",
     "test:voice-service": "tsc && node scripts/verify-voice-service.js",
     "test:voice-input": "tsc && node scripts/verify-voice-input.js",
+    "test:voice-output": "tsc && node scripts/verify-voice-output.js",
     "test:voice:e2e": "tsc && electron scripts/verify-voice-e2e.js",
     "test:tools": "tsc && node scripts/verify-computer-tools.js",
     "test:tools:live": "tsc && node scripts/verify-computer-tools.js --live",

@@ -755,6 +755,9 @@ interface VoiceSettings {
   sttEngine: SttEngine;
   sttLanguage: SttLanguage;
   ttsVoice: string;
+  ttsRate: number;
+  ttsVolume: number;
+  ttsPitch: number;
   silenceAutoStop: boolean;
 }
 
@@ -1408,6 +1411,13 @@ const settingAutoPlayAssistant = mustGet<HTMLInputElement>('setting-auto-play-as
 const settingSilenceAutoStop = mustGet<HTMLInputElement>('setting-silence-auto-stop');
 const settingSttLanguage = mustGet<HTMLSelectElement>('setting-stt-language');
 const settingTtsVoice = mustGet<HTMLInputElement>('setting-tts-voice');
+const settingTtsRate = mustGet<HTMLInputElement>('setting-tts-rate');
+const settingTtsVolume = mustGet<HTMLInputElement>('setting-tts-volume');
+const settingTtsPitch = mustGet<HTMLInputElement>('setting-tts-pitch');
+const settingTtsRateValue = mustGet<HTMLOutputElement>('setting-tts-rate-value');
+const settingTtsVolumeValue = mustGet<HTMLOutputElement>('setting-tts-volume-value');
+const settingTtsPitchValue = mustGet<HTMLOutputElement>('setting-tts-pitch-value');
+const voicePreviewBtn = mustGet<HTMLButtonElement>('voice-preview');
 const settingTtsVoiceOptions = mustGet<HTMLDataListElement>('setting-tts-voice-options');
 const voiceCapabilityStatus = mustGet<HTMLElement>('voice-capability-status');
 const voiceCapabilityRefresh = mustGet<HTMLButtonElement>('voice-capability-refresh');
@@ -2217,6 +2227,10 @@ function init(): void {
     void speakLastAssistantMessage();
   });
   voiceCapabilityRefresh.addEventListener('click', () => void refreshVoiceCapabilities());
+  voicePreviewBtn.addEventListener('click', () => void previewVoiceProfile());
+  for (const control of [settingTtsRate, settingTtsVolume, settingTtsPitch]) {
+    control.addEventListener('input', syncVoiceProfileReadout);
+  }
   window.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && (voiceInputState === 'recording' || voiceInputState === 'requesting')) {
       event.preventDefault();
@@ -5327,6 +5341,10 @@ function populateSettingsForm(bundle: SettingsBundle): void {
   settingSilenceAutoStop.checked = voice.silenceAutoStop;
   settingSttLanguage.value = voice.sttLanguage;
   settingTtsVoice.value = voice.ttsVoice;
+  settingTtsRate.value = String(voice.ttsRate);
+  settingTtsVolume.value = String(voice.ttsVolume);
+  settingTtsPitch.value = String(voice.ttsPitch);
+  syncVoiceProfileReadout();
   settingConfirmDelete.checked = data.confirmBeforeDelete;
   settingHistoryRetention.value = String(data.historyRetentionDays);
   settingVoiceCacheRetention.value = String(data.voiceCacheRetentionHours);
@@ -5600,15 +5618,7 @@ async function saveSettingsForm(): Promise<void> {
           minImportanceForAutoExtract: Number(settingMemoryMinImportance.value),
           importContentMode: settingMemoryImportMode.value as MemoryImportContentMode,
         },
-        voice: {
-          sttEnabled: settingSttEnabled.checked,
-          ttsEnabled: settingTtsEnabled.checked,
-          autoPlayAssistant: settingAutoPlayAssistant.checked,
-          silenceAutoStop: settingSilenceAutoStop.checked,
-          sttEngine: 'local_whisper',
-          sttLanguage: settingSttLanguage.value as SttLanguage,
-          ttsVoice: settingTtsVoice.value,
-        },
+        voice: voicePatchFromForm(),
         imageGeneration: imageGenerationPatchFromForm(),
         data: {
           confirmBeforeDelete: settingConfirmDelete.checked,
@@ -6701,9 +6711,56 @@ async function transcribeAudioFile(): Promise<void> {
   }
 }
 
+function voicePatchFromForm(): VoiceSettings {
+  return {
+    sttEnabled: settingSttEnabled.checked,
+    ttsEnabled: settingTtsEnabled.checked,
+    autoPlayAssistant: settingAutoPlayAssistant.checked,
+    silenceAutoStop: settingSilenceAutoStop.checked,
+    sttEngine: 'local_whisper',
+    sttLanguage: settingSttLanguage.value as SttLanguage,
+    ttsVoice: settingTtsVoice.value,
+    ttsRate: Number(settingTtsRate.value),
+    ttsVolume: Number(settingTtsVolume.value),
+    ttsPitch: Number(settingTtsPitch.value),
+  };
+}
+
+function syncVoiceProfileReadout(): void {
+  const rate = Number(settingTtsRate.value);
+  const pitch = Number(settingTtsPitch.value);
+  settingTtsRateValue.textContent = rate > 0 ? `+${rate}` : String(rate);
+  settingTtsVolumeValue.textContent = settingTtsVolume.value;
+  settingTtsPitchValue.textContent = pitch > 0 ? `+${pitch}%` : `${pitch}%`;
+}
+
+/**
+ * Speak a sample in the profile currently shown in the settings form.
+ *
+ * Synthesis reads saved settings, so the profile is persisted first - the same
+ * shape as persistImageGenerationSettings. Preview then goes down the ordinary
+ * playback path rather than a second channel that could drift from it.
+ */
+async function previewVoiceProfile(): Promise<void> {
+  if (isStreaming || isVoiceInputBusy() || isVoiceOutputBusy) return;
+  try {
+    currentSettingsBundle = await window.athenaAPI.saveSettings({ settings: { voice: voicePatchFromForm() } });
+  } catch (error) {
+    setSettingsFeedback(`保存音色失败：${error instanceof Error ? error.message : String(error)}`, 'error');
+    return;
+  }
+  await synthesizeAndPlay('这是当前音色的试听效果。', '正在试听音色 · 系统默认输出设备');
+}
+
 async function speakLastAssistantMessage(): Promise<void> {
   const text = chatPanel.getLastAssistantContent().trim();
-  if (!text || isStreaming || isVoiceInputBusy() || isVoiceOutputBusy) return;
+  if (!text) return;
+  await synthesizeAndPlay(text, '正在朗读回复 · 系统默认输出设备');
+}
+
+/** Shared by the read-aloud button, auto-play and the settings voice preview. */
+async function synthesizeAndPlay(text: string, playingMessage: string): Promise<void> {
+  if (isStreaming || isVoiceInputBusy() || isVoiceOutputBusy) return;
 
   isVoiceOutputBusy = true;
   syncVoiceControls();
@@ -6716,7 +6773,7 @@ async function speakLastAssistantMessage(): Promise<void> {
     }
 
     stopCurrentAudio();
-    showVoiceFeedback('正在朗读回复 · 系统默认输出设备');
+    showVoiceFeedback(playingMessage);
     setStatus('正在朗读', 'working');
     if (RELEASE_FEATURES.live2d && live2dCompanion.isEnabled) {
       await playAudioInRenderer(result.audioPath);

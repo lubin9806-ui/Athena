@@ -115,6 +115,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
     sttEngine: 'local_whisper',
     sttLanguage: 'auto',
     ttsVoice: '',
+    ttsRate: 0,
+    ttsVolume: 100,
+    ttsPitch: 0,
     silenceAutoStop: true,
   },
   imageGeneration: {
@@ -608,6 +611,10 @@ function sanitizeVoice(value: unknown): VoiceSettings {
     // Chinese regardless of what was spoken; they migrate to detection.
     sttLanguage: cleanEnum(source.sttLanguage, STT_LANGUAGES, DEFAULT_SETTINGS.voice.sttLanguage),
     ttsVoice,
+    // Ranges are SAPI's own; tts-local.ps1 refuses anything outside them.
+    ttsRate: clampInteger(source.ttsRate, -10, 10, DEFAULT_SETTINGS.voice.ttsRate),
+    ttsVolume: clampInteger(source.ttsVolume, 0, 100, DEFAULT_SETTINGS.voice.ttsVolume),
+    ttsPitch: clampInteger(source.ttsPitch, -50, 50, DEFAULT_SETTINGS.voice.ttsPitch),
     silenceAutoStop: cleanBoolean(source.silenceAutoStop, DEFAULT_SETTINGS.voice.silenceAutoStop),
   };
 }

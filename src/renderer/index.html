@@ -1153,6 +1153,20 @@
               <input id="setting-tts-voice" type="text" list="setting-tts-voice-options" placeholder="系统默认" />
               <datalist id="setting-tts-voice-options"></datalist>
             </label>
+            <label class="settings-field">
+              <span>语速 <output id="setting-tts-rate-value">0</output></span>
+              <input id="setting-tts-rate" type="range" min="-10" max="10" step="1" />
+            </label>
+            <label class="settings-field">
+              <span>音量 <output id="setting-tts-volume-value">100</output></span>
+              <input id="setting-tts-volume" type="range" min="0" max="100" step="5" />
+            </label>
+            <label class="settings-field">
+              <span>音高 <output id="setting-tts-pitch-value">0%</output></span>
+              <input id="setting-tts-pitch" type="range" min="-50" max="50" step="5" />
+            </label>
+            <button id="voice-preview" class="settings-panel-link" type="button">试听当前音色</button>
+            <div class="settings-note">音色来自 Windows 已安装的语音，Athena 不捆绑或转售声音资源。语速与音量由系统语音引擎直接支持；音高经 SSML 调整，部分声音的支持程度不同。</div>
           </div>
         </details>
 

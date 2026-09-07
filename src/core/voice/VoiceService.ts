@@ -151,12 +151,18 @@ export class VoiceService {
       const audioPath = path.join(TEMP_DIR, `${id}.wav`);
       fs.writeFileSync(textPath, content, 'utf8');
 
-      const voiceName = process.env.ATHENA_TTS_VOICE ?? getAppSettings().voice.ttsVoice;
+      const settings = getAppSettings().voice;
+      const voiceName = process.env.ATHENA_TTS_VOICE ?? settings.ttsVoice;
       const ttsArgs = [
         '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File',
         path.join(SCRIPT_ROOT, 'tts-local.ps1'), '-TextFile', textPath,
       ];
       if (voiceName.trim()) ttsArgs.push('-VoiceName', voiceName.trim());
+      // Clamped again here so a hand-edited settings file cannot make the script
+      // throw instead of speaking.
+      ttsArgs.push('-Rate', String(clamp(settings.ttsRate, -10, 10)));
+      ttsArgs.push('-Volume', String(clamp(settings.ttsVolume, 0, 100)));
+      ttsArgs.push('-PitchPercent', String(clamp(settings.ttsPitch, -50, 50)));
       ttsArgs.push('-OutputFile', audioPath);
       const result = await runProcess('powershell.exe', ttsArgs, 45_000, operation.signal);
       safeUnlink(textPath);
@@ -400,6 +406,11 @@ function resolveVoiceScriptRoot(): string {
   return candidates.find(candidate => fs.existsSync(path.join(candidate, 'stt_whisper.py')))
     || candidates[candidates.length - 1]
     || PROJECT_ROOT;
+}
+
+function clamp(value: number, min: number, max: number): number {
+  if (!Number.isFinite(value)) return min > 0 ? min : 0;
+  return Math.min(max, Math.max(min, Math.round(value)));
 }
 
 function safeUnlink(filePath: string): void { try { fs.unlinkSync(filePath); } catch {} }
