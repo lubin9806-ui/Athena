@@ -11,6 +11,7 @@ import { ThemeController } from './ui/ThemeController';
 import { DialogSystem } from './ui/DialogSystem';
 import { ToastSystem } from './ui/ToastSystem';
 import { MicrophoneRecorder } from './voice/MicrophoneRecorder';
+import { RECORDING_ACTIVITY_OPTIONS, SpeechActivityDetector } from './voice/SpeechActivityDetector';
 import type { AvatarLayoutMode } from '../shared/types/avatar';
 import type { AthenaAvatarEvent } from './avatar/AvatarRuntime';
 import type { EmotionType } from '../shared/types/emotion';
@@ -254,7 +255,7 @@ interface ToolCatalog {
 const MAX_RECORDING_MS = 60_000;
 const WORK_MODES: readonly AthenaMode[] = ['create', 'reason', 'execute'];
 const MIN_RECORDING_MS = 350;
-const VOICE_ACTIVITY_THRESHOLD = 0.008;
+// The old fixed speech threshold now lives in the detector as a lower bound.
 const VOICE_MIN_SIGNAL_LEVEL = 0.001;
 const VOICE_SILENCE_STOP_MS = 1_600;
 
@@ -1495,7 +1496,7 @@ let recordingTicker: number | undefined;
 let recordingStartedAt = 0;
 let recordingPeakLevel = 0;
 let recordingLastSpeechAt = 0;
-let recordingSpeechFrames = 0;
+const recordingActivity = new SpeechActivityDetector(RECORDING_ACTIVITY_OPTIONS);
 let recordingSpeechDetected = false;
 let currentMicrophoneLabel = '默认麦克风';
 let voiceOperationId = 0;
@@ -6595,15 +6596,14 @@ function handleMicrophoneRecorderError(error: Error): void {
 function updateMicrophoneMeter(level: number): void {
   if (voiceInputState !== 'recording') return;
   recordingPeakLevel = Math.max(recordingPeakLevel, level);
-  if (level >= VOICE_ACTIVITY_THRESHOLD) {
-    recordingSpeechFrames += 1;
-    if (recordingSpeechFrames >= 2) {
-      recordingSpeechDetected = true;
-      recordingLastSpeechAt = performance.now();
-    }
-  } else {
-    recordingSpeechFrames = 0;
+  // Speech is now judged against the room this recording is happening in rather
+  // than a constant (ATH-VOICE-006).
+  if (recordingActivity.push(level) === 'speech') {
+    recordingSpeechDetected = true;
+    recordingLastSpeechAt = performance.now();
   }
+  // The animation contract is untouched: the same two custom properties and the
+  // same LiveGlass level, driven by the same raw reading as before.
   const normalized = Math.max(0, Math.min(1, level * 5));
   inputForm.style.setProperty('--voice-glow', `${24 + normalized * 36}px`);
   inputForm.style.setProperty('--voice-button-glow', `${16 + normalized * 28}px`);
@@ -6613,8 +6613,8 @@ function updateMicrophoneMeter(level: number): void {
 function resetRecordingActivity(): void {
   recordingPeakLevel = 0;
   recordingLastSpeechAt = 0;
-  recordingSpeechFrames = 0;
   recordingSpeechDetected = false;
+  recordingActivity.reset();
 }
 
 function clearMicrophoneMeter(): void {

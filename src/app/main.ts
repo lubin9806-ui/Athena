@@ -949,10 +949,38 @@ function createWindow(): void {
               });
             }
             await new Promise(resolve => setTimeout(resolve, 350));
+
+            // The recording animation is a contract, not decoration: the aura is
+            // driven by data-voice-state, and its size by two custom properties
+            // written from the microphone level. Changes to how speech is
+            // detected must not stop feeding them.
+            const inputAura = document.getElementById('input-aura');
+            const recordingAnimation = {
+              voiceState: inputForm.dataset.voiceState,
+              auraOpacity: inputAura ? getComputedStyle(inputAura).opacity : '',
+              glow: inputForm.style.getPropertyValue('--voice-glow'),
+              buttonGlow: inputForm.style.getPropertyValue('--voice-button-glow'),
+            };
+            const animationLive = recordingAnimation.voiceState === 'recording'
+              && recordingAnimation.auraOpacity === '1'
+              && recordingAnimation.glow !== ''
+              && recordingAnimation.buttonGlow !== '';
+            if (!animationLive) return voiceSmokeFail('recording-animation', recordingAnimation);
+
             window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
             const recordingStopped = await waitFor(() => micButton.getAttribute('aria-pressed') === 'false');
             if (!recordingStopped) return voiceSmokeFail('recording-stop', { pressed: micButton.getAttribute('aria-pressed') });
-            console.log('ATHENA_SMOKE_VOICE_STATE', JSON.stringify({ ok: true, stage: 'recording-cancel' }));
+
+            const clearedState = inputForm.dataset.voiceState;
+            const clearedGlow = inputForm.style.getPropertyValue('--voice-glow');
+            if (clearedState === 'recording' || clearedGlow !== '') {
+              return voiceSmokeFail('recording-animation-cleared', { clearedState, clearedGlow });
+            }
+            console.log('ATHENA_SMOKE_VOICE_STATE', JSON.stringify({
+              ok: true,
+              stage: 'recording-cancel',
+              animation: recordingAnimation,
+            }));
             return true;
           } catch (error) {
             console.log('ATHENA_SMOKE_VOICE_STATE', JSON.stringify({
