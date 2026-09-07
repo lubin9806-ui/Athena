@@ -4,6 +4,14 @@ export type InitiativeLevel = 'low' | 'balanced' | 'high';
 export type AnimationLevel = 'low' | 'balanced' | 'high';
 export type ThemeMode = 'day' | 'night' | 'system';
 export type SttEngine = 'local_whisper';
+/**
+ * Recognition language. 'auto' lets Whisper identify it from the audio, which
+ * matches a pinned code on accuracy and avoids the failure mode where the wrong
+ * pin turns speech into confident nonsense (ATH-VOICE-003). A pin is offered
+ * because it skips detection and stays steadier for a speaker who never
+ * switches. Whisper identifies languages, not locales, so there is no region.
+ */
+export type SttLanguage = 'auto' | 'zh' | 'en' | 'ja' | 'ko' | 'fr' | 'de' | 'es' | 'ru' | 'it' | 'pt';
 export type ConversationMode = 'create' | 'companion' | 'reason' | 'execute';
 export type ModelProvider = 'ollama' | 'openai' | 'deepseek' | 'athena-cloud' | 'custom';
 export type RemoteModelProvider = Exclude<ModelProvider, 'ollama'>;
@@ -78,6 +86,7 @@ export interface VoiceSettings {
   ttsEnabled: boolean;
   autoPlayAssistant: boolean;
   sttEngine: SttEngine;
+  sttLanguage: SttLanguage;
   ttsVoice: string;
   silenceAutoStop: boolean;
 }

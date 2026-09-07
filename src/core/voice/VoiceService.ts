@@ -195,7 +195,7 @@ export class VoiceService {
     try {
       const result = await runProcess(
         readiness.python,
-        [path.join(SCRIPT_ROOT, 'stt_whisper.py'), sourcePath, readiness.model],
+        [path.join(SCRIPT_ROOT, 'stt_whisper.py'), sourcePath, readiness.model, resolveSttLanguage()],
         90_000,
         operation.signal,
       );
@@ -283,6 +283,13 @@ function resolveSttReadiness(): SttReadiness {
     return { ready: false, python, model, code: 'model_missing', reason: STT_MODEL_MISSING };
   }
   return { ready: true, python, model };
+}
+
+/** The recognition language the sidecar is asked for; 'auto' lets it detect. */
+function resolveSttLanguage(): string {
+  const override = process.env.ATHENA_STT_LANGUAGE?.trim();
+  if (override) return override;
+  return getAppSettings().voice.sttLanguage;
 }
 
 function resolveWhisperModelPath(): string {
@@ -379,6 +386,7 @@ function mapVoiceFailure(result: ProcessResult, fallback: string): VoiceResult {
   if (/RUNTIME_MISSING|not recognized|ENOENT/i.test(detail)) return failure('runtime_missing', '本地语音运行时缺失，请修复或重新安装语音组件。');
   if (/DEPENDENCY_ERROR|No module named/i.test(detail)) return failure('dependency_missing', '本地语音依赖不完整，请修复语音组件。');
   if (/MODEL_MISSING|model.*missing/i.test(detail)) return failure('model_missing', '本地 Whisper 模型缺失；为避免隐式联网，Athena 不会自动下载。');
+  if (/USAGE_ERROR|INPUT_ERROR/i.test(detail)) return failure('input_error', `语音组件拒绝了这次请求。${detail}`);
   if (/NO_SPEECH/i.test(detail)) return failure('no_speech', '没有识别到清晰语音，请靠近麦克风后重试。');
   if (/TIMEOUT|timed out/i.test(detail)) return failure('timeout', '语音处理超时；系统资源可能不足，请缩短录音后重试。');
   if (/network|connection|offline|service request/i.test(detail)) return failure('offline', '网络不可用；当前操作没有可用的联网语音适配器。');

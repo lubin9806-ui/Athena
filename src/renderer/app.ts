@@ -484,6 +484,7 @@ type InitiativeLevel = 'low' | 'balanced' | 'high';
 type AnimationLevel = 'low' | 'balanced' | 'high';
 type ThemeMode = 'day' | 'night' | 'system';
 type SttEngine = 'local_whisper';
+type SttLanguage = 'auto' | 'zh' | 'en' | 'ja' | 'ko' | 'fr' | 'de' | 'es' | 'ru' | 'it' | 'pt';
 type WebSearchMode = 'auto' | 'manual';
 type MemoryImportContentMode = 'normal' | 'adult';
 
@@ -752,6 +753,7 @@ interface VoiceSettings {
   ttsEnabled: boolean;
   autoPlayAssistant: boolean;
   sttEngine: SttEngine;
+  sttLanguage: SttLanguage;
   ttsVoice: string;
   silenceAutoStop: boolean;
 }
@@ -1404,6 +1406,7 @@ const settingSttEnabled = mustGet<HTMLInputElement>('setting-stt-enabled');
 const settingTtsEnabled = mustGet<HTMLInputElement>('setting-tts-enabled');
 const settingAutoPlayAssistant = mustGet<HTMLInputElement>('setting-auto-play-assistant');
 const settingSilenceAutoStop = mustGet<HTMLInputElement>('setting-silence-auto-stop');
+const settingSttLanguage = mustGet<HTMLSelectElement>('setting-stt-language');
 const settingTtsVoice = mustGet<HTMLInputElement>('setting-tts-voice');
 const settingTtsVoiceOptions = mustGet<HTMLDataListElement>('setting-tts-voice-options');
 const voiceCapabilityStatus = mustGet<HTMLElement>('voice-capability-status');
@@ -5322,6 +5325,7 @@ function populateSettingsForm(bundle: SettingsBundle): void {
   settingTtsEnabled.checked = voice.ttsEnabled;
   settingAutoPlayAssistant.checked = voice.autoPlayAssistant;
   settingSilenceAutoStop.checked = voice.silenceAutoStop;
+  settingSttLanguage.value = voice.sttLanguage;
   settingTtsVoice.value = voice.ttsVoice;
   settingConfirmDelete.checked = data.confirmBeforeDelete;
   settingHistoryRetention.value = String(data.historyRetentionDays);
@@ -5602,6 +5606,7 @@ async function saveSettingsForm(): Promise<void> {
           autoPlayAssistant: settingAutoPlayAssistant.checked,
           silenceAutoStop: settingSilenceAutoStop.checked,
           sttEngine: 'local_whisper',
+          sttLanguage: settingSttLanguage.value as SttLanguage,
           ttsVoice: settingTtsVoice.value,
         },
         imageGeneration: imageGenerationPatchFromForm(),

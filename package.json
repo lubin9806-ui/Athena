@@ -23,6 +23,7 @@
     "release:channel": "node scripts/channel-control.js",
     "package:offline": "powershell.exe -ExecutionPolicy Bypass -NoProfile -File scripts\\package-offline.ps1",
     "prepare:voice-runtime": "node scripts/prepare-voice-runtime.js",
+    "prepare:voice-scripts": "node scripts/prepare-voice-runtime.js --scripts-only",
     "audit:security": "npm audit --registry=https://registry.npmjs.org/ --audit-level=high",
     "typecheck": "tsc --noEmit",
     "test:live2d:runtime": "tsc && node scripts/verify-live2d-cubism-runtime.js",

@@ -32,12 +32,16 @@ process.env.ATHENA_VOICE_TEMP_DIR = path.join(scratch, 'voice-cache');
 process.env.ATHENA_VOICE_SCRIPT_DIR = RUNTIME;
 
 const { VoiceService } = require('../dist/core/voice/VoiceService.js');
+const { saveSettingsBundle } = require('../dist/core/config/SettingsStore.js');
 
 /**
  * transcribe() minus the equivalent direct spawn. Measured at ~343 ms while the
  * capability preflight sat on the hot path; noise-level once it was removed.
  */
 const MAX_HOT_PATH_OVERHEAD_MS = 150;
+
+/** The language VoiceService passes when the suite runs with default settings. */
+const SERVICE_LANGUAGE = 'auto';
 
 const FIXTURES = [
   {
@@ -51,11 +55,13 @@ const FIXTURES = [
   {
     id: 'en',
     culture: 'en',
-    text: 'Remind me to send the weekly report at three in the afternoon.',
-    // Recorded, not gated: stt_whisper.py pins language="zh", so English is
-    // currently decoded as Chinese. The floor arrives with the language fix.
+    // Skipped rather than failed where no English SAPI voice is installed, but
+    // gated wherever one is: pinning "zh" for every speaker scored 0% here.
+    // The floor sits below the measured 91.7% because "three" comes back as "3"
+    // - a number-formatting difference, not a recognition error.
     required: false,
-    floor: 0,
+    text: 'Remind me to send the weekly report at three in the afternoon.',
+    floor: 0.7,
   },
 ];
 
@@ -187,13 +193,40 @@ async function main() {
     const audioPath = synthesized.audioPath;
     assert(audioPath && fs.existsSync(audioPath), `${fixture.id}: synthesized WAV is missing.`);
 
-    // Direct spawn skips preflight, so the gap against transcribe() is the
-    // per-utterance overhead that has nothing to do with recognition.
-    const direct = runPython(python, [sttScript, audioPath, modelDir], 180_000);
-    assert.strictEqual(direct.status, 0, direct.stderr || `${fixture.id}: direct transcription failed.`);
+    // What a pinned language code costs and buys, measured rather than assumed.
+    // Every speaker used to be decoded as "zh"; the matrix keeps that comparison
+    // visible so the default stays an argued choice.
+    const modes = [...new Set(['auto', fixture.culture, 'zh'])];
+    const byMode = {};
+    for (const mode of modes) {
+      // Scheduling noise on a busy machine is additive, so the fastest of a few
+      // identical runs is the honest estimate of what the work costs. The
+      // service language gets the extra sample because a budget is asserted on it.
+      const attempts = mode === SERVICE_LANGUAGE ? 2 : 1;
+      let best = null;
+      for (let attempt = 0; attempt < attempts; attempt += 1) {
+        const run = runPython(python, [sttScript, audioPath, modelDir, mode], 180_000);
+        assert.strictEqual(run.status, 0, run.stderr || `${fixture.id}/${mode}: transcription failed.`);
+        if (!best || run.ms < best.ms) best = run;
+      }
+      byMode[mode] = {
+        text: best.stdout,
+        accuracy: Math.round(similarity(fixture.text, best.stdout, fixture.culture) * 1000) / 1000,
+        ms: round(best.ms),
+      };
+    }
 
-    const service = await timed(() => voice.transcribe(audioPath));
-    assert.strictEqual(service.value.ok, true, `${fixture.id}: ${service.value.error}`);
+    // The direct spawn to compare transcribe() against must do the same work it
+    // does, so it uses the same language the service will pass.
+    const direct = byMode[SERVICE_LANGUAGE];
+    assert(direct, `${fixture.id}: no measurement for the service language ${SERVICE_LANGUAGE}.`);
+
+    let service = null;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const run = await timed(() => voice.transcribe(audioPath));
+      assert.strictEqual(run.value.ok, true, `${fixture.id}: ${run.value.error}`);
+      if (!service || run.ms < service.ms) service = run;
+    }
     const text = (service.value.text || '').trim();
     assert(text.length > 0, `${fixture.id}: transcription is empty.`);
 
@@ -215,20 +248,44 @@ async function main() {
 
     results.push({
       id: fixture.id,
+      culture: fixture.culture,
+      audioPath,
       voice: voiceName,
       expected: fixture.text,
       actual: text,
       accuracy: Math.round(accuracy * 1000) / 1000,
-      directMs: round(direct.ms),
+      directMs: direct.ms,
       serviceMs: round(service.ms),
-      // transcribe() = preflight + the same work the direct spawn just did.
+      // transcribe() should do no more work than the direct spawn it wraps.
       overheadMs: round(service.ms - direct.ms),
       decodeMs: round(Math.max(0, direct.ms - loaded.ms)),
+      languages: byMode,
     });
     delete process.env.ATHENA_TTS_VOICE;
   }
 
   assert(results.length > 0, 'No fixture produced a measurement.');
+
+  // A settings control that does not reach the sidecar is the defect this
+  // suite's sibling entries are about, so prove the wiring rather than the
+  // parameter. Pinning the wrong language is the visible proof: the same audio
+  // comes back materially worse, which cannot happen if the value was dropped.
+  const probe = results[0];
+  const wrongLanguage = probe.culture === 'zh' ? 'en' : 'zh';
+  saveSettingsBundle({ settings: { voice: { sttLanguage: wrongLanguage } } });
+  const pinned = await voice.transcribe(probe.audioPath);
+  saveSettingsBundle({ settings: { voice: { sttLanguage: 'auto' } } });
+  assert.strictEqual(pinned.ok, true, `settings probe: ${pinned.error}`);
+  const pinnedAccuracy = similarity(probe.expected, (pinned.text || '').trim(), probe.culture);
+  assert(
+    pinnedAccuracy < probe.accuracy,
+    `voice.sttLanguage never reached the sidecar: pinning "${wrongLanguage}" on the ${probe.id} fixture still `
+    + `scored ${round(pinnedAccuracy * 100)}% against ${round(probe.accuracy * 100)}% on auto.`,
+  );
+  console.log(
+    `[settings] sttLanguage="${wrongLanguage}" on the ${probe.id} fixture drops accuracy `
+    + `${round(probe.accuracy * 100)}% -> ${round(pinnedAccuracy * 100)}%, so the control reaches the sidecar`,
+  );
 
   const report = {
     marker: 'ATHENA_VOICE_INPUT_OK',
@@ -250,6 +307,9 @@ async function main() {
     );
     console.log(`      expected: ${entry.expected}`);
     console.log(`      actual  : ${entry.actual}`);
+    for (const [mode, run] of Object.entries(entry.languages)) {
+      console.log(`      lang=${mode.padEnd(4)} accuracy=${round(run.accuracy * 100)}% ${run.ms}ms :: ${run.text}`);
+    }
   }
   for (const entry of skipped) console.log(`[${entry.id}] skipped - ${entry.reason}`);
   console.log(

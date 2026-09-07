@@ -31,6 +31,7 @@ import type {
   SettingsBundle,
   SettingsPatch,
   SttEngine,
+  SttLanguage,
   ThemeMode,
   ToolModePermissions,
   ToolPermissionLevel,
@@ -112,6 +113,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     ttsEnabled: true,
     autoPlayAssistant: false,
     sttEngine: 'local_whisper',
+    sttLanguage: 'auto',
     ttsVoice: '',
     silenceAutoStop: true,
   },
@@ -224,6 +226,7 @@ const INITIATIVE_LEVELS = new Set<InitiativeLevel>(['low', 'balanced', 'high']);
 const ANIMATION_LEVELS = new Set<AnimationLevel>(['low', 'balanced', 'high']);
 const THEME_MODES = new Set<ThemeMode>(['day', 'night', 'system']);
 const STT_ENGINES = new Set<SttEngine>(['local_whisper']);
+const STT_LANGUAGES = new Set<SttLanguage>(['auto', 'zh', 'en', 'ja', 'ko', 'fr', 'de', 'es', 'ru', 'it', 'pt']);
 const CONVERSATION_MODES = new Set<ConversationMode>(['create', 'companion', 'reason', 'execute']);
 const WEB_SEARCH_MODES = new Set<WebSearchMode>(['auto', 'manual']);
 const TOOL_PERMISSION_LEVELS = new Set<ToolPermissionLevel>(['off', 'read', 'files', 'full']);
@@ -601,6 +604,9 @@ function sanitizeVoice(value: unknown): VoiceSettings {
     // Window 05 deliberately removes the old implicit online fallback. Legacy
     // auto/speech_recognition/whisper values migrate to the only 1.0 engine.
     sttEngine: cleanEnum(source.sttEngine, STT_ENGINES, DEFAULT_SETTINGS.voice.sttEngine),
+    // Settings written before ATH-VOICE-003 have no language and were decoded as
+    // Chinese regardless of what was spoken; they migrate to detection.
+    sttLanguage: cleanEnum(source.sttLanguage, STT_LANGUAGES, DEFAULT_SETTINGS.voice.sttLanguage),
     ttsVoice,
     silenceAutoStop: cleanBoolean(source.silenceAutoStop, DEFAULT_SETTINGS.voice.silenceAutoStop),
   };

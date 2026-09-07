@@ -10,7 +10,7 @@
 | Execute | mode permission、轮数和命令超时进入 ToolRuntime；其他模式强制 Off |
 | 搜索 | enabled/mode/result/page/deep-read/secondary 与独立同意同时进入主进程搜索计划 |
 | 个性化/记忆 | PromptBuilder、检索类别/深度、自动提取和重要度门读取设置 |
-| 语音 | 本地 STT/TTS/自动朗读/停顿/声音名均有运行路径；旧 auto/Google STT 和不可用在线语音同意控件已移除 |
+| 语音 | 本地 STT/TTS/自动朗读/停顿/识别语言/声音名均有运行路径；识别语言经 `VoiceService` 传入 `stt_whisper.py`，`auto` 为默认；旧 auto/Google STT 和不可用在线语音同意控件已移除 |
 | 数据 | 删除确认、历史保留、语音缓存保留和导出格式均有执行路径 |
 | 模型 | Ollama URL/model/temperature/maxTokens/numCtx 进入 LLMClient |
 

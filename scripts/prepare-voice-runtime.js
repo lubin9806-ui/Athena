@@ -44,16 +44,73 @@ function verifyHash(filePath, expected) {
   if (actual !== expected) throw new Error(`SHA-256 mismatch for ${path.basename(filePath)}: ${actual}`);
 }
 
+/** Hand-written voice scripts, copied in rather than downloaded or installed. */
+const RUNTIME_INPUTS = [
+  'stt_whisper.py',
+  'tts-local.ps1',
+  'tts-capabilities.ps1',
+  'play_audio_local.ps1',
+  'requirements-voice.txt',
+  'requirements-voice.lock.txt',
+];
+
 function copyRuntimeInputs() {
-  const files = [
-    'stt_whisper.py',
-    'tts-local.ps1',
-    'tts-capabilities.ps1',
-    'play_audio_local.ps1',
-    'requirements-voice.txt',
-    'requirements-voice.lock.txt',
-  ];
-  for (const name of files) fs.copyFileSync(path.join(ROOT, name), path.join(OUTPUT, name));
+  for (const name of RUNTIME_INPUTS) fs.copyFileSync(path.join(ROOT, name), path.join(OUTPUT, name));
+}
+
+function listRuntimeFiles(directory) {
+  const found = [];
+  for (const item of fs.readdirSync(directory, { withFileTypes: true })) {
+    const absolute = path.join(directory, item.name);
+    if (item.isDirectory()) found.push(...listRuntimeFiles(absolute));
+    else if (item.isFile() && item.name !== 'voice-runtime-manifest.json') found.push(absolute);
+  }
+  return found;
+}
+
+/**
+ * Re-copy the voice scripts and re-pin the manifest, without rebuilding.
+ *
+ * Editing stt_whisper.py or one of the .ps1 helpers invalidates the SHA-256 that
+ * verify-voice-runtime.js and the packaging gate check, and the full prepare
+ * wipes the output directory and re-downloads CPython and the 75MB Whisper
+ * model to fix one text file. This path only touches the scripts.
+ *
+ * It is not a way around the integrity gate: every file the full build produced
+ * must still match the manifest exactly, and nothing may have appeared that the
+ * manifest does not list. Only the scripts this flag exists to update may
+ * differ. Anything else means the runtime drifted and must be rebuilt.
+ */
+function refreshRuntimeScripts() {
+  const manifestPath = path.join(OUTPUT, 'voice-runtime-manifest.json');
+  if (!fs.existsSync(manifestPath)) {
+    throw new Error('No managed voice runtime to refresh. Run npm.cmd run prepare:voice-runtime first.');
+  }
+  const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+  const inputs = new Set(RUNTIME_INPUTS);
+  const pinned = new Set();
+
+  for (const entry of manifest.files) {
+    const filePath = path.resolve(OUTPUT, entry.path);
+    if (!filePath.startsWith(`${OUTPUT}${path.sep}`)) throw new Error(`Manifest path escaped runtime: ${entry.path}`);
+    pinned.add(filePath);
+    if (inputs.has(entry.path)) continue;
+    if (!fs.existsSync(filePath)) throw new Error(`Voice runtime file is missing: ${entry.path}. Run the full prepare.`);
+    if (fs.statSync(filePath).size !== entry.bytes || sha256(filePath) !== entry.sha256) {
+      throw new Error(`Voice runtime drifted outside the voice scripts: ${entry.path}. Run the full prepare.`);
+    }
+  }
+
+  for (const filePath of listRuntimeFiles(OUTPUT)) {
+    if (!pinned.has(filePath)) {
+      throw new Error(`Unpinned file in the voice runtime: ${path.relative(OUTPUT, filePath)}. Run the full prepare.`);
+    }
+  }
+
+  copyRuntimeInputs();
+  removeGeneratedBytecode(OUTPUT);
+  const refreshed = writeManifest();
+  console.log(`ATHENA_VOICE_RUNTIME_SCRIPTS_REFRESHED files=${refreshed.files.length} scripts=${RUNTIME_INPUTS.length}`);
 }
 
 function removeGeneratedBytecode(directory) {
@@ -117,6 +174,10 @@ function writeManifest() {
 
 function main() {
   assertInsideWorkspace(OUTPUT);
+  if (process.argv.includes('--scripts-only')) {
+    refreshRuntimeScripts();
+    return;
+  }
   assertInsideWorkspace(CACHE);
   fs.mkdirSync(CACHE, { recursive: true });
   if (!fs.existsSync(PYTHON_ARCHIVE) || sha256(PYTHON_ARCHIVE) !== PYTHON_SHA256) {
