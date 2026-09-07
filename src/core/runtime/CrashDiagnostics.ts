@@ -3,7 +3,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { redactLogValue } from '../../engine/Logger';
 
-export type CrashKind = 'uncaught-exception' | 'unhandled-rejection' | 'renderer-gone' | 'window-unresponsive' | 'shutdown-timeout' | 'database-busy' | 'disk-full';
+export type CrashKind = 'uncaught-exception' | 'unhandled-rejection' | 'renderer-gone' | 'window-unresponsive' | 'shutdown-timeout' | 'database-busy' | 'disk-full' | 'startup-failed';
 
 export interface CrashDiagnosticSummary {
   fileCount: number;

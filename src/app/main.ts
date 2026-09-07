@@ -251,6 +251,40 @@ function handleRendererGone(window: BrowserWindow, reason: string, exitCode: num
   });
 }
 
+/**
+ * Startup failed in a way that leaves nothing usable behind.
+ *
+ * A window whose IPC never registered still paints, still accepts clicks, and
+ * answers each one with a channel name. That reads as a buggy app rather than as
+ * a backend that did not come up, so it is reported and the process ends instead
+ * of being left for the user to discover one control at a time.
+ */
+function reportFatalStartupFailure(error: unknown): void {
+  const message = error instanceof Error ? error.message : String(error);
+  console.error(`ATHENA_STARTUP_FAILED ${message}`);
+  try {
+    recordCrashDiagnostic('startup-failed', { message });
+  } catch { /* Diagnostics must not replace the failure being reported. */ }
+
+  if (!isSmokeTest) {
+    try {
+      dialog.showErrorBox(
+        'Athena 无法启动',
+        `后台服务没有启动成功，界面无法使用。\n\n${message}\n\n请重新启动 Athena；如果反复出现，请把这条信息一并反馈。`,
+      );
+    } catch { /* A missing dialog must not stop the exit below. */ }
+  }
+
+  // The window this was called from is still being constructed. Exiting inside
+  // that call tears down a half-built window and faults rather than exiting, so
+  // the window is destroyed first and the exit waits for the current tick to
+  // finish - the difference between reporting a failure and crashing on one.
+  for (const open of BrowserWindow.getAllWindows()) {
+    if (!open.isDestroyed()) open.destroy();
+  }
+  setImmediate(() => app.exit(1));
+}
+
 function clearUnresponsiveRecovery(): void {
   if (unresponsiveTimer) clearTimeout(unresponsiveTimer);
   unresponsiveTimer = null;
@@ -1514,7 +1548,17 @@ function createWindow(): void {
     app.exit(1);
   });
 
-  shutdownServices = registerIpcHandlers(mainWindow);
+  try {
+    shutdownServices = registerIpcHandlers(mainWindow);
+  } catch (error) {
+    // registerIpcHandlers clears every handler before registering them again, so
+    // a throw part way through leaves the window rendered and the whole IPC
+    // surface dead. Nothing looks broken until something is clicked, and then it
+    // reports a channel name. Failing loudly here is the difference between "the
+    // backend did not start" and an app that argues with you (ATH-STAB-003).
+    reportFatalStartupFailure(error);
+    return;
+  }
   desktopPetWindow?.dispose();
   desktopPetWindow = null;
   if (RELEASE_FEATURES.live2d) {
