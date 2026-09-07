@@ -14,6 +14,8 @@ import { MicrophoneRecorder } from './voice/MicrophoneRecorder';
 import { RECORDING_ACTIVITY_OPTIONS, SpeechActivityDetector } from './voice/SpeechActivityDetector';
 import { BARGE_IN_ACTIVITY_OPTIONS, BargeInMonitor } from './voice/BargeInMonitor';
 import { StreamingReader } from './voice/StreamingReader';
+import { toSpeakableText } from './voice/SpokenText';
+import { voiceSessionLabel, voiceSessionPulse, voiceSessionState } from './voice/VoiceSession';
 import type { AvatarLayoutMode } from '../shared/types/avatar';
 import type { AthenaAvatarEvent } from './avatar/AvatarRuntime';
 import type { EmotionType } from '../shared/types/emotion';
@@ -1439,6 +1441,12 @@ const settingTtsRateValue = mustGet<HTMLOutputElement>('setting-tts-rate-value')
 const settingTtsVolumeValue = mustGet<HTMLOutputElement>('setting-tts-volume-value');
 const settingTtsPitchValue = mustGet<HTMLOutputElement>('setting-tts-pitch-value');
 const voicePreviewBtn = mustGet<HTMLButtonElement>('voice-preview');
+const voiceSessionBtn = mustGet<HTMLButtonElement>('voice-session-btn');
+const voiceSessionPanel = mustGet<HTMLElement>('voice-session');
+const voiceSessionStateLabel = mustGet<HTMLElement>('voice-session-state');
+const voiceSessionHeard = mustGet<HTMLElement>('voice-session-heard');
+const voiceSessionSaid = mustGet<HTMLElement>('voice-session-said');
+const voiceSessionClose = mustGet<HTMLButtonElement>('voice-session-close');
 const settingTtsVoiceOptions = mustGet<HTMLDataListElement>('setting-tts-voice-options');
 const voiceCapabilityStatus = mustGet<HTMLElement>('voice-capability-status');
 const voiceCapabilityRefresh = mustGet<HTMLButtonElement>('voice-capability-refresh');
@@ -1530,6 +1538,14 @@ let streamingReader: StreamingReader | null = null;
 let streamingReadTurn = false;
 /** Settles clips that are waiting to finish, so a stop does not leave one hanging. */
 const clipWaiters = new Set<() => void>();
+let voiceSessionOpen = false;
+let voiceSessionFrame: number | undefined;
+let voiceSessionMicLevel = 0;
+let voiceSessionStartedAt = 0;
+/** Consecutive turns that heard nothing; the cap is what stops a broken mic spinning. */
+let voiceSessionRetries = 0;
+const VOICE_SESSION_MAX_RETRIES = 5;
+const VOICE_SESSION_RETRY_MS = 800;
 let modelConnected: boolean | null = null;
 let currentVoiceCapabilities: VoiceCapabilities | null = null;
 let forceWebSearchForNextMessage = false;
@@ -2277,11 +2293,24 @@ function init(): void {
   });
   voiceCapabilityRefresh.addEventListener('click', () => void refreshVoiceCapabilities());
   voicePreviewBtn.addEventListener('click', () => void previewVoiceProfile());
+  voiceSessionBtn.addEventListener('click', () => {
+    toggleComposerTools(false);
+    void openVoiceSession();
+  });
+  voiceSessionClose.addEventListener('click', closeVoiceSession);
   for (const control of [settingTtsRate, settingTtsVolume, settingTtsPitch]) {
     control.addEventListener('input', syncVoiceProfileReadout);
   }
   settingTtsEngine.addEventListener('change', syncVoiceProfileReadout);
   window.addEventListener('keydown', (event) => {
+    // Escape hangs up before it cancels a recording: inside the surface the
+    // recording is the call, so cancelling it alone would leave an open panel
+    // that has stopped listening.
+    if (event.key === 'Escape' && voiceSessionOpen) {
+      event.preventDefault();
+      closeVoiceSession();
+      return;
+    }
     if (event.key === 'Escape' && (voiceInputState === 'recording' || voiceInputState === 'requesting')) {
       event.preventDefault();
       void cancelMicrophoneRecording();
@@ -6462,6 +6491,10 @@ function syncVoiceControls(): void {
   voiceSttBtn.dataset.enabled = String(sttEnabled);
   voiceFileBtn.dataset.enabled = String(sttEnabled);
   voiceTtsBtn.dataset.enabled = String(ttsEnabled);
+  // Entering is offered only when recognition will actually work; the surface
+  // would otherwise open and say "listening" at a microphone that cannot hear.
+  voiceSessionBtn.disabled = voiceSessionOpen || !canOpenVoiceSession();
+  voiceSessionBtn.dataset.enabled = String(canOpenVoiceSession());
   inputBar.setSendDisabled(isStreaming || busy);
   syncWebSearchControl();
 }
@@ -6585,7 +6618,13 @@ async function stopAndTranscribeRecording(): Promise<void> {
       throw new Error(result.error || '没有识别到清晰的语音。');
     }
 
-    const autoSend = currentSettingsBundle?.settings.voice.autoSendDictation === true;
+    // In a call there is nobody to press send, so entering the surface implies it.
+    const autoSend = voiceSessionOpen || currentSettingsBundle?.settings.voice.autoSendDictation === true;
+    if (voiceSessionOpen) {
+      voiceSessionHeard.textContent = `你：${text}`;
+      // A turn that produced words clears the run of silent ones.
+      voiceSessionRetries = 0;
+    }
     inputBar.insertAtCursor(text);
     inputBar.focus();
     completeVoiceInput(autoSend ? '听写完成，正在发送' : '听写完成，已插入输入框');
@@ -6675,6 +6714,10 @@ function handleMicrophoneRecorderError(error: Error): void {
 function updateMicrophoneMeter(level: number): void {
   if (voiceInputState !== 'recording') return;
   recordingPeakLevel = Math.max(recordingPeakLevel, level);
+  // Read by the voice surface's own frame loop. It is a copy rather than a
+  // second write path, so the composer animation stays the only consumer of the
+  // custom properties below.
+  voiceSessionMicLevel = level;
   // Speech is now judged against the room this recording is happening in rather
   // than a constant (ATH-VOICE-006).
   if (recordingActivity.push(level) === 'speech') {
@@ -6720,6 +6763,16 @@ function completeVoiceInput(message: string): void {
 function failVoiceInput(error: unknown): void {
   // A turn that heard nothing ends the hands-free loop rather than restarting it.
   handsFreePending = false;
+  // In a call it means silence, not a reason to hang up - so the surface listens
+  // again. The retry count is what stops a broken microphone from spinning:
+  // without it, a device that fails instantly would restart forever.
+  if (voiceSessionOpen && voiceSessionRetries < VOICE_SESSION_MAX_RETRIES) {
+    voiceSessionRetries += 1;
+    window.setTimeout(() => { if (voiceSessionOpen) void resumeHandsFreeListening(); }, VOICE_SESSION_RETRY_MS);
+  } else if (voiceSessionOpen) {
+    showVoiceFeedback('麦克风一直没有声音，已结束语音对话', 'error', 5000);
+    closeVoiceSession();
+  }
   clearRecordingTimers();
   resetRecordingActivity();
   setVoiceInputState('error');
@@ -6944,6 +6997,10 @@ async function resumeHandsFreeListening(): Promise<void> {
 
   await toggleMicrophoneRecording();
   if (voiceInputState !== 'recording') return;
+  // A call keeps the line open: someone thinking for ten seconds has not hung
+  // up. Outside the surface there is nothing on screen saying the microphone is
+  // live, so there the loop gives up quickly instead.
+  if (voiceSessionOpen) return;
   // Without this the loop would hold the microphone open to the 60s cap before
   // deciding nobody answered. Leaving a room should end the conversation in
   // seconds, not after a minute of recording an empty room.
@@ -6955,8 +7012,10 @@ async function resumeHandsFreeListening(): Promise<void> {
 }
 
 function isHandsFreeArmed(): boolean {
+  if (currentVoiceCapabilities?.stt.ready !== true) return false;
+  if (voiceSessionOpen) return true;
   const voice = currentSettingsBundle?.settings.voice;
-  return Boolean(voice?.handsFree && voice.sttEnabled) && currentVoiceCapabilities?.stt.ready === true;
+  return Boolean(voice?.handsFree && voice.sttEnabled);
 }
 
 /**
@@ -7042,10 +7101,85 @@ function ensureStreamingReader(): StreamingReader | null {
   return streamingReader;
 }
 
+/**
+ * Whether a voice conversation can be entered at all.
+ *
+ * Recognition has to be switched on and actually present. Anything else would
+ * open a surface that says "listening" at a microphone that will never work.
+ */
+function canOpenVoiceSession(): boolean {
+  return currentSettingsBundle?.settings.voice.sttEnabled === true
+    && currentVoiceCapabilities?.stt.ready === true;
+}
+
+/**
+ * Open the conversation surface and start listening.
+ *
+ * Entering is itself the opt-in for hands-free, auto-send and interruption:
+ * those settings govern the composer, where they are surprises. Here they are
+ * the entire point, and a surface that asked you to go and enable three
+ * checkboxes before it would talk to you would not be a call.
+ */
+async function openVoiceSession(): Promise<void> {
+  if (voiceSessionOpen || !canOpenVoiceSession()) return;
+  voiceSessionOpen = true;
+  voiceSessionStartedAt = performance.now();
+  voiceSessionHeard.textContent = '';
+  voiceSessionSaid.textContent = '';
+  voiceSessionPanel.hidden = false;
+  voiceSessionPanel.dataset.open = 'true';
+  voiceSessionPanel.setAttribute('aria-hidden', 'false');
+  voiceSessionClose.focus();
+  runVoiceSessionFrame();
+  syncVoiceControls();
+  if (!isChatRequestBusy() && !isVoiceInputBusy()) await toggleMicrophoneRecording();
+}
+
+function closeVoiceSession(): void {
+  if (!voiceSessionOpen) return;
+  voiceSessionOpen = false;
+  handsFreePending = false;
+  if (voiceSessionFrame) cancelAnimationFrame(voiceSessionFrame);
+  voiceSessionFrame = undefined;
+  voiceSessionPanel.dataset.open = 'false';
+  voiceSessionPanel.setAttribute('aria-hidden', 'true');
+  voiceSessionPanel.hidden = true;
+  voiceSessionPanel.style.removeProperty('--voice-session-pulse');
+  // Hanging up stops both directions, not just the one that happens to be live.
+  stopCurrentAudio();
+  void cancelMicrophoneRecording();
+  syncVoiceControls();
+  inputBar.focus();
+}
+
+/** One frame of the surface: derived state, then the pulse that goes with it. */
+function runVoiceSessionFrame(): void {
+  if (!voiceSessionOpen) return;
+  const state = voiceSessionState({
+    open: true,
+    recording: voiceInputState === 'recording' || voiceInputState === 'requesting',
+    transcribing: voiceInputState === 'transcribing',
+    streaming: isStreaming,
+    speaking: Boolean(currentAudio) || streamingReader !== null,
+  });
+  voiceSessionPanel.dataset.voiceSession = state;
+  voiceSessionStateLabel.textContent = voiceSessionLabel(state);
+  voiceSessionPanel.style.setProperty(
+    '--voice-session-pulse',
+    voiceSessionPulse(state, voiceSessionMicLevel, performance.now() - voiceSessionStartedAt).toFixed(3),
+  );
+  if (isStreaming && currentContent) {
+    voiceSessionSaid.textContent = toSpeakableText(currentContent).slice(-160);
+  }
+  voiceSessionFrame = requestAnimationFrame(runVoiceSessionFrame);
+}
+
 /** Interrupting needs voice input available, not just the preference set. */
 function isBargeInArmed(): boolean {
+  if (currentVoiceCapabilities?.stt.ready !== true) return false;
+  if (voiceSessionOpen) return true;
   const voice = currentSettingsBundle?.settings.voice;
-  return Boolean(voice?.bargeIn && voice.sttEnabled) && currentVoiceCapabilities?.stt.ready === true;
+  return Boolean(voice?.bargeIn && voice.sttEnabled);
 }
 
 /**

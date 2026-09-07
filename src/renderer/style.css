@@ -1133,6 +1133,108 @@ summary:focus-visible {
   background: rgba(var(--accent-rgb), 0.1);
 }
 
+/* Voice conversation surface.
+   Deliberately its own attribute and its own custom property: data-voice-state
+   and --voice-glow belong to the composer, and a sixth value on the former would
+   silently match no selector. z-index 1 keeps it under #live2d-companion so the
+   companion stays visible over it. */
+#voice-session {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 32px 28px;
+  border-radius: inherit;
+  background: radial-gradient(circle at 50% 42%, rgba(var(--accent-rgb), 0.13), transparent 62%),
+    color-mix(in srgb, var(--surface, rgba(22, 24, 30, 0.9)) 88%, transparent);
+  backdrop-filter: blur(26px) saturate(130%);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--motion-standard) ease, visibility var(--motion-standard) ease;
+}
+
+#voice-session[data-open="true"] {
+  opacity: 1;
+  visibility: visible;
+}
+
+#voice-session-orb {
+  position: relative;
+  width: 148px;
+  height: 148px;
+  display: grid;
+  place-items: center;
+}
+
+#voice-session-orb span {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1px solid rgba(var(--accent-rgb), 0.35);
+  /* One shared level drives every ring, so the whole thing breathes together
+     instead of three things animating near each other. */
+  transform: scale(calc(0.62 + var(--voice-session-pulse, 0.1) * 0.38));
+  transition: transform 120ms ease-out, opacity 200ms ease;
+}
+
+#voice-session-orb span:nth-child(1) {
+  background: radial-gradient(circle, rgba(var(--accent-rgb), 0.42), transparent 68%);
+  border-color: transparent;
+}
+
+#voice-session-orb span:nth-child(2) {
+  transform: scale(calc(0.78 + var(--voice-session-pulse, 0.1) * 0.34));
+  opacity: 0.55;
+}
+
+#voice-session-orb span:nth-child(3) {
+  transform: scale(calc(0.94 + var(--voice-session-pulse, 0.1) * 0.3));
+  opacity: 0.28;
+}
+
+#voice-session[data-voice-session="thinking"] #voice-session-orb span {
+  border-color: rgba(var(--accent-rgb), 0.2);
+}
+
+#voice-session-state {
+  font-size: 15px;
+  letter-spacing: 0.14em;
+  color: var(--accent);
+}
+
+#voice-session-transcript {
+  max-width: min(560px, 82%);
+  text-align: center;
+  display: grid;
+  gap: 6px;
+}
+
+#voice-session-heard,
+#voice-session-said {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+#voice-session-said {
+  color: var(--text, #e8e8ea);
+}
+
+#voice-session-hint {
+  max-width: min(520px, 82%);
+  text-align: center;
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--text-muted);
+  opacity: 0.72;
+}
+
 #app-shell[data-state="thinking"] #send-btn {
   animation: send-thinking 1.25s ease-in-out infinite;
 }

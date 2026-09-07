@@ -169,6 +169,18 @@
         <canvas id="live2d-companion-canvas" width="420" height="680" aria-hidden="true" hidden></canvas>
       </div>
       <section id="chat-container" aria-label="聊天记录"></section>
+      <!-- Sits under #live2d-companion (z-index 2) on purpose: the companion
+           stays visible above it, so a call has someone on the other end. -->
+      <div id="voice-session" data-voice-session="idle" aria-hidden="true" hidden>
+        <div id="voice-session-orb" aria-hidden="true"><span></span><span></span><span></span></div>
+        <div id="voice-session-state" role="status" aria-live="polite">在听</div>
+        <div id="voice-session-transcript">
+          <p id="voice-session-heard"></p>
+          <p id="voice-session-said"></p>
+        </div>
+        <div id="voice-session-hint">直接说话就行。说完停一下，Athena 会接话；她在说的时候你也可以开口打断。</div>
+        <button id="voice-session-close" class="settings-panel-link" type="button" title="结束语音对话（Esc）">结束语音对话</button>
+      </div>
     </section>
 
     <div id="panel-scrim" data-visible="false" aria-hidden="true"></div>
@@ -1319,6 +1331,10 @@
         <button id="voice-tts-btn" class="secondary-tool" type="button" title="朗读回复" aria-label="朗读回复">
           <svg class="icon"><use href="#icon-volume"></use></svg>
           <span>朗读回复</span>
+        </button>
+        <button id="voice-session-btn" class="secondary-tool" type="button" title="进入语音对话，像打电话一样直接说" aria-label="语音对话">
+          <svg class="icon"><use href="#icon-mic"></use></svg>
+          <span>语音对话</span>
         </button>
       </div>
       <div id="composer-attachments" aria-live="polite"></div>

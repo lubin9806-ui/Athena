@@ -1034,10 +1034,61 @@ function createWindow(): void {
             if (clearedState === 'recording' || clearedGlow !== '') {
               return voiceSmokeFail('recording-animation-cleared', { clearedState, clearedGlow });
             }
+            // The voice conversation surface. It has its own attribute and its
+            // own custom property on purpose, so the check is that it drives
+            // those and never widens data-voice-state, whose CSS only matches
+            // the five composer values.
+            const composerStates = ['idle', 'requesting', 'recording', 'transcribing', 'error'];
+            await api.saveSettings({ settings: { voice: { sttEnabled: true } } });
+            const sessionButton = document.getElementById('voice-session-btn');
+            const sessionPanel = document.getElementById('voice-session');
+            if (!sessionButton || !sessionPanel) return voiceSmokeFail('voice-session-missing');
+            await waitFor(() => sessionButton.disabled === false, 6000);
+            if (sessionButton.disabled) {
+              return voiceSmokeFail('voice-session-unavailable', {
+                enabled: sessionButton.dataset.enabled,
+              });
+            }
+
+            sessionButton.click();
+            const sessionOpened = await waitFor(
+              () => sessionPanel.dataset.open === 'true'
+                && sessionPanel.dataset.voiceSession !== undefined
+                && sessionPanel.dataset.voiceSession !== 'idle'
+                && sessionPanel.style.getPropertyValue('--voice-session-pulse') !== '',
+              6000,
+            );
+            const sessionOpenState = {
+              open: sessionPanel.dataset.open,
+              session: sessionPanel.dataset.voiceSession,
+              pulse: sessionPanel.style.getPropertyValue('--voice-session-pulse'),
+              composerState: inputForm.dataset.voiceState,
+            };
+            if (!sessionOpened) return voiceSmokeFail('voice-session-open', sessionOpenState);
+            if (!composerStates.includes(String(inputForm.dataset.voiceState))) {
+              return voiceSmokeFail('voice-session-widened-composer-state', sessionOpenState);
+            }
+
+            window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+            const sessionClosed = await waitFor(
+              () => sessionPanel.hidden === true
+                && sessionPanel.style.getPropertyValue('--voice-session-pulse') === ''
+                && inputForm.style.getPropertyValue('--voice-glow') === '',
+              6000,
+            );
+            if (!sessionClosed) {
+              return voiceSmokeFail('voice-session-close', {
+                hidden: sessionPanel.hidden,
+                pulse: sessionPanel.style.getPropertyValue('--voice-session-pulse'),
+                glow: inputForm.style.getPropertyValue('--voice-glow'),
+              });
+            }
+
             console.log('ATHENA_SMOKE_VOICE_STATE', JSON.stringify({
               ok: true,
               stage: 'recording-cancel',
               animation: recordingAnimation,
+              session: sessionOpenState,
             }));
             return true;
           } catch (error) {

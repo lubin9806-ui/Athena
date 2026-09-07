@@ -13,6 +13,10 @@ const {
   RECORDING_ACTIVITY_OPTIONS,
 } = require('../dist/renderer/voice/SpeechActivityDetector.js');
 const { BARGE_IN_ACTIVITY_OPTIONS } = require('../dist/renderer/voice/BargeInMonitor.js');
+const {
+  voiceSessionState,
+  voiceSessionPulse,
+} = require('../dist/renderer/voice/VoiceSession.js');
 
 /** The rule this detector replaced: any two consecutive frames over 0.008. */
 const OLD_FIXED_THRESHOLD = 0.008;
@@ -192,6 +196,61 @@ function main() {
         `barge-in ${key} (${BARGE_IN_ACTIVITY_OPTIONS[key]}) is not stricter than dictation `
         + `(${RECORDING_ACTIVITY_OPTIONS[key]}); a false interrupt costs more than a missed one`,
       );
+    }
+  });
+
+  // The voice surface derives its state instead of tracking one, so what is
+  // worth testing is that the derivation cannot claim to be listening when
+  // nothing is open, or idle in the gap between turns.
+  const session = (patch = {}) => voiceSessionState({
+    open: true,
+    recording: false,
+    transcribing: false,
+    streaming: false,
+    speaking: false,
+    ...patch,
+  });
+
+  check('a closed surface is idle whatever else is happening', () => {
+    const state = voiceSessionState({
+      open: false, recording: true, transcribing: true, streaming: true, speaking: true,
+    });
+    assert.strictEqual(state, 'idle', 'a closed surface reported activity');
+  });
+
+  check('the surface names what is actually happening', () => {
+    assert.strictEqual(session({ recording: true }), 'listening');
+    assert.strictEqual(session({ transcribing: true }), 'thinking');
+    assert.strictEqual(session({ streaming: true }), 'thinking');
+    assert.strictEqual(session({ speaking: true }), 'speaking');
+  });
+
+  check('the line stays open between turns', () => {
+    // Nothing is recording, generating or playing - the gap after a reply. Idle
+    // here would make a continuous conversation look like it had stopped.
+    assert.strictEqual(session(), 'listening', 'the gap between turns read as idle');
+  });
+
+  check('recording wins over a reply that is still finishing', () => {
+    // Barge-in starts a recording while audio is still unwinding; the surface
+    // must say it is listening, because it is.
+    assert.strictEqual(session({ recording: true, speaking: true }), 'listening');
+  });
+
+  check('the pulse stays inside its range and follows the microphone', () => {
+    const quiet = voiceSessionPulse('listening', 0, 0);
+    const loud = voiceSessionPulse('listening', 0.5, 0);
+    assert(loud > quiet, 'a louder microphone did not pulse harder');
+    for (const state of ['listening', 'thinking', 'speaking', 'idle']) {
+      for (const elapsed of [0, 130, 400, 900, 2600]) {
+        for (const level of [0, 0.3, 5]) {
+          const pulse = voiceSessionPulse(state, level, elapsed);
+          assert(
+            pulse >= 0 && pulse <= 1,
+            `${state} pulsed to ${pulse} at ${elapsed}ms and level ${level}, outside 0..1`,
+          );
+        }
+      }
     }
   });
 
