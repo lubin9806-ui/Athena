@@ -1,9 +1,16 @@
+const fs = require('fs');
+const os = require('os');
 const path = require('path');
+const { app } = require('electron');
 
 const root = path.resolve(__dirname, '..');
+const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'athena-conversation-modes-'));
+process.env.ATHENA_DB_DIR = path.join(scratch, 'database');
+process.env.ATHENA_CONFIG_DIR = path.join(scratch, 'config');
 const { buildChatPrompt } = require(path.join(root, 'dist/core/ai/PromptBuilder.js'));
 const { resolveModeGenerationOptions } = require(path.join(root, 'dist/core/ai/Client.js'));
 const { Conversation } = require(path.join(root, 'dist/core/ai/Conversation.js'));
+const { closeDatabase } = require(path.join(root, 'dist/memory/index.js'));
 
 const emptyContext = {
   profileFacts: [],
@@ -83,15 +90,30 @@ async function verifyModeForwarding() {
     },
   };
   const conversation = new Conversation(mockClient);
-  await conversation.process('检查这个结论', [], emptyContext, 'reason');
-  assert(calls.length === 1, 'conversation must call the model exactly once');
-  assert(calls[0].mode === 'reason', 'conversation must forward the active mode to the model client');
-  assert(calls[0].messages[0].content.includes('当前运行模式：推理'), 'forwarded prompt must match the active mode');
+  try {
+    const response = await conversation.process('检查这个结论', [], emptyContext, 'reason');
+    assert(calls.length === 1, 'conversation must call the model exactly once');
+    assert(calls[0].mode === 'reason', 'conversation must forward the active mode to the model client');
+    assert(calls[0].messages[0].content.includes('当前运行模式：推理'), 'forwarded prompt must match the active mode');
+    assert(response.contextSnapshot?.id, 'mode forwarding must persist its context snapshot in the isolated Electron database');
+  } finally {
+    conversation.shutdown();
+  }
 }
 
-verifyModeForwarding()
-  .then(() => console.log('conversation modes OK'))
+async function main() {
+  await app.whenReady();
+  await verifyModeForwarding();
+  console.log('ATHENA_CONVERSATION_MODES_OK persistence=verified runtime=electron');
+}
+
+main()
+  .then(() => app.exit(0))
   .catch((error) => {
-    console.error(error);
-    process.exitCode = 1;
+    console.error(error?.stack || error);
+    app.exit(1);
+  })
+  .finally(() => {
+    closeDatabase();
+    fs.rmSync(scratch, { recursive: true, force: true });
   });

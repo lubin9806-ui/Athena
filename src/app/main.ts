@@ -695,6 +695,16 @@ function createWindow(): void {
              if (!newChatImmediateReactive) return false;
              inputBox.value = '提醒列表';
              inputForm.requestSubmit();
+             // requestSubmit invokes the handler synchronously until its first IPC
+             // await. This gives the smoke a deterministic view of the routing
+             // preflight lock instead of relying on a timing-sensitive slow model.
+             const previousWindowDuringRequest = document.querySelector('[data-chat-window-id="' + previousChatWindowId + '"]');
+             const windowSwitchDisabledWhilePending = previousWindowDuringRequest instanceof HTMLButtonElement
+               && previousWindowDuringRequest.disabled;
+             if (previousWindowDuringRequest instanceof HTMLButtonElement) previousWindowDuringRequest.click();
+             const windowSwitchRejectedWhilePending = Number(chatWindowSelect.value) === createdChatWindowId;
+             inputBox.value = 'DUPLICATE-SUBMIT-MUST-NOT-APPEAR';
+             inputForm.requestSubmit();
              let newChatAutoTitleReactive = false;
              for (let attempt = 0; attempt < 40; attempt += 1) {
                await new Promise(resolve => setTimeout(resolve, 100));
@@ -713,6 +723,9 @@ function createWindow(): void {
                await new Promise(resolve => setTimeout(resolve, 100));
              }
              if (!chatRequestSettled) return false;
+             const duplicateSubmissionRejected = !Array.from(document.querySelectorAll('.message.user'))
+               .some(message => message.getAttribute('data-raw-content') === 'DUPLICATE-SUBMIT-MUST-NOT-APPEAR');
+             if (!windowSwitchDisabledWhilePending || !windowSwitchRejectedWhilePending || !duplicateSubmissionRejected) return false;
              const previousChatButton = document.querySelector('[data-chat-window-id="' + previousChatWindowId + '"]');
              if (previousChatButton instanceof HTMLButtonElement) previousChatButton.click();
              for (let attempt = 0; attempt < 20 && Number(chatWindowSelect.value) !== previousChatWindowId; attempt += 1) {
@@ -882,6 +895,9 @@ function createWindow(): void {
                 directImageRoutingReady,
                 newChatImmediateReactive,
                 newChatAutoTitleReactive,
+                windowSwitchDisabledWhilePending,
+                windowSwitchRejectedWhilePending,
+                duplicateSubmissionRejected,
                 temporaryChatReactive,
                 temporaryDocumentBoundaryReactive,
                 appDialogReactive,

@@ -49,7 +49,7 @@
     "test:live2d:su-shixia-hot-zone-events": "tsc && node scripts/generate-su-shixia-hot-zone-event-proof.js && node scripts/verify-su-shixia-hot-zone-event-proof.js",
     "test:live2d:su-shixia-orientation-contract": "node scripts/generate-su-shixia-interaction-matrix.js && node scripts/generate-su-shixia-orientation-contract.js && node scripts/verify-su-shixia-orientation-contract.js",
     "test:persona": "tsc && node scripts/verify-persona-prompt.js",
-    "test:modes": "tsc && node scripts/verify-conversation-modes.js",
+    "test:modes": "tsc && electron scripts/verify-conversation-modes.js",
     "test:chat-windows": "tsc && electron scripts/verify-chat-windows.js",
     "test:theme": "tsc && node scripts/verify-theme.js",
     "test:memory-retention": "tsc && electron scripts/verify-memory-retention.js",
