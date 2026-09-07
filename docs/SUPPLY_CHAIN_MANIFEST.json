@@ -199,8 +199,8 @@
     },
     {
       "name": "@xmldom/xmldom",
-      "version": "0.8.13",
-      "resolved": "https://registry.npmjs.org/@xmldom/xmldom/-/xmldom-0.8.13.tgz",
+      "version": "0.8.15",
+      "resolved": "https://registry.npmjs.org/@xmldom/xmldom/-/xmldom-0.8.15.tgz",
       "license": "MIT",
       "repository": "git://github.com/xmldom/xmldom.git",
       "homepage": "https://github.com/xmldom/xmldom"
@@ -527,8 +527,8 @@
     },
     {
       "name": "fast-uri",
-      "version": "3.1.5",
-      "resolved": "https://registry.npmjs.org/fast-uri/-/fast-uri-3.1.5.tgz",
+      "version": "3.1.7",
+      "resolved": "https://registry.npmjs.org/fast-uri/-/fast-uri-3.1.7.tgz",
       "license": "BSD-3-Clause",
       "repository": "git+https://github.com/fastify/fast-uri.git",
       "homepage": "https://github.com/fastify/fast-uri"
