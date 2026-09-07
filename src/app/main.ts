@@ -85,6 +85,7 @@ const smokeMode = process.env.ATHENA_SMOKE_MODE === 'create'
       : null;
 const smokeWindowWidth = smokeDimension(process.env.ATHENA_SMOKE_WIDTH, 1180, 680, 3840);
 const smokeWindowHeight = smokeDimension(process.env.ATHENA_SMOKE_HEIGHT, 760, 560, 2160);
+const smokeWebglReadyMs = smokeDimension(process.env.ATHENA_SMOKE_WEBGL_READY_MS, 8_000, 1_000, 30_000);
 const smokeUserDataPath = isSmokeTest
   ? path.join(os.tmpdir(), 'athena-smoke', String(process.pid))
   : null;
@@ -361,6 +362,10 @@ function createWindow(): void {
       domReady = await mainWindow.webContents.executeJavaScript(`
         (async () => {
           try {
+             const failSmokeGate = (gate, details = {}) => {
+               console.error('ATHENA_SMOKE_GATE_FAILED ' + JSON.stringify({ gate, ...details }));
+               return false;
+             };
              const api = window.athenaAPI;
              const micButton = document.getElementById('voice-stt-btn');
              const appShell = document.getElementById('app-shell');
@@ -497,14 +502,17 @@ function createWindow(): void {
               && typeof api.listLocalImageRuntimeVariants === 'function'
               && typeof api.installLocalImageRuntime === 'function'
               );
-              if (!uiReady) return false;
+              if (!uiReady) return failSmokeGate('ui-ready', { readyState: document.readyState });
 
               const presencePrompt = visiblePresenceAction.dataset.prompt || '';
               visiblePresenceAction.click();
               const presenceQuickActionReactive = inputBox.value === presencePrompt && presencePrompt.length > 0;
               inputBox.value = '';
               inputBox.dispatchEvent(new Event('input', { bubbles: true }));
-              if (!presenceQuickActionReactive) return false;
+              if (!presenceQuickActionReactive) return failSmokeGate('presence-quick-action', {
+                promptChars: presencePrompt.length,
+                inputChars: inputBox.value.length,
+              });
 
              const stageRect = stage.getBoundingClientRect();
              stage.dispatchEvent(new PointerEvent('pointermove', {
@@ -516,15 +524,31 @@ function createWindow(): void {
              const glassReactive = Boolean(titlebar.style.getPropertyValue('--glass-x'));
              const liquidVelocityReactive = Boolean(titlebar.style.getPropertyValue('--glass-pressure'))
                && Boolean(lifeCore.style.getPropertyValue('--core-velocity'));
+             const liquidElements = [spaceSwitch, workModeSwitch, inputForm];
              let liquidShaderReactive = false;
-             for (let attempt = 0; attempt < 40; attempt += 1) {
-               liquidShaderReactive = spaceSwitch.dataset.liquidRenderer === 'webgl'
-                 && workModeSwitch.dataset.liquidRenderer === 'webgl'
-                 && inputForm.dataset.liquidRenderer === 'webgl';
-               if (liquidShaderReactive) break;
+             const liquidWaitStarted = performance.now();
+             const liquidDeadline = liquidWaitStarted + ${smokeWebglReadyMs};
+             do {
+               const states = liquidElements.map(element => element.dataset.liquidRenderer || 'missing');
+               liquidShaderReactive = states.every(state => state === 'webgl');
+               if (liquidShaderReactive || states.some(state => state === 'fallback')) break;
                await new Promise(resolve => setTimeout(resolve, 50));
+             } while (performance.now() < liquidDeadline);
+             if (!glassReactive || !liquidVelocityReactive || !liquidShaderReactive) {
+               return failSmokeGate('liquid-ready', {
+                 glassReactive,
+                 liquidVelocityReactive,
+                 liquidShaderReactive,
+                 waitedMs: Math.round(performance.now() - liquidWaitStarted),
+                 budgetMs: ${smokeWebglReadyMs},
+                 surfaces: liquidElements.map(element => ({
+                   id: element.id,
+                   state: element.dataset.liquidRenderer || 'missing',
+                   failure: element.dataset.liquidFailure || null,
+                   readyMs: element.dataset.liquidReadyMs || null,
+                 })),
+               });
              }
-             if (!glassReactive || !liquidVelocityReactive || !liquidShaderReactive) return false;
 
              const liquidFrameBefore = Number(spaceSwitch.dataset.liquidFrame || '0');
              stage.dispatchEvent(new PointerEvent('pointermove', {
@@ -540,7 +564,10 @@ function createWindow(): void {
              }
              const liquidMotionReactive = liquidFrameAfter > liquidFrameBefore;
              console.log('ATHENA_SMOKE_LIQUID_FRAME', JSON.stringify({ liquidFrameBefore, liquidFrameAfter, liquidMotionReactive }));
-             if (!liquidMotionReactive) return false;
+             if (!liquidMotionReactive) return failSmokeGate('liquid-motion', {
+               liquidFrameBefore,
+               liquidFrameAfter,
+             });
 
              const switchRect = spaceSwitch.getBoundingClientRect();
              spaceSwitch.dispatchEvent(new PointerEvent('pointerdown', {

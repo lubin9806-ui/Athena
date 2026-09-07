@@ -110,6 +110,7 @@
     "test:agent-evals": "npm.cmd run test:agent-routing && npm.cmd run test:web-search && npm.cmd run test:agent-runtime && npm.cmd run test:project-workspace && npm.cmd run test:research-tools && npm.cmd run test:project-memory && npm.cmd run test:skill-library",
     "test:deepseek:live": "tsc && electron scripts/verify-deepseek-live-chat.js",
     "smoke:electron": "node scripts/clean-dist.js && vite build --config vite.config.mts && tsc && electron . --smoke-test",
+    "test:smoke-stability": "node scripts/verify-smoke-stability.js",
     "smoke:electron:voice": "node scripts/clean-dist.js && vite build --config vite.config.mts && tsc && node scripts/run-voice-smoke.js",
     "clean:dist": "node scripts/clean-dist.js",
     "db:stats": "python scripts/db-tool.py stats",

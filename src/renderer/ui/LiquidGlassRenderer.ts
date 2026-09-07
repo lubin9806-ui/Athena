@@ -117,9 +117,13 @@ export class LiquidGlassRenderer {
     this.shell.style.setProperty('--daylight-texture', `url("${textureUrl}")`);
     this.image.decoding = 'async';
     this.image.addEventListener('load', this.handleImageLoad, { once: true });
-    this.image.src = textureUrl;
+    this.image.addEventListener('error', this.handleImageError, { once: true });
 
     for (const element of elements) this.createSurface(element);
+    // Surfaces must exist before src is assigned. A cached image can dispatch its
+    // load event quickly; assigning first left later-created surfaces permanently
+    // in `loading`, which looked like a random smoke timeout (ATH-STAB-002).
+    this.image.src = textureUrl;
     this.resizeObserver = new ResizeObserver(() => this.render());
     for (const element of elements) this.resizeObserver.observe(element);
     this.themeObserver = new MutationObserver(() => this.render());
@@ -182,6 +186,7 @@ export class LiquidGlassRenderer {
     if (!gl) {
       canvas.remove();
       element.dataset.liquidRenderer = 'fallback';
+      element.dataset.liquidFailure = 'context-unavailable';
       return;
     }
 
@@ -228,9 +233,11 @@ export class LiquidGlassRenderer {
         },
       });
       element.dataset.liquidRenderer = 'loading';
+      element.dataset.liquidFailure = 'texture-loading';
     } catch (error) {
       canvas.remove();
       element.dataset.liquidRenderer = 'fallback';
+      element.dataset.liquidFailure = 'initialization-failed';
       console.warn('Liquid glass renderer unavailable:', error);
     }
   }
@@ -270,8 +277,20 @@ export class LiquidGlassRenderer {
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this.image);
       element.dataset.liquidRenderer = 'webgl';
+      delete element.dataset.liquidFailure;
+      element.dataset.liquidReadyMs = String(Math.round(performance.now()));
     }
     this.render();
+  };
+
+  private readonly handleImageError = (): void => {
+    for (const surface of this.surfaces) {
+      surface.canvas.remove();
+      surface.element.dataset.liquidRenderer = 'fallback';
+      surface.element.dataset.liquidFailure = 'texture-load-failed';
+    }
+    this.surfaces.length = 0;
+    console.warn('Liquid glass texture failed to load.');
   };
 
   private readonly handleResize = (): void => this.render();
