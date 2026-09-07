@@ -30,6 +30,11 @@ function runElectron(label, script) {
 function effectiveBuilderConfig(signed, updateUrl, channel, publisher) {
   const sourcePath = path.join(ROOT, 'electron-builder.yml');
   let contents = fs.readFileSync(sourcePath, 'utf8');
+  const electronDist = path.join(ROOT, 'node_modules', 'electron', 'dist');
+  const electronBinary = path.join(electronDist, 'electron.exe');
+  if (!fs.existsSync(electronBinary)) {
+    throw new Error(`Installed Electron distribution is missing: ${electronBinary}`);
+  }
   if (!contents.includes('signAndEditExecutable: true')) {
     throw new Error('electron-builder.yml must keep release signing enabled in the source configuration.');
   }
@@ -38,7 +43,7 @@ function effectiveBuilderConfig(signed, updateUrl, channel, publisher) {
     'signAndEditExecutable: true\n  signExecutable: false',
   );
   if (signed) contents = `forceCodeSigning: true\n${contents}`;
-  contents = `${contents.trimEnd()}\npublish:\n  provider: generic\n  url: ${JSON.stringify(updateUrl)}\n  channel: ${JSON.stringify(channel)}\n  publisherName:\n    - ${JSON.stringify(publisher)}\n  updaterCacheDirName: athena-updater\n`;
+  contents = `electronDist: ${JSON.stringify(electronDist.replace(/\\/g, '/'))}\n${contents.trimEnd()}\npublish:\n  provider: generic\n  url: ${JSON.stringify(updateUrl)}\n  channel: ${JSON.stringify(channel)}\n  publisherName:\n    - ${JSON.stringify(publisher)}\n  updaterCacheDirName: athena-updater\n`;
   const target = path.join(ROOT, '.build', 'electron-builder.effective.yml');
   fs.mkdirSync(path.dirname(target), { recursive: true });
   fs.writeFileSync(target, contents, 'utf8');
