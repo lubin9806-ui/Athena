@@ -26,6 +26,8 @@ process.env.ATHENA_VOICE_SCRIPT_DIR = RUNTIME;
 
 const { VoiceService } = require('../dist/core/voice/VoiceService.js');
 const { saveSettingsBundle } = require('../dist/core/config/SettingsStore.js');
+const { takeSpeakableSentences, toSpeakableText } = require('../dist/renderer/voice/SpokenText.js');
+const { StreamingReader } = require('../dist/renderer/voice/StreamingReader.js');
 
 const SAMPLE = '这是当前音色的试听效果，用来验证语速、音量和音高。';
 
@@ -94,8 +96,152 @@ function round(value) {
   return Math.round(value * 10) / 10;
 }
 
+function check(name, run) {
+  run();
+  console.log(`  ok  ${name}`);
+}
+
+function deferred() {
+  let resolve;
+  const promise = new Promise((settle) => { resolve = settle; });
+  return { promise, resolve };
+}
+
+/** What a reply sounds like: markdown removed, sentences in order. */
+function verifySpokenText() {
+  check('code blocks are not read aloud', () => {
+    const spoken = toSpeakableText('先看这段：\n```js\nconst x = 1;\n```\n就是这样。');
+    assert(!spoken.includes('const'), `code leaked into speech: ${spoken}`);
+    assert(spoken.includes('先看这段'), 'text around the block was lost');
+    assert(spoken.includes('就是这样'), 'text after the block was lost');
+  });
+
+  check('emphasis and links keep their words, not their markup', () => {
+    const spoken = toSpeakableText('这是 **重点**，见 [文档](https://example.com/a_b) 与 `code`。');
+    assert(!spoken.includes('*'), `emphasis markers survived: ${spoken}`);
+    assert(!spoken.includes('http'), `a URL would be read out: ${spoken}`);
+    assert(spoken.includes('重点') && spoken.includes('文档') && spoken.includes('code'), spoken);
+  });
+
+  check('headings, bullets and table rules lose only their markers', () => {
+    const spoken = toSpeakableText('## 标题\n- 第一点\n- 第二点\n\n| 列 | 值 |\n|---|---|\n| 甲 | 乙 |');
+    assert(!spoken.includes('##') && !spoken.includes('- ') && !spoken.includes('|---'), spoken);
+    assert(spoken.includes('标题') && spoken.includes('第一点') && spoken.includes('甲'), spoken);
+  });
+
+  check('a finished sentence is taken and an unfinished one is held', () => {
+    const { sentences, rest } = takeSpeakableSentences('今天下午三点提醒我。还有一件事');
+    assert.deepStrictEqual(sentences, ['今天下午三点提醒我。']);
+    assert.strictEqual(rest, '还有一件事');
+  });
+
+  check('an English full stop ends a sentence but a decimal does not', () => {
+    const split = takeSpeakableSentences('Send the report. It is 3.14 metres long');
+    assert.deepStrictEqual(split.sentences, ['Send the report.']);
+    assert.strictEqual(split.rest, 'It is 3.14 metres long');
+  });
+
+  check('an unpunctuated stretch is spoken instead of held forever', () => {
+    // Well past the 120-character backstop, which is the case this exists for:
+    // a reply that never punctuates would otherwise be held until it ended.
+    const long = '这句话没有任何标点符号所以永远不会结束'.repeat(12);
+    const { sentences, rest } = takeSpeakableSentences(long);
+    assert(sentences.length > 0, 'a long unpunctuated reply would never start speaking');
+    assert(rest.length > 0, 'the forced break consumed the whole buffer instead of one chunk');
+  });
+
+  check('the end of a reply speaks whatever is left', () => {
+    const { sentences, rest } = takeSpeakableSentences('没有句号的结尾', true);
+    assert.deepStrictEqual(sentences, ['没有句号的结尾']);
+    assert.strictEqual(rest, '');
+  });
+}
+
+/** The behaviour streaming exists for: speaking starts before the reply ends. */
+async function verifyStreamingReader() {
+  const spoken = [];
+  const played = [];
+  let firstClip = false;
+  const gate = deferred();
+  let finished = null;
+
+  const reader = new StreamingReader({
+    synthesize: async (text) => { spoken.push(text); return `clip-${spoken.length}.wav`; },
+    playToEnd: async (audioPath) => {
+      played.push(audioPath);
+      // Hold the first clip so the pipelining can be observed while it "plays".
+      if (played.length === 1) await gate.promise;
+    },
+    onFirstClip: () => { firstClip = true; },
+    onFinish: (cancelled) => { finished = { cancelled }; },
+    onError: (error) => { throw error; },
+  });
+
+  // Deliberately without a newline. Buffering by whole lines looked like the
+  // safe way to track code fences, but a streaming reply often has no line break
+  // until it ends - and the reader then stayed silent until the reply was over,
+  // which is the delay this class exists to remove.
+  reader.push('第一句话已经写完了。');
+  reader.push('第一句话已经写完了。第二句也写完了。');
+  await new Promise(resolve => setTimeout(resolve, 120));
+
+  assert(firstClip, 'the reader never started speaking while the reply was still arriving');
+  assert.strictEqual(finished, null, 'the reader finished before the reply did');
+  assert.deepStrictEqual(played, ['clip-1.wav'], `unexpected playback order: ${played}`);
+  // The point of the pipeline: the second sentence is already being synthesized
+  // while the first is playing, so a boundary is not a silent PowerShell start.
+  assert.strictEqual(
+    spoken.length,
+    2,
+    `synthesis is not running ahead of playback: ${spoken.length} clip(s) prepared while one played`,
+  );
+
+  gate.resolve();
+  reader.push('第一句话已经写完了。第二句也写完了。收尾。');
+  reader.finish();
+  for (let attempt = 0; attempt < 50 && !finished; attempt += 1) {
+    await new Promise(resolve => setTimeout(resolve, 20));
+  }
+
+  assert(finished && !finished.cancelled, 'the reader never finished');
+  assert.deepStrictEqual(spoken, ['第一句话已经写完了。', '第二句也写完了。', '收尾。'], `spoken: ${spoken}`);
+  assert.deepStrictEqual(played, ['clip-1.wav', 'clip-2.wav', 'clip-3.wav'], `played: ${played}`);
+  console.log('  ok  reading starts mid-reply and keeps one clip synthesized ahead');
+}
+
+async function verifyStreamingReaderCancel() {
+  const played = [];
+  let finished = null;
+  const gate = deferred();
+  const reader = new StreamingReader({
+    synthesize: async () => 'clip.wav',
+    playToEnd: async (audioPath) => { played.push(audioPath); await gate.promise; },
+    onFirstClip: () => {},
+    onFinish: (cancelled) => { finished = { cancelled }; },
+    onError: () => {},
+  });
+
+  reader.push('一句话。二句话。三句话。');
+  await new Promise(resolve => setTimeout(resolve, 60));
+  reader.cancel();
+  gate.resolve();
+  for (let attempt = 0; attempt < 50 && !finished; attempt += 1) {
+    await new Promise(resolve => setTimeout(resolve, 20));
+  }
+
+  assert(finished && finished.cancelled, 'cancelling did not report a cancelled finish');
+  assert.strictEqual(played.length, 1, `cancelling let ${played.length} clips play`);
+  console.log('  ok  cancelling stops the reading rather than draining the queue');
+}
+
 async function main() {
   assert(fs.existsSync(RUNTIME), `Managed voice runtime is missing at ${RUNTIME}.`);
+
+  // Pure checks first: they describe what gets spoken, and they run everywhere.
+  verifySpokenText();
+  await verifyStreamingReader();
+  await verifyStreamingReaderCancel();
+
   if (process.platform !== 'win32') {
     console.log('ATHENA_VOICE_OUTPUT_SKIPPED reason=local-tts-is-windows-only');
     return;

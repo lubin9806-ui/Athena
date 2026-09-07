@@ -991,23 +991,34 @@ function createWindow(): void {
                 feedback: document.getElementById('voice-feedback')?.textContent || '',
               });
             }
-            await new Promise(resolve => setTimeout(resolve, 350));
-
             // The recording animation is a contract, not decoration: the aura is
             // driven by data-voice-state, and its size by two custom properties
             // written from the microphone level. Changes to how speech is
             // detected must not stop feeding them.
+            //
+            // The glow arrives with the first audio frame, so this waits for it
+            // rather than sampling at a fixed delay. Sampling was the original
+            // form and it failed on a machine where the frame took longer than
+            // the guess - the same defect ATH-STAB-002 is about. The wait is
+            // bounded: if no frame ever arrives, that is a real regression and
+            // the elapsed time is reported with it.
             const inputAura = document.getElementById('input-aura');
+            const glowStartedAt = Date.now();
+            const glowArrived = await waitFor(
+              () => inputForm.style.getPropertyValue('--voice-glow') !== ''
+                && inputForm.style.getPropertyValue('--voice-button-glow') !== '',
+              4000,
+            );
             const recordingAnimation = {
               voiceState: inputForm.dataset.voiceState,
               auraOpacity: inputAura ? getComputedStyle(inputAura).opacity : '',
               glow: inputForm.style.getPropertyValue('--voice-glow'),
               buttonGlow: inputForm.style.getPropertyValue('--voice-button-glow'),
+              glowWaitMs: Date.now() - glowStartedAt,
             };
-            const animationLive = recordingAnimation.voiceState === 'recording'
-              && recordingAnimation.auraOpacity === '1'
-              && recordingAnimation.glow !== ''
-              && recordingAnimation.buttonGlow !== '';
+            const animationLive = glowArrived
+              && recordingAnimation.voiceState === 'recording'
+              && recordingAnimation.auraOpacity === '1';
             if (!animationLive) return voiceSmokeFail('recording-animation', recordingAnimation);
 
             window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));

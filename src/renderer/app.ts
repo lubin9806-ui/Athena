@@ -13,6 +13,7 @@ import { ToastSystem } from './ui/ToastSystem';
 import { MicrophoneRecorder } from './voice/MicrophoneRecorder';
 import { RECORDING_ACTIVITY_OPTIONS, SpeechActivityDetector } from './voice/SpeechActivityDetector';
 import { BARGE_IN_ACTIVITY_OPTIONS, BargeInMonitor } from './voice/BargeInMonitor';
+import { StreamingReader } from './voice/StreamingReader';
 import type { AvatarLayoutMode } from '../shared/types/avatar';
 import type { AthenaAvatarEvent } from './avatar/AvatarRuntime';
 import type { EmotionType } from '../shared/types/emotion';
@@ -1521,6 +1522,11 @@ let isVoiceOutputBusy = false;
 /** A turn finished with hands-free on and is waiting for the reading to end. */
 let handsFreePending = false;
 let handsFreeSilenceTimer: number | undefined;
+let streamingReader: StreamingReader | null = null;
+/** This turn is being read aloud as it arrives, so do not read it again at the end. */
+let streamingReadTurn = false;
+/** Settles clips that are waiting to finish, so a stop does not leave one hanging. */
+const clipWaiters = new Set<() => void>();
 let modelConnected: boolean | null = null;
 let currentVoiceCapabilities: VoiceCapabilities | null = null;
 let forceWebSearchForNextMessage = false;
@@ -1714,6 +1720,7 @@ async function sendAvatarInteraction(prompt: string, hotZoneId: string): Promise
   live2dStreamingStarted = false;
   activeRequestMode = 'companion';
   currentContent = '';
+  streamingReadTurn = false;
   setStatus('Athena 正在回应互动', 'working');
   inputBar.setDisabled(true);
   syncVoiceControls();
@@ -1843,6 +1850,7 @@ async function sendMessage(text: string): Promise<void> {
   syncVoiceControls();
   syncWebSearchControl();
   currentContent = '';
+  streamingReadTurn = false;
   pendingExecutionGoal = effectiveText;
   pendingExecutionMode = requestMode;
   if (requestChatWindowId) {
@@ -1915,9 +1923,13 @@ async function sendMessage(text: string): Promise<void> {
     inputBar.focus();
     restoreIdleStatus();
     if ((requestMode !== 'execute' || directImageGeneration) && currentSettingsBundle?.settings.voice.autoPlayAssistant) {
-      // Listening resumes after the reading, not on top of it.
-      handsFreePending = isHandsFreeArmed();
-      void speakLastAssistantMessage();
+      // Streaming already read this reply as it arrived; the reader resumes
+      // listening itself once it has finished speaking. Reading it again here
+      // would repeat the whole answer.
+      if (!streamingReadTurn) {
+        handsFreePending = isHandsFreeArmed();
+        void speakLastAssistantMessage();
+      }
     } else if (requestMode !== 'execute' || directImageGeneration) {
       void dispatchLive2dEvent({ type: 'app.ready' });
       void resumeHandsFreeListening();
@@ -2304,6 +2316,7 @@ function init(): void {
   window.athenaAPI.onChatStream((data) => {
     if (data.done) {
       if (activeRequestMode !== 'execute') chatPanel.finalizeStreaming();
+      streamingReader?.finish();
       return;
     }
 
@@ -2318,6 +2331,7 @@ function init(): void {
         void dispatchLive2dEvent({ type: 'chat.streaming.start' });
       }
       chatPanel.updateStreamingMessage(currentContent);
+      ensureStreamingReader()?.push(currentContent);
     }
   });
 
@@ -6930,6 +6944,89 @@ function isHandsFreeArmed(): boolean {
   return Boolean(voice?.handsFree && voice.sttEnabled) && currentVoiceCapabilities?.stt.ready === true;
 }
 
+/**
+ * Play one clip and resolve when it stops playing - ended, failed, or stopped.
+ *
+ * playAudioInRenderer resolves once playback has *started*, which is what a
+ * single read-aloud wants. A queue of sentences needs the opposite: it cannot
+ * start the next clip until this one is done.
+ */
+function playClipToEnd(audioPath: string): Promise<void> {
+  const audio = new Audio(toFileUrl(audioPath));
+  audio.preload = 'auto';
+  audio.volume = 1;
+  currentAudio = audio;
+
+  return new Promise<void>((resolve) => {
+    let settled = false;
+    const settle = (): void => {
+      if (settled) return;
+      settled = true;
+      clipWaiters.delete(settle);
+      if (currentAudio === audio) currentAudio = null;
+      resolve();
+    };
+    // A stop pauses the element rather than ending it, so it would never fire
+    // 'ended' and the queue would wait forever.
+    clipWaiters.add(settle);
+    audio.addEventListener('ended', settle, { once: true });
+    audio.addEventListener('error', settle, { once: true });
+
+    void (async () => {
+      try {
+        await live2dCompanion.attachAudio(audio);
+        await waitForAudioReady(audio);
+        await audio.play();
+      } catch {
+        settle();
+      }
+    })();
+  });
+}
+
+/**
+ * Read the reply aloud while it is still being written (ATH-VOICE-009).
+ *
+ * Created on the first streamed chunk of a spoken reply, which is the point at
+ * which the mode is known and there is something to say.
+ */
+function ensureStreamingReader(): StreamingReader | null {
+  if (streamingReader) return streamingReader;
+  const voice = currentSettingsBundle?.settings.voice;
+  if (!voice?.autoPlayAssistant || !voice.ttsEnabled) return null;
+  if (currentVoiceCapabilities?.tts.ready === false) return null;
+
+  streamingReadTurn = true;
+  streamingReader = new StreamingReader({
+    synthesize: async (text) => {
+      const result = await window.athenaAPI.speakText(text);
+      return result.ok && result.audioPath ? result.audioPath : null;
+    },
+    playToEnd: playClipToEnd,
+    onFirstClip: () => {
+      setStatus('正在朗读', 'working');
+      // Armed once for the whole reading rather than per sentence: restarting
+      // the monitor at every boundary would re-measure the echo each time.
+      if (isBargeInArmed()) void bargeInMonitor.start();
+    },
+    onFinish: (cancelled) => {
+      streamingReader = null;
+      void bargeInMonitor.stop();
+      if (cancelled) {
+        handsFreePending = false;
+        return;
+      }
+      showVoiceFeedback('朗读完成', 'success', 1800);
+      restoreIdleStatus();
+      void resumeHandsFreeListening();
+    },
+    onError: (error) => {
+      showVoiceFeedback(`朗读失败：${error.message}`, 'error', 4800);
+    },
+  });
+  return streamingReader;
+}
+
 /** Interrupting needs voice input available, not just the preference set. */
 function isBargeInArmed(): boolean {
   const voice = currentSettingsBundle?.settings.voice;
@@ -6973,7 +7070,11 @@ function waitForAudioReady(audio: HTMLAudioElement): Promise<void> {
 
 function stopCurrentAudio(): void {
   // Nothing is being read, so nothing is left to interrupt.
+  streamingReader?.cancel();
   void bargeInMonitor.stop();
+  // Pausing does not fire 'ended', so any clip the queue is waiting on has to
+  // be released by hand or the reading would never unwind.
+  for (const settle of [...clipWaiters]) settle();
   if (currentAudio) {
     currentAudio.pause();
     currentAudio.currentTime = 0;
