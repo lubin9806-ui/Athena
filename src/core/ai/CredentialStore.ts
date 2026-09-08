@@ -197,7 +197,13 @@ function resolveLocalEnvironmentCredential(provider: CredentialProvider): { valu
 
 function readEnvKey(source: string, key: string): string | null {
   const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const match = source.match(new RegExp(`^\\s*(?:export\\s+)?${escaped}\\s*=\\s*(.*)$`, 'm'));
+  // Horizontal whitespace only. `\s` also matches the line break, so a declared but
+  // empty `KEY=` used to consume the newline and return the *next* line as the
+  // credential: `DEEPSEEK_API_KEY=` followed by `DEEPSEEK_MODEL=deepseek-chat` was
+  // resolved as the literal key "DEEPSEEK_MODEL=deepseek-chat", which the provider
+  // then rejected as an invalid key rather than as a missing one.
+  const blank = '[^\\S\\r\\n]';
+  const match = source.match(new RegExp(`^${blank}*(?:export${blank}+)?${escaped}${blank}*=${blank}*(.*)$`, 'm'));
   if (!match) return null;
   let value = match[1].trim();
   if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {

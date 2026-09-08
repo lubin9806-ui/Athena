@@ -231,6 +231,44 @@ async function main() {
     fs.rmSync(path.join(scratch, '.env'));
     assert.strictEqual(credentials.getModelCredentialStatus('openai').configured, false);
     assert.strictEqual(credentials.resolveModelCredential('openai'), null);
+
+    // A declared but empty KEY= must read as "not configured". It previously matched
+    // across the line break and adopted the following line as the credential, so the
+    // provider answered "invalid api key" instead of Athena saying it had none.
+    const envFile = path.join(scratch, '.env');
+    const writeEnv = contents => fs.writeFileSync(envFile, contents, 'utf8');
+    for (const [label, contents] of [
+      ['LF', 'OPENAI_API_KEY=\nOPENAI_MODEL=gpt-fixture\n'],
+      ['CRLF', 'OPENAI_API_KEY=\r\nOPENAI_MODEL=gpt-fixture\r\n'],
+      ['trailing spaces', 'OPENAI_API_KEY=   \nOPENAI_MODEL=gpt-fixture\n'],
+      ['blank line between', 'OPENAI_API_KEY=\n\nOPENAI_MODEL=gpt-fixture\n'],
+    ]) {
+      writeEnv(contents);
+      assert.strictEqual(
+        credentials.resolveModelCredential('openai'),
+        null,
+        `an empty KEY= (${label}) must not adopt the next line as the credential`,
+      );
+      assert.strictEqual(
+        credentials.getModelCredentialStatus('openai').configured,
+        false,
+        `an empty KEY= (${label}) must report as unconfigured`,
+      );
+    }
+
+    // The narrower pattern must still accept every shape a real env file uses.
+    writeEnv('OPENAI_API_KEY=sk-plain-value\n');
+    assert.strictEqual(credentials.resolveModelCredential('openai'), 'sk-plain-value');
+    writeEnv('export OPENAI_API_KEY = "sk-quoted-value"\n');
+    assert.strictEqual(credentials.resolveModelCredential('openai'), 'sk-quoted-value', 'export, spaces around = and quotes must still parse');
+    writeEnv('OPENAI_API_KEY=sk-commented # 备用密钥\n');
+    assert.strictEqual(credentials.resolveModelCredential('openai'), 'sk-commented', 'a trailing comment must still be stripped');
+    writeEnv('SOME_OTHER_KEY=\nOPENAI_API_KEY=sk-later-line\n');
+    assert.strictEqual(credentials.resolveModelCredential('openai'), 'sk-later-line', 'a key after an unrelated empty assignment must still be found');
+    writeEnv('# OPENAI_API_KEY=sk-commented-out\n');
+    assert.strictEqual(credentials.resolveModelCredential('openai'), null, 'a commented-out assignment must not be read');
+    fs.rmSync(envFile);
+    assert.strictEqual(credentials.resolveModelCredential('openai'), null);
     console.log('ATHENA_MODEL_PROVIDERS_OK providers=ollama+openai+deepseek+athena-cloud+custom credentials=encrypted');
   } finally {
     process.chdir(originalCwd);
