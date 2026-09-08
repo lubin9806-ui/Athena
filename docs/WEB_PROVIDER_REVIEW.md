@@ -8,9 +8,14 @@
 
 | Provider | 官方依据 | 评审结果 | 1.0 决策 |
 |---|---|---|---|
+| 智谱 BigModel 搜索 API | https://open.bigmodel.cn/usercenter/service | 签约 API：有账号、密钥、配额与计费和商用条款，非抓取消费者页面 | **候选**，待完成下方归档后可进入 1.0 |
 | 搜狗 | https://www.sogou.com/docs/user.htm?v=1 | 用户协议限制未经授权的第三方工具/服务接入；无 Athena 商业合同或 SLA | Excluded |
 | Bing | https://www.microsoft.com/en-us/servicesagreement | 消费者 Bing 内容为个人非商业使用；无 Athena API 合同或 SLA | Excluded |
 | DuckDuckGo | https://duckduckgo.com/terms 与 https://duckduckgo.com/acceptable-use | as-is/as-available，且禁止销售或转售服务部分；无 Athena 商业合同或 SLA | Excluded |
+
+> 2026-09-08 补充：智谱 API 已完成工程接入，配置 `ZHIPU_API_KEY` 后自动成为首选 provider，失败时降级回上述 HTML 链。**接入不等于获得授权**——`SEARCH_PROVIDER_POLICY.zhipu.commercialApproved` 仍为 `false`，直到下一节要求的授权、配额与 DPA 归档完成为止。在此之前搜索仍按 Internal Alpha 对待。
+>
+> 补充说明：DuckDuckGo 两个端点在中国大陆网络实测不可达（各 10 秒超时），Brave Search API 同样不可达；两者在当前网络下不构成有效降级路径。
 
 ## Internal Alpha 工程边界
 

@@ -86,7 +86,7 @@ declare global {
           sources: ChatSource[];
           readPageCount: number;
           searchRounds: number;
-          providers: Array<'sogou' | 'bing' | 'duckduckgo' | 'none'>;
+          providers: Array<'zhipu' | 'sogou' | 'bing' | 'duckduckgo' | 'none'>;
           error?: string;
         };
         toolExecutions?: ChatToolExecution[];
@@ -514,7 +514,7 @@ interface WebSearchStatus {
   resultCount?: number;
   pageCount?: number;
   searchRound?: number;
-  provider?: 'sogou' | 'bing' | 'duckduckgo' | 'none';
+  provider?: 'zhipu' | 'sogou' | 'bing' | 'duckduckgo' | 'none';
   message?: string;
 }
 
@@ -2492,6 +2492,7 @@ function init(): void {
 }
 
 function webSearchProviderLabel(provider?: WebSearchStatus['provider']): string {
+  if (provider === 'zhipu') return '智谱搜索 · ';
   if (provider === 'sogou') return '搜狗 · ';
   if (provider === 'bing') return '必应 · ';
   if (provider === 'duckduckgo') return 'DuckDuckGo · ';

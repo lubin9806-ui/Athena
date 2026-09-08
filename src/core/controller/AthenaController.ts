@@ -40,6 +40,9 @@ import { EmotionEngine } from '../ai/Emotion';
 import { buildChatPrompt } from '../ai/PromptBuilder';
 import { getAppSettings, resolveToolSettingsForMode, shouldSaveHistory } from '../config/SettingsStore';
 import { WebSearchService } from '../web/WebSearchService';
+import { WebResearchAgent } from '../web/WebResearchAgent';
+import { SearchApiClient } from '../web/SearchApiClient';
+import { resolveSearchCredential } from '../ai/CredentialStore';
 import {
   AgentRunner,
   AgentStore,
@@ -196,6 +199,7 @@ export class AthenaController {
   private readonly pendingRoutes = new Map<string, PendingRoute>();
   private workflows: WorkflowManager;
   private webSearch: WebSearchService;
+  private webResearch: WebResearchAgent;
   private readonly agentStore: AgentStore;
   private readonly agentTools: ToolRegistry;
   private readonly agentComputerTools: ComputerAgentToolBridge;
@@ -225,7 +229,15 @@ export class AthenaController {
     this.initiative = this.buildInitiativeEngine();
     this.creativeExtractor = new ModelCreativeSectionExtractor(createAssistModelClient(this.llm));
     this.workflows = new WorkflowManager();
-    this.webSearch = new WebSearchService();
+    // The contracted API leads only when a key is actually resolvable; without one
+    // the service keeps the scraped providers exactly as before.
+    this.webSearch = new WebSearchService(undefined, undefined, new SearchApiClient(() => {
+      const apiKey = resolveSearchCredential('zhipu');
+      return apiKey ? { provider: 'zhipu', apiKey } : null;
+    }));
+    // The planner runs on the assist client so its extra round trips stay off the
+    // main model's latency budget; a blank assist model keeps the main one.
+    this.webResearch = new WebResearchAgent(createAssistModelClient(this.llm), this.webSearch);
     this.attachments = new AttachmentService();
     this.ocr = new LocalOcrService();
     this.documents = new ProjectDocumentService({ ocr: this.ocr });
@@ -492,11 +504,12 @@ export class AthenaController {
       });
     } else if (webPlan.shouldSearch) {
       try {
-        webSearchContext = await this.webSearch.research(
-          webPlan.query,
-          settings.webSearch,
-          options?.onWebSearchStatus,
-        );
+        webSearchContext = await this.webResearch.research({
+          question: userMessage,
+          query: webPlan.query,
+          settings: settings.webSearch,
+          onStatus: options?.onWebSearchStatus,
+        });
         recordDataActivity('search', 'web-research', {
           query: webPlan.query,
           provider: webSearchContext.provider,

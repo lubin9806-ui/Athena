@@ -1,7 +1,7 @@
 import { app, safeStorage } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
-import type { ImageCloudProvider, ImageCredentialStatus, RemoteModelProvider } from '../../shared/types';
+import type { ImageCloudProvider, ImageCredentialStatus, RemoteModelProvider, SearchApiProvider } from '../../shared/types';
 
 export interface ModelCredentialStatus {
   provider: RemoteModelProvider;
@@ -25,13 +25,14 @@ interface CredentialFile {
   entries: Partial<Record<CredentialProvider, string>>;
 }
 
-type CredentialProvider = RemoteModelProvider | ImageCloudProvider;
+type CredentialProvider = RemoteModelProvider | ImageCloudProvider | SearchApiProvider;
 
 const PROVIDERS = new Set<CredentialProvider>([
   'openai', 'deepseek', 'athena-cloud', 'custom', 'google', 'stability', 'bfl',
-  'volcengine', 'dashscope', 'replicate', 'fal',
+  'volcengine', 'dashscope', 'replicate', 'fal', 'zhipu',
 ]);
 const ENVIRONMENT_KEYS: Record<CredentialProvider, string> = {
+  zhipu: 'ZHIPU_API_KEY',
   openai: 'OPENAI_API_KEY',
   deepseek: 'DEEPSEEK_API_KEY',
   'athena-cloud': 'ATHENA_CLOUD_API_KEY',
@@ -88,6 +89,24 @@ export function clearImageCredential(provider: ImageCloudProvider): ImageCredent
 }
 
 export function resolveImageCredential(provider: ImageCloudProvider): string | null {
+  return resolveCredential(provider);
+}
+
+export function getSearchCredentialStatus(provider: SearchApiProvider): ModelCredentialStatus {
+  return getCredentialStatus(provider) as ModelCredentialStatus;
+}
+
+export function setSearchCredential(provider: SearchApiProvider, apiKey: string): ModelCredentialStatus {
+  setCredential(provider, apiKey);
+  return getSearchCredentialStatus(provider);
+}
+
+export function clearSearchCredential(provider: SearchApiProvider): ModelCredentialStatus {
+  clearCredential(provider);
+  return getSearchCredentialStatus(provider);
+}
+
+export function resolveSearchCredential(provider: SearchApiProvider): string | null {
   return resolveCredential(provider);
 }
 

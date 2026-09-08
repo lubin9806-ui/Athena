@@ -6,7 +6,11 @@ import type {
   WebSearchSource,
   WebSearchStatus,
 } from '../../shared/types';
+import { createLogger } from '../../engine/Logger';
 import { assertPublicUrl, PageContentExtractor } from './PageContentExtractor';
+import { isSearchApiFailure, SearchApiClient } from './SearchApiClient';
+
+const logger = createLogger('WebSearchService');
 
 type ActiveSearchProvider = Exclude<WebSearchProvider, 'none'>;
 
@@ -29,6 +33,11 @@ export interface SearchProviderDiagnostics {
 }
 
 export const SEARCH_PROVIDER_POLICY = {
+  // The only endpoint that offers commercial terms at all, so it is the candidate for
+  // carrying search past Internal Alpha. commercialApproved stays false until Athena
+  // has actually archived the authorisation, quota and DPA that ATH-WEB-001 asks for:
+  // integrating the API is not the same as being licensed to ship it.
+  zhipu: { commercialApproved: false, sla: true, termsUrl: 'https://open.bigmodel.cn/usercenter/service' },
   sogou: { commercialApproved: false, sla: false, termsUrl: 'https://www.sogou.com/docs/user.htm?v=1' },
   bing: { commercialApproved: false, sla: false, termsUrl: 'https://www.microsoft.com/en-us/servicesagreement' },
   duckduckgo: { commercialApproved: false, sla: false, termsUrl: 'https://duckduckgo.com/terms' },
@@ -69,7 +78,13 @@ const MAX_SEARCH_HTML_BYTES = 2 * 1024 * 1024;
 const MAX_SEARCH_REDIRECTS = 3;
 const MAX_QUERY_CHARS = 500;
 const PROVIDER_MIN_INTERVAL_MS = 1_250;
+// The 8/minute ceiling exists to stay polite to scraped consumer endpoints. A
+// contracted API bills against its own quota and would otherwise throttle a single
+// planner turn, which can legitimately issue four searches.
 const PROVIDER_MAX_REQUESTS_PER_MINUTE = 8;
+const CONTRACTED_MAX_REQUESTS_PER_MINUTE = 30;
+const CONTRACTED_MIN_INTERVAL_MS = 200;
+const CONTRACTED_PROVIDERS = new Set<ActiveSearchProvider>(['zhipu']);
 
 class SearchProviderError extends Error {
   constructor(readonly code: SearchFailureCode, message: string, readonly retryAfterMs = 0) {
@@ -83,8 +98,11 @@ export class ProviderRequestGovernor {
   private readonly nextAllowedAt = new Map<ActiveSearchProvider, number>();
 
   async acquire(provider: ActiveSearchProvider, now = Date.now(), signal?: AbortSignal): Promise<void> {
+    const contracted = CONTRACTED_PROVIDERS.has(provider);
+    const perMinute = contracted ? CONTRACTED_MAX_REQUESTS_PER_MINUTE : PROVIDER_MAX_REQUESTS_PER_MINUTE;
+    const minInterval = contracted ? CONTRACTED_MIN_INTERVAL_MS : PROVIDER_MIN_INTERVAL_MS;
     const recent = (this.requestedAt.get(provider) || []).filter(value => now - value < 60_000);
-    if (recent.length >= PROVIDER_MAX_REQUESTS_PER_MINUTE) {
+    if (recent.length >= perMinute) {
       throw new SearchProviderError('rate_limited', '搜索请求过于频繁，请稍后再试。', 60_000 - (now - recent[0]));
     }
     const delay = Math.max(0, (this.nextAllowedAt.get(provider) || 0) - now);
@@ -92,7 +110,7 @@ export class ProviderRequestGovernor {
     const acquiredAt = Date.now();
     recent.push(acquiredAt);
     this.requestedAt.set(provider, recent);
-    this.nextAllowedAt.set(provider, acquiredAt + PROVIDER_MIN_INTERVAL_MS);
+    this.nextAllowedAt.set(provider, acquiredAt + minInterval);
   }
 
   cooldown(provider: ActiveSearchProvider, retryAfterMs: number): void {
@@ -122,10 +140,11 @@ export class WebSearchService {
   constructor(
     private readonly pageExtractor = new PageContentExtractor(),
     private readonly governor = new ProviderRequestGovernor(),
+    private readonly api: SearchApiClient | null = null,
   ) {}
 
   getDiagnostics(): Record<ActiveSearchProvider, SearchProviderDiagnostics> {
-    return Object.fromEntries((['sogou', 'bing', 'duckduckgo'] as ActiveSearchProvider[]).map(provider => [
+    return Object.fromEntries((['zhipu', 'sogou', 'bing', 'duckduckgo'] as ActiveSearchProvider[]).map(provider => [
       provider,
       this.diagnostics.get(provider) || { attempts: 0, successes: 0, failures: {} },
     ])) as Record<ActiveSearchProvider, SearchProviderDiagnostics>;
@@ -305,6 +324,38 @@ export class WebSearchService {
       : [...SEARCH_ENDPOINTS];
     let lastError: unknown;
     const failures: SearchProviderError[] = [];
+
+    // The contracted API leads whenever a key is configured; the scraped endpoints
+    // stay behind it as the degradation path rather than being removed, so a quota
+    // or outage on the API still leaves search working.
+    const apiProvider = this.api?.configuredProvider();
+    if (apiProvider && this.api && apiProvider !== deprioritizeProvider) {
+      this.recordAttempt(apiProvider);
+      try {
+        throwIfAborted(signal);
+        await this.governor.acquire(apiProvider, Date.now(), signal);
+        const sources = await this.api.search(query, maxResults, signal);
+        this.recordSuccess(apiProvider);
+        return {
+          query,
+          provider: apiProvider,
+          searchedAt: new Date().toISOString(),
+          sources: reindexSources(sources, maxResults),
+          pages: [],
+          secondaryQueries: [],
+          providers: [apiProvider],
+          searchRounds: 1,
+        };
+      } catch (error) {
+        if (signal?.aborted) throw signal.reason || new Error('Web research cancelled');
+        const classified = classifySearchError(error);
+        if (classified.retryAfterMs > 0) this.governor.cooldown(apiProvider, classified.retryAfterMs);
+        this.recordFailure(apiProvider, classified.code);
+        failures.push(classified);
+        lastError = classified;
+        logger.warn(`Contracted search API failed (${classified.code}); falling back to the HTML providers.`);
+      }
+    }
 
     for (const endpoint of orderedEndpoints) {
       this.recordAttempt(endpoint.provider);
@@ -491,9 +542,15 @@ export function parseBingHtml(html: string, maxResults = 5): WebSearchSource[] {
   for (const blockMatch of blocks) {
     if (sources.length >= clamp(maxResults, 1, 8)) break;
     const block = blockMatch[1];
-    const header = block.match(/<div\b[^>]*\bclass\s*=\s*["'][^"']*b_algoheader[^"']*["'][^>]*>([\s\S]*?)<\/div>/i)?.[1] ?? '';
-    const href = header.match(/<a\b[^>]*\bhref\s*=\s*["']([^"']+)["'][^>]*>/i)?.[1] ?? '';
-    const titleHtml = header.match(/<h2\b[^>]*>([\s\S]*?)<\/h2>/i)?.[1] ?? '';
+    // Bing dropped the b_algoheader wrapper: the title link now sits directly inside
+    // the <h2>, while the block's first anchor is the site-attribution link
+    // (class="tilk") pointing at the site root. Read the href from the <h2> anchor and
+    // only fall back to the wrapper's own anchor, which is the legacy shape where the
+    // anchor wraps the <h2> instead of sitting inside it.
+    const header = block.match(/<div\b[^>]*\bclass\s*=\s*["'][^"']*b_algoheader[^"']*["'][^>]*>([\s\S]*?)<\/div>/i)?.[1];
+    const titleHtml = (header ?? block).match(/<h2\b[^>]*>([\s\S]*?)<\/h2>/i)?.[1] ?? '';
+    const href = titleHtml.match(/<a\b[^>]*\bhref\s*=\s*["']([^"']+)["'][^>]*>/i)?.[1]
+      ?? (header ? header.match(/<a\b[^>]*\bhref\s*=\s*["']([^"']+)["'][^>]*>/i)?.[1] ?? '' : '');
     const title = cleanText(titleHtml, 220);
     const url = normalizeDirectResultUrl(decodeHtmlEntities(href), 'https://cn.bing.com');
     if (!title || !url || seen.has(url)) continue;
@@ -591,6 +648,11 @@ export function detectSearchFailurePage(html: string): void {
 
 function classifySearchError(error: unknown): SearchProviderError {
   if (error instanceof SearchProviderError) return error;
+  // The API client reports its own classification so a 401 or 429 there lands in the
+  // same cooldown and degradation handling as an HTML provider's.
+  if (isSearchApiFailure(error)) {
+    return new SearchProviderError(error.searchFailureCode, error.message, error.retryAfterMs ?? 0);
+  }
   const message = error instanceof Error ? error.message : String(error);
   if (/timeout|timed out|aborted/i.test(message)) return new SearchProviderError('timeout', '搜索服务响应超时，已自动尝试其他来源。');
   if (/fetch failed|network|ENOTFOUND|ECONN|socket/i.test(message)) return new SearchProviderError('network', '当前网络不可用或连接不稳定，请检查网络后重试。');
@@ -766,7 +828,7 @@ function reindexSources(sources: WebSearchSource[], maxResults: number): WebSear
   }));
 }
 
-function canonicalUrlKey(value: string): string {
+export function canonicalUrlKey(value: string): string {
   try {
     const url = new URL(value);
     url.hash = '';

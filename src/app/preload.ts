@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron';
+﻿import { contextBridge, ipcRenderer } from 'electron';
 
 contextBridge.exposeInMainWorld('athenaAPI', {
   routeMessage: (text: string, mode: 'create' | 'companion' | 'reason' | 'execute', forceWebSearch = false, chatWindowId?: number, attachmentIds: string[] = []) => ipcRenderer.invoke('chat:route', { text, mode, forceWebSearch, chatWindowId, attachmentIds }),
@@ -61,8 +61,8 @@ contextBridge.exposeInMainWorld('athenaAPI', {
     ipcRenderer.on('chat:error', handler);
     return () => ipcRenderer.removeListener('chat:error', handler);
   },
-  onWebSearchStatus: (callback: (status: { phase: 'searching' | 'reading' | 'refining' | 'done' | 'failed'; query: string; resultCount?: number; pageCount?: number; searchRound?: number; provider?: 'sogou' | 'bing' | 'duckduckgo' | 'none'; message?: string }) => void) => {
-    const handler = (_: any, status: { phase: 'searching' | 'reading' | 'refining' | 'done' | 'failed'; query: string; resultCount?: number; pageCount?: number; searchRound?: number; provider?: 'sogou' | 'bing' | 'duckduckgo' | 'none'; message?: string }) => callback(status);
+  onWebSearchStatus: (callback: (status: { phase: 'searching' | 'reading' | 'refining' | 'done' | 'failed'; query: string; resultCount?: number; pageCount?: number; searchRound?: number; provider?: 'zhipu' | 'sogou' | 'bing' | 'duckduckgo' | 'none'; message?: string }) => void) => {
+    const handler = (_: any, status: { phase: 'searching' | 'reading' | 'refining' | 'done' | 'failed'; query: string; resultCount?: number; pageCount?: number; searchRound?: number; provider?: 'zhipu' | 'sogou' | 'bing' | 'duckduckgo' | 'none'; message?: string }) => callback(status);
     ipcRenderer.on('chat:web-search-status', handler);
     return () => ipcRenderer.removeListener('chat:web-search-status', handler);
   },

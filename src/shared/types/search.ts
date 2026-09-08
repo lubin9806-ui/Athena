@@ -1,6 +1,8 @@
 export type WebSearchMode = 'auto' | 'manual';
 export type WebSearchPhase = 'searching' | 'reading' | 'refining' | 'done' | 'failed';
-export type WebSearchProvider = 'sogou' | 'bing' | 'duckduckgo' | 'none';
+/** 'zhipu' is the contracted search API; the rest are the Internal Alpha HTML sources. */
+export type WebSearchProvider = 'zhipu' | 'sogou' | 'bing' | 'duckduckgo' | 'none';
+export type SearchApiProvider = 'zhipu';
 export type WebPageExtractionMethod = 'json-ld' | 'article' | 'main' | 'semantic' | 'body' | 'text' | 'json';
 
 export interface WebSearchSettings {
