@@ -134,6 +134,7 @@ export class Conversation {
       },
       contextSnapshot,
       toolExecutions: toolResult.executions.length > 0 ? toolResult.executions : undefined,
+      suggestedAction: toolResult.suggestedAction,
     };
   }
 

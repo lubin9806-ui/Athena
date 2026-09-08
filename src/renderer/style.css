@@ -688,6 +688,30 @@ summary:focus-visible {
   display: none;
 }
 
+.message-action {
+  margin-top: 10px;
+  padding: 7px 13px;
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--border));
+  border-radius: 999px;
+  color: var(--text-muted);
+  background: color-mix(in srgb, var(--accent) 8%, rgba(255, 255, 255, 0.03));
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  transition: color var(--motion-fast) ease, border-color var(--motion-fast) ease, background var(--motion-fast) ease;
+}
+
+.message-action:hover:not(:disabled) {
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--accent) 44%, var(--border));
+  background: color-mix(in srgb, var(--accent) 14%, rgba(255, 255, 255, 0.05));
+}
+
+.message-action:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
 .message-sources {
   width: min(350px, calc(100vw - 96px));
   margin-top: 12px;

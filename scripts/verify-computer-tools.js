@@ -13,6 +13,7 @@ const { LLMClient } = require('../dist/core/ai/Client.js');
 const { buildToolArgumentPreview, buildToolConfirmation, requiresComputerAction, ToolRuntime, shouldPlanComputerTools } = require('../dist/core/tools/ToolRuntime.js');
 const { toolPermissionPrompt } = require('../dist/core/tools/ComputerTools.js');
 const { buildChatPrompt } = require('../dist/core/ai/PromptBuilder.js');
+const { stripChatAttachmentContext, withChatAttachmentContext } = require('../dist/core/attachments/ChatAttachmentContext.js');
 const { getSettingsBundle, normalizeToolSettings, resolveToolSettingsForMode } = require('../dist/core/config/SettingsStore.js');
 
 let serviceForCleanup = null;
@@ -524,7 +525,14 @@ async function verifyNoFakeProgressAndCancellation() {
   assert.equal(isolatedChatCalls, 0);
   assert.equal(isolatedPlanCalls, 0);
   assert.equal(isolatedResult.executions.length, 0);
-  assert(isolatedResult.content.includes('切换到“执行”模式'));
+  assert(isolatedResult.content.includes('“执行”模式'));
+  // The refusal must carry the way out of it, not just describe one.
+  assert.deepEqual(isolatedResult.suggestedAction, {
+    kind: 'switch-mode',
+    mode: 'execute',
+    label: '切到执行模式并重发',
+    resendText: isolatedMessage,
+  });
   isolationRuntime.shutdown();
 
   let normalChatCalls = 0;
@@ -888,11 +896,65 @@ async function verifyLiveLoop() {
   }
 }
 
+// ATH-CHAT-005: attaching a file to a chat message used to be answered with the
+// "switch to Execute mode" refusal, because the attachment body was appended to
+// the turn text before intent detection read it. Any log, workflow JSON or error
+// dump carries a path and a word like "查看", which is all the heuristic needs.
+async function verifyAttachmentsAreNotComputerTasks() {
+  const droppedFile = [
+    '{"last_node_id": 41, "nodes": [{"type": "CheckpointLoaderSimple",',
+    '"widgets_values": ["C:\\\\ComfyUI\\\\models\\\\checkpoints\\\\image2_image_turbo.safetensors"]}],',
+    '"extra": {"workspace": "D:\\\\work\\\\comfy\\\\output"}}',
+    '错误日志：无法读取文件 workflow.json，请检查该目录是否存在。',
+  ].join('\n');
+  const typed = '请查看并理解这些附件。';
+  const withAttachment = withChatAttachmentContext(typed, [{
+    id: '00000000-0000-4000-8000-000000000000',
+    name: '新建 文本文档 (2).txt',
+    kind: 'document',
+    mimeType: 'text/plain',
+    text: droppedFile,
+  }]);
+
+  // The trap has to still be armed, or this regression proves nothing.
+  assert(shouldPlanComputerTools(withAttachment), 'the attached file must still read as a computer task before stripping');
+  assert(!shouldPlanComputerTools(stripChatAttachmentContext(withAttachment)), 'the typed sentence alone must not read as a computer task');
+  assert.equal(stripChatAttachmentContext(withAttachment), typed);
+  assert.equal(stripChatAttachmentContext(typed), typed, 'a message without attachments must survive stripping unchanged');
+
+  let chatCalls = 0;
+  const runtime = new ToolRuntime({
+    contextWindow: 4096,
+    chat: async () => {
+      chatCalls += 1;
+      return '这个工作流看起来是通的，模型走的是 image2_image_turbo。';
+    },
+    chatJson: async () => JSON.stringify({ kind: 'respond', content: '', calls: [] }),
+  });
+  runtime.setPermissionLevel('full');
+  try {
+    const result = await runtime.process({
+      messages: [{ role: 'system', content: 'test' }, { role: 'user', content: withAttachment }],
+      userMessage: withAttachment,
+      mode: 'companion',
+      settings: settings('full'),
+    });
+    assert.equal(chatCalls, 1, 'a chat turn carrying an attachment must reach the model');
+    assert(!result.content.includes('需要调用本机工具'), 'an attachment must not be answered with the computer-task refusal');
+    assert.equal(result.suggestedAction, undefined);
+    assert.equal(result.executions.length, 0);
+  } finally {
+    runtime.shutdown();
+  }
+  console.log('ATHENA_CHAT_ATTACHMENT_INTENT_OK');
+}
+
 (async () => {
   await verifyExecutionCenterUi();
   await verifyService();
   await verifyRuntimePermissionRevocation();
   await verifyNoFakeProgressAndCancellation();
+  await verifyAttachmentsAreNotComputerTasks();
   await verifyInFlightCancellation();
   if (process.argv.includes('--live')) await verifyLiveLoop();
 })().catch(async (error) => {

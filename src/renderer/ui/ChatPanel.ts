@@ -212,6 +212,28 @@ export class ChatPanel {
     this.scrollToBottom();
   }
 
+  /**
+   * Turns a "you are in the wrong mode for this" reply into one button. The
+   * handler owns what happens; the panel only guarantees the offer is made once
+   * and cannot be taken twice.
+   */
+  setLastAssistantAction(label: string, onInvoke: () => void): void {
+    const message = this.lastAssistantMessage;
+    if (!message || !label.trim()) return;
+    message.querySelector('.message-action')?.remove();
+
+    const action = document.createElement('button');
+    action.type = 'button';
+    action.className = 'message-action';
+    action.textContent = label;
+    action.addEventListener('click', () => {
+      action.disabled = true;
+      onInvoke();
+    }, { once: true });
+    message.appendChild(action);
+    this.scrollToBottom();
+  }
+
   getLastAssistantContent(): string {
     return this.lastAssistantContent;
   }

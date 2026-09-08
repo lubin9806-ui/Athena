@@ -93,6 +93,7 @@ declare global {
         attachments?: ChatAttachmentSnapshot[];
         agentExecution?: { taskId: string; runId: string; status: AgentRunStatus };
         routing?: AgentMessageRouteDecision;
+        suggestedAction?: { kind: 'switch-mode'; mode: AthenaMode; label: string; resendText: string };
       } | null>;
       chooseChatImages: (chatWindowId: number) => Promise<ChatAttachmentSnapshot[]>;
       chooseChatFiles: (chatWindowId: number, maxFiles?: number) => Promise<ChatAttachmentSnapshot[]>;
@@ -1921,6 +1922,17 @@ async function sendMessage(text: string): Promise<void> {
         chatPanel.setLastAssistantSources(response.webSearch.sources, {
           readPageCount: response.webSearch.readPageCount,
           searchRounds: response.webSearch.searchRounds,
+        });
+      }
+      // A turn that ends in "wrong mode for this" offers the switch as a button,
+      // so the person does not have to retype what they already typed.
+      const suggested = response?.suggestedAction;
+      if (suggested?.kind === 'switch-mode' && suggested.resendText.trim()) {
+        chatPanel.setLastAssistantAction(suggested.label, () => {
+          void (async () => {
+            await selectMode(suggested.mode);
+            await sendMessage(suggested.resendText);
+          })();
         });
       }
       if (serverRoutedExecution && response?.agentExecution?.taskId) {

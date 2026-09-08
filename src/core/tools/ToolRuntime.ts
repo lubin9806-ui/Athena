@@ -10,7 +10,9 @@ import {
   toolPermissionPrompt,
   type ComputerToolDefinition,
 } from './ComputerToolCatalog';
+import { hasChatAttachmentContext, stripChatAttachmentContext } from '../attachments/ChatAttachmentContext';
 import type {
+  ChatSuggestedAction,
   ConversationMode,
   ToolExecutionRecord,
   ToolCatalogItem,
@@ -65,6 +67,7 @@ export interface ToolRuntimeInput {
 export interface ToolRuntimeResult {
   content: string;
   executions: ToolExecutionRecord[];
+  suggestedAction?: ChatSuggestedAction;
 }
 
 export class ToolRuntime {
@@ -132,12 +135,23 @@ export class ToolRuntime {
   ): Promise<ToolRuntimeResult> {
     let effectiveSettings: ToolSettings = { ...input.settings, permissionLevel: activePermission.level };
     let definitions = this.computer.getDefinitions(effectiveSettings);
-    const computerIntent = shouldPlanComputerTools(input.userMessage);
+    // Judge the request by what the person typed, never by what their files say.
+    // The turn text arriving here has the attachment bodies appended to it, and a
+    // dropped log or workflow JSON carries paths and words like "查看" that read as
+    // a machine task — which is why attaching a file used to produce the refusal
+    // below instead of an answer about the file (ATH-CHAT-005).
+    const ownWords = stripChatAttachmentContext(input.userMessage);
+    const carriedAttachments = hasChatAttachmentContext(input.userMessage);
+    const computerIntent = !carriedAttachments && shouldPlanComputerTools(ownWords);
     if (input.mode !== 'execute') {
       if (computerIntent) {
-        const content = '这是一项需要调用本机工具的任务。当前模式不会操作电脑，请切换到“执行”模式后用同一句自然语言交给我；本轮没有改动任何文件。';
+        const content = '这是一项需要调用本机工具的任务。当前模式不会操作电脑，切到“执行”模式我就能动手；本轮没有改动任何文件。';
         if (input.onStream) input.onStream(content);
-        return { content, executions: [] };
+        return {
+          content,
+          executions: [],
+          suggestedAction: { kind: 'switch-mode', mode: 'execute', label: '切到执行模式并重发', resendText: ownWords },
+        };
       }
       const content = await this.llm.chat(
         input.messages,
@@ -147,7 +161,7 @@ export class ToolRuntime {
       );
       return { content, executions: [] };
     }
-    const actionRequired = requiresComputerAction(input.userMessage);
+    const actionRequired = requiresComputerAction(ownWords);
     if (definitions.length === 0) {
       const content = buildUnavailableToolResponse(effectiveSettings.permissionLevel);
       if (input.onStream) input.onStream(content);

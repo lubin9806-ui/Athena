@@ -108,9 +108,23 @@ export interface AgentMessageRouteDecision {
   routingDurationMs?: number;
 }
 
+/**
+ * A one-click follow-up offered beneath an assistant message, so a turn that
+ * ends in "you are in the wrong mode for this" is a button rather than an
+ * instruction to retype what you already typed.
+ */
+export interface ChatSuggestedAction {
+  kind: 'switch-mode';
+  mode: ConversationMode;
+  label: string;
+  /** The person's own words, replayed verbatim once the mode has changed. */
+  resendText: string;
+}
+
 export interface ChatResponse {
   content: string;
   emotion: Emotion;
+  suggestedAction?: ChatSuggestedAction;
   attachments?: ChatAttachment[];
   webSearch?: WebSearchSummary;
   memoryContext?: {
