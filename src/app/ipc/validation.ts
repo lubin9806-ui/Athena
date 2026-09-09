@@ -57,6 +57,42 @@ export function cleanAttachmentIds(value: unknown): string[] {
   return Array.from(new Set(ids)).slice(0, 5);
 }
 
+export const MAX_DROPPED_TEXT_CHARS = 200_000;
+
+/**
+ * Paths handed over by a drop. Unlike a file picker these may name folders, and
+ * the format is decided later by reading the bytes — so this only checks that
+ * each path is a real file or directory the renderer could legitimately drop.
+ * Symlinks fail both tests and are dropped, matching the attachment store.
+ */
+export function cleanDroppedPaths(value: unknown, maxPaths = 20, maxChars = 2_048): string[] {
+  if (!Array.isArray(value)) return [];
+  const paths: string[] = [];
+  for (const item of value) {
+    if (paths.length >= maxPaths) break;
+    if (typeof item !== 'string' || item.length === 0 || item.length > maxChars) continue;
+    const resolved = path.resolve(item);
+    try {
+      const stat = fs.lstatSync(resolved);
+      if (stat.isFile() || stat.isDirectory()) paths.push(resolved);
+    } catch {
+      // A path that no longer exists is simply not accepted.
+    }
+  }
+  return Array.from(new Set(paths));
+}
+
+/** Only absolute http(s) URLs are worth a network request on the user's behalf. */
+export function cleanHttpUrl(value: unknown, maxChars = 2_048): string | null {
+  if (typeof value !== 'string' || value.length === 0 || value.length > maxChars) return null;
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? parsed.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
 export function cleanExistingFilePath(value: unknown, extensions: readonly string[], maxChars = 2_048): string | null {
   if (typeof value !== 'string' || value.length === 0 || value.length > maxChars) return null;
   const resolved = path.resolve(value);

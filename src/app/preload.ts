@@ -1,10 +1,23 @@
-﻿import { contextBridge, ipcRenderer } from 'electron';
+﻿import { contextBridge, ipcRenderer, webUtils } from 'electron';
 
 contextBridge.exposeInMainWorld('athenaAPI', {
   routeMessage: (text: string, mode: 'create' | 'companion' | 'reason' | 'execute', forceWebSearch = false, chatWindowId?: number, attachmentIds: string[] = []) => ipcRenderer.invoke('chat:route', { text, mode, forceWebSearch, chatWindowId, attachmentIds }),
   sendMessage: (text: string, mode: 'create' | 'companion' | 'reason' | 'execute', forceWebSearch = false, chatWindowId?: number, attachmentIds: string[] = [], routingTicket?: string) => ipcRenderer.invoke('chat:send', { text, mode, forceWebSearch, chatWindowId, attachmentIds, routingTicket }),
   chooseChatImages: (chatWindowId: number) => ipcRenderer.invoke('attachment:chooseImages', chatWindowId),
   chooseChatFiles: (chatWindowId: number, maxFiles = 5) => ipcRenderer.invoke('attachment:chooseFiles', { chatWindowId, maxFiles }),
+  // Electron removed File.path, so the only way from a dropped File to a path a
+  // main-process import can open is this bridge call.
+  resolveDroppedFilePath: (file: File) => {
+    try {
+      return webUtils.getPathForFile(file);
+    } catch {
+      return '';
+    }
+  },
+  importDroppedFiles: (chatWindowId: number, paths: string[], maxFiles = 5) => ipcRenderer.invoke('attachment:importDropped', { chatWindowId, paths, maxFiles }),
+  importDroppedText: (chatWindowId: number, text: string) => ipcRenderer.invoke('attachment:importDroppedText', { chatWindowId, text }),
+  importDroppedImageUrl: (chatWindowId: number, url: string) => ipcRenderer.invoke('attachment:importDroppedImageUrl', { chatWindowId, url }),
+  pasteChatImage: (chatWindowId: number) => ipcRenderer.invoke('attachment:pasteImage', chatWindowId),
   getChatAttachmentPreview: (chatWindowId: number, attachmentId: string) => ipcRenderer.invoke('attachment:preview', { chatWindowId, attachmentId }),
   removePendingChatAttachment: (chatWindowId: number, attachmentId: string) => ipcRenderer.invoke('attachment:removePending', { chatWindowId, attachmentId }),
   chooseProjectDocuments: (chatWindowId: number) => ipcRenderer.invoke('document:choose', chatWindowId),

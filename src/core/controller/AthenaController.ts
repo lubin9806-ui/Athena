@@ -64,7 +64,16 @@ import {
   resolveDirectImageGenerationIntent,
   type DirectImageGenerationIntent,
 } from '../artifacts';
-import { AttachmentService, withChatAttachmentContext, type PreparedChatAttachment } from '../attachments';
+import {
+  AttachmentService,
+  downloadDroppedImage,
+  expandDroppedPaths,
+  resolveAttachmentRoot,
+  sniffImageExtension,
+  withChatAttachmentContext,
+  writeDroppedText,
+  type PreparedChatAttachment,
+} from '../attachments';
 import { extractChatDocument, ProjectDocumentService } from '../documents';
 import { LocalOcrService, OcrAgentToolBridge } from '../ocr';
 import { AgentMessageRouter, ModelSemanticRoutingClassifier } from '../routing';
@@ -131,6 +140,7 @@ import type {
   ToolCatalog,
   ChatAttachment,
   ChatWindow,
+  DroppedImportOutcome,
   ProactiveDelivery,
   ProactiveSource,
 } from '../../shared/types';
@@ -139,6 +149,19 @@ const logger = createLogger('AthenaController');
 
 // Below this a message is chat, not a description worth reading for sections.
 const CREATIVE_SCAN_MIN_CHARS = 300;
+
+// Mirrors the attachment store's per-message ceiling; a drop is trimmed to it
+// rather than rejected wholesale.
+const MAX_DROPPED_FILES = 5;
+
+/**
+ * Where a drop is staged before import. It sits beside managed attachment
+ * storage rather than inside it, because everything under the managed root has
+ * to be a file the store itself wrote.
+ */
+function droppedStagingRoot(): string {
+  return path.join(path.dirname(resolveAttachmentRoot()), 'dropped-staging');
+}
 
 /**
  * How long the creative extraction may hold the turn before the reply proceeds
@@ -1030,6 +1053,78 @@ export class AthenaController {
       prepared.push({ sourcePath, kind: 'audio', contentText: transcript, sourceSha256 });
     }
     return this.attachments.importPreparedFiles(chatWindowId, prepared);
+  }
+
+  /**
+   * A drop is not a file picker: it can carry a folder, a file the reader cannot
+   * open, and more files than a message may hold. Each file is imported on its
+   * own so one unreadable item costs only itself, and everything left out comes
+   * back named rather than silently missing.
+   */
+  async importDroppedFiles(
+    chatWindowId: number,
+    sourcePaths: string[],
+    maxFiles: number,
+    transcribeAudio: (sourcePath: string) => Promise<{ ok: boolean; text?: string; error?: string }>,
+  ): Promise<DroppedImportOutcome> {
+    const expanded = expandDroppedPaths(sourcePaths, Math.max(1, Math.min(MAX_DROPPED_FILES, maxFiles)));
+    const attachments: ChatAttachment[] = [];
+    const failed: string[] = [];
+    for (const file of expanded.files) {
+      try {
+        const [attachment] = await this.importChatFiles(chatWindowId, [file], transcribeAudio);
+        if (attachment) attachments.push(attachment);
+      } catch (error) {
+        failed.push(`${path.basename(file)}（${error instanceof Error ? error.message : String(error)}）`);
+      }
+    }
+    return { attachments, skipped: [...expanded.skipped, ...failed], overflow: expanded.overflow };
+  }
+
+  /** Long dropped text becomes a .txt attachment; the staging copy never outlives the import. */
+  async importDroppedText(chatWindowId: number, text: string): Promise<DroppedImportOutcome> {
+    const staged = writeDroppedText(text, droppedStagingRoot());
+    try {
+      const attachments = await this.importChatFiles(chatWindowId, [staged], async () => ({ ok: false, error: '不支持的内容。' }));
+      return { attachments, skipped: [], overflow: false };
+    } finally {
+      try { fs.rmSync(staged, { force: true }); } catch { /* the staging copy is disposable */ }
+    }
+  }
+
+  /**
+   * An image dragged out of a web page is a URL, so accepting it means making a
+   * network request on the person's behalf — that runs behind the same consent
+   * they granted for external tool network access, not silently.
+   */
+  async importDroppedImageUrl(chatWindowId: number, url: string): Promise<DroppedImportOutcome> {
+    if (!canUseNetworkCapability('externalToolNetwork')) {
+      return { attachments: [], skipped: [], overflow: false, error: consentRequiredMessage('externalToolNetwork') };
+    }
+    const staged = await downloadDroppedImage(url, droppedStagingRoot());
+    try {
+      const attachments = await this.importChatFiles(chatWindowId, [staged], async () => ({ ok: false, error: '不支持的内容。' }));
+      recordDataActivity('tool', 'dropped-image-download', { host: new URL(url).host });
+      return { attachments, skipped: [], overflow: false };
+    } finally {
+      try { fs.rmSync(staged, { force: true }); } catch { /* the staging copy is disposable */ }
+    }
+  }
+
+  /** Pasted screenshots arrive as bytes with no path, so they are staged like a download. */
+  async importPastedImage(chatWindowId: number, bytes: Buffer): Promise<DroppedImportOutcome> {
+    const extension = sniffImageExtension(bytes);
+    if (!extension) return { attachments: [], skipped: [], overflow: false, error: '剪贴板里没有可识别的图片。' };
+    const staging = droppedStagingRoot();
+    fs.mkdirSync(staging, { recursive: true });
+    const staged = path.join(staging, `粘贴的图片-${Date.now().toString(36)}.${extension}`);
+    fs.writeFileSync(staged, bytes, { flag: 'wx' });
+    try {
+      const attachments = await this.importChatFiles(chatWindowId, [staged], async () => ({ ok: false, error: '不支持的内容。' }));
+      return { attachments, skipped: [], overflow: false };
+    } finally {
+      try { fs.rmSync(staged, { force: true }); } catch { /* the staging copy is disposable */ }
+    }
   }
 
   async assertImageInputAvailable(): Promise<void> {

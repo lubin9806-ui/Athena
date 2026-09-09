@@ -2,6 +2,7 @@
 
 import './style.css';
 import { ChatPanel, type ChatAttachmentSnapshot, type ChatMessageSnapshot, type ChatSource, type ChatToolExecution } from './ui/ChatPanel';
+import { DropZone, shouldStoreTextAsAttachment } from './ui/DropZone';
 import { InputBar } from './ui/InputBar';
 import { LiveGlass } from './ui/LiveGlass';
 import { LiquidGlassRenderer } from './ui/LiquidGlassRenderer';
@@ -74,6 +75,14 @@ type DesktopPetEvent = AthenaAvatarEvent
   | { type: 'lipSync.update'; value: number }
   | { type: 'preferences.update'; scale: number; opacity: number; outfitId: string };
 
+/** What a drop or paste produced: what came in, and what was left out and why. */
+interface DroppedImportSnapshot {
+  attachments: ChatAttachmentSnapshot[];
+  skipped: string[];
+  overflow: boolean;
+  error?: string;
+}
+
 declare global {
   interface Window {
     athenaAPI: {
@@ -97,6 +106,11 @@ declare global {
       } | null>;
       chooseChatImages: (chatWindowId: number) => Promise<ChatAttachmentSnapshot[]>;
       chooseChatFiles: (chatWindowId: number, maxFiles?: number) => Promise<ChatAttachmentSnapshot[]>;
+      resolveDroppedFilePath: (file: File) => string;
+      importDroppedFiles: (chatWindowId: number, paths: string[], maxFiles?: number) => Promise<DroppedImportSnapshot>;
+      importDroppedText: (chatWindowId: number, text: string) => Promise<DroppedImportSnapshot>;
+      importDroppedImageUrl: (chatWindowId: number, url: string) => Promise<DroppedImportSnapshot>;
+      pasteChatImage: (chatWindowId: number) => Promise<DroppedImportSnapshot>;
       getChatAttachmentPreview: (chatWindowId: number, attachmentId: string) => Promise<string | null>;
       removePendingChatAttachment: (chatWindowId: number, attachmentId: string) => Promise<boolean>;
       chooseProjectDocuments: (chatWindowId: number) => Promise<ProjectDocumentRecord[]>;
@@ -2031,6 +2045,7 @@ function init(): void {
   }
   void initializeSettings();
   inputBar.onSubmit(sendMessage, () => currentPendingAttachments().length > 0);
+  startDropZone();
   projectSelect.addEventListener('change', () => {
     const id = Number(projectSelect.value);
     if (Number.isInteger(id) && id > 0) void switchProject(id);
@@ -4609,6 +4624,113 @@ async function chooseChatFiles(): Promise<void> {
     setStatus(error instanceof Error ? error.message : '附件添加失败', 'error');
     window.setTimeout(restoreIdleStatus, 3200);
   }
+}
+
+function startDropZone(): void {
+  new DropZone({
+    resolveFilePath: file => window.athenaAPI.resolveDroppedFilePath(file),
+    onFiles: paths => acceptDroppedFiles(paths),
+    onText: text => acceptDroppedText(text),
+    onImageUrl: url => acceptDroppedImageUrl(url),
+    canAccept: () => Boolean(currentChatWindowId) && !isStreaming,
+    onRefused: reason => {
+      setStatus(reason, 'error');
+      window.setTimeout(restoreIdleStatus, 3200);
+    },
+  }).start();
+
+  // A screenshot on the clipboard has no path, so it is read in the main
+  // process. Everything else pastes normally — this must not swallow text.
+  window.addEventListener('paste', event => {
+    const items = Array.from(event.clipboardData?.items || []);
+    if (!items.some(item => item.kind === 'file' && item.type.startsWith('image/'))) return;
+    event.preventDefault();
+    void acceptPastedImage();
+  });
+}
+
+/**
+ * Files can be dropped anywhere in the window; they queue in the composer just
+ * as the plus button's do, so the message is still yours to finish and send.
+ */
+async function acceptDroppedFiles(paths: string[]): Promise<void> {
+  const windowId = currentChatWindowId;
+  if (!windowId) return;
+  const availableSlots = 5 - currentPendingAttachments().length;
+  if (availableSlots <= 0) {
+    setStatus('一条消息最多添加 5 个附件', 'error');
+    window.setTimeout(restoreIdleStatus, 2400);
+    return;
+  }
+  setStatus(paths.length > 1 ? `正在读取 ${paths.length} 个文件…` : '正在读取文件…', 'ready');
+  const outcome = await window.athenaAPI.importDroppedFiles(windowId, paths, availableSlots);
+  applyDropOutcome(windowId, outcome);
+}
+
+async function acceptDroppedText(text: string): Promise<void> {
+  const windowId = currentChatWindowId;
+  if (!windowId) return;
+  if (!shouldStoreTextAsAttachment(text)) {
+    inputBar.insertAtCursor(text);
+    inputBar.focus();
+    return;
+  }
+  if (5 - currentPendingAttachments().length <= 0) {
+    setStatus('一条消息最多添加 5 个附件', 'error');
+    window.setTimeout(restoreIdleStatus, 2400);
+    return;
+  }
+  setStatus('这段文字比较长，正在存成附件…', 'ready');
+  applyDropOutcome(windowId, await window.athenaAPI.importDroppedText(windowId, text));
+}
+
+async function acceptDroppedImageUrl(url: string): Promise<void> {
+  const windowId = currentChatWindowId;
+  if (!windowId) return;
+  if (5 - currentPendingAttachments().length <= 0) {
+    setStatus('一条消息最多添加 5 个附件', 'error');
+    window.setTimeout(restoreIdleStatus, 2400);
+    return;
+  }
+  setStatus('正在下载这张网络图片…', 'ready');
+  applyDropOutcome(windowId, await window.athenaAPI.importDroppedImageUrl(windowId, url));
+}
+
+async function acceptPastedImage(): Promise<boolean> {
+  const windowId = currentChatWindowId;
+  if (!windowId || isStreaming) return false;
+  if (5 - currentPendingAttachments().length <= 0) return false;
+  const outcome = await window.athenaAPI.pasteChatImage(windowId);
+  // No image on the clipboard is the ordinary case for a text paste, and the
+  // browser's own paste must still happen.
+  if (outcome.attachments.length === 0 && !outcome.error) return false;
+  applyDropOutcome(windowId, outcome);
+  return outcome.attachments.length > 0;
+}
+
+/** One place to fold an import result into the composer and say what was left out. */
+function applyDropOutcome(windowId: number, outcome: DroppedImportSnapshot): void {
+  if (outcome.attachments.length > 0) {
+    const accepted = [...(pendingChatAttachments.get(windowId) || []), ...outcome.attachments].slice(0, 5);
+    pendingChatAttachments.set(windowId, accepted);
+    if (windowId === currentChatWindowId) {
+      renderComposerAttachments();
+      inputBar.focus();
+    }
+  }
+
+  const notes: string[] = [];
+  if (outcome.attachments.length > 0) notes.push(`已添加 ${outcome.attachments.length} 个附件`);
+  if (outcome.overflow) notes.push('超出 5 个上限的部分没有添加');
+  if (outcome.skipped.length > 0) notes.push(`跳过 ${outcome.skipped.slice(0, 3).join('、')}${outcome.skipped.length > 3 ? ` 等 ${outcome.skipped.length} 项` : ''}`);
+  if (outcome.error) notes.push(outcome.error);
+
+  if (notes.length === 0) {
+    restoreIdleStatus();
+    return;
+  }
+  setStatus(notes.join('；'), outcome.attachments.length > 0 ? 'ready' : 'error');
+  window.setTimeout(restoreIdleStatus, outcome.attachments.length > 0 && !outcome.error ? 2400 : 4200);
 }
 
 async function chooseProjectDocuments(): Promise<void> {

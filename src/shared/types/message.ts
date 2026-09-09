@@ -110,6 +110,20 @@ export interface AgentMessageRouteDecision {
 }
 
 /**
+ * What a drop or a paste turned into. Partial success is the normal case — a
+ * dropped folder mixes readable files with binaries — so what was left out is
+ * carried alongside what came in, to be shown rather than swallowed.
+ */
+export interface DroppedImportOutcome {
+  attachments: ChatAttachment[];
+  /** Names of files that were not added, each with the reason where there is one. */
+  skipped: string[];
+  /** True when the per-message limit cut the drop short. */
+  overflow: boolean;
+  error?: string;
+}
+
+/**
  * A one-click follow-up offered beneath an assistant message, so a turn that
  * ends in "you are in the wrong mode for this" is a button rather than an
  * instruction to retype what you already typed.

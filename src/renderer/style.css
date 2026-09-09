@@ -712,6 +712,61 @@ summary:focus-visible {
   cursor: default;
 }
 
+/* Drag and drop: the whole window is the target, so the confirmation is a full
+   sheet rather than a highlighted edge somewhere the eye is not. */
+#drop-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  opacity: 0;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--accent) 10%, rgba(12, 18, 22, 0.42));
+  -webkit-backdrop-filter: blur(18px) saturate(130%);
+  backdrop-filter: blur(18px) saturate(130%);
+  transition: opacity var(--motion-fast) ease;
+}
+
+#drop-overlay[data-visible="true"] {
+  opacity: 1;
+}
+
+.drop-overlay-card {
+  display: grid;
+  gap: 7px;
+  padding: 26px 34px;
+  border: 1.5px dashed color-mix(in srgb, var(--accent) 52%, var(--border));
+  border-radius: 20px;
+  text-align: center;
+  background: color-mix(in srgb, var(--accent) 8%, rgba(255, 255, 255, 0.08));
+  transform: scale(0.97);
+  transition: transform var(--motion-fast) ease;
+}
+
+#drop-overlay[data-visible="true"] .drop-overlay-card {
+  transform: scale(1);
+}
+
+.drop-overlay-title {
+  color: var(--text);
+  font-size: 15px;
+  letter-spacing: 0.02em;
+}
+
+.drop-overlay-hint {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #drop-overlay,
+  .drop-overlay-card {
+    transition: none;
+  }
+}
+
 .message-sources {
   width: min(350px, calc(100vw - 96px));
   margin-top: 12px;

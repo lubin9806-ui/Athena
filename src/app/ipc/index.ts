@@ -1,6 +1,6 @@
 /** IPC handler registration. */
 
-import { ipcMain, BrowserWindow, dialog, IpcMainEvent, IpcMainInvokeEvent, shell } from 'electron';
+import { ipcMain, BrowserWindow, clipboard, dialog, IpcMainEvent, IpcMainInvokeEvent, shell } from 'electron';
 import { AthenaController } from '../../core/controller/AthenaController';
 import { DiagnosticsService } from '../../core/diagnostics';
 import { getAppSettings, getSettingsBundle, saveSettingsBundle } from '../../core/config/SettingsStore';
@@ -78,10 +78,18 @@ import {
   updateMemory,
 } from '../../memory';
 import type { MemoryKind, MemoryListOptions, MemoryReviewListOptions, MemoryUpdatePatch } from '../../memory';
-import type { ImageCloudProvider, LocalImageRuntimeVariantId, McpServerInput, RemoteModelProvider, SettingsBundle, SettingsPatch, ToolConfirmationRequest, ToolStatusEvent, WebSearchStatus } from '../../shared/types';
+import type { DroppedImportOutcome, ImageCloudProvider, LocalImageRuntimeVariantId, McpServerInput, RemoteModelProvider, SettingsBundle, SettingsPatch, ToolConfirmationRequest, ToolStatusEvent, WebSearchStatus } from '../../shared/types';
 import { armMicrophoneGrant, revokeMicrophoneGrant } from '../security/PermissionGate';
 import { applyDesktopSettings, showReminderNotification } from '../DesktopSettings';
-import { cleanAttachmentIds, cleanChatPayload, cleanExistingFilePath, isTrustedIpcSender } from './validation';
+import {
+  cleanAttachmentIds,
+  cleanChatPayload,
+  cleanDroppedPaths,
+  cleanExistingFilePath,
+  cleanHttpUrl,
+  isTrustedIpcSender,
+  MAX_DROPPED_TEXT_CHARS,
+} from './validation';
 
 const MAX_RECORDING_BYTES = 12 * 1024 * 1024;
 const MAX_TEXT_TO_SPEAK_CHARS = 8_000;
@@ -94,6 +102,10 @@ const INVOKE_CHANNELS = [
   'creative:state',
   'attachment:chooseImages',
   'attachment:chooseFiles',
+  'attachment:importDropped',
+  'attachment:importDroppedText',
+  'attachment:importDroppedImageUrl',
+  'attachment:pasteImage',
   'attachment:preview',
   'attachment:removePending',
   'document:choose',
@@ -372,6 +384,69 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<vo
       return voice.transcribe(sourcePath);
     });
     return attachments;
+  });
+
+  // Dropped and pasted content takes the same import path as the file picker;
+  // what differs is that it arrives with folders, unreadable files and more
+  // items than a message may hold, so each handler answers with what it took
+  // and what it left out instead of throwing the whole drop away.
+  ipcMain.handle('attachment:importDropped', async (event, value: unknown) => {
+    if (!isTrustedSender(event)) return emptyDropOutcome();
+    if (!isRecord(value)) return emptyDropOutcome();
+    const chatWindowId = cleanPositiveInteger(value.chatWindowId);
+    if (!chatWindowId) return emptyDropOutcome();
+    const paths = cleanDroppedPaths(value.paths);
+    if (paths.length === 0) return { ...emptyDropOutcome(), error: '拖进来的内容里没有可读取的文件。' };
+    const maxFiles = Math.max(1, Math.min(5, cleanPositiveInteger(value.maxFiles) || 5));
+    try {
+      return await controller.importDroppedFiles(chatWindowId, paths, maxFiles, async sourcePath => {
+        if (!getAppSettings().voice.sttEnabled) return { ok: false, error: '请先在设置中开启本地语音识别，再添加音频。' };
+        return voice.transcribe(sourcePath);
+      });
+    } catch (error) {
+      return { ...emptyDropOutcome(), error: describeError(error) };
+    }
+  });
+
+  ipcMain.handle('attachment:importDroppedText', async (event, value: unknown) => {
+    if (!isTrustedSender(event)) return emptyDropOutcome();
+    if (!isRecord(value)) return emptyDropOutcome();
+    const chatWindowId = cleanPositiveInteger(value.chatWindowId);
+    const text = cleanString(value.text, MAX_DROPPED_TEXT_CHARS).trim();
+    if (!chatWindowId || !text) return emptyDropOutcome();
+    try {
+      return await controller.importDroppedText(chatWindowId, text);
+    } catch (error) {
+      return { ...emptyDropOutcome(), error: describeError(error) };
+    }
+  });
+
+  ipcMain.handle('attachment:importDroppedImageUrl', async (event, value: unknown) => {
+    if (!isTrustedSender(event)) return emptyDropOutcome();
+    if (!isRecord(value)) return emptyDropOutcome();
+    const chatWindowId = cleanPositiveInteger(value.chatWindowId);
+    const url = cleanHttpUrl(value.url);
+    if (!chatWindowId || !url) return emptyDropOutcome();
+    try {
+      return await controller.importDroppedImageUrl(chatWindowId, url);
+    } catch (error) {
+      return { ...emptyDropOutcome(), error: describeError(error) };
+    }
+  });
+
+  ipcMain.handle('attachment:pasteImage', async (event, value: unknown) => {
+    if (!isTrustedSender(event)) return emptyDropOutcome();
+    const chatWindowId = cleanPositiveInteger(value);
+    if (!chatWindowId) return emptyDropOutcome();
+    // Read the clipboard in the main process: a pasted screenshot has no path to
+    // hand over, and the bytes never need to cross the bridge.
+    const image = clipboard.readImage();
+    if (image.isEmpty()) return { ...emptyDropOutcome(), error: '剪贴板里没有图片。' };
+    try {
+      return await controller.importPastedImage(chatWindowId, image.toPNG());
+    } catch (error) {
+      return { ...emptyDropOutcome(), error: describeError(error) };
+    }
   });
 
   ipcMain.handle('attachment:preview', async (event, value: unknown) => {
@@ -1232,6 +1307,14 @@ async function confirmToolExecution(mainWindow: BrowserWindow, request: ToolConf
     noLink: true,
   });
   return result.response === 1;
+}
+
+function emptyDropOutcome(): DroppedImportOutcome {
+  return { attachments: [], skipped: [], overflow: false };
+}
+
+function describeError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 function clearIpcHandlers(): void {

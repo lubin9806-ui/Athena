@@ -549,6 +549,57 @@ function createWindow(): void {
                 inputChars: inputBox.value.length,
               });
 
+             // A file dragged anywhere over the window must raise the drop sheet,
+             // and a drag that carries nothing must leave the app alone.
+             const dropOverlayState = await (async () => {
+               const overlay = document.getElementById('drop-overlay');
+               if (!overlay) return { present: false };
+               const fileDrag = new DataTransfer();
+               fileDrag.items.add(new File(['x'], 'dropped.txt', { type: 'text/plain' }));
+               const fire = (type, transfer, target) => target.dispatchEvent(new DragEvent(type, {
+                 bubbles: true,
+                 cancelable: true,
+                 dataTransfer: transfer,
+               }));
+               fire('dragenter', fileDrag, document.body);
+               fire('dragover', fileDrag, document.body);
+               await new Promise(resolve => setTimeout(resolve, 30));
+               const shownForFiles = overlay.dataset.visible === 'true';
+               fire('dragleave', fileDrag, document.body);
+               await new Promise(resolve => setTimeout(resolve, 30));
+               const hiddenAfterLeave = overlay.dataset.visible === 'false';
+
+               const emptyDrag = new DataTransfer();
+               fire('dragenter', emptyDrag, document.body);
+               await new Promise(resolve => setTimeout(resolve, 30));
+               const ignoredEmptyDrag = overlay.dataset.visible === 'false';
+               fire('dragleave', emptyDrag, document.body);
+               return { present: true, shownForFiles, hiddenAfterLeave, ignoredEmptyDrag };
+             })();
+             const dropOverlayReactive = Boolean(dropOverlayState.present
+               && dropOverlayState.shownForFiles
+               && dropOverlayState.hiddenAfterLeave
+               && dropOverlayState.ignoredEmptyDrag);
+             if (!dropOverlayReactive) return failSmokeGate('drop-overlay', dropOverlayState);
+
+             // Proves the bridge is actually wired end to end. A path that does
+             // not exist is refused before anything is written, so the probe
+             // leaves no attachment behind.
+             const dropBridgeProbe = typeof api.importDroppedFiles === 'function'
+               ? await api.importDroppedFiles(1, ['\\\\?\\athena-smoke-nonexistent\\\\missing.txt'], 5)
+               : null;
+             const dropBridgeReady = Boolean(dropBridgeProbe
+               && Array.isArray(dropBridgeProbe.attachments)
+               && dropBridgeProbe.attachments.length === 0
+               && Array.isArray(dropBridgeProbe.skipped)
+               && dropBridgeProbe.overflow === false
+               && typeof dropBridgeProbe.error === 'string'
+               && typeof api.resolveDroppedFilePath === 'function'
+               && typeof api.importDroppedText === 'function'
+               && typeof api.importDroppedImageUrl === 'function'
+               && typeof api.pasteChatImage === 'function');
+             if (!dropBridgeReady) return failSmokeGate('drop-bridge', { probe: dropBridgeProbe });
+
              const stageRect = stage.getBoundingClientRect();
              stage.dispatchEvent(new PointerEvent('pointermove', {
                bubbles: true,
@@ -997,6 +1048,8 @@ function createWindow(): void {
                 webSearchForceReactive,
                 webSearchForceRestored,
                 presenceQuickActionReactive,
+                dropOverlayReactive,
+                dropBridgeReady,
               }));
              if (!panelReactive || memoryPanel.dataset.open !== 'false' || !executionModeReactive || !executionWorkspaceReactive || !executionPermissionReactive || !executionModeRestored || !streamingScrollPolicyReady || !historyMotionSuppressed) return false;
 
