@@ -160,5 +160,8 @@
   },
   "optionalDependencies": {
     "steamworks.js": "0.4.0"
+  },
+  "overrides": {
+    "js-yaml": "4.3.2"
   }
 }
