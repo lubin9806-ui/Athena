@@ -9,6 +9,7 @@ const {
   SearchGateway, LocalFixtureSearchProvider,
 } = require('./services');
 const { IdempotencyService, DataRightsService, BackupService, Metrics } = require('./lifecycle');
+const { PairingService } = require('./pairing');
 const { randomId } = require('./crypto');
 const { LocalNoChargeBillingAdapter, LocalDeploymentAdapter, LocalRecoveryDeliveryAdapter } = require('./ports');
 
@@ -29,6 +30,7 @@ function createCloudApp(config, adapters = {}) {
     backup: new BackupService(store, config),
     metrics: new Metrics(),
   };
+  services.pairing = new PairingService(store, services.auth, config);
 
   const server = http.createServer(async (request, response) => {
     const started = Date.now();
@@ -107,6 +109,30 @@ async function route(request, services, config) {
   if (method === 'POST' && path === '/v1/auth/recovery/complete') {
     const body = await readJson(request, config.maxBodyBytes); exactKeys(body, ['tenantId', 'token', 'newPassword']);
     return { body: services.auth.completeRecovery(body) };
+  }
+
+  // Local-network pairing sits with register and login because a phone that has
+  // never had an account cannot present a token yet. Offering a code needs the
+  // host itself; claiming one needs only the local network. Both routes are
+  // absent outside the local environment.
+  if (method === 'POST' && path === '/v1/pair/offer') {
+    const body = await readJson(request, config.maxBodyBytes); exactKeys(body, ['label']);
+    // An offer from a signed-in desktop pairs the phone into that account; an
+    // anonymous one uses the machine's local account.
+    let principal = null;
+    if (request.headers.authorization) principal = authenticate(request, services.auth);
+    return { body: services.pairing.offer({ remoteAddress: ip, context: principal, label: body.label }) };
+  }
+  if (method === 'POST' && path === '/v1/pair/claim') {
+    const body = await readJson(request, config.maxBodyBytes); exactKeys(body, ['code', 'deviceName', 'platform']);
+    return {
+      body: services.pairing.claim({
+        remoteAddress: ip,
+        code: body.code,
+        deviceName: body.deviceName,
+        platform: body.platform,
+      }),
+    };
   }
 
   const context = authenticate(request, services.auth);
