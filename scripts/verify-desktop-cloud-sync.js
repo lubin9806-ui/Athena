@@ -60,6 +60,52 @@ async function main() {
   );
   assert.equal(executeOnly.turns.length, 0);
 
+  // A conversation is one thing both clients edit. The desktop must recognise
+  // the records it writes for its own windows, or it would adopt them back and
+  // clone every window on every sync.
+  assert.equal(mapper.desktopWindowIdFromResourceId('conversation.desktop-12'), 12);
+  assert.equal(mapper.desktopWindowIdFromResourceId('conversation.android-abc'), null);
+  // The namespace has to be pinned, not just the shape: another client's record
+  // that happens to end in digits must never be mistaken for a local window.
+  assert.equal(mapper.desktopWindowIdFromResourceId('conversation.android-12'), null);
+  assert.equal(mapper.desktopWindowIdFromResourceId('conversation.desktop-'), null);
+  assert.equal(mapper.desktopWindowIdFromResourceId('conversation.desktop-0'), null);
+  assert.equal(mapper.desktopWindowIdFromResourceId('memory.desktop-3'), null);
+
+  // Merging a record back into a window it already owns must add only what is
+  // missing; re-adding what is there would double the history on every sync.
+  const existing = [
+    { role: 'user', content: 'first question' },
+    { role: 'assistant', content: 'first answer' },
+  ];
+  const incoming = [
+    { role: 'user', content: 'first question', mode: 'companion', createdAt: '2026-09-09T00:00:00.000Z' },
+    { role: 'assistant', content: 'first answer', mode: 'companion', createdAt: '2026-09-09T00:00:01.000Z' },
+    { role: 'user', content: 'asked from the phone', mode: 'companion', createdAt: '2026-09-09T00:01:00.000Z' },
+  ];
+  const appended = mapper.turnsToAppend(existing, incoming);
+  assert.deepEqual(appended.map((turn) => turn.content), ['asked from the phone']);
+  assert.equal(mapper.turnsToAppend(existing, incoming).length, 1, 'merge must be repeatable');
+  assert.deepEqual(mapper.turnsToAppend(existing, []), []);
+  assert.deepEqual(mapper.turnsToAppend(existing, 5), [], 'a turn count is not a turn list');
+
+  // An execute turn arriving from another client is refused rather than stored,
+  // and so are system turns and empty content.
+  const hostile = mapper.turnsToAppend([], [
+    { role: 'assistant', content: 'removed 42 files', mode: 'execute' },
+    { role: 'system', content: 'internal note', mode: 'companion' },
+    { role: 'user', content: '', mode: 'companion' },
+    { role: 'user', content: 'kept', mode: 'companion' },
+  ]);
+  assert.deepEqual(hostile.map((turn) => turn.content), ['kept']);
+
+  // The same sentence twice inside one record is written once; this is the
+  // known cost of matching on text, since created_at is restamped locally.
+  assert.equal(mapper.turnsToAppend([], [
+    { role: 'user', content: 'same', mode: 'companion' },
+    { role: 'user', content: 'same', mode: 'companion' },
+  ]).length, 1);
+
   assert.throws(() => CloudProtocol.assertBaseUrl(''), /基址为空/);
   assert.throws(() => CloudProtocol.assertBaseUrl('http://example.test', true), /HTTPS/);
   assert.equal(CloudProtocol.assertBaseUrl('http://127.0.0.1:8787'), 'http://127.0.0.1:8787');

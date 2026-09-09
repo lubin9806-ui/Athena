@@ -9,11 +9,13 @@ import type { CloudAccountSettings, CloudSessionStatus } from '../../shared/type
 import { CloudProtocol, CloudProtocolError } from './CloudProtocol';
 import {
   conversationResourceId,
+  desktopWindowIdFromResourceId,
   incomingConversationTitle,
   memoryResourceId,
   shouldSyncWindow,
   toConversationPayload,
   toMemoryPayload,
+  turnsToAppend,
 } from './CloudSyncMapper';
 
 interface StoredSession {
@@ -114,18 +116,30 @@ export async function syncCloudAccountNow(): Promise<CloudSessionStatus> {
   const session = readSession();
   if (!session) throw new CloudProtocolError(401, 'invalid-session', '尚未登录 Athena 账号。');
 
-  await pushLocalState(client);
   const imported = { ...session.imported };
+  await pushLocalState(client, imported);
   const changes = await client.listChanges(session.cursor) as { records?: unknown[]; nextCursor?: string };
   for (const record of Array.isArray(changes.records) ? changes.records : []) {
     if (!isRecord(record) || record.deleted === true) continue;
     const resourceId = String(record.resourceId || '');
     const payload = isRecord(record.payload) ? record.payload : null;
-    if (!payload || imported[resourceId]) continue;
-    if (resourceId.startsWith('conversation.') && payload.origin === 'android') {
-      const windowId = importAndroidConversation(payload);
-      if (windowId) imported[resourceId] = windowId;
+    if (!payload || !resourceId.startsWith('conversation.')) continue;
+
+    // A conversation is one thing both clients edit, not a copy each keeps. A
+    // record already adopted here is merged into the window it belongs to;
+    // skipping it, as this did, meant a chat continued on the phone never
+    // reached the desktop again after the first import.
+    const adopted = imported[resourceId];
+    if (adopted) {
+      if (getChatWindow(adopted)) mergeConversation(adopted, payload);
+      continue;
     }
+    // Records this desktop writes for its own windows come back on the feed;
+    // adopting them would clone every window on every sync.
+    if (ownsResource(resourceId)) continue;
+
+    const windowId = adoptConversation(payload);
+    if (windowId) imported[resourceId] = windowId;
   }
   writeSession({
     ...session,
@@ -148,7 +162,14 @@ export function queueCloudWindowSync(windowId: number): void {
   void windowId;
 }
 
-async function pushLocalState(client: CloudProtocol): Promise<void> {
+async function pushLocalState(client: CloudProtocol, imported: Record<string, number>): Promise<void> {
+  // windowId -> the record it belongs to. A window adopted from another client
+  // keeps writing to that client's record; pushing it under a desktop id would
+  // put two records in the account for one conversation, and the phone would
+  // list the same chat twice.
+  const adopted = new Map<number, string>();
+  for (const [resourceId, windowId] of Object.entries(imported)) adopted.set(windowId, resourceId);
+
   const windows = listChatWindows(false, false);
   for (const window of windows) {
     if (!shouldSyncWindow(window)) continue;
@@ -157,8 +178,9 @@ async function pushLocalState(client: CloudProtocol): Promise<void> {
     // A window whose syncable turns were all filtered out has nothing to send;
     // pushing an empty conversation would only create a record of its existence.
     if (payload.turns.length === 0) continue;
+    const resourceId = adopted.get(window.id) || conversationResourceId(window.id);
     const first = await client.putRecord({
-      resourceId: conversationResourceId(window.id),
+      resourceId,
       resourceType: 'conversation',
       schemaVersion: 1,
       baseVector: {},
@@ -169,7 +191,7 @@ async function pushLocalState(client: CloudProtocol): Promise<void> {
       const server = isRecord(first.server) ? first.server : null;
       const vector = server && isRecord(server.vector) ? server.vector : {};
       await client.putRecord({
-        resourceId: conversationResourceId(window.id),
+        resourceId,
         resourceType: 'conversation',
         schemaVersion: 1,
         baseVector: vector,
@@ -192,23 +214,43 @@ async function pushLocalState(client: CloudProtocol): Promise<void> {
   }
 }
 
-function importAndroidConversation(payload: Record<string, unknown>): number | null {
+/** Whether this resource is one this desktop writes for a window of its own. */
+function ownsResource(resourceId: string): boolean {
+  const windowId = desktopWindowIdFromResourceId(resourceId);
+  return windowId !== null && Boolean(getChatWindow(windowId));
+}
+
+function conversationMode(payload: Record<string, unknown>): 'create' | 'reason' | 'companion' {
+  return payload.mode === 'create' || payload.mode === 'reason' ? payload.mode : 'companion';
+}
+
+/**
+ * Turns written elsewhere that this window does not have yet.
+ *
+ * Matched on role and text because that is the only key both clients can agree
+ * on: saveChatMessage stamps its own created_at, so a turn re-read on the next
+ * sync would never match by time. The cost is that sending the identical
+ * sentence twice in one conversation syncs once.
+ */
+function mergeConversation(windowId: number, payload: Record<string, unknown>): number {
+  const fallback = conversationMode(payload);
+  for (const turn of turnsToAppend(getChatWindowMessages(windowId, 500), payload.turns)) {
+    const mode = turn.mode ? conversationMode({ mode: turn.mode }) : fallback;
+    saveChatMessage(windowId, turn.role, turn.content, undefined, mode);
+  }
+  return windowId;
+}
+
+/** First sight of a conversation written by another client: give it a window. */
+function adoptConversation(payload: Record<string, unknown>): number | null {
   const title = incomingConversationTitle({
-    origin: 'android',
+    origin: payload.origin === 'android' ? 'android' : 'desktop',
     title: String(payload.title || ''),
-    mode: typeof payload.mode === 'string' ? payload.mode : 'companion',
+    mode: conversationMode(payload),
     turns: [],
   });
-  const mode = payload.mode === 'create' || payload.mode === 'reason' ? payload.mode : 'companion';
-  const window = createChatWindow({ title, mode });
-  const turns = Array.isArray(payload.turns) ? payload.turns : [];
-  for (const turn of turns) {
-    if (!isRecord(turn)) continue;
-    if (turn.role !== 'user' && turn.role !== 'assistant') continue;
-    const content = typeof turn.content === 'string' ? turn.content : '';
-    if (!content) continue;
-    saveChatMessage(window.id, turn.role, content, undefined, mode);
-  }
+  const window = createChatWindow({ title, mode: conversationMode(payload) });
+  mergeConversation(window.id, payload);
   return getChatWindow(window.id)?.id || window.id;
 }
 
