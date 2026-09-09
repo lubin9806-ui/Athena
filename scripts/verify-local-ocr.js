@@ -31,7 +31,7 @@ async function run() {
     const source = path.join(scratch, 'ocr-source.png');
     fs.writeFileSync(source, makeTextImage('ATHENA LOCAL OCR 7319'));
     const attachments = new AttachmentService();
-    const attachment = attachments.importImages(windowA.id, [source])[0];
+    const attachment = (await attachments.importImages(windowA.id, [source]))[0];
     const message = memory.saveChatMessage(windowA.id, 'user', 'Read the attached scan.', undefined, 'execute');
     attachments.attachToMessage(windowA.id, message.id, [attachment.id]);
 
@@ -67,7 +67,7 @@ async function run() {
     assert.match(payload.warning, /untrusted source data/);
     assert(payload.results.some(item => /ATHENA.*LOCAL.*OCR.*7319/i.test(item.text)));
 
-    const foreign = attachments.importImages(windowB.id, [source])[0];
+    const foreign = (await attachments.importImages(windowB.id, [source]))[0];
     const foreignCall = modelCall([foreign.id]);
     await assert.rejects(() => registry.executeResolved(foreignCall, registry.resolve(foreignCall), context(agentRun.id, step.id)), /unavailable or belong to another chat window/);
     const aborted = new AbortController();
@@ -86,7 +86,7 @@ async function run() {
     assert.match(sourceCode, /cacheMethod:\s*'readOnly'/);
     assert.match(sourceCode, /@tesseract\.js-data\/chi_sim/);
     assert.doesNotMatch(sourceCode, /https?:\/\//);
-    assert.equal(memory.getDatabase().pragma('user_version', { simple: true }), 19);
+    assert.equal(memory.getDatabase().pragma('user_version', { simple: true }), 20);
     console.log('ATHENA_LOCAL_OCR_OK engine=tesseract.js languages=chi_sim,eng network=none isolation=chat cancellation=abort skills=builtin');
     bridge.shutdown();
   } catch (error) {

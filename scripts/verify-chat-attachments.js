@@ -20,7 +20,7 @@ const PNG_1X1 = Buffer.from(
 );
 
 let exitCode = 0;
-try {
+(async () => {
   const service = new AttachmentService();
   const project = memory.ensureDefaultProject();
   const windowA = memory.createChatWindow({ title: 'Attachment A', projectId: project.id });
@@ -28,7 +28,7 @@ try {
   const source = path.join(tempDir, 'source.png');
   fs.writeFileSync(source, PNG_1X1);
 
-  const [pending] = service.importImages(windowA.id, [source]);
+  const [pending] = await service.importImages(windowA.id, [source]);
   assert.equal(pending.status, 'pending');
   assert.equal(pending.mime_type, 'image/png');
   assert.equal(pending.width, 1);
@@ -50,7 +50,7 @@ try {
   assert.equal(history[0].attachments[0].id, pending.id);
 
   const generatedMessage = memory.saveChatMessage(windowA.id, 'assistant', 'Generated locally', 'happy', 'create');
-  const generatedAttachment = service.createGeneratedImage(windowA.id, generatedMessage.id, PNG_1X1, 'athena-generated.png');
+  const generatedAttachment = await service.createGeneratedImage(windowA.id, generatedMessage.id, PNG_1X1, 'athena-generated.png');
   assert.equal(generatedAttachment.status, 'attached');
   assert.equal(generatedAttachment.width, 1);
   assert.equal(generatedAttachment.height, 1);
@@ -65,23 +65,23 @@ try {
 
   const spoofed = path.join(tempDir, 'spoofed.png');
   fs.writeFileSync(spoofed, 'not an image');
-  assert.throws(() => service.importImages(windowA.id, [spoofed]), /Only PNG, JPEG, and WebP/);
+  await assert.rejects(() => service.importImages(windowA.id, [spoofed]), /无法解码/);
 
   const temporary = memory.createTemporaryChatWindow({ projectId: project.id });
-  const [temporaryAttachment] = service.importImages(temporary.id, [source]);
+  const [temporaryAttachment] = await service.importImages(temporary.id, [source]);
   const temporaryModelImage = service.resolveModelImages(temporary.id, [temporaryAttachment.id])[0];
   assert.equal(fs.existsSync(temporaryModelImage.filePath), true);
   assert.equal(service.cleanupWindowFiles(temporary.id), 1);
   assert.equal(fs.existsSync(temporaryModelImage.filePath), false);
   assert.equal(memory.deleteChatWindow(temporary.id), true);
 
-  const [stale] = service.importImages(windowB.id, [source]);
-  const [freshAtBoundary] = service.importImages(windowB.id, [source]);
+  const [stale] = await service.importImages(windowB.id, [source]);
+  const [freshAtBoundary] = await service.importImages(windowB.id, [source]);
   memory.getDatabase().prepare("UPDATE chat_attachments SET created_at = '2030-01-02 10:00:00' WHERE id = ?").run(stale.id);
   memory.getDatabase().prepare("UPDATE chat_attachments SET created_at = '2030-01-02 12:00:00' WHERE id = ?").run(freshAtBoundary.id);
   assert.equal(service.cleanupStalePending(new Date(2030, 0, 3, 11, 0, 0)), 1);
-  assert.equal(service.getPreview(windowB.id, stale.id), null);
-  assert.ok(service.getPreview(windowB.id, freshAtBoundary.id));
+  assert.equal(await service.getPreview(windowB.id, stale.id), null);
+  assert.ok(await service.getPreview(windowB.id, freshAtBoundary.id));
   assert.equal(service.removePending(windowB.id, freshAtBoundary.id), true);
 
   const textSource = path.join(tempDir, 'notes.md');
@@ -102,14 +102,14 @@ try {
   wavHeader.write('data', 36, 'ascii');
   wavHeader.writeUInt32LE(0, 40);
   fs.writeFileSync(wavSource, wavHeader);
-  const [documentAttachment, audioAttachment] = service.importPreparedFiles(windowB.id, [
+  const [documentAttachment, audioAttachment] = await service.importPreparedFiles(windowB.id, [
     { sourcePath: textSource, kind: 'document', mimeType: 'text/markdown', contentText: '# Athena\n\nThis is a chat attachment.' },
     { sourcePath: wavSource, kind: 'audio', mimeType: 'audio/wav', contentText: '这是一段本地音频转写。' },
   ]);
   assert.equal(documentAttachment.kind, 'document');
   assert.equal(audioAttachment.kind, 'audio');
   assert.equal(documentAttachment.width, undefined);
-  assert.equal(service.getPreview(windowB.id, documentAttachment.id), null);
+  assert.equal(await service.getPreview(windowB.id, documentAttachment.id), null);
   assert.deepEqual(service.resolveModelImages(windowB.id, [documentAttachment.id, audioAttachment.id]), []);
   const textContext = service.resolveTextContext(windowB.id, [documentAttachment.id, audioAttachment.id]);
   assert.deepEqual(textContext.map(item => item.kind), ['document', 'audio']);
@@ -120,7 +120,7 @@ try {
   const fileHistory = memory.getChatWindowMessages(windowB.id, 10);
   assert.deepEqual(fileHistory.at(-1).attachments.map(item => item.kind), ['document', 'audio']);
 
-  const [escapeAttempt] = service.importImages(windowB.id, [source]);
+  const [escapeAttempt] = await service.importImages(windowB.id, [source]);
   const escapeModelImage = service.resolveModelImages(windowB.id, [escapeAttempt.id])[0];
   memory.getDatabase().prepare('UPDATE chat_attachments SET storage_path = ? WHERE id = ?').run(source, escapeAttempt.id);
   assert.throws(() => service.removePending(windowB.id, escapeAttempt.id), /outside managed storage/);
@@ -129,14 +129,14 @@ try {
   assert.equal(service.removePending(windowB.id, escapeAttempt.id), true);
 
   const schemaVersion = Number(memory.getDatabase().pragma('user_version', { simple: true }));
-  assert.equal(schemaVersion, 19);
+  assert.equal(schemaVersion, 20);
 
   // Attachment rows cascade away with an ephemeral message, so the managed files
   // have to be swept before the purge or they are orphaned on disk (ATH-DATA-002).
   const ephemeralSource = path.join(tempDir, 'history-off.png');
   fs.writeFileSync(ephemeralSource, PNG_1X1);
   const ephemeralMessage = memory.saveChatMessage(windowA.id, 'user', 'history-off turn with a file', undefined, 'companion', true);
-  const [ephemeralAttachment] = service.importImages(windowA.id, [ephemeralSource]);
+  const [ephemeralAttachment] = await service.importImages(windowA.id, [ephemeralSource]);
   service.attachToMessage(windowA.id, ephemeralMessage.id, [ephemeralAttachment.id]);
   const ephemeralStoragePath = memory.getDatabase()
     .prepare('SELECT storage_path FROM chat_attachments WHERE id = ?')
@@ -156,7 +156,7 @@ try {
   const expiredSource = path.join(tempDir, 'expired.png');
   fs.writeFileSync(expiredSource, PNG_1X1);
   const expiredMessage = memory.saveChatMessage(windowA.id, 'user', 'old turn with a file', undefined, 'companion');
-  const [expiredAttachment] = service.importImages(windowA.id, [expiredSource]);
+  const [expiredAttachment] = await service.importImages(windowA.id, [expiredSource]);
   service.attachToMessage(windowA.id, expiredMessage.id, [expiredAttachment.id]);
   const expiredStoragePath = memory.getDatabase()
     .prepare('SELECT storage_path FROM chat_attachments WHERE id = ?')
@@ -168,13 +168,18 @@ try {
   assert.equal(fs.existsSync(expiredStoragePath), false, 'expired attachment file was orphaned on disk');
   assert.equal(memory.pruneChatMessagesBefore('2026-07-15T12:00:00.000Z').deleted, 1);
   assert.deepEqual(memory.getDatabase().pragma('foreign_key_check'), []);
-  console.log('ATHENA_CHAT_ATTACHMENTS_OK formats=png,jpeg,webp,txt,md,pdf,docx,wav,aiff,flac generated=assistant-chat max=5 isolation=window integrity=sha256 cleanup=temporary,stale');
-} catch (error) {
+  // This suite covers storage, isolation, integrity and cleanup. Format coverage
+  // lives in verify-chat-attachment-formats, which imports one file per format
+  // for real — naming formats here without importing them is what let WebP stay
+  // broken behind a green run.
+  console.log('ATHENA_CHAT_ATTACHMENTS_OK generated=assistant-chat max=5 isolation=window integrity=sha256 cleanup=temporary,stale schema=20');
+})().catch(error => {
   console.error(error);
   exitCode = 1;
-} finally {
+}).finally(() => {
   try { memory.closeDatabase(); } catch {}
   fs.rmSync(tempDir, { recursive: true, force: true });
-}
-
-process.exit(exitCode);
+  process.exitCode = exitCode;
+  // Electron's main process keeps its loop alive after an async script settles.
+  require('electron').app.exit(exitCode);
+});

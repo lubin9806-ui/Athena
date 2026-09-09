@@ -641,7 +641,7 @@ export class AthenaController {
       const saved = this.saveConversationMessage('assistant', content, emotion.type, mode, chatWindowId);
       if (!saved.chatMessageId) throw new Error('生成图片无法绑定到聊天消息。');
       const extension = generated.format === 'jpeg' ? 'jpg' : generated.format;
-      const attachment = this.attachments.createGeneratedImage(
+      const attachment = await this.attachments.createGeneratedImage(
         chatWindowId,
         saved.chatMessageId,
         generated.bytes,
@@ -990,7 +990,7 @@ export class AthenaController {
     return this.skillLibrary.snapshot();
   }
 
-  importChatImages(chatWindowId: number, sourcePaths: string[]): ChatAttachment[] {
+  async importChatImages(chatWindowId: number, sourcePaths: string[]): Promise<ChatAttachment[]> {
     return this.attachments.importImages(chatWindowId, sourcePaths);
   }
 
@@ -1002,11 +1002,14 @@ export class AthenaController {
     const prepared: PreparedChatAttachment[] = [];
     for (const sourcePath of sourcePaths) {
       const extension = path.extname(sourcePath).toLowerCase();
-      if (['.png', '.jpg', '.jpeg', '.webp'].includes(extension)) {
+      if (['.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp'].includes(extension)) {
         prepared.push({ sourcePath, kind: 'image' });
         continue;
       }
-      if (['.txt', '.md', '.markdown', '.pdf', '.docx'].includes(extension)) {
+      if (!['.wav', '.aiff', '.aif', '.flac'].includes(extension)) {
+        // Everything that is not an image or an audio container gets offered to
+        // the document reader, which admits a file on whether its bytes are
+        // readable rather than on whether its extension is on a list.
         const extracted = await extractChatDocument(sourcePath);
         prepared.push({
           sourcePath,
@@ -1017,18 +1020,14 @@ export class AthenaController {
         });
         continue;
       }
-      if (['.wav', '.aiff', '.aif', '.flac'].includes(extension)) {
-        const sourceStat = fs.lstatSync(sourcePath);
-        if (!sourceStat.isFile() || sourceStat.isSymbolicLink()) throw new Error('音频附件必须是普通文件。');
-        if (sourceStat.size <= 0 || sourceStat.size > 25 * 1024 * 1024) throw new Error('音频附件必须在 1 字节到 25 MB 之间。');
-        const sourceSha256 = crypto.createHash('sha256').update(fs.readFileSync(sourcePath)).digest('hex');
-        const result = await transcribeAudio(sourcePath);
-        const transcript = result.text?.trim() || '';
-        if (!result.ok || !transcript) throw new Error(result.error || '音频中没有识别到可用文字。');
-        prepared.push({ sourcePath, kind: 'audio', contentText: transcript, sourceSha256 });
-        continue;
-      }
-      throw new Error(`不支持的附件格式：${path.basename(sourcePath)}`);
+      const sourceStat = fs.lstatSync(sourcePath);
+      if (!sourceStat.isFile() || sourceStat.isSymbolicLink()) throw new Error('音频附件必须是普通文件。');
+      if (sourceStat.size <= 0 || sourceStat.size > 25 * 1024 * 1024) throw new Error('音频附件必须在 1 字节到 25 MB 之间。');
+      const sourceSha256 = crypto.createHash('sha256').update(fs.readFileSync(sourcePath)).digest('hex');
+      const result = await transcribeAudio(sourcePath);
+      const transcript = result.text?.trim() || '';
+      if (!result.ok || !transcript) throw new Error(result.error || '音频中没有识别到可用文字。');
+      prepared.push({ sourcePath, kind: 'audio', contentText: transcript, sourceSha256 });
     }
     return this.attachments.importPreparedFiles(chatWindowId, prepared);
   }
@@ -1042,7 +1041,7 @@ export class AthenaController {
     }
   }
 
-  getChatAttachmentPreview(chatWindowId: number, attachmentId: string): string | null {
+  async getChatAttachmentPreview(chatWindowId: number, attachmentId: string): Promise<string | null> {
     return this.attachments.getPreview(chatWindowId, attachmentId);
   }
 

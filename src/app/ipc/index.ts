@@ -339,7 +339,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<vo
     const result = await dialog.showOpenDialog(mainWindow, {
       title: '选择图片',
       properties: ['openFile', 'multiSelections'],
-      filters: [{ name: '图片', extensions: ['png', 'jpg', 'jpeg', 'webp'] }],
+      filters: [{ name: '图片', extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp'] }],
     });
     if (result.canceled || result.filePaths.length === 0) return [];
     return controller.importChatImages(chatWindowId, result.filePaths.slice(0, 5));
@@ -357,10 +357,12 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<vo
       title: '添加到聊天',
       properties: ['openFile', 'multiSelections'],
       filters: [
-        { name: '支持的文件', extensions: ['png', 'jpg', 'jpeg', 'webp', 'txt', 'md', 'markdown', 'pdf', 'docx', 'wav', 'aiff', 'aif', 'flac'] },
-        { name: '图片', extensions: ['png', 'jpg', 'jpeg', 'webp'] },
-        { name: '文档', extensions: ['txt', 'md', 'markdown', 'pdf', 'docx'] },
+        { name: '支持的文件', extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'txt', 'md', 'markdown', 'pdf', 'docx', 'xlsx', 'json', 'csv', 'log', 'yaml', 'yml', 'xml', 'html', 'css', 'js', 'ts', 'py', 'ps1', 'ini', 'toml', 'wav', 'aiff', 'aif', 'flac'] },
+        { name: '图片', extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp'] },
+        { name: '文档与表格', extensions: ['txt', 'md', 'markdown', 'pdf', 'docx', 'xlsx'] },
+        { name: '文本与代码', extensions: ['json', 'csv', 'log', 'yaml', 'yml', 'xml', 'html', 'css', 'js', 'ts', 'py', 'ps1', 'ini', 'toml'] },
         { name: '音频', extensions: ['wav', 'aiff', 'aif', 'flac'] },
+        { name: '所有文件', extensions: ['*'] },
       ],
     });
     if (result.canceled || result.filePaths.length === 0) return [];

@@ -98,6 +98,8 @@
     "test:image-runtime:live": "tsc && electron scripts/verify-image-runtime-live.js",
     "test:image-local:live": "tsc && electron scripts/verify-local-image-live.js",
     "test:chat-attachments": "tsc && electron scripts/verify-chat-attachments.js",
+    "test:chat-attachment-formats": "tsc && electron scripts/verify-chat-attachment-formats.js",
+    "test:chat-attachment-migration": "tsc && electron scripts/verify-chat-attachment-migration.js",
     "test:project-memory": "tsc && electron scripts/verify-project-memory-isolation.js",
     "test:project-documents": "tsc && electron scripts/verify-project-documents.js && node -e \"console.log('ATHENA_PROJECT_DOCUMENTS_OK formats=txt,md,docx,pdf isolation=project citations=locator cleanup=managed ocr=local')\"",
     "test:local-ocr": "tsc && electron scripts/verify-local-ocr.js",

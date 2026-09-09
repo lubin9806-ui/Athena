@@ -1,8 +1,9 @@
 import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
-import { nativeImage } from 'electron';
+import { createCanvas, loadImage } from '@napi-rs/canvas';
 import { getChatWindow, getDatabase, getDatabaseFilePath } from '../../memory';
+import { detectAudioMime, detectChatDocumentMime } from '../documents/DocumentMime';
 import type { ChatAttachment, ChatAttachmentKind, ChatAttachmentMimeType } from '../../shared/types';
 import type { ModelImageInput } from '../ai/model';
 import { detectImageMimeType } from '../ai/model/ModelImageLoader';
@@ -57,7 +58,7 @@ export class AttachmentService {
     this.ensureManagedRoot();
   }
 
-  importImages(windowId: number, sourcePaths: string[]): ChatAttachment[] {
+  async importImages(windowId: number, sourcePaths: string[]): Promise<ChatAttachment[]> {
     const chatWindow = getChatWindow(windowId);
     if (!chatWindow?.project_id || chatWindow.deleted_at) throw new Error('Attachment chat window is not available');
     const uniquePaths = Array.from(new Set(sourcePaths.map(source => path.resolve(source))));
@@ -66,20 +67,21 @@ export class AttachmentService {
 
     const imported: AttachmentRow[] = [];
     try {
-      for (const sourcePath of uniquePaths) imported.push(this.importImage(chatWindow.id, chatWindow.project_id, sourcePath));
-      return imported.map(row => this.toPublic(row, true));
+      for (const sourcePath of uniquePaths) imported.push(await this.importImage(chatWindow.id, chatWindow.project_id, sourcePath));
+      return await this.toPublicList(imported);
     } catch (error) {
       for (const row of imported) this.deleteRowAndFile(row);
       throw error;
     }
   }
 
-  createGeneratedImage(windowId: number, messageId: number, bytes: Buffer, originalName: string): ChatAttachment {
+  async createGeneratedImage(windowId: number, messageId: number, source: Buffer, originalName: string): Promise<ChatAttachment> {
     const chatWindow = getChatWindow(windowId);
     if (!chatWindow?.project_id || chatWindow.deleted_at) throw new Error('Generated-image chat window is not available');
     const message = getDatabase().prepare('SELECT id FROM chat_messages WHERE id = ? AND window_id = ?').get(messageId, windowId);
     if (!message) throw new Error('Generated-image target message does not belong to the active chat window');
-    const inspected = inspectAttachmentImage(bytes);
+    const inspected = await inspectAttachmentImage(source);
+    const bytes = inspected.bytes;
     const id = crypto.randomUUID();
     const targetDir = path.join(this.root, `window-${windowId}`);
     fs.mkdirSync(targetDir, { recursive: true });
@@ -104,10 +106,10 @@ export class AttachmentService {
     }
     const row = this.getOwnedRow(windowId, id);
     if (!row) throw new Error('Generated image attachment was not persisted');
-    return this.toPublic(row, true);
+    return this.toPublicWithPreview(row);
   }
 
-  importPreparedFiles(windowId: number, inputs: PreparedChatAttachment[]): ChatAttachment[] {
+  async importPreparedFiles(windowId: number, inputs: PreparedChatAttachment[]): Promise<ChatAttachment[]> {
     const chatWindow = getChatWindow(windowId);
     if (!chatWindow?.project_id || chatWindow.deleted_at) throw new Error('当前聊天不可添加附件。');
     const unique = Array.from(new Map(inputs.map(input => [path.resolve(input.sourcePath), { ...input, sourcePath: path.resolve(input.sourcePath) }])).values());
@@ -118,10 +120,10 @@ export class AttachmentService {
     try {
       for (const input of unique) {
         imported.push(input.kind === 'image'
-          ? this.importImage(chatWindow.id, chatWindow.project_id, input.sourcePath)
+          ? await this.importImage(chatWindow.id, chatWindow.project_id, input.sourcePath)
           : this.importTextBackedFile(chatWindow.id, chatWindow.project_id, input));
       }
-      return imported.map(row => this.toPublic(row, true));
+      return await this.toPublicList(imported);
     } catch (error) {
       for (const row of imported) this.deleteRowAndFile(row);
       throw error;
@@ -179,23 +181,28 @@ export class AttachmentService {
       WHERE message_id = ? AND status = 'attached'
       ORDER BY created_at ASC, rowid ASC
     `).all(messageId) as AttachmentRow[];
-    return rows.map(row => this.toPublic(row, false));
+    return rows.map(row => this.toPublic(row));
   }
 
-  getPreview(windowId: number, attachmentId: string): string | null {
+  async getPreview(windowId: number, attachmentId: string): Promise<string | null> {
     const row = this.getOwnedRow(windowId, cleanAttachmentId(attachmentId));
     if (!row || row.kind !== 'image') return null;
     const bytes = fs.readFileSync(this.requireManagedPath(row.storage_path));
     if (bytes.length !== row.bytes || detectImageMimeType(bytes) !== row.mime_type
       || crypto.createHash('sha256').update(bytes).digest('hex') !== row.sha256) return null;
-    const image = nativeImage.createFromBuffer(bytes);
-    if (image.isEmpty()) return null;
-    const size = image.getSize();
-    const scale = Math.min(1, 640 / Math.max(size.width, size.height));
-    const preview = scale < 1
-      ? image.resize({ width: Math.max(1, Math.round(size.width * scale)), quality: 'good' })
-      : image;
-    return `data:image/png;base64,${preview.toPNG().toString('base64')}`;
+    let image: Awaited<ReturnType<typeof loadImage>>;
+    try {
+      image = await loadImage(bytes);
+    } catch {
+      return null;
+    }
+    if (!(image.width > 0) || !(image.height > 0)) return null;
+    const scale = Math.min(1, 640 / Math.max(image.width, image.height));
+    const width = Math.max(1, Math.round(image.width * scale));
+    const height = Math.max(1, Math.round(image.height * scale));
+    const canvas = createCanvas(width, height);
+    canvas.getContext('2d').drawImage(image, 0, 0, width, height);
+    return `data:image/png;base64,${canvas.toBuffer('image/png').toString('base64')}`;
   }
 
   removePending(windowId: number, attachmentId: string): boolean {
@@ -269,13 +276,15 @@ export class AttachmentService {
     return deleted;
   }
 
-  private importImage(windowId: number, projectId: number, sourcePath: string): AttachmentRow {
+  private async importImage(windowId: number, projectId: number, sourcePath: string): Promise<AttachmentRow> {
     const sourceStat = fs.lstatSync(sourcePath);
     if (!sourceStat.isFile() || sourceStat.isSymbolicLink()) throw new Error('Attachment source must be a regular file');
     if (sourceStat.size <= 0 || sourceStat.size > MAX_IMAGE_BYTES) throw new Error('Image attachments must be between 1 byte and 10 MB');
-    const bytes = fs.readFileSync(sourcePath);
-    const inspected = inspectAttachmentImage(bytes);
+    const inspected = await inspectAttachmentImage(fs.readFileSync(sourcePath));
     const mimeType = inspected.mimeType;
+    // GIF and BMP are stored as the PNG they were converted into, so every byte
+    // count, hash and preview below describes the file that is actually on disk.
+    const bytes = inspected.bytes;
 
     const id = crypto.randomUUID();
     const extension = extensionFor(mimeType);
@@ -363,7 +372,7 @@ export class AttachmentService {
     return row || null;
   }
 
-  private toPublic(row: AttachmentRow, includePreview: boolean): ChatAttachment {
+  private toPublic(row: AttachmentRow): ChatAttachment {
     return {
       id: row.id,
       window_id: row.window_id,
@@ -377,8 +386,19 @@ export class AttachmentService {
       sha256: row.sha256,
       status: row.status,
       created_at: row.created_at,
-      ...(includePreview ? { preview_data_url: this.getPreview(row.window_id, row.id) || undefined } : {}),
     };
+  }
+
+  /** Decoding a thumbnail is asynchronous, so only the paths that need one pay for it. */
+  private async toPublicWithPreview(row: AttachmentRow): Promise<ChatAttachment> {
+    const preview = await this.getPreview(row.window_id, row.id);
+    return { ...this.toPublic(row), ...(preview ? { preview_data_url: preview } : {}) };
+  }
+
+  private async toPublicList(rows: AttachmentRow[]): Promise<ChatAttachment[]> {
+    const attachments: ChatAttachment[] = [];
+    for (const row of rows) attachments.push(await this.toPublicWithPreview(row));
+    return attachments;
   }
 
   private deleteRowAndFile(row: AttachmentRow): void {
@@ -459,17 +479,49 @@ function cleanOriginalName(value: string): string {
   return (cleaned || 'attachment').slice(0, 180);
 }
 
-function inspectAttachmentImage(bytes: Buffer): { mimeType: ChatAttachmentMimeType; width: number; height: number } {
+interface InspectedAttachmentImage {
+  mimeType: ChatAttachmentMimeType;
+  width: number;
+  height: number;
+  /** What actually gets stored — re-encoded when the source format is not one the rest of the pipeline reads. */
+  bytes: Buffer;
+}
+
+/**
+ * Decodes with the canvas backend rather than Electron's nativeImage, which only
+ * understands PNG and JPEG — every WebP attachment used to fail its decode check
+ * even though WebP was advertised as supported.
+ *
+ * GIF and BMP decode here too, and are re-encoded to PNG on the way in: the
+ * stored copy stays in a format the model path and the preview path both read,
+ * while original_name keeps the name the person dragged in.
+ */
+async function inspectAttachmentImage(bytes: Buffer): Promise<InspectedAttachmentImage> {
   if (bytes.length <= 0 || bytes.length > MAX_IMAGE_BYTES) throw new Error('Image attachments must be between 1 byte and 10 MB');
-  const mimeType = detectImageMimeType(bytes);
-  if (!mimeType) throw new Error('Only PNG, JPEG, and WebP image attachments are supported');
-  const image = nativeImage.createFromBuffer(bytes);
-  if (image.isEmpty()) throw new Error('The selected image could not be decoded');
-  const size = image.getSize();
-  if (size.width <= 0 || size.height <= 0 || size.width > MAX_IMAGE_EDGE || size.height > MAX_IMAGE_EDGE || size.width * size.height > MAX_IMAGE_PIXELS) {
+  // loadImage rather than assigning to Image.src: that setter only looks
+  // synchronous. A BMP decoded through it reports 0x0 until the event loop
+  // turns, so the sync path silently rejects valid files depending on timing.
+  let image: Awaited<ReturnType<typeof loadImage>>;
+  try {
+    image = await loadImage(bytes);
+  } catch {
+    throw new Error('这张图片无法解码，仅支持 PNG、JPG、WebP、GIF 和 BMP。');
+  }
+  const width = image.width;
+  const height = image.height;
+  if (!(width > 0) || !(height > 0)) throw new Error('这张图片无法解码，仅支持 PNG、JPG、WebP、GIF 和 BMP。');
+  if (width > MAX_IMAGE_EDGE || height > MAX_IMAGE_EDGE || width * height > MAX_IMAGE_PIXELS) {
     throw new Error('The selected image dimensions exceed the safe attachment limit');
   }
-  return { mimeType, width: size.width, height: size.height };
+
+  const storable = detectImageMimeType(bytes);
+  if (storable) return { mimeType: storable, width, height, bytes };
+
+  const canvas = createCanvas(width, height);
+  canvas.getContext('2d').drawImage(image, 0, 0);
+  const converted = canvas.toBuffer('image/png');
+  if (converted.length <= 0 || converted.length > MAX_IMAGE_BYTES) throw new Error('这张图片转换后超过了 10 MB 的附件上限。');
+  return { mimeType: 'image/png', width, height, bytes: converted };
 }
 
 function extensionFor(mimeType: ChatAttachmentMimeType): string {
@@ -480,26 +532,14 @@ function extensionFor(mimeType: ChatAttachmentMimeType): string {
   if (mimeType === 'text/markdown') return 'md';
   if (mimeType === 'application/pdf') return 'pdf';
   if (mimeType.includes('wordprocessingml.document')) return 'docx';
+  if (mimeType.includes('spreadsheetml.sheet')) return 'xlsx';
   if (mimeType === 'audio/wav') return 'wav';
   if (mimeType === 'audio/aiff') return 'aiff';
   return 'flac';
 }
 
 function detectNonImageMimeType(filePath: string, bytes: Buffer): ChatAttachmentMimeType {
-  const extension = path.extname(filePath).toLowerCase();
-  if (extension === '.pdf' && bytes.subarray(0, 5).toString('ascii') === '%PDF-') return 'application/pdf';
-  if (extension === '.docx' && bytes[0] === 0x50 && bytes[1] === 0x4b) {
-    return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-  }
-  if (extension === '.txt' || extension === '.md' || extension === '.markdown') {
-    if (bytes.includes(0)) throw new Error('文本附件看起来是二进制文件。');
-    return extension === '.txt' ? 'text/plain' : 'text/markdown';
-  }
-  if (extension === '.wav' && bytes.subarray(0, 4).toString('ascii') === 'RIFF' && bytes.subarray(8, 12).toString('ascii') === 'WAVE') return 'audio/wav';
-  if ((extension === '.aiff' || extension === '.aif') && bytes.subarray(0, 4).toString('ascii') === 'FORM'
-    && ['AIFF', 'AIFC'].includes(bytes.subarray(8, 12).toString('ascii'))) return 'audio/aiff';
-  if (extension === '.flac' && bytes.subarray(0, 4).toString('ascii') === 'fLaC') return 'audio/flac';
-  throw new Error('仅支持 PNG、JPG、WebP、TXT、Markdown、PDF、DOCX、WAV、AIFF 和 FLAC。');
+  return detectAudioMime(filePath, bytes) ?? detectChatDocumentMime(filePath, bytes);
 }
 
 function toSqliteLocalDateTime(value: Date): string {

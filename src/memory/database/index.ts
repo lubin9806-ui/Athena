@@ -7,7 +7,7 @@ import { ensureSufficientDiskSpace } from '../../core/runtime/DiskSpaceGuard';
 
 let db: Database.Database | null = null;
 let resolvedDbPath: string | null = null;
-export const DATABASE_SCHEMA_VERSION = 19;
+export const DATABASE_SCHEMA_VERSION = 20;
 const MIGRATION_BACKUP_RETENTION = 5;
 
 export interface MemoryStats {
@@ -220,6 +220,7 @@ function runMigrations(database: Database.Database, currentVersion: number): voi
         'image/png', 'image/jpeg', 'image/webp',
         'text/plain', 'text/markdown', 'application/pdf',
         'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         'audio/wav', 'audio/aiff', 'audio/flac'
       )),
       original_name TEXT NOT NULL,
@@ -780,6 +781,52 @@ function runMigrations(database: Database.Database, currentVersion: number): voi
     database.exec('CREATE INDEX IF NOT EXISTS idx_project_notes_project_id ON project_notes(project_id, status, importance DESC, updated_at DESC)');
     database.exec('CREATE INDEX IF NOT EXISTS idx_context_snapshots_project_created ON context_snapshots(project_id, created_at DESC)');
     database.exec('CREATE INDEX IF NOT EXISTS idx_memory_index_project_source ON memory_index(source_table, project_id, source_id)');
+    // schema 20: spreadsheets may ride along as chat attachments. SQLite cannot
+    // alter a CHECK constraint, so widening the accepted mime types means
+    // rebuilding the table; the existing rows carry over untouched.
+    const attachmentTableSql = (database
+      .prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'chat_attachments'")
+      .get() as { sql: string } | undefined)?.sql || '';
+    if (attachmentTableSql && !attachmentTableSql.includes('spreadsheetml.sheet')) {
+      database.exec(`
+        CREATE TABLE chat_attachments_schema20 (
+          id TEXT PRIMARY KEY,
+          window_id INTEGER NOT NULL REFERENCES chat_windows(id) ON DELETE CASCADE,
+          message_id INTEGER REFERENCES chat_messages(id) ON DELETE CASCADE,
+          project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+          kind TEXT NOT NULL CHECK(kind IN ('image', 'document', 'audio')),
+          mime_type TEXT NOT NULL CHECK(mime_type IN (
+            'image/png', 'image/jpeg', 'image/webp',
+            'text/plain', 'text/markdown', 'application/pdf',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'audio/wav', 'audio/aiff', 'audio/flac'
+          )),
+          original_name TEXT NOT NULL,
+          storage_path TEXT NOT NULL UNIQUE,
+          bytes INTEGER NOT NULL CHECK(bytes > 0 AND bytes <= 26214400),
+          width INTEGER CHECK(width IS NULL OR (width > 0 AND width <= 16384)),
+          height INTEGER CHECK(height IS NULL OR (height > 0 AND height <= 16384)),
+          content_text TEXT,
+          sha256 TEXT NOT NULL CHECK(length(sha256) = 64),
+          status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'attached')),
+          created_at DATETIME DEFAULT (datetime('now', 'localtime')),
+          CHECK((status = 'pending' AND message_id IS NULL) OR (status = 'attached' AND message_id IS NOT NULL))
+        );
+        INSERT INTO chat_attachments_schema20 (
+          id, window_id, message_id, project_id, kind, mime_type, original_name,
+          storage_path, bytes, width, height, content_text, sha256, status, created_at
+        )
+        SELECT id, window_id, message_id, project_id, kind, mime_type, original_name,
+               storage_path, bytes, width, height, content_text, sha256, status, created_at
+        FROM chat_attachments;
+        DROP TABLE chat_attachments;
+        ALTER TABLE chat_attachments_schema20 RENAME TO chat_attachments;
+        CREATE INDEX IF NOT EXISTS idx_chat_attachments_window_status ON chat_attachments(window_id, status, created_at);
+        CREATE INDEX IF NOT EXISTS idx_chat_attachments_message ON chat_attachments(message_id, created_at);
+        CREATE INDEX IF NOT EXISTS idx_chat_attachments_project ON chat_attachments(project_id, created_at);
+      `);
+    }
     if (process.env.ATHENA_TEST_FAIL_MIGRATION === '1') throw new Error('Injected migration failure');
     database.pragma(`user_version = ${DATABASE_SCHEMA_VERSION}`);
   });

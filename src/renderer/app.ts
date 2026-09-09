@@ -4681,7 +4681,7 @@ function renderComposerAttachments(): void {
     } else {
       const badge = document.createElement('div');
       badge.className = 'composer-attachment-kind';
-      badge.textContent = attachment.kind === 'audio' ? '音频' : composerAttachmentLabel(attachment.mime_type);
+      badge.textContent = attachment.kind === 'audio' ? '音频' : composerAttachmentLabel(attachment.mime_type, attachment.original_name);
       badge.setAttribute('aria-hidden', 'true');
       preview = badge;
     }
@@ -4707,9 +4707,17 @@ function renderComposerAttachments(): void {
   resizeInputBox();
 }
 
-function composerAttachmentLabel(mimeType: string): string {
+/**
+ * The badge names the file the person actually added. Text-backed formats are
+ * all stored as text/plain, so a dragged-in workflow.json would otherwise sit in
+ * the composer labelled "TXT"; its own extension is the honest label.
+ */
+function composerAttachmentLabel(mimeType: string, originalName = ''): string {
   if (mimeType === 'application/pdf') return 'PDF';
   if (mimeType.includes('wordprocessingml.document')) return 'DOCX';
+  if (mimeType.includes('spreadsheetml.sheet')) return 'XLSX';
+  const extension = originalName.includes('.') ? originalName.split('.').pop() || '' : '';
+  if (/^[a-z0-9]{1,5}$/i.test(extension)) return extension.toUpperCase();
   if (mimeType === 'text/markdown') return 'MD';
   return 'TXT';
 }

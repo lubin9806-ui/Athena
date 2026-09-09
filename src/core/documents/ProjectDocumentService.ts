@@ -3,6 +3,9 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as mammoth from 'mammoth';
 import { createCanvas } from '@napi-rs/canvas';
+import { validateOoxmlArchive } from './OoxmlArchive';
+import { extractSpreadsheetText } from './SpreadsheetText';
+import { detectChatDocumentMime, type ChatDocumentMime } from './DocumentMime';
 import {
   deleteProjectDocumentRecord,
   getDatabase,
@@ -20,10 +23,7 @@ import type { LocalOcrService } from '../ocr';
 
 const MAX_DOCUMENT_BYTES = 25 * 1024 * 1024;
 const MAX_DOCX_BYTES = 10 * 1024 * 1024;
-const MAX_DOCX_ENTRIES = 5_000;
-const MAX_DOCX_ENTRY_BYTES = 50 * 1024 * 1024;
-const MAX_DOCX_UNCOMPRESSED_BYTES = 100 * 1024 * 1024;
-const MAX_DOCX_COMPRESSION_RATIO = 200;
+const MAX_XLSX_BYTES = 10 * 1024 * 1024;
 const MAX_DOCUMENTS_PER_IMPORT = 5;
 const MAX_PDF_PAGES = 300;
 const MAX_OCR_PDF_PAGES = 20;
@@ -52,7 +52,7 @@ export interface ProjectDocumentServiceOptions {
 }
 
 export interface ChatDocumentExtraction {
-  mimeType: SupportedMime;
+  mimeType: ChatDocumentMime;
   text: string;
   sha256: string;
 }
@@ -271,8 +271,9 @@ export async function extractChatDocument(sourcePath: string): Promise<ChatDocum
   if (stat.size <= 0 || stat.size > MAX_DOCUMENT_BYTES) throw new Error('Documents must be between 1 byte and 25 MB.');
   const bytes = fs.readFileSync(resolved);
   if (bytes.length !== stat.size) throw new Error('Document changed while it was being read.');
-  const mimeType = detectDocumentMime(resolved, bytes);
-  if (mimeType.endsWith('wordprocessingml.document') && bytes.length > MAX_DOCX_BYTES) throw new Error('DOCX files are limited to 10 MB.');
+  const mimeType = detectChatDocumentMime(resolved, bytes);
+  if (mimeType.endsWith('wordprocessingml.document') && bytes.length > MAX_DOCX_BYTES) throw new Error('DOCX 文件最大 10 MB。');
+  if (mimeType.endsWith('spreadsheetml.sheet') && bytes.length > MAX_XLSX_BYTES) throw new Error('XLSX 文件最大 10 MB。');
   const extracted = await extractDocument(mimeType, bytes, undefined, { ocrMissingPages: false });
   const rendered = extracted.sections
     .map(section => {
@@ -295,7 +296,7 @@ export async function extractChatDocument(sourcePath: string): Promise<ChatDocum
 }
 
 async function extractDocument(
-  mimeType: SupportedMime,
+  mimeType: ChatDocumentMime,
   bytes: Buffer,
   ocr: LocalOcrService | undefined,
   options: DocumentImportOptions,
@@ -304,8 +305,13 @@ async function extractDocument(
     const text = decodeUtf8(bytes);
     return { sections: text.split(/\n\s*\n/g).map((value, index) => ({ text: value, section: index + 1 })) };
   }
+  if (mimeType.endsWith('spreadsheetml.sheet')) {
+    const text = normalizeExtractedText(await extractSpreadsheetText(bytes));
+    enforceExtractedLimit(text);
+    return { sections: text.split(/\n\s*\n/g).map((value, index) => ({ text: value, section: index + 1 })) };
+  }
   if (mimeType.endsWith('wordprocessingml.document')) {
-    validateDocxArchive(bytes);
+    validateOoxmlArchive(bytes, 'DOCX');
     const result = await mammoth.extractRawText({ buffer: bytes });
     const text = normalizeExtractedText(result.value);
     enforceExtractedLimit(text);
@@ -376,55 +382,6 @@ async function renderPdfPage(page: any): Promise<Buffer> {
   const bytes = canvas.toBuffer('image/png');
   if (!bytes.length || bytes.length > 15 * 1024 * 1024) throw new Error('Rendered PDF page exceeds the OCR image limit.');
   return bytes;
-}
-
-function validateDocxArchive(bytes: Buffer): void {
-  const minEocdBytes = 22;
-  const searchStart = Math.max(0, bytes.length - minEocdBytes - 0xffff);
-  let eocdOffset = -1;
-  for (let offset = bytes.length - minEocdBytes; offset >= searchStart; offset -= 1) {
-    if (bytes.readUInt32LE(offset) === 0x06054b50 && offset + minEocdBytes + bytes.readUInt16LE(offset + 20) === bytes.length) {
-      eocdOffset = offset;
-      break;
-    }
-  }
-  if (eocdOffset < 0) throw new Error('DOCX archive directory is missing or corrupt.');
-
-  const diskNumber = bytes.readUInt16LE(eocdOffset + 4);
-  const centralDisk = bytes.readUInt16LE(eocdOffset + 6);
-  const entriesOnDisk = bytes.readUInt16LE(eocdOffset + 8);
-  const entryCount = bytes.readUInt16LE(eocdOffset + 10);
-  const centralBytes = bytes.readUInt32LE(eocdOffset + 12);
-  const centralOffset = bytes.readUInt32LE(eocdOffset + 16);
-  if (diskNumber !== 0 || centralDisk !== 0 || entriesOnDisk !== entryCount) throw new Error('Multi-volume DOCX archives are not supported.');
-  if (entryCount === 0xffff || centralBytes === 0xffffffff || centralOffset === 0xffffffff) throw new Error('ZIP64 DOCX archives are not supported.');
-  if (entryCount === 0 || entryCount > MAX_DOCX_ENTRIES) throw new Error(`DOCX archive must contain at most ${MAX_DOCX_ENTRIES} entries.`);
-  if (centralOffset + centralBytes > eocdOffset) throw new Error('DOCX archive directory is corrupt.');
-
-  let offset = centralOffset;
-  let totalUncompressed = 0;
-  for (let index = 0; index < entryCount; index += 1) {
-    if (offset + 46 > bytes.length || bytes.readUInt32LE(offset) !== 0x02014b50) throw new Error('DOCX archive entry is corrupt.');
-    const flags = bytes.readUInt16LE(offset + 8);
-    const compressedBytes = bytes.readUInt32LE(offset + 20);
-    const uncompressedBytes = bytes.readUInt32LE(offset + 24);
-    const nameBytes = bytes.readUInt16LE(offset + 28);
-    const extraBytes = bytes.readUInt16LE(offset + 30);
-    const commentBytes = bytes.readUInt16LE(offset + 32);
-    const nextOffset = offset + 46 + nameBytes + extraBytes + commentBytes;
-    if (nextOffset > bytes.length || compressedBytes === 0xffffffff || uncompressedBytes === 0xffffffff) throw new Error('ZIP64 DOCX entries are not supported.');
-    if ((flags & 0x1) !== 0) throw new Error('Encrypted DOCX archives are not supported.');
-    const name = bytes.subarray(offset + 46, offset + 46 + nameBytes).toString('utf8').replace(/\\/g, '/');
-    if (!name || name.startsWith('/') || /^[a-z]:\//i.test(name) || name.split('/').includes('..')) throw new Error('DOCX archive contains an unsafe entry path.');
-    if (uncompressedBytes > MAX_DOCX_ENTRY_BYTES) throw new Error('DOCX archive contains an oversized entry.');
-    if (uncompressedBytes > 1_000_000 && compressedBytes > 0 && uncompressedBytes / compressedBytes > MAX_DOCX_COMPRESSION_RATIO) {
-      throw new Error('DOCX archive has an unsafe compression ratio.');
-    }
-    totalUncompressed += uncompressedBytes;
-    if (totalUncompressed > MAX_DOCX_UNCOMPRESSED_BYTES) throw new Error('DOCX archive expands beyond the safe limit.');
-    offset = nextOffset;
-  }
-  if (offset !== centralOffset + centralBytes) throw new Error('DOCX archive directory size does not match its entries.');
 }
 
 function chunkSections(sections: ExtractedSection[]): ProjectDocumentChunkInput[] {
