@@ -57,6 +57,7 @@
     "test:security": "tsc && node scripts/verify-security-baseline.js",
     "test:privacy": "tsc && electron scripts/verify-privacy-data.js",
     "test:supply-chain": "node scripts/verify-supply-chain.js",
+    "supply-chain:write": "node scripts/verify-supply-chain.js --write",
     "test:release": "tsc && electron scripts/verify-release-engineering.js",
     "test:private-beta": "node scripts/verify-private-beta-candidate.js --self-test",
     "test:update-policy": "tsc && node scripts/verify-update-policy.js",

@@ -7,6 +7,21 @@ const repoRoot = path.resolve(__dirname, "..");
 const docsDir = path.join(repoRoot, "docs");
 const releaseResourcesDir = path.join(repoRoot, "release", "win-unpacked", "resources");
 
+// Default is to compare against the committed manifest. Regenerating is an
+// explicit act (--write) because a baseline its own verifier rewrites can never
+// report drift: it just adopts whatever the current machine happens to hold.
+const writeMode = process.argv.includes("--write");
+
+// Fields that legitimately differ per machine and per moment. Everything else
+// is asserted. Keep this list short and obvious; widening it silently is how a
+// baseline stops being one.
+const BASELINE_EXCLUSIONS = [
+  ["generatedAt"],
+  ["buildTools", "node"],
+  ["localOllamaRuntime"],
+  ["repositoryProvenance", "gitRemote"]
+];
+
 function fail(message) {
   console.error(`SUPPLY_CHAIN_VERIFY_FAIL ${message}`);
   process.exit(1);
@@ -205,13 +220,50 @@ function ollamaCliVersion() {
   }
 }
 
-function fileEntry(filePath) {
+const TEXT_NORMALIZATION_LIMIT = 16 * 1024 * 1024;
+
+// core.autocrlf=true means one commit lands as LF bytes in a tool-written file
+// and CRLF bytes in a fresh checkout, while git calls both clean. Hashing the
+// raw working copy therefore reports drift for a file nobody edited, so text is
+// measured with LF endings and the entry says so. Binaries hash byte-for-byte.
+function measureFile(filePath) {
   const stat = fs.statSync(filePath);
+  const probeLength = Math.min(8192, stat.size);
+  const probe = Buffer.alloc(probeLength);
+  if (probeLength > 0) {
+    const fd = fs.openSync(filePath, "r");
+    try {
+      fs.readSync(fd, probe, 0, probeLength, 0);
+    } finally {
+      fs.closeSync(fd);
+    }
+  }
+
+  // git's own binary heuristic: a NUL byte near the start.
+  if (probe.includes(0) || stat.size > TEXT_NORMALIZATION_LIMIT) {
+    return { bytes: stat.size, sha256: sha256(filePath), normalized: false };
+  }
+
+  const raw = fs.readFileSync(filePath);
+  const normalized = Buffer.from(raw.toString("latin1").replace(/\r\n/g, "\n"), "latin1");
   return {
-    path: rel(filePath),
-    bytes: stat.size,
-    sha256: sha256(filePath)
+    bytes: normalized.length,
+    sha256: crypto.createHash("sha256").update(normalized).digest("hex").toUpperCase(),
+    normalized: true
   };
+}
+
+function fileEntry(filePath) {
+  const measured = measureFile(filePath);
+  const entry = {
+    path: rel(filePath),
+    bytes: measured.bytes,
+    sha256: measured.sha256
+  };
+  if (measured.normalized) {
+    entry.lineEndings = "lf-normalized";
+  }
+  return entry;
 }
 
 function collectBundledAssets() {
@@ -310,7 +362,7 @@ function collectOfflineAllowlist() {
   return {
     path: "docs/OFFLINE_MODEL_ALLOWLIST.json",
     status: "present",
-    sha256: sha256(allowlistPath),
+    sha256: measureFile(allowlistPath).sha256,
     content: readJson(allowlistPath)
   };
 }
@@ -439,6 +491,158 @@ function verifyLicenses(packages) {
   }
 }
 
+function collectTrackedPaths() {
+  try {
+    const output = childProcess.execFileSync("git", ["ls-files", "-z"], {
+      cwd: repoRoot,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+      maxBuffer: 32 * 1024 * 1024
+    });
+    return new Set(output.split("\0").filter(Boolean));
+  } catch {
+    return null;
+  }
+}
+
+// Exactly the shape fileEntry() produces. Policy objects that merely carry a
+// "path" (models/, legacy/root-artifacts/) are not file entries and stay.
+function isFileEntry(value) {
+  return Boolean(value)
+    && typeof value === "object"
+    && !Array.isArray(value)
+    && typeof value.path === "string"
+    && typeof value.bytes === "number"
+    && typeof value.sha256 === "string";
+}
+
+// A supply-chain baseline can only assert over what is committed. Hashes of
+// gitignored or not-yet-added payloads (resources/voice-runtime, models/,
+// release/, promo/) differ per machine, so they are recorded but not compared.
+function dropUntrackedEntries(value, tracked) {
+  if (Array.isArray(value)) {
+    return value
+      .filter((item) => !isFileEntry(item) || tracked.has(item.path))
+      .map((item) => dropUntrackedEntries(item, tracked));
+  }
+  if (value && typeof value === "object") {
+    const out = {};
+    for (const [key, item] of Object.entries(value)) {
+      out[key] = dropUntrackedEntries(item, tracked);
+    }
+    return out;
+  }
+  return value;
+}
+
+function baselineView(manifest, tracked) {
+  const view = dropUntrackedEntries(manifest, tracked);
+  for (const parts of BASELINE_EXCLUSIONS) {
+    let node = view;
+    for (let index = 0; index < parts.length - 1 && node; index += 1) {
+      node = node[parts[index]];
+    }
+    if (node && typeof node === "object") {
+      delete node[parts[parts.length - 1]];
+    }
+  }
+  return view;
+}
+
+// Keyed comparison keeps one inserted dependency from cascading into a diff on
+// every later index.
+function arrayKey(item) {
+  if (!item || typeof item !== "object" || Array.isArray(item)) return null;
+  if (typeof item.path === "string") return item.path;
+  if (typeof item.requirement === "string") return item.requirement;
+  if (typeof item.name === "string") {
+    return typeof item.version === "string" ? `${item.name}@${item.version}` : item.name;
+  }
+  if (typeof item.decision === "string") return item.decision;
+  return null;
+}
+
+function describeValue(value) {
+  const text = JSON.stringify(value);
+  if (text === undefined) return "absent";
+  return text.length > 120 ? `${text.slice(0, 117)}...` : text;
+}
+
+const DIFF_COLLECTION_LIMIT = 200;
+
+function collectDiffs(expected, actual, location, out) {
+  if (out.length >= DIFF_COLLECTION_LIMIT) return;
+  if (Array.isArray(expected) && Array.isArray(actual)) {
+    const expectedKeys = expected.map(arrayKey);
+    const actualKeys = actual.map(arrayKey);
+    if (expectedKeys.every(Boolean) && actualKeys.every(Boolean)) {
+      const expectedMap = new Map(expected.map((item, index) => [expectedKeys[index], item]));
+      const actualMap = new Map(actual.map((item, index) => [actualKeys[index], item]));
+      for (const [key, item] of expectedMap) {
+        if (!actualMap.has(key)) {
+          out.push(`${location}[${key}]: removed`);
+        } else {
+          collectDiffs(item, actualMap.get(key), `${location}[${key}]`, out);
+        }
+      }
+      for (const key of actualMap.keys()) {
+        if (!expectedMap.has(key)) {
+          out.push(`${location}[${key}]: added`);
+        }
+      }
+      return;
+    }
+    const length = Math.max(expected.length, actual.length);
+    for (let index = 0; index < length; index += 1) {
+      collectDiffs(expected[index], actual[index], `${location}[${index}]`, out);
+    }
+    return;
+  }
+
+  const expectedIsObject = Boolean(expected) && typeof expected === "object" && !Array.isArray(expected);
+  const actualIsObject = Boolean(actual) && typeof actual === "object" && !Array.isArray(actual);
+  if (expectedIsObject && actualIsObject) {
+    for (const key of new Set([...Object.keys(expected), ...Object.keys(actual)])) {
+      collectDiffs(expected[key], actual[key], location ? `${location}.${key}` : key, out);
+    }
+    return;
+  }
+
+  if (JSON.stringify(expected) !== JSON.stringify(actual)) {
+    out.push(`${location}: ${describeValue(expected)} -> ${describeValue(actual)}`);
+  }
+}
+
+function compareAgainstBaseline(manifest, manifestPath, packageCount) {
+  if (!exists(manifestPath)) {
+    fail(`baseline manifest is missing: ${rel(manifestPath)}; generate it with "npm.cmd run supply-chain:write" and commit the result`);
+  }
+  const tracked = collectTrackedPaths();
+  if (!tracked) {
+    fail("git ls-files is unavailable, so the committed baseline scope cannot be determined");
+  }
+
+  const diffs = [];
+  collectDiffs(baselineView(readJson(manifestPath), tracked), baselineView(manifest, tracked), "", diffs);
+  if (diffs.length) {
+    // collectDiffs stops at DIFF_COLLECTION_LIMIT, so report the count as a
+    // floor rather than pretending it is the total.
+    const counted = diffs.length >= DIFF_COLLECTION_LIMIT ? `${DIFF_COLLECTION_LIMIT}+` : `${diffs.length}`;
+    console.error(`SUPPLY_CHAIN_VERIFY_FAIL supply-chain drift against ${rel(manifestPath)}: ${counted} difference(s)`);
+    for (const line of diffs.slice(0, 25)) {
+      console.error(`  ${line}`);
+    }
+    if (diffs.length > 25) {
+      console.error(`  ... and ${diffs.length - 25} more`);
+    }
+    console.error('  review every difference, then re-baseline with "npm.cmd run supply-chain:write" and commit the manifest');
+    process.exit(1);
+  }
+
+  const excluded = BASELINE_EXCLUSIONS.map((parts) => parts.join(".")).join(",");
+  console.log(`ATHENA_SUPPLY_CHAIN_OK packages=${packageCount} manifest=${rel(manifestPath)} baseline=compared excluded=${excluded},untracked-file-hashes`);
+}
+
 function main() {
   verifyStaticFiles();
   verifyReleaseResources();
@@ -533,9 +737,13 @@ function main() {
   };
 
   const manifestPath = path.join(docsDir, "SUPPLY_CHAIN_MANIFEST.json");
-  fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+  if (writeMode) {
+    fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+    console.log(`ATHENA_SUPPLY_CHAIN_WRITTEN packages=${npmRuntimePackages.length} manifest=${rel(manifestPath)}`);
+    return;
+  }
 
-  console.log(`ATHENA_SUPPLY_CHAIN_OK packages=${npmRuntimePackages.length} manifest=${rel(manifestPath)}`);
+  compareAgainstBaseline(manifest, manifestPath, npmRuntimePackages.length);
 }
 
 main();
