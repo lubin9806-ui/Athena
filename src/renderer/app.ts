@@ -1476,6 +1476,7 @@ const settingTtsRateValue = mustGet<HTMLOutputElement>('setting-tts-rate-value')
 const settingTtsVolumeValue = mustGet<HTMLOutputElement>('setting-tts-volume-value');
 const settingTtsPitchValue = mustGet<HTMLOutputElement>('setting-tts-pitch-value');
 const voicePreviewBtn = mustGet<HTMLButtonElement>('voice-preview');
+const voiceTtsDisabledNote = mustGet<HTMLElement>('voice-tts-disabled-note');
 const voiceSessionBtn = mustGet<HTMLButtonElement>('voice-session-btn');
 const voiceSessionPanel = mustGet<HTMLElement>('voice-session');
 const voiceSessionStateLabel = mustGet<HTMLElement>('voice-session-state');
@@ -1820,7 +1821,7 @@ async function sendAvatarInteraction(prompt: string, hotZoneId: string): Promise
     inputBar.setBusy(false);
     syncVoiceControls();
     restoreIdleStatus();
-    if (currentSettingsBundle?.settings.voice.autoPlayAssistant) void speakLastAssistantMessage();
+    if (shouldAutoPlayReply()) void speakLastAssistantMessage();
     else void dispatchLive2dEvent({ type: 'app.ready' });
     await refreshChatWindows();
   }
@@ -2027,7 +2028,7 @@ async function sendMessage(text: string): Promise<void> {
     syncWebSearchControl();
     inputBar.focus();
     restoreIdleStatus();
-    if ((requestMode !== 'execute' || directImageGeneration) && !stopped && currentSettingsBundle?.settings.voice.autoPlayAssistant) {
+    if ((requestMode !== 'execute' || directImageGeneration) && !stopped && shouldAutoPlayReply()) {
       // Streaming already read this reply as it arrived; the reader resumes
       // listening itself once it has finished speaking. Reading it again here
       // would repeat the whole answer.
@@ -2414,6 +2415,7 @@ function init(): void {
     control.addEventListener('input', syncVoiceProfileReadout);
   }
   settingTtsEngine.addEventListener('change', syncVoiceProfileReadout);
+  settingTtsEnabled.addEventListener('change', syncVoiceProfileReadout);
   window.addEventListener('keydown', (event) => {
     // Escape hangs up before it cancels a recording: inside the surface the
     // recording is the call, so cancelling it alone would leave an open panel
@@ -7222,12 +7224,26 @@ function syncVoiceProfileReadout(): void {
   settingTtsRateValue.textContent = rate > 0 ? `+${rate}` : String(rate);
   settingTtsVolumeValue.textContent = settingTtsVolume.value;
 
+  // Everything under the master switch is inert while it is off: synthesis is
+  // refused at the IPC boundary, so the preview button could only ever fail, and
+  // "本地朗读已就绪" above says the components are installed - not that Athena
+  // will speak. Same rule as the pitch control below (ATH-CONFIG-001): a control
+  // that cannot do anything is disabled, not left looking adjustable.
+  const speaking = settingTtsEnabled.checked;
+  settingTtsEngine.disabled = !speaking;
+  settingTtsRate.disabled = !speaking;
+  settingTtsVolume.disabled = !speaking;
+  settingAutoPlayAssistant.disabled = !speaking;
+  settingBargeIn.disabled = !speaking;
+  voicePreviewBtn.disabled = !speaking;
+  voiceTtsDisabledNote.hidden = speaking;
+
   // The neural engine has no pitch parameter and does not use a Windows voice
   // name. Both controls are disabled rather than left looking adjustable while
   // doing nothing (ATH-CONFIG-001).
   const isSapi = settingTtsEngine.value === 'sapi';
-  settingTtsPitch.disabled = !isSapi;
-  settingTtsVoice.disabled = !isSapi;
+  settingTtsPitch.disabled = !speaking || !isSapi;
+  settingTtsVoice.disabled = !speaking || !isSapi;
   settingTtsPitchValue.textContent = isSapi
     ? (pitch > 0 ? `+${pitch}%` : `${pitch}%`)
     : '本地神经语音不支持';
@@ -7249,6 +7265,19 @@ async function previewVoiceProfile(): Promise<void> {
     return;
   }
   await synthesizeAndPlay('这是当前音色的试听效果。', '正在试听音色 · 系统默认输出设备');
+}
+
+/**
+ * Auto-play only means anything while the master read-aloud switch is on.
+ *
+ * Without this the two settings can disagree, and every single reply answers
+ * with a failure toast saying speaking is switched off - which the user already
+ * knows, having switched it off. `ensureStreamingReader` has always checked
+ * both; these two paths did not (ATH-VOICE-015).
+ */
+function shouldAutoPlayReply(): boolean {
+  const voice = currentSettingsBundle?.settings.voice;
+  return voice?.autoPlayAssistant === true && voice.ttsEnabled === true;
 }
 
 async function speakLastAssistantMessage(): Promise<void> {

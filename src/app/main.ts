@@ -444,6 +444,10 @@ function createWindow(): void {
               const imageDiscoverLocal = document.getElementById('image-discover-local');
               const imageSimpleSetup = document.getElementById('image-simple-setup');
               const imageLocalAdvanced = document.getElementById('image-local-advanced');
+              const ttsEnabledToggle = document.getElementById('setting-tts-enabled');
+              const ttsEngineSelect = document.getElementById('setting-tts-engine');
+              const ttsPreviewButton = document.getElementById('voice-preview');
+              const ttsDisabledNote = document.getElementById('voice-tts-disabled-note');
               const inputBox = document.getElementById('input-box');
               const visiblePresenceAction = Array.from(document.querySelectorAll('.presence-action'))
                 .find(button => getComputedStyle(button).display !== 'none');
@@ -738,11 +742,30 @@ function createWindow(): void {
                 && imageSimpleSetup instanceof HTMLElement
                 && imageLocalAdvanced instanceof HTMLDetailsElement
                 && imageLocalAdvanced.open === false;
+             // Turning read-aloud off has to take the controls under it with it.
+             // The preview button used to stay live and fail at the IPC boundary,
+             // in a panel that says right above it that the voice components are
+             // ready (ATH-VOICE-015).
+             const ttsWasEnabled = ttsEnabledToggle.checked;
+             ttsEnabledToggle.checked = false;
+             ttsEnabledToggle.dispatchEvent(new Event('change', { bubbles: true }));
+             const ttsControlsFollowMaster = ttsPreviewButton.disabled
+               && ttsEngineSelect.disabled
+               && !ttsDisabledNote.hidden;
+             ttsEnabledToggle.checked = true;
+             ttsEnabledToggle.dispatchEvent(new Event('change', { bubbles: true }));
+             const ttsControlsRestore = !ttsPreviewButton.disabled
+               && !ttsEngineSelect.disabled
+               && ttsDisabledNote.hidden;
+             ttsEnabledToggle.checked = ttsWasEnabled;
+             ttsEnabledToggle.dispatchEvent(new Event('change', { bubbles: true }));
+             const ttsMasterSwitchReactive = ttsControlsFollowMaster && ttsControlsRestore;
+
              const imageRouteResults = await Promise.all(['companion', 'create', 'reason', 'execute'].map(mode => (
                api.routeMessage('请生成一张夜空中的未来城市图片', mode)
              )));
              const directImageRoutingReady = imageRouteResults.every(result => result?.route === 'image_generation');
-             if (!modelProviderTruthful || !firstRunModelChoicesReady || !firstRunPathReactive || !toolPermissionControlsReady || !imageGenerationControlsReady || !directImageRoutingReady) return false;
+             if (!modelProviderTruthful || !firstRunModelChoicesReady || !firstRunPathReactive || !toolPermissionControlsReady || !imageGenerationControlsReady || !directImageRoutingReady || !ttsMasterSwitchReactive) return false;
              await new Promise(resolve => setTimeout(resolve, 90));
              composerMoreButton.click();
              const webSearchNeedsConsent = webSearchButton.disabled && /同意/.test(webSearchButton.title || '');
@@ -1065,6 +1088,7 @@ function createWindow(): void {
                 firstRunModelChoicesReady,
                 firstRunPathReactive,
                 imageGenerationControlsReady,
+                ttsMasterSwitchReactive,
                 directImageRoutingReady,
                 newChatImmediateReactive,
                 newChatAutoTitleReactive,

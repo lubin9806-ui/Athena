@@ -1218,7 +1218,12 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<vo
 
   ipcMain.handle('voice:speak', async (event, text: unknown) => {
     if (!isTrustedSender(event)) return { ok: false, error: 'IPC sender rejected.' };
-    if (!getAppSettings().voice.ttsEnabled) return { ok: false, error: 'TTS is disabled in settings.' };
+    // Names the switch and where it is: the caller shows this verbatim, and
+    // "disabled in settings" sent people looking through a panel that also says
+    // the voice components are ready (ATH-VOICE-015).
+    if (!getAppSettings().voice.ttsEnabled) {
+      return { ok: false, error: '朗读已关闭。到「设置 · 语音」打开「启用朗读回复」后再试。' };
+    }
     const result = await voice.synthesize(cleanString(text, MAX_TEXT_TO_SPEAK_CHARS));
     if (result.ok) recordDataActivity('voice', 'local-tts', { chars: cleanString(text, MAX_TEXT_TO_SPEAK_CHARS).length });
     return result;
