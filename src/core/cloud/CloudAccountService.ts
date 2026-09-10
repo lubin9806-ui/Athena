@@ -170,6 +170,10 @@ async function pushLocalState(client: CloudProtocol, imported: Record<string, nu
   const adopted = new Map<number, string>();
   for (const [resourceId, windowId] of Object.entries(imported)) adopted.set(windowId, resourceId);
 
+  // Named so the account panel can say which conversations are waiting, rather
+  // than the sync appearing to have succeeded.
+  const conflicted: string[] = [];
+
   const windows = listChatWindows(false, false);
   for (const window of windows) {
     if (!shouldSyncWindow(window)) continue;
@@ -188,16 +192,12 @@ async function pushLocalState(client: CloudProtocol, imported: Record<string, nu
       deleted: false,
     });
     if (first.outcome === 'conflict') {
-      const server = isRecord(first.server) ? first.server : null;
-      const vector = server && isRecord(server.vector) ? server.vector : {};
-      await client.putRecord({
-        resourceId,
-        resourceType: 'conversation',
-        schemaVersion: 1,
-        baseVector: vector,
-        payload,
-        deleted: false,
-      });
+      // Nothing is rewritten here. Retrying against the server's vector, which
+      // is what this did, is a silent overwrite wearing a retry's clothes: the
+      // turns the other client had added went away without anyone being told.
+      // The server refuses to pick a side and the client may not either, so the
+      // conflict is reported and the window is left alone until it is settled.
+      conflicted.push(window.title || resourceId);
     }
   }
 
@@ -211,6 +211,16 @@ async function pushLocalState(client: CloudProtocol, imported: Record<string, nu
       payload: toMemoryPayload(item),
       deleted: false,
     }).catch(() => undefined);
+  }
+
+  if (conflicted.length) {
+    // Surfaced through the status the account panel already reads, so a sync
+    // that left something unsettled does not look like one that finished.
+    throw new CloudProtocolError(
+      409,
+      'conversation-conflict',
+      `这些对话在别的设备上也改过，需要先决定保留哪一边：${conflicted.slice(0, 3).join('、')}`,
+    );
   }
 }
 

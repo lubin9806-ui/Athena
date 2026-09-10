@@ -106,6 +106,19 @@ async function main() {
     { role: 'user', content: 'same', mode: 'companion' },
   ]).length, 1);
 
+  // The server refuses to pick a side on a conflict and the client may not
+  // either. Retrying the write against the server's vector looks like a retry
+  // and is a silent overwrite: the other device's turns disappear unannounced.
+  const service = fs.readFileSync(path.join(root, 'src', 'core', 'cloud', 'CloudAccountService.ts'), 'utf8');
+  const pushBody = service.slice(service.indexOf('async function pushLocalState'), service.indexOf('function ownsResource'));
+  assert.match(pushBody, /conflicted\.push\(/, 'a conflicting conversation must be reported');
+  assert.match(pushBody, /conversation-conflict/, 'a sync that left a conflict must not report success');
+  assert.doesNotMatch(
+    pushBody,
+    /outcome === 'conflict'[\s\S]{0,400}?await client\.putRecord/,
+    'the desktop is writing again after a conflict, which discards the other client turns',
+  );
+
   assert.throws(() => CloudProtocol.assertBaseUrl(''), /基址为空/);
   assert.throws(() => CloudProtocol.assertBaseUrl('http://example.test', true), /HTTPS/);
   assert.equal(CloudProtocol.assertBaseUrl('http://127.0.0.1:8787'), 'http://127.0.0.1:8787');
