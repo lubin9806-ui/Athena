@@ -5,6 +5,8 @@ import { getAppSettings, saveSettingsBundle } from '../config/SettingsStore';
 import { canUseNetworkCapability } from '../privacy/PrivacyDataService';
 import { createChatWindow, getChatWindow, getChatWindowMessages, listChatWindows, saveChatMessage } from '../../memory';
 import { listMemories, upsertSyncedMemory } from '../../memory/admin';
+import { adoptSyncedReminder } from '../scheduler/Reminder';
+import { listSyncableReminders } from '../scheduler/ScheduledJobStore';
 import type { CloudAccountSettings, CloudSessionStatus } from '../../shared/types/cloud';
 import { CloudProtocol, CloudProtocolError } from './CloudProtocol';
 import {
@@ -12,9 +14,13 @@ import {
   desktopWindowIdFromResourceId,
   incomingConversationTitle,
   memoryResourceId,
+  ownsReminderResource,
+  parseReminderPayload,
+  reminderResourceId,
   shouldSyncWindow,
   toConversationPayload,
   toMemoryPayload,
+  toReminderPayload,
   turnsToAppend,
 } from './CloudSyncMapper';
 
@@ -145,6 +151,23 @@ export async function syncCloudAccountNow(): Promise<CloudSessionStatus> {
       continue;
     }
 
+    // A reminder set on the phone becomes a real reminder here, with a timer,
+    // and one finished on the phone calls the timer off. Without this the
+    // account carried reminders that only one device ever acted on.
+    if (resourceId.startsWith('reminder.')) {
+      if (ownsReminderResource(resourceId)) continue;
+      const reminder = parseReminderPayload(payload);
+      if (reminder) {
+        adoptSyncedReminder({
+          id: resourceId,
+          title: reminder.title,
+          dueAt: reminder.dueAt,
+          status: reminder.status,
+        });
+      }
+      continue;
+    }
+
     if (!resourceId.startsWith('conversation.')) continue;
 
     // A conversation is one thing both clients edit, not a copy each keeps. A
@@ -221,6 +244,19 @@ async function pushLocalState(client: CloudProtocol, imported: Record<string, nu
       // conflict is reported and the window is left alone until it is settled.
       conflicted.push(window.title || resourceId);
     }
+  }
+
+  // Reminders finished here are pushed alongside the pending ones: a phone that
+  // is never told a reminder was done goes on showing it forever.
+  for (const job of listSyncableReminders()) {
+    await client.putRecord({
+      resourceId: reminderResourceId(job.id),
+      resourceType: 'reminder',
+      schemaVersion: 1,
+      baseVector: {},
+      payload: toReminderPayload(job),
+      deleted: false,
+    }).catch(() => undefined);
   }
 
   const memories = listMemories({ kind: 'profile', limit: 40 });

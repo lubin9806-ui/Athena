@@ -106,6 +106,37 @@ async function main() {
     { role: 'user', content: 'same', mode: 'companion' },
   ]).length, 1);
 
+  // A reminder adopted from another client keeps that client's id, so it writes
+  // back to the same record. Giving it a desktop id would put two records in the
+  // account for one reminder, and the phone would show it twice.
+  assert.equal(mapper.reminderResourceId('job-17-abc'), 'reminder.desktop-job-17-abc');
+  assert.equal(mapper.reminderResourceId('reminder.android-xyz'), 'reminder.android-xyz');
+  assert.equal(mapper.ownsReminderResource('reminder.desktop-job-1'), true);
+  assert.equal(mapper.ownsReminderResource('reminder.android-xyz'), false);
+
+  const reminderOut = mapper.toReminderPayload({ title: '回电话', dueAt: '2026-09-10T12:00:00.000Z', status: 'scheduled' });
+  assert.equal(reminderOut.origin, 'desktop');
+  assert.equal(reminderOut.status, 'scheduled');
+  assert.equal(mapper.toReminderPayload({ title: 'x'.repeat(400), dueAt: '2026-09-10T12:00:00.000Z', status: 'completed' }).title.length, 200);
+
+  // A reminder with no time cannot fire, and one with no words says nothing
+  // when it does. Both are refused rather than guessed at: the failure worth
+  // avoiding here is interrupting someone about nothing.
+  assert.equal(mapper.parseReminderPayload({ title: '喝水', dueAt: 'tomorrow' }), null);
+  assert.equal(mapper.parseReminderPayload({ title: '喝水', dueAt: '' }), null);
+  assert.equal(mapper.parseReminderPayload({ title: '   ', dueAt: '2026-09-10T12:00:00.000Z' }), null);
+  const reminderIn = mapper.parseReminderPayload({ origin: 'android', title: '喝水', dueAt: '2026-09-10T12:00:00.000Z', status: 'completed' });
+  assert.equal(reminderIn.origin, 'android');
+  assert.equal(reminderIn.status, 'completed');
+  // A status a later client invented is read as still scheduled: refusing to
+  // ring would lose the reminder, which is the worse of the two mistakes.
+  assert.equal(mapper.parseReminderPayload({ title: '喝水', dueAt: '2026-09-10T12:00:00.000Z', status: 'snoozed' }).status, 'scheduled');
+  // Round trip, because both ends have to read what the other wrote.
+  assert.deepEqual(
+    mapper.parseReminderPayload(mapper.toReminderPayload({ title: '回电话', dueAt: '2026-09-10T12:00:00.000Z', status: 'cancelled' })),
+    { origin: 'desktop', title: '回电话', dueAt: '2026-09-10T12:00:00.000Z', status: 'cancelled' },
+  );
+
   // The server refuses to pick a side on a conflict and the client may not
   // either. Retrying the write against the server's vector looks like a retry
   // and is a silent overwrite: the other device's turns disappear unannounced.
@@ -118,6 +149,15 @@ async function main() {
     /outcome === 'conflict'[\s\S]{0,400}?await client\.putRecord/,
     'the desktop is writing again after a conflict, which discards the other client turns',
   );
+
+  // The mapper being right is not the same as the sync using it. Reminders were
+  // an allowed resource type that neither client ever read or wrote, which is
+  // exactly how a feature ends up green and absent.
+  assert.match(pushBody, /listSyncableReminders\(\)/, 'the desktop must push its own reminders');
+  assert.match(pushBody, /resourceType: 'reminder'/, 'reminders must be pushed under their own resource type');
+  const applyBody = service.slice(service.indexOf('const changes = await client.listChanges'), service.indexOf('writeSession({'));
+  assert.match(applyBody, /adoptSyncedReminder\(/, 'a reminder written on another device must be applied here');
+  assert.match(applyBody, /ownsReminderResource\(/, 'the desktop must not adopt back the reminders it wrote itself');
 
   assert.throws(() => CloudProtocol.assertBaseUrl(''), /基址为空/);
   assert.throws(() => CloudProtocol.assertBaseUrl('http://example.test', true), /HTTPS/);

@@ -1,8 +1,17 @@
 import type { ChatWindow, ChatWindowMessage } from '../../shared/types';
-import type { CloudConversationPayload, CloudConversationTurn, CloudMemoryPayload } from '../../shared/types/cloud';
+import type {
+  CloudConversationPayload,
+  CloudConversationTurn,
+  CloudMemoryPayload,
+  CloudReminderPayload,
+} from '../../shared/types/cloud';
 
 const MAX_SYNC_TURNS = 40;
 const MAX_TURN_CHARS = 4_000;
+// The same cap the scheduler applies when it writes a job title, and the same
+// one the phone applies before it sends: a title that survives one end and is
+// cut by the other would make the two records differ forever.
+const MAX_REMINDER_TITLE = 200;
 
 export function conversationResourceId(windowId: number): string {
   return `conversation.desktop-${windowId}`;
@@ -10,6 +19,56 @@ export function conversationResourceId(windowId: number): string {
 
 export function memoryResourceId(kind: string, id: number): string {
   return `memory.desktop-${kind}-${id}`;
+}
+
+/**
+ * A reminder adopted from another client keeps that client's id as its job id,
+ * so it writes back to the same record rather than opening a second one for the
+ * same reminder. Only reminders this desktop created get a desktop id.
+ */
+export function reminderResourceId(jobId: string): string {
+  return jobId.startsWith('reminder.') ? jobId : `reminder.desktop-${jobId}`;
+}
+
+/** Records this desktop wrote for its own reminders come back on the feed. */
+export function ownsReminderResource(resourceId: string): boolean {
+  return resourceId.startsWith('reminder.desktop-');
+}
+
+export function toReminderPayload(job: { title: string; dueAt: string; status: string }): CloudReminderPayload {
+  return {
+    origin: 'desktop',
+    title: job.title.slice(0, MAX_REMINDER_TITLE),
+    dueAt: job.dueAt,
+    status: reminderStatus(job.status),
+  };
+}
+
+/**
+ * A reminder written by another client, or null when it cannot be trusted to
+ * fire correctly. A reminder with no time cannot fire and one with no words
+ * says nothing when it does; both are refused rather than guessed at, because
+ * the failure mode here is interrupting someone about nothing.
+ */
+export function parseReminderPayload(payload: Record<string, unknown>): CloudReminderPayload | null {
+  const title = String(payload.title || '').trim().slice(0, MAX_REMINDER_TITLE);
+  const dueAt = String(payload.dueAt || '').trim();
+  if (!title || Number.isNaN(Date.parse(dueAt))) return null;
+  return {
+    origin: payload.origin === 'desktop' ? 'desktop' : 'android',
+    title,
+    dueAt,
+    status: reminderStatus(payload.status),
+  };
+}
+
+/**
+ * An unknown status is read as still scheduled. Refusing to ring because a
+ * later client invented a status would lose the reminder, and showing one that
+ * is already dealt with is the cheaper mistake.
+ */
+function reminderStatus(value: unknown): CloudReminderPayload['status'] {
+  return value === 'completed' || value === 'cancelled' ? value : 'scheduled';
 }
 
 export function shouldSyncWindow(window: Pick<ChatWindow, 'mode' | 'is_temporary'>): boolean {

@@ -2,13 +2,54 @@ import { globalScheduler, type ScheduledJob } from '../../engine/Scheduler';
 import { createLogger } from '../../engine/Logger';
 import {
   createScheduledJob,
+  getScheduledJob,
   listPendingScheduledJobs,
   markScheduledJobCancelled,
   markScheduledJobCompleted,
+  upsertSyncedReminder,
   type ScheduledJobRecord,
 } from './ScheduledJobStore';
 
 const logger = createLogger('Reminder');
+
+/**
+ * The instance that owns the live timers, so a reminder arriving on the sync
+ * can be armed now rather than at the next start. Cloud sync runs far from the
+ * controller that constructs this and has no route to it otherwise; a reminder
+ * only armed on restart would silently not ring for hours.
+ */
+let liveReminder: Reminder | null = null;
+
+export function setLiveReminder(reminder: Reminder | null): void {
+  liveReminder = reminder;
+}
+
+/**
+ * Takes a reminder written on another device. Returns true when this device now
+ * holds a timer for it - a reminder already past is stored but never re-fired,
+ * because ringing about a moment that has gone is noise rather than a reminder.
+ */
+export function adoptSyncedReminder(
+  input: { id: string; title: string; dueAt: string; status: 'scheduled' | 'completed' | 'cancelled' },
+  now: Date = new Date(),
+): boolean {
+  const existing = getScheduledJob(input.id);
+  const written = upsertSyncedReminder(input);
+  if (!written) return false;
+
+  if (input.status !== 'scheduled') {
+    // Finished or called off elsewhere: the timer here has to go, or this
+    // device rings for something the user has already dealt with.
+    if (existing?.status === 'scheduled') globalScheduler.cancel(input.id);
+    return false;
+  }
+  if (new Date(written.record.dueAt).getTime() <= now.getTime()) return false;
+  // Re-arming replaces the timer for this id rather than adding a second one,
+  // so a reminder whose time was changed elsewhere fires once, at the new time.
+  globalScheduler.cancel(input.id);
+  liveReminder?.adopt(written.record);
+  return true;
+}
 
 export interface ReminderRequest {
   title: string;
@@ -75,6 +116,11 @@ export class Reminder {
 
   list(): ScheduledJob[] {
     return globalScheduler.listJobs();
+  }
+
+  /** Arms a row written by the sync rather than by schedule(). */
+  adopt(record: ScheduledJobRecord): ScheduledJob {
+    return this.arm(record, false);
   }
 
   cancel(id: string): boolean {

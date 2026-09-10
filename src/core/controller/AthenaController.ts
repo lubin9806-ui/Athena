@@ -85,7 +85,7 @@ import {
   consentRequiredMessage,
   recordDataActivity,
 } from '../privacy/PrivacyDataService';
-import { Reminder, type DueReminder } from '../scheduler/Reminder';
+import { Reminder, setLiveReminder, type DueReminder } from '../scheduler/Reminder';
 import { WorkflowManager } from '../workflow/WorkflowManager';
 import {
   applyMemoryRetentionPolicy,
@@ -344,6 +344,9 @@ export class AthenaController {
     }
     this.purgeUnsavedChatSegment();
     this.reminder.setDueHandler(reminder => this.handleReminderDue(reminder));
+    // Cloud sync arms what it adopts through this, so a reminder set on the
+    // phone rings here today rather than after the next restart.
+    setLiveReminder(this.reminder);
     const reminders = this.reminder.restorePending();
     if (reminders.restored > 0) {
       logger.info(`Restored ${reminders.restored} pending reminders (${reminders.overdue} already due).`);

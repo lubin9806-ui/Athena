@@ -38,3 +38,15 @@ export interface CloudMemoryPayload {
   content: string;
   importance?: number;
 }
+
+/**
+ * A reminder as it crosses the account. Deliberately the same four fields the
+ * desktop's own ScheduledJob already has, so neither client needs a translation
+ * layer to read what the other wrote.
+ */
+export interface CloudReminderPayload {
+  origin: 'desktop' | 'android';
+  title: string;
+  dueAt: string;
+  status: 'scheduled' | 'completed' | 'cancelled';
+}

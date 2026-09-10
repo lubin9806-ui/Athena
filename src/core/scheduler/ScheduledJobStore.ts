@@ -26,6 +26,11 @@ export interface CreateScheduledJobInput {
 
 const MAX_TITLE_CHARS = 200;
 const MAX_PAYLOAD_CHARS = 8_000;
+// A finished reminder stays syncable for a week: long enough for a phone that
+// was off to learn it was done, short enough that the account does not
+// accumulate every reminder ever set.
+const SYNC_FINISHED_WINDOW_MS = 7 * 24 * 60 * 60 * 1_000;
+const MAX_SYNCED_REMINDERS = 100;
 
 export function createScheduledJob(input: CreateScheduledJobInput): ScheduledJobRecord {
   const title = input.title.trim().slice(0, MAX_TITLE_CHARS);
@@ -55,6 +60,58 @@ export function listPendingScheduledJobs(): ScheduledJobRecord[] {
     FROM scheduled_jobs WHERE status = 'scheduled' ORDER BY due_at ASC
   `).all() as unknown[];
   return rows.map(toRecord);
+}
+
+/**
+ * The reminders worth putting in the account: everything still pending, plus
+ * the ones finished recently.
+ *
+ * The finished ones matter as much as the pending. Sending only what is still
+ * scheduled would let a reminder the user completed here go on showing itself
+ * on their phone, because nothing would ever tell the phone it was done.
+ */
+export function listSyncableReminders(now: Date = new Date()): ScheduledJobRecord[] {
+  const since = new Date(now.getTime() - SYNC_FINISHED_WINDOW_MS).toISOString();
+  const rows = getDatabase().prepare(`
+    SELECT id, kind, title, due_at, status, chat_window_id, payload_json, created_at, completed_at
+    FROM scheduled_jobs
+    WHERE kind = 'reminder'
+      AND (status = 'scheduled' OR COALESCE(completed_at, created_at) >= ?)
+    ORDER BY due_at ASC
+    LIMIT ?
+  `).all(since, MAX_SYNCED_REMINDERS) as unknown[];
+  return rows.map(toRecord);
+}
+
+/**
+ * Writes a reminder that came from another device, keyed on the id that device
+ * gave it so a later sync updates this row instead of adding a second one.
+ * Returns what happened, so the caller can arm a timer only for a new row.
+ */
+export function upsertSyncedReminder(input: {
+  id: string;
+  title: string;
+  dueAt: string;
+  status: ScheduledJobStatus;
+}): { record: ScheduledJobRecord; created: boolean } | null {
+  const title = input.title.trim().slice(0, MAX_TITLE_CHARS);
+  if (!title) return null;
+  const existing = getScheduledJob(input.id);
+  if (existing) {
+    // The due time and status are the other device's to change; the row is
+    // updated in place so a reminder is never scheduled twice.
+    getDatabase().prepare(`
+      UPDATE scheduled_jobs SET title = ?, due_at = ?, status = ? WHERE id = ?
+    `).run(title, input.dueAt, input.status, input.id);
+    const updated = getScheduledJob(input.id);
+    return updated ? { record: updated, created: false } : null;
+  }
+  getDatabase().prepare(`
+    INSERT INTO scheduled_jobs (id, kind, title, due_at, status, chat_window_id, payload_json)
+    VALUES (?, 'reminder', ?, ?, ?, NULL, '{}')
+  `).run(input.id, title, input.dueAt, input.status);
+  const created = getScheduledJob(input.id);
+  return created ? { record: created, created: true } : null;
 }
 
 // Terminal transitions only apply to a job that is still scheduled, so a restore
