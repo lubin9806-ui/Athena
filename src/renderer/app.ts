@@ -21,6 +21,7 @@ import type { AvatarLayoutMode } from '../shared/types/avatar';
 import type { AthenaAvatarEvent } from './avatar/AvatarRuntime';
 import type { EmotionType } from '../shared/types/emotion';
 import type { ProactiveDelivery, ReminderDueEvent } from '../shared/types/message';
+import type { ChatErrorPayload } from '../shared/types/system';
 import { RELEASE_FEATURES } from '../shared/releaseFeatures';
 
 interface DisabledLive2DPreferences {
@@ -158,7 +159,7 @@ declare global {
       removeMcpServer: (id: string, fingerprint: string) => Promise<boolean | null>;
       getToolCatalog: (mode?: AthenaMode) => Promise<ToolCatalog | null>;
       onChatStream: (callback: (data: { content: string; done: boolean }) => void) => () => void;
-      onChatError: (callback: (error: string) => void) => () => void;
+      onChatError: (callback: (failure: ChatErrorPayload) => void) => () => void;
       onWebSearchStatus: (callback: (status: WebSearchStatus) => void) => () => void;
       onToolStatus: (callback: (status: ToolStatusEvent) => void) => () => void;
       onReminderDue: (callback: (event: ReminderDueEvent) => void) => () => void;
@@ -2438,15 +2439,26 @@ function init(): void {
     }
   });
 
-  window.athenaAPI.onChatError((error) => {
-    modelConnected = false;
+  window.athenaAPI.onChatError((failure) => {
+    const { message, kind } = failure;
     isStreaming = false;
     inputBar.setDisabled(false);
     syncVoiceControls();
-    setStatus('模型离线', 'offline');
-    void dispatchLive2dEvent({ type: 'chat.error', message: error });
-    if (activeRequestMode === 'execute') failActiveExecutionTask(error);
-    else chatPanel.addMessage(`我暂时连不上本地模型：${error}`, 'assistant', '离线');
+    // Only an unreachable or rejected service means the model is actually down. A
+    // timeout, a stop, or a malformed reply is one bad turn against a service that
+    // is still there, and marking those "offline" — next to a message about a
+    // "local" model the person may not even be using — sent people chasing a
+    // connection problem that did not exist.
+    const serviceIsDown = kind === 'connection' || kind === 'auth';
+    if (serviceIsDown) {
+      modelConnected = false;
+      setStatus('模型离线', 'offline');
+    } else {
+      void refreshDeferredStartupModelStatus();
+    }
+    void dispatchLive2dEvent({ type: 'chat.error', message });
+    if (activeRequestMode === 'execute') failActiveExecutionTask(message);
+    else chatPanel.addMessage(message, 'assistant', chatErrorBadge(kind));
   });
 
   window.athenaAPI.onWebSearchStatus((status) => {
@@ -5527,6 +5539,14 @@ async function beginOllamaInstall(): Promise<void> {
 async function beginOllamaModelPull(): Promise<void> {
   const result = await window.athenaAPI.pullOllamaModel(settingOllamaModel.value);
   modelConnectionStatus.textContent = result.started ? 'Ollama 模型下载已启动。' : result.error || '已取消下载。';
+}
+
+function chatErrorBadge(kind: ChatErrorPayload['kind']): string {
+  if (kind === 'connection' || kind === 'auth') return '离线';
+  if (kind === 'timeout') return '超时';
+  if (kind === 'cancelled') return '已停止';
+  if (kind === 'rate_limit') return '限流';
+  return '没说完';
 }
 
 function modelProviderLabel(provider: string): string {

@@ -1,4 +1,4 @@
-import { ModelCapabilityError, ModelProtocolError } from './model';
+import { ModelCapabilityError, ModelProtocolError, ModelTimeoutError } from './model';
 
 export type ModelFailureKind =
   | 'protocol'
@@ -36,6 +36,18 @@ export function classifyModelFailure(error: unknown): ClassifiedModelFailure {
   const raw = error instanceof Error ? error.message : String(error ?? '');
   const detail = redactModelFailureDetail(raw);
 
+  // Timeouts are checked first because the platform words them as "The operation
+  // was aborted due to timeout", which the cancellation test below would otherwise
+  // read as the user having pressed stop.
+  if (isTimeout(error)) {
+    return {
+      kind: 'timeout',
+      code: 'model.timeout',
+      retryable: true,
+      detail,
+      message: '模型服务中途没有继续返回内容，这一轮已中断。可以再发一次；如果经常这样，通常是当前模型思考太久或网络不稳。',
+    };
+  }
   if (isCancellation(error)) {
     return { kind: 'cancelled', code: 'model.cancelled', retryable: false, detail, message: '已停止。' };
   }
@@ -99,6 +111,12 @@ export function redactModelFailureDetail(value: string): string {
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, MAX_DETAIL_CHARS);
+}
+
+/** Only the typed cases; a message that merely says "timed out" keeps its usual precedence. */
+function isTimeout(error: unknown): boolean {
+  if (error instanceof ModelTimeoutError) return true;
+  return (error instanceof Error ? error.name : '') === 'TimeoutError';
 }
 
 function isCancellation(error: unknown): boolean {

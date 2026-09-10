@@ -9,6 +9,7 @@ import type {
   ModelToolDefinition,
 } from './ModelTypes';
 import { ModelCapabilityError, ModelProtocolError } from './ModelTypes';
+import { RequestDeadline } from './RequestDeadline';
 import { loadModelImageBase64 } from './ModelImageLoader';
 import {
   EMPTY_USAGE,
@@ -59,26 +60,34 @@ export class OllamaAdapter implements ModelAdapter {
   }
 
   async listModels(): Promise<string[]> {
-    const response = await this.fetchWithFallback('/api/tags');
-    await ensureResponseOk(response, 'Ollama');
-    const data = await response.json() as { models?: Array<{ name?: string; model?: string }> };
-    return normalizeModelIds(data.models?.map(item => item.name ?? item.model) ?? []);
+    const deadline = RequestDeadline.forMetadata(this.requestTimeoutMs);
+    try {
+      const response = await this.fetchWithFallback('/api/tags', {}, deadline);
+      await ensureResponseOk(response, 'Ollama');
+      const data = await response.json() as { models?: Array<{ name?: string; model?: string }> };
+      return normalizeModelIds(data.models?.map(item => item.name ?? item.model) ?? []);
+    } finally {
+      deadline.dispose();
+    }
   }
 
   async refreshCapabilities(): Promise<ModelAdapterCapabilities> {
     this.capabilities.imageInputs = false;
+    const deadline = RequestDeadline.forMetadata(this.requestTimeoutMs);
     try {
       const response = await this.fetchWithFallback('/api/show', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ model: this.modelName, verbose: false }),
-      });
+      }, deadline);
       await ensureResponseOk(response, 'Ollama');
       const data = await response.json() as { capabilities?: unknown };
       this.capabilities.imageInputs = Array.isArray(data.capabilities)
         && data.capabilities.some(capability => capability === 'vision');
     } catch {
       this.capabilities.imageInputs = false;
+    } finally {
+      deadline.dispose();
     }
     return cloneCapabilities(this.capabilities);
   }
@@ -110,17 +119,25 @@ export class OllamaAdapter implements ModelAdapter {
     if (request.responseFormat?.type === 'json_object') body.format = 'json';
     if (request.responseFormat?.type === 'json_schema') body.format = request.responseFormat.schema;
 
-    const response = await this.fetchWithFallback('/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-      signal: request.signal,
-    });
-    await ensureResponseOk(response, 'Ollama');
-    const result = request.stream ? await this.readStream(response, onEvent) : await this.readResponse(response);
-    assertToolCallsAllowed(result.toolCalls, request.tools);
-    if (request.stream) onEvent?.({ type: 'completed', response: result });
-    return result;
+    // One deadline spans the whole exchange, including the body read: a stream is
+    // only cut off once the provider actually goes quiet, never for talking long.
+    const deadline = new RequestDeadline(this.requestTimeoutMs, request.signal);
+    try {
+      const response = await this.fetchWithFallback('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      }, deadline);
+      await ensureResponseOk(response, 'Ollama');
+      const result = request.stream
+        ? await this.readStream(response, onEvent, deadline)
+        : await this.readResponse(response);
+      assertToolCallsAllowed(result.toolCalls, request.tools);
+      if (request.stream) onEvent?.({ type: 'completed', response: result });
+      return result;
+    } finally {
+      deadline.dispose();
+    }
   }
 
   private async readResponse(response: Response): Promise<ModelResponse> {
@@ -142,7 +159,11 @@ export class OllamaAdapter implements ModelAdapter {
     };
   }
 
-  private async readStream(response: Response, onEvent?: (event: ModelStreamEvent) => void): Promise<ModelResponse> {
+  private async readStream(
+    response: Response,
+    onEvent?: (event: ModelStreamEvent) => void,
+    deadline?: RequestDeadline,
+  ): Promise<ModelResponse> {
     if (!response.body) throw new ModelProtocolError('Ollama returned a streaming response without a body');
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
@@ -207,6 +228,7 @@ export class OllamaAdapter implements ModelAdapter {
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
+      deadline?.touch();
       buffer += decoder.decode(value, { stream: true });
       const lines = buffer.split(/\r?\n/);
       buffer = lines.pop() ?? '';
@@ -233,15 +255,21 @@ export class OllamaAdapter implements ModelAdapter {
     return result;
   }
 
-  private async fetchWithFallback(pathname: string, init: RequestInit = {}): Promise<Response> {
+  /** Callers own the deadline so that it also covers reading the response body. */
+  private async fetchWithFallback(
+    pathname: string,
+    init: RequestInit,
+    deadline: RequestDeadline,
+  ): Promise<Response> {
     let lastError: unknown;
     for (const endpoint of this.candidateEndpoints()) {
       try {
-        return await fetch(`${endpoint}${pathname}`, {
-          ...init,
-          signal: boundedSignal(init.signal, this.requestTimeoutMs),
-        });
+        return await fetch(`${endpoint}${pathname}`, { ...init, signal: deadline.signal });
       } catch (error) {
+        // A spent deadline means we stopped waiting, not that this host was
+        // wrong. Trying the next spelling of localhost would only replace the
+        // real reason with a connection error against an aborted signal.
+        if (deadline.signal.aborted) throw error;
         lastError = error;
       }
     }
@@ -368,7 +396,3 @@ function accumulateString(current: string, next: string): string {
 
 function clamp(value: number, min: number, max: number): number { return Math.max(min, Math.min(max, value)); }
 function clampInteger(value: number, min: number, max: number): number { return Math.round(clamp(value, min, max)); }
-function boundedSignal(signal: AbortSignal | null | undefined, timeoutMs: number): AbortSignal {
-  const timeout = AbortSignal.timeout(timeoutMs);
-  return signal ? AbortSignal.any([signal, timeout]) : timeout;
-}

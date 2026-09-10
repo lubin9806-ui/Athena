@@ -127,3 +127,17 @@ export class ModelCapabilityError extends Error {
     this.name = 'ModelCapabilityError';
   }
 }
+
+/**
+ * The provider went silent for longer than the budget allows.
+ *
+ * This carries its own type because the platform's own timeout says "The
+ * operation was aborted due to timeout", and anything matching on the word
+ * "aborted" reads that as the user having pressed stop.
+ */
+export class ModelTimeoutError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ModelTimeoutError';
+  }
+}

@@ -243,7 +243,11 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<vo
 
   const reportControllerWarmupError = (error: unknown): void => {
     if (!mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('chat:error', error instanceof Error ? error.message : String(error));
+      mainWindow.webContents.send('chat:error', {
+        message: error instanceof Error ? error.message : String(error),
+        kind: 'connection',
+        retryable: true,
+      });
     }
   };
 
@@ -329,7 +333,13 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<vo
       // (ATH-CHAT-003). The redacted original stays in the log.
       const failure = classifyModelFailure(error);
       logger.warn(`Chat request failed [code=${failure.code}, retryable=${failure.retryable}]: ${failure.detail}`);
-      if (!mainWindow.isDestroyed()) mainWindow.webContents.send('chat:error', failure.message);
+      if (!mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('chat:error', {
+          message: failure.message,
+          kind: failure.kind,
+          retryable: failure.retryable,
+        });
+      }
       return null;
     }
   });

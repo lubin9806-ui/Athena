@@ -11,6 +11,7 @@ import type {
   ModelToolDefinition,
 } from './ModelTypes';
 import { ModelCapabilityError, ModelProtocolError } from './ModelTypes';
+import { RequestDeadline } from './RequestDeadline';
 import { loadModelImageBase64 } from './ModelImageLoader';
 import {
   EMPTY_USAGE,
@@ -55,19 +56,27 @@ export class OpenAICompatibleAdapter implements ModelAdapter {
 
   async listModels(): Promise<string[]> {
     this.assertConfigured(false);
-    const response = await this.fetch('/models');
-    await ensureResponseOk(response, providerLabel(this.providerName));
-    const data = await response.json() as { data?: Array<{ id?: string }> };
-    return normalizeModelIds(data.data?.map(item => item.id) ?? []);
+    const deadline = RequestDeadline.forMetadata(this.requestTimeoutMs);
+    try {
+      const response = await this.fetch('/models', {}, deadline);
+      await ensureResponseOk(response, providerLabel(this.providerName));
+      const data = await response.json() as { data?: Array<{ id?: string }> };
+      return normalizeModelIds(data.data?.map(item => item.id) ?? []);
+    } finally {
+      deadline.dispose();
+    }
   }
 
   async checkConnection(): Promise<boolean> {
+    const deadline = RequestDeadline.forMetadata(this.requestTimeoutMs);
     try {
       if (!this.endpoint || !this.modelName) return false;
-      const response = await this.fetch('/models');
+      const response = await this.fetch('/models', {}, deadline);
       return response.ok;
     } catch {
       return false;
+    } finally {
+      deadline.dispose();
     }
   }
 
@@ -75,19 +84,24 @@ export class OpenAICompatibleAdapter implements ModelAdapter {
     this.assertConfigured(true);
     validateToolRequest(request, this.capabilities);
     const body = this.buildBody(request);
-    const response = await this.fetch('/chat/completions', {
-      method: 'POST',
-      body: JSON.stringify(body),
-      signal: request.signal,
-    });
-    await ensureResponseOk(response, providerLabel(this.providerName));
-    const result = request.stream
-      ? this.readStream(response, onEvent)
-      : this.readResponse(response);
-    const normalized = await result;
-    assertToolCallsAllowed(normalized.toolCalls, request.tools);
-    if (request.stream) onEvent?.({ type: 'completed', response: normalized });
-    return normalized;
+    // One deadline spans the whole exchange, including the body read: a stream is
+    // only cut off once the provider actually goes quiet, never for talking long.
+    const deadline = new RequestDeadline(this.requestTimeoutMs, request.signal);
+    try {
+      const response = await this.fetch('/chat/completions', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }, deadline);
+      await ensureResponseOk(response, providerLabel(this.providerName));
+      const normalized = request.stream
+        ? await this.readStream(response, onEvent, deadline)
+        : await this.readResponse(response);
+      assertToolCallsAllowed(normalized.toolCalls, request.tools);
+      if (request.stream) onEvent?.({ type: 'completed', response: normalized });
+      return normalized;
+    } finally {
+      deadline.dispose();
+    }
   }
 
   private buildBody(request: ModelRequest): Record<string, unknown> {
@@ -139,7 +153,11 @@ export class OpenAICompatibleAdapter implements ModelAdapter {
     };
   }
 
-  private async readStream(response: Response, onEvent?: (event: ModelStreamEvent) => void): Promise<ModelResponse> {
+  private async readStream(
+    response: Response,
+    onEvent?: (event: ModelStreamEvent) => void,
+    deadline?: RequestDeadline,
+  ): Promise<ModelResponse> {
     if (!response.body) throw new ModelProtocolError('Provider returned a streaming response without a body');
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
@@ -195,6 +213,7 @@ export class OpenAICompatibleAdapter implements ModelAdapter {
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
+      deadline?.touch();
       buffer += decoder.decode(value, { stream: true });
       const lines = buffer.split(/\r?\n/);
       buffer = lines.pop() ?? '';
@@ -222,18 +241,23 @@ export class OpenAICompatibleAdapter implements ModelAdapter {
     return result;
   }
 
-  private async fetch(pathname: string, init: RequestInit = {}): Promise<Response> {
+  private async fetch(pathname: string, init: RequestInit = {}, deadline?: RequestDeadline): Promise<Response> {
     const headers = new Headers(init.headers);
     headers.set('Content-Type', 'application/json');
     if (this.apiKey) headers.set('Authorization', `Bearer ${this.apiKey}`);
     if (!this.apiKey && this.providerName !== 'custom') {
       throw new Error(`${providerLabel(this.providerName)} API Key is not configured.`);
     }
-    return fetch(`${this.endpoint}${pathname}`, {
-      ...init,
-      headers,
-      signal: boundedSignal(init.signal, this.requestTimeoutMs),
-    });
+    const owned = deadline ?? new RequestDeadline(this.requestTimeoutMs, init.signal);
+    try {
+      return await fetch(`${this.endpoint}${pathname}`, {
+        ...init,
+        headers,
+        signal: owned.signal,
+      });
+    } finally {
+      if (!deadline) owned.dispose();
+    }
   }
 
   private assertConfigured(requireModel: boolean): void {
@@ -393,10 +417,6 @@ function supportsOpenAIJsonSchema(model: string): boolean {
   return /^(?:gpt-4o|gpt-4\.1|gpt-5|o1|o3|o4)(?:-|$)/i.test(model);
 }
 
-function boundedSignal(signal: AbortSignal | null | undefined, timeoutMs: number): AbortSignal {
-  const timeout = AbortSignal.timeout(timeoutMs);
-  return signal ? AbortSignal.any([signal, timeout]) : timeout;
-}
 
 function providerLabel(provider: ModelProvider): string {
   if (provider === 'openai') return 'OpenAI';

@@ -1,4 +1,5 @@
 ﻿import { contextBridge, ipcRenderer, webUtils } from 'electron';
+import type { ChatErrorPayload } from '../shared/types/system';
 
 contextBridge.exposeInMainWorld('athenaAPI', {
   routeMessage: (text: string, mode: 'create' | 'companion' | 'reason' | 'execute', forceWebSearch = false, chatWindowId?: number, attachmentIds: string[] = []) => ipcRenderer.invoke('chat:route', { text, mode, forceWebSearch, chatWindowId, attachmentIds }),
@@ -69,8 +70,12 @@ contextBridge.exposeInMainWorld('athenaAPI', {
     ipcRenderer.on('chat:stream', handler);
     return () => ipcRenderer.removeListener('chat:stream', handler);
   },
-  onChatError: (callback: (error: string) => void) => {
-    const handler = (_: any, error: string) => callback(error);
+  onChatError: (callback: (failure: ChatErrorPayload) => void) => {
+    const handler = (_: any, failure: ChatErrorPayload | string) => callback(
+      typeof failure === 'string'
+        ? { message: failure, kind: 'passthrough', retryable: false }
+        : failure,
+    );
     ipcRenderer.on('chat:error', handler);
     return () => ipcRenderer.removeListener('chat:error', handler);
   },

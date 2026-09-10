@@ -7,6 +7,10 @@ const path = require('node:path');
 
 const root = path.resolve(__dirname, '..');
 const requests = [];
+/** Responses deliberately left hanging, so the server can still shut down. */
+const stalledResponses = [];
+const SLOW_STREAM_CHUNKS = 8;
+const SLOW_STREAM_GAP_MS = 120;
 
 const weatherTool = {
   name: 'get_weather',
@@ -37,6 +41,30 @@ const server = http.createServer(async (request, response) => {
   const bodyText = Buffer.concat(chunks).toString('utf8');
   const body = bodyText ? JSON.parse(bodyText) : {};
   requests.push({ url: request.url, headers: request.headers, body });
+
+  // A model that is answering at length: every gap is short, but the whole answer
+  // outlives any single wall-clock budget.
+  if (request.url.startsWith('/slow-stream/')) {
+    response.writeHead(200, { 'Content-Type': 'text/event-stream' });
+    let sent = 0;
+    const timer = setInterval(() => {
+      sent += 1;
+      response.write(`data: {"id":"resp-slow","model":"fixture-openai-model","choices":[{"delta":{"content":"tok${sent} "}}]}\n\n`);
+      if (sent >= SLOW_STREAM_CHUNKS) {
+        clearInterval(timer);
+        response.end('data: [DONE]\n\n');
+      }
+    }, SLOW_STREAM_GAP_MS);
+    response.on('close', () => clearInterval(timer));
+    return;
+  }
+  // A model that starts talking and then genuinely goes dead.
+  if (request.url.startsWith('/stalled/')) {
+    response.writeHead(200, { 'Content-Type': 'text/event-stream' });
+    response.write('data: {"id":"resp-stalled","model":"fixture-openai-model","choices":[{"delta":{"content":"start "}}]}\n\n');
+    stalledResponses.push(response);
+    return;
+  }
 
   if (request.url === '/v1/models') {
     sendJson(response, { data: [{ id: 'fixture-openai-model' }] });
@@ -391,6 +419,19 @@ async function main() {
     assert.equal(cancelled.kind, 'cancelled');
     assert.equal(cancelled.retryable, false);
 
+    // The platform's own timeout is worded "The operation was aborted due to
+    // timeout". Reading that as a cancellation is what put "已停止。" in front of
+    // people whose model had merely been slow, so assert the real object rather
+    // than a hand-written message that happens to dodge the overlap.
+    const platformTimeout = await new Promise(resolve => {
+      const signal = AbortSignal.timeout(5);
+      setTimeout(() => resolve(signal.reason), 60);
+    });
+    assert.match(platformTimeout.message, /aborted/i, 'fixture must reproduce the overlapping wording');
+    const classifiedPlatformTimeout = classifyModelFailure(platformTimeout);
+    assert.equal(classifiedPlatformTimeout.kind, 'timeout');
+    assert.notEqual(classifiedPlatformTimeout.message, '已停止。');
+
     // Product guidance is already user-facing and must not become a generic sentence.
     const consent = '远程模型服务需要先在“隐私与数据中心”阅读说明并明确同意。';
     const passthrough = classifyModelFailure(new Error(consent));
@@ -400,6 +441,76 @@ async function main() {
     assert.equal(capability.kind, 'capability');
     assert.equal(capability.message, '当前模型不支持原生工具调用。');
 
+    // The budget used to be a single wall-clock deadline over the whole exchange,
+    // so a long answer was cut off mid-stream and reported as a dead connection.
+    // These drive the real adapter: the bug lived in how the signal was built, so
+    // a re-implementation of it here would prove nothing.
+    const idleMs = 400;
+    const slowClient = new LLMClient({
+      provider: 'openai',
+      remote: { openai: { baseUrl: `${host}/slow-stream/v1`, model: 'fixture-openai-model', temperature: 0.2, maxTokens: 512, numCtx: 8192 } },
+      fallback: { timeoutMs: idleMs },
+    }, () => 'sk-fixture');
+    const slowStarted = Date.now();
+    const slowText = await slowClient.chat([{ role: 'user', content: 'Answer at length' }], () => {});
+    const slowElapsed = Date.now() - slowStarted;
+    const expectedText = Array.from({ length: SLOW_STREAM_CHUNKS }, (_, index) => `tok${index + 1} `).join('');
+    assert.equal(slowText, expectedText, 'a stream that keeps producing must arrive complete');
+    assert(
+      slowElapsed > idleMs,
+      `the answer must outlive the budget for this to prove anything (took ${slowElapsed}ms, budget ${idleMs}ms)`,
+    );
+
+    // Silence, on the other hand, still has to end the turn -- as a timeout.
+    const stalledClient = new LLMClient({
+      provider: 'openai',
+      remote: { openai: { baseUrl: `${host}/stalled/v1`, model: 'fixture-openai-model', temperature: 0.2, maxTokens: 512, numCtx: 8192 } },
+      fallback: { timeoutMs: idleMs },
+    }, () => 'sk-fixture');
+    const stalledStarted = Date.now();
+    let stalledError;
+    try {
+      await stalledClient.chat([{ role: 'user', content: 'Go quiet' }], () => {});
+    } catch (error) {
+      stalledError = error;
+    }
+    assert(stalledError, 'a provider that goes silent must not hang forever');
+    const stalledFailure = classifyModelFailure(stalledError);
+    assert.equal(stalledFailure.kind, 'timeout', 'silence is a timeout, not a cancellation');
+    assert.notEqual(stalledFailure.message, '已停止。', 'nobody pressed stop');
+    assert(Date.now() - stalledStarted < 60_000, 'the idle budget must apply once the stream has started');
+
+    // Listing models involves no thinking, so it gets no think-time allowance: the
+    // settings connection test must not sit there for minutes on a wedged server.
+    const metadataStarted = Date.now();
+    await assert.rejects(stalledClient.listModels());
+    const metadataElapsed = Date.now() - metadataStarted;
+    assert(
+      metadataElapsed < idleMs * 10,
+      `metadata calls stay inside the configured budget (took ${metadataElapsed}ms, budget ${idleMs}ms)`,
+    );
+
+    // The stop button must still read as a cancellation.
+    const abortController = new AbortController();
+    const abortClient = new LLMClient({
+      provider: 'openai',
+      remote: { openai: { baseUrl: `${host}/slow-stream/v1`, model: 'fixture-openai-model', temperature: 0.2, maxTokens: 512, numCtx: 8192 } },
+      fallback: { timeoutMs: 30_000 },
+    }, () => 'sk-fixture');
+    setTimeout(() => abortController.abort(), SLOW_STREAM_GAP_MS * 2);
+    let abortError;
+    try {
+      await abortClient.chatWithTools([{ role: 'user', content: 'Stop me' }], [], {
+        stream: true,
+        signal: abortController.signal,
+        onEvent: () => {},
+      });
+    } catch (error) {
+      abortError = error;
+    }
+    assert(abortError, 'aborting must reject');
+    assert.equal(classifyModelFailure(abortError).kind, 'cancelled', 'an explicit stop stays a cancellation');
+
     // Nothing key-shaped may survive into a log line.
     const secret = redactModelFailureDetail('auth failed for sk-0123456789abcdef0123 with Bearer abcdefghijklmnop');
     assert(!/sk-0123456789abcdef0123|abcdefghijklmnop/.test(secret), 'credentials must be redacted from diagnostics');
@@ -408,6 +519,7 @@ async function main() {
     console.log(`ATHENA_MODEL_ADAPTERS_OK openaiCalls=${requests.filter(item => item.url === '/v1/chat/completions').length} ollamaCalls=${requests.filter(item => item.url === '/api/chat').length}`);
     fs.rmSync(imagePath, { force: true });
   } finally {
+    for (const stalled of stalledResponses) stalled.destroy();
     await new Promise(resolve => server.close(resolve));
   }
 }

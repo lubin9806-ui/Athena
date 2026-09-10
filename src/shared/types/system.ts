@@ -26,6 +26,18 @@ export interface SystemInfo {
   };
 }
 
+/**
+ * What went wrong with a chat turn. The kind travels with the message because the
+ * renderer has to tell "the service is unreachable" apart from "this one turn timed
+ * out or was stopped" — reporting the latter as offline sends people looking for a
+ * connection problem that is not there.
+ */
+export interface ChatErrorPayload {
+  message: string;
+  kind: 'protocol' | 'timeout' | 'cancelled' | 'connection' | 'auth' | 'rate_limit' | 'capability' | 'passthrough';
+  retryable: boolean;
+}
+
 export const IPC_CHANNELS = {
   CHAT_SEND: 'chat:send',
   CHAT_STREAM: 'chat:stream',
