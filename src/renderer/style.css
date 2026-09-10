@@ -5288,7 +5288,14 @@ html[data-theme="night"] body {
   font-size: 10px;
 }
 
-.model-diagnostic-row:last-child {
+/* display:flex above would otherwise win over the `hidden` attribute. */
+.model-diagnostic-row[hidden] {
+  display: none;
+}
+
+/* The last visible row owns no border, whether or not the assist row is showing. */
+.model-diagnostic-row:last-child,
+.model-diagnostic-row:has(+ .model-diagnostic-row[hidden]) {
   border-bottom: 0;
 }
 

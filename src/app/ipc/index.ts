@@ -21,7 +21,7 @@ import {
   registerCloudAccount,
   syncCloudAccountNow,
 } from '../../core/cloud/CloudAccountService';
-import { LLMClient } from '../../core/ai/Client';
+import { createAssistModelClient, LLMClient } from '../../core/ai/Client';
 import { diagnoseModelConnection } from '../../core/ai/ModelConnectionDiagnostics';
 import { canRouteModelRequest } from '../../core/ai/ModelNetworkPolicy';
 import { getPersonaEditorState, importPersonaCardFromFile, savePersonaCard, type PersonaCardPatch, type ResolvedPersonaCard } from '../../core/ai/Personality';
@@ -1007,7 +1007,10 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<vo
     if (!canRouteModelRequest(client.providerName, canUseNetworkCapability('remoteModel'), client.endpoint)) {
       throw new Error('请先明确同意将请求发送给所选远程模型服务。');
     }
-    return diagnoseModelConnection(client);
+    // createAssistModelClient hands back the main client when no assist model is
+    // configured, which is precisely "there is no second leg to test".
+    const assistClient = createAssistModelClient(client);
+    return diagnoseModelConnection(client, assistClient === client ? undefined : assistClient);
   });
 
   ipcMain.handle('model:listOptions', async (event) => {

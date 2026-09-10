@@ -173,6 +173,31 @@ async function main() {
     assert.strictEqual(await client.chatJson([{ role: 'user', content: 'json' }], { type: 'object' }), '{"ok":true}');
     const diagnostic = await diagnoseModelConnection(client);
     assert.strictEqual(diagnostic.connected, true);
+    assert.strictEqual(diagnostic.assist, null, 'no assist model configured means no second leg');
+
+    // The probe budget is a trip wire, not a preference. A tight cap makes a
+    // reasoning model return `finish=length` with zero characters, and this test
+    // would then call a working model broken (ATH-IMG-004).
+    const probeBody = JSON.parse(requests.filter(item => item.url === '/v1/chat/completions').at(-1).body);
+    const probeBudget = probeBody.max_tokens ?? probeBody.max_completion_tokens;
+    assert(probeBudget >= 3000, `connection probe must leave a reasoning model room to answer, got ${probeBudget}`);
+
+    // The assist model gets its own leg. A wrong id used to leave the whole test
+    // green while extraction silently degraded to "leave the description alone".
+    const brokenAssistClient = new LLMClient({
+      ...bundle.model,
+      remote: { ...bundle.model.remote, openai: { ...bundle.model.remote.openai, model: 'no-such-assist-model' } },
+    }, () => 'sk-athena-provider-fixture');
+    const brokenAssist = await diagnoseModelConnection(client, brokenAssistClient);
+    assert.strictEqual(brokenAssist.chatSucceeded, true, 'the main model still passes on its own');
+    assert.strictEqual(brokenAssist.assist.modelAvailable, false);
+    assert.strictEqual(brokenAssist.assist.chatSucceeded, false);
+    assert.strictEqual(brokenAssist.connected, false, 'a broken assist model must not report as connected');
+    assert.match(brokenAssist.error, /辅助模型/);
+
+    const workingAssist = await diagnoseModelConnection(client, new LLMClient(bundle.model, () => 'sk-athena-provider-fixture'));
+    assert.strictEqual(workingAssist.assist.chatSucceeded, true);
+    assert.strictEqual(workingAssist.connected, true);
     const emptyModelClient = new LLMClient({
       ...bundle.model,
       remote: { ...bundle.model.remote, openai: { ...bundle.model.remote.openai, model: '' } },

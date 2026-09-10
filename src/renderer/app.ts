@@ -1091,6 +1091,13 @@ interface ModelCredentialStatus {
   error: 'credential.encryption_unavailable' | 'credential.decrypt_failed' | null;
 }
 
+interface AssistModelDiagnostic {
+  model: string;
+  modelAvailable: boolean;
+  chatSucceeded: boolean;
+  error: string;
+}
+
 interface ModelConnectionStatus {
   connected: boolean;
   serviceReachable?: boolean;
@@ -1101,6 +1108,7 @@ interface ModelConnectionStatus {
   provider: ModelProvider;
   model: string;
   endpoint: string;
+  assist?: AssistModelDiagnostic | null;
 }
 
 interface OllamaSetupStatus {
@@ -1403,6 +1411,8 @@ const modelDiagnostics = mustGet<HTMLElement>('model-diagnostics');
 const modelDiagnosticService = mustGet<HTMLElement>('model-diagnostic-service');
 const modelDiagnosticModel = mustGet<HTMLElement>('model-diagnostic-model');
 const modelDiagnosticChat = mustGet<HTMLElement>('model-diagnostic-chat');
+const modelDiagnosticAssist = mustGet<HTMLElement>('model-diagnostic-assist');
+const modelDiagnosticAssistRow = mustGet<HTMLElement>('model-diagnostic-assist-row');
 const modelInstallOllama = mustGet<HTMLButtonElement>('model-install-ollama');
 const modelPullOllama = mustGet<HTMLButtonElement>('model-pull-ollama');
 const settingTemperature = mustGet<HTMLInputElement>('setting-temperature');
@@ -2245,6 +2255,14 @@ function init(): void {
   modelLoadOptions.addEventListener('click', () => void loadAvailableModels());
   modelClearApiKey.addEventListener('click', () => void clearModelCredential());
   modelTestConnection.addEventListener('click', () => void testModelConnection());
+  settingAssistModel.addEventListener('input', () => {
+    syncAssistDiagnosticRow();
+    if (!settingAssistModel.value.trim()) return;
+    // An id edited since the last test carries none of that test's result.
+    const tested = lastModelConnectionStatus?.assist;
+    if (tested && tested.model === settingAssistModel.value.trim()) renderAssistDiagnostic(tested);
+    else setModelDiagnostic(modelDiagnosticAssist, 'idle', '未测试');
+  });
   modelInstallOllama.addEventListener('click', () => void beginOllamaInstall());
   modelPullOllama.addEventListener('click', () => void beginOllamaModelPull());
   settingImageProvider.addEventListener('change', () => {
@@ -5410,6 +5428,7 @@ async function testModelConnection(): Promise<void> {
   setModelDiagnostic(modelDiagnosticService, 'pending', '检测中');
   setModelDiagnostic(modelDiagnosticModel, 'idle', '等待服务');
   setModelDiagnostic(modelDiagnosticChat, 'idle', '等待模型');
+  setModelDiagnostic(modelDiagnosticAssist, 'idle', '等待主模型');
   try {
     const provider = selectedModelProvider();
     if (!provider) throw new Error('请先选择 API 平台。');
@@ -5433,6 +5452,7 @@ async function testModelConnection(): Promise<void> {
     setModelDiagnostic(modelDiagnosticService, 'error', '测试中断');
     setModelDiagnostic(modelDiagnosticModel, 'idle', '未完成');
     setModelDiagnostic(modelDiagnosticChat, 'idle', '未完成');
+    setModelDiagnostic(modelDiagnosticAssist, 'idle', '未完成');
   }
 }
 
@@ -5440,6 +5460,7 @@ function renderModelDiagnostics(status: ModelConnectionStatus): void {
   setModelDiagnostic(modelDiagnosticService, status.serviceReachable ? 'success' : 'error', status.serviceReachable ? '已连接' : '不可达');
   setModelDiagnostic(modelDiagnosticModel, status.modelAvailable ? 'success' : 'error', status.modelAvailable ? '已安装' : '不可用');
   setModelDiagnostic(modelDiagnosticChat, status.chatSucceeded ? 'success' : 'error', status.chatSucceeded ? '请求成功' : '请求失败');
+  renderAssistDiagnostic(status.assist);
   const elapsed = typeof status.durationMs === 'number' ? ` · ${(status.durationMs / 1000).toFixed(1)} 秒` : '';
   modelConnectionStatus.textContent = status.connected
     ? `${modelProviderLabel(status.provider)} · ${status.model} 已通过真实聊天测试${elapsed}`
@@ -5447,11 +5468,39 @@ function renderModelDiagnostics(status: ModelConnectionStatus): void {
   modelConnectionStatus.dataset.kind = status.connected ? 'success' : 'error';
 }
 
+/**
+ * A configured assist model that never got tested is worse than no row at all:
+ * the whole point is that a wrong id degrades silently, so "not tested" has to
+ * look different from "passed".
+ */
+function renderAssistDiagnostic(assist: AssistModelDiagnostic | null | undefined): void {
+  syncAssistDiagnosticRow();
+  if (!assist) {
+    if (!modelDiagnosticAssistRow.hidden) setModelDiagnostic(modelDiagnosticAssist, 'idle', '未测试');
+    return;
+  }
+  modelDiagnosticAssistRow.hidden = false;
+  if (assist.chatSucceeded) {
+    setModelDiagnostic(modelDiagnosticAssist, 'success', `${assist.model} · 请求成功`);
+    return;
+  }
+  setModelDiagnostic(modelDiagnosticAssist, 'error', assist.modelAvailable ? '请求失败' : '模型不存在');
+}
+
+/** The row is only meaningful while an assist model is actually configured. */
+function syncAssistDiagnosticRow(): void {
+  const configured = settingAssistModel.value.trim().length > 0;
+  modelDiagnosticAssistRow.hidden = !configured;
+  if (!configured) setModelDiagnostic(modelDiagnosticAssist, 'idle', '待测试');
+}
+
 function resetModelDiagnostics(): void {
   modelConnectionStatus.dataset.kind = '';
   setModelDiagnostic(modelDiagnosticService, 'idle', '待测试');
   setModelDiagnostic(modelDiagnosticModel, 'idle', '待测试');
   setModelDiagnostic(modelDiagnosticChat, 'idle', '待测试');
+  setModelDiagnostic(modelDiagnosticAssist, 'idle', '待测试');
+  syncAssistDiagnosticRow();
 }
 
 function setModelDiagnostic(target: HTMLElement, state: 'idle' | 'pending' | 'success' | 'error', text: string): void {
