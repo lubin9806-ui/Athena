@@ -126,12 +126,16 @@ export interface WebSearchPlanInput {
     type: string;
     param: string;
   } | null;
+  /** Turns before this message, used to fill in what "你查一下" leaves unsaid. */
+  recentMessages?: ConversationTurn[];
 }
 
 export interface WebSearchPlan {
   shouldSearch: boolean;
   query: string;
-  reason: 'disabled' | 'manual' | 'forced' | 'explicit' | 'freshness';
+  reason: 'disabled' | 'manual' | 'forced' | 'explicit' | 'freshness' | 'no-subject';
+  /** The query came from an earlier turn because this message named no subject. */
+  inheritedTopic?: boolean;
 }
 
 export class WebSearchService {
@@ -160,22 +164,34 @@ export class WebSearchService {
     const actionQuery = input.detectedAction?.type === 'search' && explicitRequest
       ? cleanQuery(input.detectedAction.param)
       : '';
-    const query = actionQuery || extractSearchQuery(message);
+    const ownQuery = actionQuery || extractSearchQuery(message);
+    const inherited = ownQuery ? '' : resolveContextualSearchTopic(input.recentMessages);
+    const query = ownQuery || inherited;
+    const inheritedTopic = Boolean(inherited);
+
+    // An order to search with no subject anywhere - not in the message, not in the
+    // conversation - is not a query. Searching the words of the order is how
+    // "你查一下" ended up retrieving the dictionary entry for 你; coming back
+    // empty-handed lets the reply ask what to look up.
+    if (!query) {
+      return { shouldSearch: false, query: '', reason: 'no-subject' };
+    }
 
     if (input.force) {
-      return { shouldSearch: Boolean(query), query, reason: 'forced' };
+      return { shouldSearch: true, query, reason: 'forced', inheritedTopic };
     }
     if (explicitRequest) {
-      return { shouldSearch: Boolean(query), query, reason: 'explicit' };
+      return { shouldSearch: true, query, reason: 'explicit', inheritedTopic };
     }
     if (input.settings.mode !== 'auto') {
-      return { shouldSearch: false, query, reason: 'manual' };
+      return { shouldSearch: false, query, reason: 'manual', inheritedTopic };
     }
 
     return {
       shouldSearch: shouldAutoSearch(message, input.detectedAction?.type),
       query,
       reason: 'freshness',
+      inheritedTopic,
     };
   }
 
@@ -461,14 +477,69 @@ export function shouldAutoSearch(message: string, detectedActionType?: string): 
 }
 
 export function isExplicitSearchRequest(message: string): boolean {
-  return /(?:联网|上网|网上|网页|网络)(?:搜|查|找|检索)|(?:搜索|搜一下|搜一搜|帮我搜|替我搜|查一下|查一查|帮我查|替我查|查证|核实)(?:\s|：|:|一下|一下子|关于|有关|看看|下|个|一)?/i.test(message);
+  return /(?:联网|上网|网上|网页|网络)(?:搜|查|找|检索)|(?:搜索|搜一下|搜一搜|搜搜|帮我搜|替我搜|查一下|查一查|查查|帮我查|替我查|查证|核实)(?:\s|：|:|一下|一下子|关于|有关|看看|下|个|一)?/i.test(message);
 }
 
-export function extractSearchQuery(message: string): string {
-  return cleanQuery(message)
-    .replace(/^(?:请|麻烦)?\s*(?:你)?\s*(?:帮我|替我|给我)?\s*(?:联网|上网|网上|网页|网络)?\s*(?:搜索|搜一搜|搜一下|搜|查询|查一查|查一下|查|检索|核实|查证)\s*(?:一下|看看)?\s*[：:]?\s*/i, '')
-    .replace(/[。！？!?]+$/g, '')
-    .trim() || cleanQuery(message);
+// The lead-in repeats freely ("你再帮我查查") but the command word itself is
+// required, so an ordinary sentence that merely starts with 你 or 去 is left alone.
+const SEARCH_COMMAND_PREFIX = /^(?:\s*(?:请|麻烦|你|您|帮我|替我|给我|再|重新|快|去))*\s*(?:联网|上网|网上|网页|网络)?\s*(?:搜索|搜一搜|搜搜|搜一下|搜|查询|查一查|查查|查一下|查|检索|核实|查证)\s*(?:一下子|一下|看看|看|下)?\s*[：:]?\s*/i;
+
+/**
+ * A first guess at what a search request is about, for the paths that have no
+ * model to ask: the routing preflight, and the fixed pipeline used by providers
+ * without native tool calls. When the planner runs it writes its own queries from
+ * the conversation, and this is only the starting hint.
+ *
+ * A message that is nothing but the command - "你查一下" - has no subject of its
+ * own and returns empty. It used to fall back to the raw sentence, which sent
+ * "你查一下" to the provider and brought back the Baidu Baike entry for the
+ * pronoun 你 (ATH-SEARCH-006). What such a message is about is in the turn before
+ * it, never in itself.
+ */
+export function extractSearchQuery(message: string, fallbackTopic = ''): string {
+  const subject = cleanQuery(message)
+    .replace(SEARCH_COMMAND_PREFIX, '')
+    .replace(/[。！？!?，,、\s]+$/g, '')
+    .trim();
+  return subject || cleanQuery(fallbackTopic);
+}
+
+/** "你查一下" / "帮我搜搜看": an order to search, with nothing said about what. */
+export function isSubjectlessSearchRequest(message: string): boolean {
+  return isExplicitSearchRequest(message) && !extractSearchQuery(message);
+}
+
+export interface ConversationTurn {
+  role: string;
+  content: string;
+}
+
+// Far enough back to cross a couple of exchanges, short enough that "查一下" cannot
+// reach a topic the conversation has already moved on from.
+const TOPIC_LOOKBACK_TURNS = 8;
+const MAX_TOPIC_CHARS = 80;
+
+/**
+ * The topic a subject-less search command is pointing at: the most recent user
+ * message that said something. Assistant turns are skipped on purpose - they are
+ * conversational prose ("这什么鬼 苹果又搞新花样了"), and searching that phrasing
+ * returns the phrasing, not the subject.
+ */
+export function resolveContextualSearchTopic(recent?: ConversationTurn[]): string {
+  const turns = (recent || []).slice(-TOPIC_LOOKBACK_TURNS).reverse();
+  for (const turn of turns) {
+    if (turn.role !== 'user') continue;
+    // A run of "查一下" / "再查查" keeps walking back to the last real subject.
+    const subject = extractSearchQuery(turn.content || '');
+    if (!subject) continue;
+    return cleanQuery(firstSentence(subject)).slice(0, MAX_TOPIC_CHARS).trim();
+  }
+  return '';
+}
+
+function firstSentence(value: string): string {
+  const line = value.split(/[\r\n]+/).map(part => part.trim()).find(Boolean) || value;
+  return line.match(/^[^。！？!?]{2,}/)?.[0]?.trim() || line;
 }
 
 export function parseDuckDuckGoHtml(html: string, maxResults = 5): WebSearchSource[] {

@@ -5,6 +5,8 @@ const {
   buildSecondarySearchQuery,
   detectSearchFailurePage,
   extractSearchQuery,
+  isSubjectlessSearchRequest,
+  resolveContextualSearchTopic,
   parseBingHtml,
   parseDuckDuckGoHtml,
   parseSogouMobileHtml,
@@ -183,6 +185,65 @@ assert.strictEqual(service.plan({
   detectedAction: { type: 'search', param: 'Python 3.14 最新变化' },
 }).shouldSearch, true, 'An explicit search request should work in manual mode.');
 
+// ATH-SEARCH-006: "你查一下" is an order with no subject. It used to be sent to the
+// provider verbatim, which retrieved the dictionary entry for the pronoun 你 and
+// five results about nothing the user had asked about.
+assert.strictEqual(extractSearchQuery('你查一下'), '', 'A bare search command is not its own query.');
+assert.strictEqual(extractSearchQuery('查一下'), '');
+assert.strictEqual(extractSearchQuery('你查一下 iPhone Duo'), 'iPhone Duo');
+assert.strictEqual(isSubjectlessSearchRequest('你查一下'), true);
+assert.strictEqual(isSubjectlessSearchRequest('你查一下 iPhone Duo'), false);
+assert.strictEqual(extractSearchQuery('你查一下', 'iphone duo'), 'iphone duo', 'An empty subject falls back to the topic, never to the order.');
+
+const duoHistory = [
+  { role: 'user', content: '华为影像确实还行' },
+  { role: 'assistant', content: '但你自己就是画画的，应该也不会真靠手机拍照修图吧' },
+  { role: 'user', content: 'iphone duo' },
+  { role: 'assistant', content: 'iphone duo? 这什么鬼 苹果又搞新花样了？你该不会看到那个折叠屏传闻了吧' },
+];
+assert.strictEqual(
+  resolveContextualSearchTopic(duoHistory),
+  'iphone duo',
+  'The topic comes from the last user turn that said something, not from the assistant prose.',
+);
+assert.strictEqual(
+  resolveContextualSearchTopic([...duoHistory, { role: 'user', content: '再查查' }]),
+  'iphone duo',
+  'A run of bare commands keeps walking back to the last real subject.',
+);
+assert.strictEqual(resolveContextualSearchTopic([]), '');
+
+const inherited = service.plan({
+  message: '你查一下',
+  settings: { enabled: true, mode: 'auto', maxResults: 5 },
+  recentMessages: duoHistory,
+});
+assert.strictEqual(inherited.query, 'iphone duo', `A subject-less order must search the topic, got ${JSON.stringify(inherited.query)}.`);
+assert.strictEqual(inherited.shouldSearch, true);
+assert.strictEqual(inherited.inheritedTopic, true);
+
+const noSubject = service.plan({
+  message: '你查一下',
+  settings: { enabled: true, mode: 'auto', maxResults: 5 },
+});
+assert.strictEqual(noSubject.shouldSearch, false, 'With no topic anywhere, searching the order itself is worse than not searching.');
+assert.strictEqual(noSubject.query, '');
+assert.strictEqual(noSubject.reason, 'no-subject');
+assert.strictEqual(
+  service.plan({ message: '你查一下', force: true, settings: { enabled: true, mode: 'auto', maxResults: 5 } }).shouldSearch,
+  false,
+  'Even 强制联网 must not send the order itself to a provider.',
+);
+
+// A message that names its own subject must not be overwritten by the history.
+const ownSubject = service.plan({
+  message: '查一下苹果发布会时间',
+  settings: { enabled: true, mode: 'auto', maxResults: 5 },
+  recentMessages: duoHistory,
+});
+assert.strictEqual(ownSubject.query, '苹果发布会时间');
+assert.strictEqual(ownSubject.inheritedTopic, false);
+
 const emptyMemory = {
   profileFacts: [],
   relatedEvents: [],
@@ -305,7 +366,11 @@ function scriptedLlm(turns, { nativeToolCalls = true } = {}) {
     seen,
     capabilities: { nativeToolCalls },
     async chatWithTools(messages, tools) {
-      seen.push({ toolNames: tools.map(tool => tool.name), messages: messages.length });
+      seen.push({
+        toolNames: tools.map(tool => tool.name),
+        messages: messages.length,
+        task: messages.find(message => message.role === 'user')?.content || '',
+      });
       const turn = turns.shift() || { content: '够了', toolCalls: [] };
       if (turn.throws) throw new Error(turn.throws);
       return {
@@ -421,6 +486,38 @@ async function verifyResearchAgent() {
   assert.ok(
     boundedLlm.seen.at(-1).toolNames.length === 0 || boundedLlm.seen.length === 1,
     'The loop must stop offering web_search once the search budget is spent.',
+  );
+
+  // ATH-SEARCH-006: the planner has to see the turns the question is answering.
+  // Without them "你查一下" reads as a complete question and the only query the model
+  // can write is the wording of the order itself.
+  const followUpLlm = scriptedLlm([
+    { toolCalls: [{ name: 'web_search', arguments: { query: 'iPhone Duo 折叠屏 苹果 官方' } }] },
+    { content: '够了。', toolCalls: [] },
+  ]);
+  const followUpSearch = scriptedSearch({
+    'iPhone Duo 折叠屏 苹果 官方': [{ title: '苹果折叠屏传闻', url: 'https://f.example.com/duo', domain: 'f.example.com' }],
+  });
+  await new WebResearchAgent(followUpLlm, followUpSearch, scriptedExtractor).research({
+    question: '你查一下',
+    query: 'iphone duo',
+    settings: { ...AGENT_SETTINGS, deepRead: false },
+    recentMessages: [
+      { role: 'user', content: 'iphone duo' },
+      { role: 'assistant', content: 'iphone duo? 这什么鬼 苹果又搞新花样了？' },
+    ],
+  });
+  assert.deepStrictEqual(
+    followUpSearch.queries,
+    ['iPhone Duo 折叠屏 苹果 官方'],
+    'The query that reaches the provider is the one the planner wrote from the conversation, not the caller hint.',
+  );
+  const followUpTask = followUpLlm.seen[0].task;
+  assert.match(followUpTask, /最近的对话/, 'The planner task must carry the conversation excerpt.');
+  assert.match(followUpTask, /用户：iphone duo/, 'The excerpt must name the subject the follow-up is pointing at.');
+  assert.ok(
+    followUpTask.indexOf('最近的对话') < followUpTask.indexOf('用户的问题'),
+    'The context has to arrive before the question it explains.',
   );
 
   // A model with no native tool calling keeps the old pipeline instead of losing search.

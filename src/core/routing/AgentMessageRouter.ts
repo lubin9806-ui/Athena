@@ -7,6 +7,7 @@ import type {
 import {
   extractSearchQuery,
   isExplicitSearchRequest,
+  resolveContextualSearchTopic,
   shouldAutoSearch,
 } from '../web/WebSearchService';
 import { requiresComputerAction } from '../tools/ToolRuntime';
@@ -70,6 +71,11 @@ export class AgentMessageRouter {
 
   route(input: AgentMessageRoutingInput): AgentMessageRouteDecision {
     const message = input.message.trim();
+    // "你查一下" carries the order but not the subject; the subject is in the turn
+    // it is answering, so every query this router hands out is resolved against
+    // the history rather than against the sentence alone.
+    const searchQuery = (text: string): string =>
+      extractSearchQuery(text, resolveContextualSearchTopic(input.recentMessages));
     if (resolveDirectImageGenerationIntent(message, input.recentMessages)) {
       return decision('image_generation', input.mode, 'high', 'image-generation', false);
     }
@@ -78,12 +84,12 @@ export class AgentMessageRouter {
     }
 
     if (input.forceWebSearch && input.webSearchEnabled) {
-      return decision('web_research', input.mode, 'high', 'forced-web-search', false, extractSearchQuery(message));
+      return decision('web_research', input.mode, 'high', 'forced-web-search', false, searchQuery(message));
     }
 
     if (isDiscussionOnly(message)) {
       if (input.webSearchEnabled && isResearchRequest(message)) {
-        return decision('web_research', input.mode, 'high', 'explicit-web-research', false, extractSearchQuery(message));
+        return decision('web_research', input.mode, 'high', 'explicit-web-research', false, searchQuery(message));
       }
       return decision('conversation', input.mode, 'high', 'discussion-only', false);
     }
@@ -111,7 +117,7 @@ export class AgentMessageRouter {
       const reason = isExplicitSearchRequest(message) || isBroadResearchRequest(message)
         ? 'explicit-web-research'
         : 'fresh-information';
-      return decision('web_research', input.mode, reason === 'explicit-web-research' ? 'high' : 'medium', reason, false, extractSearchQuery(message));
+      return decision('web_research', input.mode, reason === 'explicit-web-research' ? 'high' : 'medium', reason, false, searchQuery(message));
     }
 
     return decision('conversation', input.mode, 'medium', 'ordinary-conversation', false);
@@ -201,7 +207,8 @@ function adjudicateSemanticPrediction(
 
   if (prediction.route === 'web_research') {
     if (!input.webSearchEnabled || prediction.confidence === 'low') return rulesDecision;
-    const query = normalizeSemanticQuery(prediction.query) || extractSearchQuery(input.message.trim());
+    const query = normalizeSemanticQuery(prediction.query)
+      || extractSearchQuery(input.message.trim(), resolveContextualSearchTopic(input.recentMessages));
     return {
       ...decision('web_research', input.mode, prediction.confidence === 'high' ? 'high' : 'medium', 'semantic-web-research', false, query),
       routingMethod: 'model',

@@ -422,7 +422,10 @@ export class AthenaController {
       logger.warn(`Steam AI input blocked [category=${inputGuardrail.category}]`);
       return { content, emotion: this.emotion.analyzeResponse(content) };
     }
-    const recentImageMessages = getChatWindowMessages(chatWindowId, 24).map(message => ({
+    // Read before this message is saved, so it holds the turns this one is
+    // answering. Both the image intent and the web search resolve what a
+    // subject-less command ("再画一张", "你查一下") is pointing at from here.
+    const recentTurns = getChatWindowMessages(chatWindowId, 24).map(message => ({
       role: message.role,
       content: message.content,
     }));
@@ -475,7 +478,7 @@ export class AthenaController {
     const merged = parseCreativeWorkspace(getChatWindowCreativeState(chatWindowId)).state;
     // "生成图片" on its own carries no subject, but the window may already hold the
     // description it refers to. Without this the command has nothing to draw.
-    const imageIntent = resolveDirectImageGenerationIntent(userMessage, recentImageMessages)
+    const imageIntent = resolveDirectImageGenerationIntent(userMessage, recentTurns)
       ?? (isContextualImageCommand(userMessage) && hasCreativeContent(merged)
         ? { prompt: buildCreativePrompt(merged), size: '1024x1024' as const, quality: 'low' as const }
         : null);
@@ -511,7 +514,11 @@ export class AthenaController {
       message: userMessage,
       force: options?.forceWebSearch,
       settings: settings.webSearch,
+      recentMessages: recentTurns,
     });
+    if (webPlan.inheritedTopic) {
+      logger.info(`Web search subject taken from the previous turn: queryChars=${webPlan.query.length}`);
+    }
     let webSearchContext: WebSearchContext | undefined;
 
     if (webPlan.shouldSearch && !canUseNetworkCapability('webSearch')) {
@@ -534,6 +541,7 @@ export class AthenaController {
           question: userMessage,
           query: webPlan.query,
           settings: settings.webSearch,
+          recentMessages: recentTurns,
           onStatus: options?.onWebSearchStatus,
         });
         recordDataActivity('search', 'web-research', {
