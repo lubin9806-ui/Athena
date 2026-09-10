@@ -944,33 +944,22 @@ export class AthenaController {
     }
     this.persistExtractedMemory(goal, savedUser.messageId, chatWindow.id);
     const settings = getAppSettings();
-    // A standing plan is answered before a new one is drafted, so "好" starts the
-    // task that was just described rather than being read as a fresh goal.
-    const pendingDraft = this.projectWorkspace.findPendingDraftTask(chatWindow.id);
-    let task: AgentTaskRecord;
-    if (pendingDraft) {
-      const reply = readCreativeReply(goal);
-      if (reply === 'cancel') {
-        const content = '好，这个任务就不做了。要做别的随时说。';
-        const emotion = this.emotion.analyzeResponse(content);
-        this.saveConversationMessage('assistant', content, emotion.type, 'execute', chatWindow.id);
-        this.agentStore.transitionTask(pendingDraft.id, 'cancelled', pendingDraft.revision);
-        return { content, emotion };
-      }
-      if (reply === 'confirm') {
-        task = this.projectWorkspace.markTaskReady(pendingDraft.id);
-      } else {
-        // A revision replaces the plan rather than stacking another draft on it.
-        this.agentStore.transitionTask(pendingDraft.id, 'cancelled', pendingDraft.revision);
-        task = this.draftExecutionTask(projectId, chatWindow.id, goal);
-        return this.replyWithExecutionPlan(task, chatWindow.id);
-      }
-    } else {
-      task = this.draftExecutionTask(projectId, chatWindow.id, goal);
-      return this.replyWithExecutionPlan(task, chatWindow.id);
-    }
-    // Built from the confirmed task, not from this turn's message: on confirmation
-    // that message is just "好", which would retrieve nothing useful.
+    // Execute mode used to answer the first message with a confirmation card and
+    // wait for a yes. The card claimed more than it delivered: "我理解的目标是"
+    // was the user's own sentence echoed back verbatim, the plan under it was one
+    // hardcoded English step, and "会用到的能力" listed every capability the tier
+    // grants rather than the ones the task needs. A gate that asks about nothing
+    // still costs a turn, and reads as consideration that did not happen.
+    //
+    // What keeps this mode safe is per-call approval, which is unchanged:
+    // deleting, moving, overwriting, replacing in a file, running any command,
+    // launching a program and reaching an external address all carry
+    // `approval: 'always'` and stop for an explicit yes whatever the tier is, and
+    // a running turn can be stopped (ATH-CHAT-007).
+    const staleDraft = this.projectWorkspace.findPendingDraftTask(chatWindow.id);
+    // A draft left by the old flow would otherwise sit in the window forever.
+    if (staleDraft) this.agentStore.transitionTask(staleDraft.id, 'cancelled', staleDraft.revision);
+    const task = this.startExecutionTask(projectId, chatWindow.id, goal);
     const retrievedForExecution = buildRetrievedContext(
       task.spec.goal,
       settings.memory,
@@ -1318,43 +1307,25 @@ export class AthenaController {
    * approval was granted. Consent is re-checked at every entry that continues a run
    * (AC-08, ATH-SEC-007).
    */
-  private draftExecutionTask(projectId: number, chatWindowId: number, goal: string): AgentTaskRecord {
+  /**
+   * The capability list is the run's grant, not a prediction.
+   *
+   * It is handed to the policy engine as `allowedCapabilities`, so narrowing it
+   * to what the goal appears to need would leave the agent unable to reach for a
+   * tool the goal turned out to require. Everything the tier already allows is
+   * granted here, and the per-call approvals are what actually hold the line.
+   */
+  private startExecutionTask(projectId: number, chatWindowId: number, goal: string): AgentTaskRecord {
     return this.projectWorkspace.createTask({
       projectId,
       chatWindowId,
       goal,
-      keepDraft: true,
       capabilities: this.agentTools.list().map(tool => ({
         id: tool.capability,
         access: capabilityAccess(tool.capability),
         reason: `${tool.label} is available under the current execute-mode permission tier`,
       })),
     });
-  }
-
-  /**
-   * Describes the task before running it: the goal as understood, the plan, the
-   * capabilities it would use, and anything still open. Nothing executes until the
-   * user answers (ATH-CHAT-004).
-   */
-  private replyWithExecutionPlan(task: AgentTaskRecord, chatWindowId: number): ChatResponse {
-    const capabilities = Array.from(new Set(task.spec.requiredCapabilities.map(item => item.id))).slice(0, 8);
-    const lines = [`我理解的目标是：${task.spec.goal}`];
-    if (task.spec.plan.length > 0) {
-      lines.push(`打算这样做：${task.spec.plan.map(step => step.title).join(' → ')}`);
-    }
-    if (capabilities.length > 0) {
-      lines.push(`会用到的能力：${capabilities.join('、')}（高风险操作仍会逐次征求你同意）`);
-    }
-    if (task.spec.openQuestions.length > 0) {
-      lines.push(`还需要你定：${task.spec.openQuestions.slice(0, 4).join('、')}`);
-    }
-    lines.push('没问题就说一声，我开始做；要调整直接说。');
-    const content = lines.join('\n');
-    const emotion = this.emotion.analyzeResponse(content);
-    this.saveConversationMessage('assistant', content, emotion.type, 'execute', chatWindowId);
-    logger.info(`Execution plan awaiting confirmation [task=${task.id}, capabilities=${capabilities.length}, openQuestions=${task.spec.openQuestions.length}]`);
-    return { content, emotion };
   }
 
   private assertAgentRunMayContinue(): void {

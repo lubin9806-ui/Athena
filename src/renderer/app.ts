@@ -3079,9 +3079,16 @@ function renderAgentApprovals(snapshot: AgentRunSnapshot | null): void {
   agentApprovalList.replaceChildren(item);
 }
 
+/** Matches the single hardcoded step in ProjectWorkspaceService.createTask. */
+const PLACEHOLDER_PLAN_STEP_ID = 'execute-agreed-goal';
+
 function renderAgentPlan(task: AgentTaskRecord | null, snapshot: AgentRunSnapshot | null): void {
   const items: HTMLElement[] = [];
   for (const step of task?.spec.plan || []) {
+    // Every task carries the same placeholder step - no planning runs before the
+    // agent starts - so showing it puts one line of English in front of the real
+    // steps and says nothing (ATH-CHAT-007).
+    if (step.id === PLACEHOLDER_PLAN_STEP_ID) continue;
     items.push(createAgentDetailItem(step.title, step.successCriteria.join(' · ')));
   }
   for (const step of snapshot?.steps || []) {

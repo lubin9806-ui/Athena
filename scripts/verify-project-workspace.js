@@ -145,25 +145,34 @@ try {
   assert.match(htmlSource, /id="agent-run-resume"/);
   assert.match(ipcSource, /resolveAgentApprovalGroup\(projectId, runId/);
 
-  // ATH-CHAT-004: an execution request is described before it runs, so the task is
-  // created as a draft and only becomes runnable once the user agrees.
-  const draft = workspace.createTask({
+  // ATH-CHAT-007: execute mode no longer asks first. The card it used to show was
+  // a gate that asked about nothing - the goal was echoed back word for word and
+  // the plan under it was one hardcoded step - so a task built the way the
+  // controller now builds it has to be runnable straight away.
+  const immediate = workspace.createTask({
     projectId: projectA.id,
     chatWindowId: windowA.id,
     goal: '把桌面上的图片整理到海报文件夹。',
+    capabilities: [{ id: 'computer.files', access: 'write', reason: 'Move files' }],
+  });
+  assert.equal(immediate.status, 'ready', 'execute mode must not park the task behind a confirmation');
+  assert.equal(workspace.findPendingDraftTask(windowA.id), null, 'running directly leaves nothing pending');
+
+  // The draft API stays for the migration path: a database written by the old
+  // flow can still hold a pending draft, and the controller cancels it on the
+  // next execute message rather than leaving it in the window forever.
+  const legacyDraft = workspace.createTask({
+    projectId: projectA.id,
+    chatWindowId: windowA.id,
+    goal: '旧流程留下的待确认任务。',
     keepDraft: true,
     capabilities: [{ id: 'computer.files', access: 'write', reason: 'Move files' }],
   });
-  assert.equal(draft.status, 'draft', 'a plan awaiting confirmation must not be runnable');
-  assert.equal(workspace.findPendingDraftTask(windowA.id).id, draft.id);
+  assert.equal(legacyDraft.status, 'draft');
+  assert.equal(workspace.findPendingDraftTask(windowA.id).id, legacyDraft.id, 'a stale draft must be findable to be cleaned up');
   assert.equal(workspace.findPendingDraftTask(windowB.id), null, 'drafts do not leak across windows');
 
-  const promoted = workspace.markTaskReady(draft.id);
-  assert.equal(promoted.status, 'ready');
-  assert.equal(workspace.findPendingDraftTask(windowA.id), null, 'a confirmed plan is no longer pending');
-  assert.equal(workspace.markTaskReady(promoted.id).status, 'ready', 'promoting twice is a no-op');
-
-  console.log(`ATHENA_PROJECT_WORKSPACE_OK projects=2 tasks=${alpha.tasks.length} approvals=${alpha.selectedRun.approvals.length} revision=${metadata.revision} isolation=project-scoped confirm=before-running`);
+  console.log(`ATHENA_PROJECT_WORKSPACE_OK projects=2 tasks=${alpha.tasks.length} approvals=${alpha.selectedRun.approvals.length} revision=${metadata.revision} isolation=project-scoped execute=runs-immediately approvals=per-call`);
 } catch (error) {
   exitCode = 1;
   console.error(error && error.stack ? error.stack : error);
