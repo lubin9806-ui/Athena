@@ -742,6 +742,17 @@ function createWindow(): void {
                 && imageSimpleSetup instanceof HTMLElement
                 && imageLocalAdvanced instanceof HTMLDetailsElement
                 && imageLocalAdvanced.open === false;
+             // Every settings path Athena tells the user to go to must name a
+             // section that is actually in this panel. A path that is nearly
+             // right is worse than none - it sends someone hunting through
+             // twelve sections for a heading that does not exist (ATH-CHAT-006).
+             const settingsHeadings = Array.from(document.querySelectorAll('.settings-heading'))
+               .map(node => (node.textContent || '').trim());
+             const advertisedSections = ['执行与权限', '图像生成', '联网搜索', '语音', '模型', '记忆', '隐私与数据'];
+             const settingsPathsResolve = advertisedSections.every(section => (
+               settingsHeadings.some(heading => heading === section || heading.startsWith(section + '（'))
+             ));
+
              // Turning read-aloud off has to take the controls under it with it.
              // The preview button used to stay live and fail at the IPC boundary,
              // in a panel that says right above it that the voice components are
@@ -765,7 +776,7 @@ function createWindow(): void {
                api.routeMessage('请生成一张夜空中的未来城市图片', mode)
              )));
              const directImageRoutingReady = imageRouteResults.every(result => result?.route === 'image_generation');
-             if (!modelProviderTruthful || !firstRunModelChoicesReady || !firstRunPathReactive || !toolPermissionControlsReady || !imageGenerationControlsReady || !directImageRoutingReady || !ttsMasterSwitchReactive) return false;
+             if (!modelProviderTruthful || !firstRunModelChoicesReady || !firstRunPathReactive || !toolPermissionControlsReady || !imageGenerationControlsReady || !directImageRoutingReady || !ttsMasterSwitchReactive || !settingsPathsResolve) return false;
              await new Promise(resolve => setTimeout(resolve, 90));
              composerMoreButton.click();
              const webSearchNeedsConsent = webSearchButton.disabled && /同意/.test(webSearchButton.title || '');
@@ -1089,6 +1100,7 @@ function createWindow(): void {
                 firstRunPathReactive,
                 imageGenerationControlsReady,
                 ttsMasterSwitchReactive,
+                settingsPathsResolve,
                 directImageRoutingReady,
                 newChatImmediateReactive,
                 newChatAutoTitleReactive,

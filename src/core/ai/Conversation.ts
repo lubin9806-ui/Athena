@@ -6,6 +6,7 @@ import type { ContextSnapshotPayload } from './ContextManager';
 import { EmotionEngine } from './Emotion';
 import { ToolRuntime } from '../tools/ToolRuntime';
 import { toolPermissionPrompt } from '../tools/ComputerTools';
+import { settingsLocationPrompt } from '../config/SettingsLocations';
 import { saveContextSnapshot } from '../../memory';
 import { shouldSaveHistory } from '../config/SettingsStore';
 import { createLogger } from '../../engine/Logger';
@@ -92,7 +93,10 @@ export class Conversation {
       recentMessages,
       retrievedContext,
       webSearchContext,
-      toolContext: toolPermissionPrompt(toolSettings),
+      // The settings map rides with the tool section because that is the one
+      // that makes Athena talk about switches at all; without it she names a
+      // setting and leaves the user to hunt for it (ATH-CHAT-006).
+      toolContext: `${toolPermissionPrompt(toolSettings)}\n\n${settingsLocationPrompt()}`,
       mode,
       maxPromptTokens,
     });

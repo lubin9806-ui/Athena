@@ -5,6 +5,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { canRouteModelRequest } from '../ai/ModelNetworkPolicy';
 import { TOOL_PERMISSION_RANK } from '../config/SettingsStore';
+import { SETTINGS_LOCATIONS } from '../config/SettingsLocations';
 import {
   ModelCreativeSectionExtractor,
   buildCreativePrompt,
@@ -640,8 +641,8 @@ export class AthenaController {
     }
     if (!this.imageRouter.isAvailable()) {
       return reply(this.imageRouter.isNetworkProvider()
-        ? `“${descriptor.label}”还没有连接好。打开设置 → 图像生成，粘贴该平台的 API Key 后保存即可。`
-        : '本地生图还差一步。打开设置 → 图像生成，先点“自动检测”；Athena 会告诉你是直接可用，还是需要安装引擎或选择模型。');
+        ? `“${descriptor.label}”还没有连接好。打开${SETTINGS_LOCATIONS.imageGeneration}，粘贴该平台的 API Key 后保存即可。`
+        : `本地生图还差一步。打开${SETTINGS_LOCATIONS.imageGeneration}，先点“自动检测”；Athena 会告诉你是直接可用，还是需要安装引擎或选择模型。`);
     }
     if (this.imageRouter.isNetworkProvider()) {
       options?.onToolStatus?.({ phase: 'confirming', message: `等待确认：${descriptor.label} 生图`, toolName: 'generate_image', toolLabel: descriptor.label });

@@ -1,3 +1,4 @@
+import { SETTINGS_LOCATIONS } from '../config/SettingsLocations';
 import type { ToolPermissionLevel, ToolSettings } from '../../shared/types';
 
 export interface ComputerToolDefinition {
@@ -182,7 +183,16 @@ export function permissionLabel(level: ToolPermissionLevel): string {
 export function toolPermissionPrompt(settings: ToolSettings): string {
   const label = permissionLabel(settings.permissionLevel);
   if (settings.permissionLevel === 'off') {
-    return '## 本机工具权限\n- 当前为“关闭”。不得声称读取、写入、启动或访问了本机资源。';
+    return [
+      '## 本机工具权限',
+      '- 当前为“关闭”。不得声称读取、写入、启动或访问了本机资源。',
+      // Told only that "tools" were off, the model generalised it to every
+      // capability and told the user that image generation was blocked by this
+      // switch - which it is not - then sent them to find the wrong setting
+      // (ATH-CHAT-006).
+      '- **这一档只管本机文件与命令。**生图、联网搜索、语音各有自己的开关，与它无关。不要说“工具权限关着所以不能生图”这类把它们绑在一起的话。',
+      `- 需要用户打开它时，说明位置：${SETTINGS_LOCATIONS.toolPermission}。`,
+    ].join('\n');
   }
   const capabilities = settings.permissionLevel === 'read'
     ? '可以读取、列出和搜索当前 Windows 账户可访问的任意文件，但不能写入。'
