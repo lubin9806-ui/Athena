@@ -4,7 +4,7 @@ import * as path from 'path';
 import { getAppSettings, saveSettingsBundle } from '../config/SettingsStore';
 import { canUseNetworkCapability } from '../privacy/PrivacyDataService';
 import { createChatWindow, getChatWindow, getChatWindowMessages, listChatWindows, saveChatMessage } from '../../memory';
-import { listMemories } from '../../memory/admin';
+import { listMemories, upsertSyncedMemory } from '../../memory/admin';
 import type { CloudAccountSettings, CloudSessionStatus } from '../../shared/types/cloud';
 import { CloudProtocol, CloudProtocolError } from './CloudProtocol';
 import {
@@ -123,7 +123,29 @@ export async function syncCloudAccountNow(): Promise<CloudSessionStatus> {
     if (!isRecord(record) || record.deleted === true) continue;
     const resourceId = String(record.resourceId || '');
     const payload = isRecord(record.payload) ? record.payload : null;
-    if (!payload || !resourceId.startsWith('conversation.')) continue;
+    if (!payload) continue;
+
+    // Memories written elsewhere become real memories here. Until now the loop
+    // skipped every record that was not a conversation, so a memory noted on
+    // the phone reached the account and stopped there.
+    if (resourceId.startsWith('memory.')) {
+      if (ownsMemoryResource(resourceId)) continue;
+      const applied = upsertSyncedMemory(
+        {
+          kind: String(payload.kind || ''),
+          title: String(payload.title || ''),
+          content: String(payload.content || ''),
+          importance: typeof payload.importance === 'number' ? payload.importance : undefined,
+        },
+        imported[resourceId],
+      );
+      // The local row id is remembered, so a later edit of the same record
+      // updates that memory instead of adding a second copy of it.
+      if (applied) imported[resourceId] = applied.id;
+      continue;
+    }
+
+    if (!resourceId.startsWith('conversation.')) continue;
 
     // A conversation is one thing both clients edit, not a copy each keeps. A
     // record already adopted here is merged into the window it belongs to;
@@ -222,6 +244,14 @@ async function pushLocalState(client: CloudProtocol, imported: Record<string, nu
       `这些对话在别的设备上也改过，需要先决定保留哪一边：${conflicted.slice(0, 3).join('、')}`,
     );
   }
+}
+
+/**
+ * Records this desktop writes for its own memories come back on the feed.
+ * Applying them would import a copy of every local memory on every sync.
+ */
+function ownsMemoryResource(resourceId: string): boolean {
+  return /^memory\.desktop-/.test(resourceId);
 }
 
 /** Whether this resource is one this desktop writes for a window of its own. */

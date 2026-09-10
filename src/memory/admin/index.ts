@@ -48,6 +48,13 @@ export interface MemoryUpdatePatch {
   confidence?: number;
 }
 
+export interface SyncedMemoryInput {
+  kind: string;
+  title: string;
+  content: string;
+  importance?: number;
+}
+
 export interface MemoryImportCandidate {
   id: number;
   content: string;
@@ -233,6 +240,77 @@ export function updateMemory(kind: MemoryKind, id: number, patch: MemoryUpdatePa
   }
 
   return false;
+}
+
+/**
+ * Applies a memory record received from another signed-in device. Cloud sync is
+ * already an explicit opt-in boundary, so received records become real memories
+ * rather than an invisible side table. Unknown/message kinds stay closed: chat
+ * messages travel only through the separately filtered conversation protocol.
+ */
+export function upsertSyncedMemory(input: SyncedMemoryInput, existingId?: number): { kind: MemoryKind; id: number } | null {
+  const kind = syncedMemoryKind(input.kind);
+  const title = normalizeQuery(input.title).slice(0, 200);
+  const content = normalizeQuery(input.content).slice(0, 4_000);
+  if (!kind || !content) return null;
+  const importance = clampImportance(input.importance ?? 5);
+  if (existingId && updateMemory(kind, existingId, { title, content, importance })) {
+    return { kind, id: existingId };
+  }
+
+  const db = getDatabase();
+  let id = 0;
+  if (kind === 'profile') {
+    const category = ['identity', 'preference', 'habit', 'project', 'health'].includes(title) ? title : 'preference';
+    const result = db.prepare(`INSERT INTO profile (category, fact, confidence, source, importance) VALUES (?, ?, 0.7, 'cloud-sync', ?)`)
+      .run(category, content, importance);
+    id = Number(result.lastInsertRowid);
+    upsertMemoryIndex('profile', id, `${category} ${content} cloud-sync`);
+  } else if (kind === 'event') {
+    const summary = title || content.slice(0, 80);
+    const result = db.prepare(`INSERT INTO events (date, summary, detail, tags, importance) VALUES (?, ?, ?, ?, ?)`)
+      .run(new Date().toISOString().slice(0, 10), summary, content, JSON.stringify(['cloud-sync']), importance);
+    id = Number(result.lastInsertRowid);
+    upsertMemoryIndex('events', id, `${summary} ${content} cloud-sync`);
+  } else if (kind === 'procedure') {
+    const key = title || `cloud-${Date.now()}`;
+    const result = db.prepare(`INSERT INTO procedural_memories (scope, key, instruction, evidence, confidence, importance) VALUES ('global', ?, ?, 'cloud-sync', 0.7, ?)`)
+      .run(key, content, importance);
+    id = Number(result.lastInsertRowid);
+    upsertMemoryIndex('procedural_memories', id, `${key} ${content} cloud-sync`);
+  } else if (kind === 'fact') {
+    const [subjectValue, predicateValue] = title.split('/').map(value => value.trim());
+    const subject = subjectValue || '同步记忆';
+    const predicate = predicateValue || '记录';
+    const result = db.prepare(`INSERT INTO memory_facts (subject, predicate, object, summary, confidence, importance) VALUES (?, ?, ?, ?, 0.7, ?)`)
+      .run(subject, predicate, content, content, importance);
+    id = Number(result.lastInsertRowid);
+    upsertMemoryIndex('memory_facts', id, `${subject} ${predicate} ${content}`);
+  } else if (kind === 'daily') {
+    const date = /^\d{4}-\d{2}-\d{2}$/.test(title) ? title : new Date().toISOString().slice(0, 10);
+    db.prepare(`
+      INSERT INTO daily_memory_summaries (date, summary, highlights, importance)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(date) DO UPDATE SET summary=excluded.summary, importance=excluded.importance, updated_at=datetime('now', 'localtime')
+    `).run(date, content, JSON.stringify(['cloud-sync']), importance);
+    id = Number((db.prepare('SELECT id FROM daily_memory_summaries WHERE date = ?').get(date) as { id: number }).id);
+    upsertMemoryIndex('daily_memory_summaries', id, `${date} ${content} cloud-sync`);
+  } else if (kind === 'project') {
+    const [projectValue, titleValue] = title.split('/').map(value => value.trim());
+    const project = projectValue || 'Cloud';
+    const noteTitle = titleValue || title || '同步记录';
+    const result = db.prepare(`INSERT INTO project_notes (project, title, note, status, tags, importance) VALUES (?, ?, ?, 'active', ?, ?)`)
+      .run(project, noteTitle, content, JSON.stringify(['cloud-sync']), importance);
+    id = Number(result.lastInsertRowid);
+    upsertMemoryIndex('project_notes', id, `${project} ${noteTitle} ${content} cloud-sync`);
+  }
+  return id > 0 ? { kind, id } : null;
+}
+
+function syncedMemoryKind(value: string): Exclude<MemoryKind, 'message'> | null {
+  return value === 'profile' || value === 'procedure' || value === 'fact' || value === 'event' || value === 'daily' || value === 'project'
+    ? value
+    : null;
 }
 
 export function previewChatRecordImport(sourcePath: string, contentMode: MemoryImportContentMode = 'normal'): MemoryImportPreview {
