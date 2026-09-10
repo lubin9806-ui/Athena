@@ -99,6 +99,7 @@ const CONTROLLER_WARMUP_DELAY_MS = 1_500;
 const INVOKE_CHANNELS = [
   'chat:route',
   'chat:send',
+  'chat:cancel',
   'creative:state',
   'attachment:chooseImages',
   'attachment:chooseFiles',
@@ -653,6 +654,14 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<vo
   });
 
   ipcMain.handle('execution:cancel', async (event) => {
+    if (!isTrustedSender(event)) return false;
+    return controller.cancelCurrentExecution() > 0;
+  });
+
+  // Stopping a turn is the same operation whether it is answering or running
+  // tools: a chat turn is a tool run that happened not to call any tool. The
+  // partial answer already streamed to the renderer is kept.
+  ipcMain.handle('chat:cancel', async (event) => {
     if (!isTrustedSender(event)) return false;
     return controller.cancelCurrentExecution() > 0;
   });

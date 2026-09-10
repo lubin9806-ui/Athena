@@ -53,6 +53,10 @@ export interface ChatAttachmentSnapshot {
   preview_data_url?: string;
 }
 
+/** 陪伴 / 创作 / 推理 share one transcript; 执行 has its own surface. */
+const CHAT_MODE_ASSISTANT_SELECTOR =
+  '.message.assistant[data-mode="create"], .message.assistant[data-mode="companion"], .message.assistant[data-mode="reason"]';
+
 export class ChatPanel {
   private streamingMessage: HTMLDivElement | null = null;
   private lastAssistantMessage: HTMLDivElement | null = null;
@@ -75,7 +79,10 @@ export class ChatPanel {
     this.container.dataset.activeMode = mode;
     delete this.container.dataset.streaming;
     this.streamingMessage = null;
-    const messages = this.container.querySelectorAll<HTMLDivElement>(`.message.assistant[data-mode="${mode}"]`);
+    // The three chat modes share one visible transcript, so the reply that
+    // follow-ups attach to is the last one on screen -- not the last one that
+    // happened to be produced in the mode now selected.
+    const messages = this.container.querySelectorAll<HTMLDivElement>(CHAT_MODE_ASSISTANT_SELECTOR);
     this.lastAssistantMessage = messages.length > 0 ? messages.item(messages.length - 1) : null;
     this.lastAssistantContent = this.lastAssistantMessage?.dataset.rawContent || '';
     this.scrollToBottom();

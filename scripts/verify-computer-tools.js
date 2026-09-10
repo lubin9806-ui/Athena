@@ -599,6 +599,58 @@ async function verifyNoFakeProgressAndCancellation() {
   await assert.rejects(fs.stat(path.join(scratch, 'cancel-should-not-exist')));
   cancelRuntime.shutdown();
 
+  // Stopping a plain chat turn has to reach the model call itself, not just the
+  // loop around it: the answer is one long streaming call, so a stop that only
+  // takes effect between steps would not land until the whole reply had arrived.
+  const streamSleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+  let streamedChunks = 0;
+  let sawSignal = false;
+  const streamingLlm = {
+    contextWindow: 4096,
+    chatJson: async () => { throw new Error('a plain chat turn must not run the planner'); },
+    chat: async (messages, onStream, mode, overrides, signal) => {
+      sawSignal = Boolean(signal);
+      let text = '';
+      for (let index = 1; index <= 200; index += 1) {
+        if (signal?.aborted) {
+          const aborted = new Error('The operation was aborted');
+          aborted.name = 'AbortError';
+          throw aborted;
+        }
+        const chunk = `片段${index} `;
+        text += chunk;
+        streamedChunks += 1;
+        onStream?.(chunk);
+        await streamSleep(15);
+      }
+      return text;
+    },
+  };
+  const streamingRuntime = new ToolRuntime(streamingLlm);
+  streamingRuntime.setPermissionLevel('off');
+  let streamedSoFar = '';
+  const streamingRun = streamingRuntime.process({
+    messages: [{ role: 'system', content: 'test' }, { role: 'user', content: '陪我聊两句' }],
+    userMessage: '陪我聊两句',
+    mode: 'companion',
+    settings: settings('off'),
+    onStream: chunk => { streamedSoFar += chunk; },
+  });
+  while (streamedChunks < 3) await streamSleep(10);
+  const chunksAtStop = streamedChunks;
+  const stoppedAt = Date.now();
+  assert.equal(streamingRuntime.cancelCurrent(), 1, 'a plain chat turn must be cancellable');
+  await assert.rejects(streamingRun, /abort/i, 'the stopped turn must not resolve as a finished answer');
+  const stopLatency = Date.now() - stoppedAt;
+  assert(sawSignal, 'the run signal must reach the model call');
+  assert(streamedSoFar.length > 0, 'the text streamed before the stop is the answer and must survive');
+  assert(
+    streamedChunks < chunksAtStop + 4,
+    `the stop must land mid-answer, not after it (${chunksAtStop} -> ${streamedChunks} chunks)`,
+  );
+  assert(stopLatency < 2000, `stopping must be immediate, took ${stopLatency}ms`);
+  streamingRuntime.shutdown();
+
   await fs.mkdir(scratch, { recursive: true });
   const confirmationTarget = path.join(scratch, 'confirmation-must-preserve.txt');
   await fs.writeFile(confirmationTarget, 'preserve', 'utf8');

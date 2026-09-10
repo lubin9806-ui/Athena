@@ -41,6 +41,7 @@ contextBridge.exposeInMainWorld('athenaAPI', {
   unpinChatWindowFact: (id: number, factId: string) => ipcRenderer.invoke('chatWindow:unpinFact', id, factId),
   getChatWindowContextSnapshots: (id: number, limit = 5) => ipcRenderer.invoke('chatWindow:contextSnapshots', id, limit),
   cancelExecution: () => ipcRenderer.invoke('execution:cancel'),
+  cancelChat: () => ipcRenderer.invoke('chat:cancel'),
   getAgentWorkspace: (projectId: number, taskId?: string) => ipcRenderer.invoke('agentWorkspace:get', projectId, taskId),
   openAgentArtifact: (projectId: number, artifactId: string) => ipcRenderer.invoke('agentArtifact:open', { projectId, artifactId }),
   updateAgentWorkspace: (projectId: number, value: unknown) => ipcRenderer.invoke('agentWorkspace:update', projectId, value),

@@ -1,4 +1,6 @@
 export class InputBar {
+  private busy = false;
+
   constructor(
     private readonly form: HTMLFormElement,
     private readonly input: HTMLTextAreaElement,
@@ -9,10 +11,38 @@ export class InputBar {
     this.form.addEventListener('submit', (event) => {
       event.preventDefault();
       const value = this.input.value.trim();
+      // While a turn is in flight the control is a stop button, and Enter must
+      // leave the draft alone: clearing here would swallow what was typed during
+      // the answer, since the send itself is refused further down.
+      if (this.busy) return;
       if ((!value && !canSubmitEmpty()) || this.input.disabled || this.button.disabled) return;
 
       this.clear();
       void handler(value);
+    });
+  }
+
+  /**
+   * Turns the send control into a stop control for the duration of a turn. The
+   * composer itself stays live, so a reply can be read and the next message
+   * drafted at the same time.
+   */
+  setBusy(busy: boolean): void {
+    this.busy = busy;
+    this.button.dataset.busy = String(busy);
+    this.button.type = busy ? 'button' : 'submit';
+    this.button.title = busy ? '停止生成' : '发送';
+    this.button.setAttribute('aria-label', busy ? '停止生成' : '发送');
+    if (busy) this.button.disabled = false;
+  }
+
+  isBusy(): boolean {
+    return this.busy;
+  }
+
+  onStop(handler: () => void): void {
+    this.button.addEventListener('click', () => {
+      if (this.busy) handler();
     });
   }
 

@@ -134,6 +134,7 @@ declare global {
       unpinChatWindowFact: (id: number, factId: string) => Promise<ChatWindowRecord | null>;
       getChatWindowContextSnapshots: (id: number, limit?: number) => Promise<ContextSnapshotRecord[]>;
       cancelExecution: () => Promise<boolean>;
+      cancelChat: () => Promise<boolean>;
       getAgentWorkspace: (projectId: number, taskId?: string) => Promise<AgentProjectWorkspaceSnapshot | null>;
       openAgentArtifact: (projectId: number, artifactId: string) => Promise<boolean>;
       updateAgentWorkspace: (projectId: number, value: {
@@ -1519,6 +1520,9 @@ const TEMPORARY_CHAT_META = '临时聊天：不写入长期记忆';
 const NEW_CHAT_TITLE = '新对话';
 
 let isStreaming = false;
+// Set the moment a stop is asked for, so a second click cannot fire a second
+// cancel and so the arriving failure is read as "the user stopped this".
+let chatStopRequested = false;
 // Held from the moment a send is accepted until the request settles. isStreaming
 // only goes up after the routing preflight resolves, so without this the preflight
 // await is a window in which the user can switch windows or submit again.
@@ -1652,9 +1656,15 @@ function setMode(mode: AthenaMode): void {
   }
 }
 
+/**
+ * A turn in flight no longer freezes the whole switch. 陪伴 / 创作 / 推理 share one
+ * transcript, so moving between them while an answer streams changes how the next
+ * reply is written, not which conversation is on screen. 执行 is a separate surface
+ * with its own run, so it stays out of reach until the current turn settles.
+ */
 function setModeSwitchDisabled(disabled: boolean): void {
-  document.querySelectorAll<HTMLButtonElement>('.mode-btn, .space-btn').forEach((button) => {
-    button.disabled = disabled;
+  document.querySelectorAll<HTMLButtonElement>('.mode-btn').forEach((button) => {
+    button.disabled = disabled && button.dataset.mode === 'execute';
   });
 }
 
@@ -1690,7 +1700,8 @@ function spaceForMode(mode: AthenaMode): AthenaSpace {
 }
 
 async function selectMode(mode: AthenaMode): Promise<void> {
-  if (mode === currentMode || isStreaming) return;
+  if (mode === currentMode) return;
+  if (mode === 'execute' && isChatRequestBusy() && activeRequestMode !== 'execute') return;
   setMode(mode);
   toggleComposerTools(false);
   if (currentSettingsBundle) {
@@ -1780,7 +1791,7 @@ async function sendAvatarInteraction(prompt: string, hotZoneId: string): Promise
   currentContent = '';
   streamingReadTurn = false;
   setStatus('Athena 正在回应互动', 'working');
-  inputBar.setDisabled(true);
+  inputBar.setBusy(true);
   syncVoiceControls();
   await dispatchLive2dEvent({ type: 'chat.thinking.start' });
 
@@ -1805,7 +1816,8 @@ async function sendAvatarInteraction(prompt: string, hotZoneId: string): Promise
   } finally {
     activeRequestMode = null;
     isStreaming = false;
-    inputBar.setDisabled(false);
+    chatStopRequested = false;
+    inputBar.setBusy(false);
     syncVoiceControls();
     restoreIdleStatus();
     if (currentSettingsBundle?.settings.voice.autoPlayAssistant) void speakLastAssistantMessage();
@@ -1819,6 +1831,26 @@ async function sendAvatarInteraction(prompt: string, hotZoneId: string): Promise
 // otherwise a request can be persisted against a window the user already left.
 function isChatRequestBusy(): boolean {
   return isStreaming || isRequestPending;
+}
+
+/**
+ * Stops the answer that is arriving and keeps what it already said.
+ *
+ * The abort happens in the main process, where it reaches the live model request
+ * rather than only the loop around it, so the stop takes effect mid-sentence
+ * instead of after the current step finishes.
+ */
+async function stopCurrentTurn(): Promise<void> {
+  if (!isChatRequestBusy() || chatStopRequested) return;
+  chatStopRequested = true;
+  setStatus('正在停止', 'working');
+  try {
+    const accepted = await window.athenaAPI.cancelChat();
+    if (!accepted) chatStopRequested = false;
+  } catch (error) {
+    chatStopRequested = false;
+    console.error('Failed to stop the current turn', error);
+  }
 }
 
 // Messages Athena produced on her own arrive whenever they come due, including
@@ -1904,7 +1936,7 @@ async function sendMessage(text: string): Promise<void> {
   void dispatchLive2dEvent({ type: 'chat.thinking.start' });
   renderChatWindowPicker();
   setModeSwitchDisabled(true);
-  inputBar.setDisabled(true);
+  inputBar.setBusy(true);
   syncVoiceControls();
   syncWebSearchControl();
   currentContent = '';
@@ -1981,17 +2013,21 @@ async function sendMessage(text: string): Promise<void> {
       await reconcileQueuedAttachments(requestChatWindowId, queuedAttachments);
     }
     await titleUpdate;
+    // Reading a half-finished answer out loud is the opposite of what stopping
+    // asked for, so a stopped turn skips the auto-play below.
+    const stopped = chatStopRequested;
     pendingExecutionGoal = '';
     activeRequestMode = null;
     isStreaming = false;
     isRequestPending = false;
+    chatStopRequested = false;
     setModeSwitchDisabled(false);
-    inputBar.setDisabled(false);
+    inputBar.setBusy(false);
     syncVoiceControls();
     syncWebSearchControl();
     inputBar.focus();
     restoreIdleStatus();
-    if ((requestMode !== 'execute' || directImageGeneration) && currentSettingsBundle?.settings.voice.autoPlayAssistant) {
+    if ((requestMode !== 'execute' || directImageGeneration) && !stopped && currentSettingsBundle?.settings.voice.autoPlayAssistant) {
       // Streaming already read this reply as it arrived; the reader resumes
       // listening itself once it has finished speaking. Reading it again here
       // would repeat the whole answer.
@@ -2056,6 +2092,7 @@ function init(): void {
   }
   void initializeSettings();
   inputBar.onSubmit(sendMessage, () => currentPendingAttachments().length > 0);
+  inputBar.onStop(() => void stopCurrentTurn());
   startDropZone();
   projectSelect.addEventListener('change', () => {
     const id = Number(projectSelect.value);
@@ -2103,7 +2140,11 @@ function init(): void {
   document.querySelectorAll<HTMLButtonElement>('.space-btn').forEach((button) => {
     button.addEventListener('click', () => {
       const nextSpace = button.dataset.space as AthenaSpace | undefined;
-      if (nextSpace) void selectMode(nextSpace === 'companion' ? 'companion' : currentWorkMode);
+      if (!nextSpace) return;
+      // Entering the work space mid-turn lands on a chat mode rather than on 执行,
+      // which cannot accept a second run while this one is still arriving.
+      const workMode = currentWorkMode === 'execute' && isChatRequestBusy() ? 'create' : currentWorkMode;
+      void selectMode(nextSpace === 'companion' ? 'companion' : workMode);
     });
   });
   modeSwitch.addEventListener('keydown', handleModeSwitchKeydown);
@@ -2442,8 +2483,19 @@ function init(): void {
   window.athenaAPI.onChatError((failure) => {
     const { message, kind } = failure;
     isStreaming = false;
-    inputBar.setDisabled(false);
+    inputBar.setBusy(false);
     syncVoiceControls();
+    // Stopping is not a failure. Whatever already streamed is the answer, so it
+    // is kept and closed out instead of being followed by an error bubble.
+    if (kind === 'cancelled') {
+      // Stopping the answer stops the reading of it too.
+      stopCurrentAudio();
+      if (activeRequestMode === 'execute') failActiveExecutionTask(message);
+      else if (currentContent) chatPanel.finalizeStreaming();
+      else chatPanel.addMessage('好，这条先停在这儿。', 'assistant', '已停止');
+      void dispatchLive2dEvent({ type: 'app.ready' });
+      return;
+    }
     // Only an unreachable or rejected service means the model is actually down. A
     // timeout, a stop, or a malformed reply is one bad turn against a service that
     // is still there, and marking those "offline" — next to a message about a
@@ -6036,7 +6088,9 @@ function syncWebSearchControl(): void {
   const enabled = (settings?.enabled ?? true) && consented;
   if (!enabled) forceWebSearchForNextMessage = false;
 
-  webSearchBtn.disabled = !enabled || isStreaming || isVoiceInputBusy();
+  // The toggle arms the *next* message, so an answer still arriving is no reason
+  // to hold it shut.
+  webSearchBtn.disabled = !enabled || isVoiceInputBusy();
   webSearchBtn.setAttribute('aria-pressed', String(forceWebSearchForNextMessage));
   webSearchBtn.dataset.active = String(forceWebSearchForNextMessage);
 
@@ -6732,7 +6786,8 @@ function syncVoiceControls(): void {
   // would otherwise open and say "listening" at a microphone that cannot hear.
   voiceSessionBtn.disabled = voiceSessionOpen || !canOpenVoiceSession();
   voiceSessionBtn.dataset.enabled = String(canOpenVoiceSession());
-  inputBar.setSendDisabled(isStreaming || busy);
+  // While a turn streams this control is the stop button, so it has to stay live.
+  inputBar.setSendDisabled(!isStreaming && busy);
   syncWebSearchControl();
 }
 

@@ -43,6 +43,9 @@
       <path d="m5 12 13-7-4 14-2.7-5.3L5 12Z" />
       <path d="m11.3 13.7 3.5-3.5" />
     </symbol>
+    <symbol id="icon-stop" viewBox="0 0 24 24">
+      <rect x="7" y="7" width="10" height="10" rx="2.2" />
+    </symbol>
     <symbol id="icon-globe" viewBox="0 0 24 24">
       <circle cx="12" cy="12" r="9" />
       <path d="M3.5 9h17M3.5 15h17M12 3c2.3 2.5 3.5 5.5 3.5 9S14.3 18.5 12 21c-2.3-2.5-3.5-5.5-3.5-9S9.7 5.5 12 3Z" />
@@ -1351,8 +1354,9 @@
           <svg class="icon"><use href="#icon-mic"></use></svg>
           <span id="voice-stt-label" aria-hidden="true"></span>
         </button>
-        <button id="send-btn" type="submit" title="发送" aria-label="发送">
-          <svg class="icon"><use href="#icon-send"></use></svg>
+        <button id="send-btn" type="submit" title="发送" aria-label="发送" data-busy="false">
+          <svg class="icon send-glyph"><use href="#icon-send"></use></svg>
+          <svg class="icon stop-glyph"><use href="#icon-stop"></use></svg>
         </button>
       </div>
       <div id="composer-meta">

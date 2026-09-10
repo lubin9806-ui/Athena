@@ -559,9 +559,9 @@ summary:focus-visible {
   transition: opacity var(--motion-standard) ease, transform var(--motion-standard) var(--ease-spring);
 }
 
-#app-shell[data-mode="create"] #stage:has(#chat-container .message[data-mode="create"]) #presence-panel,
-#app-shell[data-mode="companion"] #stage:has(#chat-container .message[data-mode="companion"]) #presence-panel,
-#app-shell[data-mode="reason"] #stage:has(#chat-container .message[data-mode="reason"]) #presence-panel {
+#app-shell:is([data-mode="create"], [data-mode="companion"], [data-mode="reason"])
+  #stage:has(#chat-container .message:is([data-mode="create"], [data-mode="companion"], [data-mode="reason"]))
+  #presence-panel {
   opacity: 0;
   transform: translateY(-4px);
 }
@@ -622,9 +622,12 @@ summary:focus-visible {
   word-break: break-word;
 }
 
-#app-shell[data-mode="create"] .message[data-mode="create"],
-#app-shell[data-mode="companion"] .message[data-mode="companion"],
-#app-shell[data-mode="reason"] .message[data-mode="reason"] {
+/* 陪伴 / 创作 / 推理 are three ways of answering inside one conversation, not
+   three conversations. Messages used to be shown only while the mode that
+   produced them was selected, so switching mode looked like the history had been
+   thrown away -- while the model had been reading all of it the whole time. */
+#app-shell:is([data-mode="create"], [data-mode="companion"], [data-mode="reason"])
+  .message:is([data-mode="create"], [data-mode="companion"], [data-mode="reason"]) {
   display: block;
 }
 
@@ -1026,6 +1029,18 @@ summary:focus-visible {
   height: 17px;
   stroke-width: 1.9;
   transition: transform var(--motion-fast) ease;
+}
+
+/* The send control doubles as the stop control while a turn is streaming, so the
+   composer never has to be taken away to show that something is in flight. */
+#send-btn .stop-glyph,
+#send-btn[data-busy="true"] .send-glyph {
+  display: none;
+}
+
+#send-btn[data-busy="true"] .stop-glyph {
+  display: block;
+  fill: currentColor;
 }
 
 #composer-meta {
@@ -6352,9 +6367,9 @@ html[data-theme="night"] body {
   pointer-events: none;
 }
 
-#app-shell[data-mode="create"] #stage:has(#chat-container .message[data-mode="create"]) #presence-panel,
-#app-shell[data-mode="companion"] #stage:has(#chat-container .message[data-mode="companion"]) #presence-panel,
-#app-shell[data-mode="reason"] #stage:has(#chat-container .message[data-mode="reason"]) #presence-panel {
+#app-shell:is([data-mode="create"], [data-mode="companion"], [data-mode="reason"])
+  #stage:has(#chat-container .message:is([data-mode="create"], [data-mode="companion"], [data-mode="reason"]))
+  #presence-panel {
   visibility: hidden;
   pointer-events: none;
 }

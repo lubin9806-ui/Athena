@@ -115,11 +115,13 @@ export class LLMClient {
     onStream?: (chunk: string) => void,
     mode: ConversationMode = 'companion',
     overrides?: ChatGenerationOverrides,
+    signal?: AbortSignal,
   ): Promise<string> {
     const response = await this.generate({
       messages,
       mode,
       overrides,
+      signal,
       stream: Boolean(onStream),
       onEvent: onStream
         ? event => { if (event.type === 'text_delta') onStream(event.delta); }

@@ -158,6 +158,7 @@ export class ToolRuntime {
         input.onStream,
         input.mode,
         input.numCtx ? { numCtx: input.numCtx } : undefined,
+        activeRun.controller.signal,
       );
       return { content, executions: [] };
     }
@@ -179,7 +180,7 @@ export class ToolRuntime {
         effectiveSettings = { ...input.settings, permissionLevel: activePermission.level };
         definitions = this.computer.getDefinitions(effectiveSettings);
         if (definitions.length === 0) {
-          const content = await this.finalizeResponse(workingMessages, input, executedAnyTool);
+          const content = await this.finalizeResponse(workingMessages, input, executedAnyTool, activeRun.controller.signal);
           emit(input.onStatus, { phase: 'done', message: '电脑工具权限已降低，本轮不再继续执行工具' });
           return { content, executions };
         }
@@ -188,17 +189,17 @@ export class ToolRuntime {
           message: round === 0 ? '正在判断需要使用哪些电脑工具' : '正在根据工具结果安排下一步',
         });
 
-        let plan = await this.planStep(workingMessages, definitions, effectiveSettings, input.mode);
+        let plan = await this.planStep(workingMessages, definitions, effectiveSettings, input.mode, false, activeRun.controller.signal);
         if (activeRun.cancelled) return cancelledResult(input, executions);
         if (round === 0 && actionRequired && executions.length === 0 && (plan.kind === 'respond' || plan.calls.length === 0)) {
-          plan = await this.planStep(workingMessages, definitions, effectiveSettings, input.mode, true);
+          plan = await this.planStep(workingMessages, definitions, effectiveSettings, input.mode, true, activeRun.controller.signal);
           if (activeRun.cancelled) return cancelledResult(input, executions);
         }
         if (plan.kind === 'respond' || plan.calls.length === 0) {
           const plannedContent = plan.content.trim();
           const content = actionRequired && executions.length === 0
             ? ensureHonestNonExecutionResponse(plannedContent)
-            : plannedContent || await this.finalizeResponse(workingMessages, input, executedAnyTool);
+            : plannedContent || await this.finalizeResponse(workingMessages, input, executedAnyTool, activeRun.controller.signal);
           if ((plannedContent || (actionRequired && executions.length === 0)) && input.onStream) input.onStream(content);
           emit(input.onStatus, { phase: 'done', message: executedAnyTool ? '工具任务已完成' : '本轮不需要执行电脑工具' });
           return { content, executions };
@@ -308,7 +309,7 @@ export class ToolRuntime {
       }
 
       if (activeRun.cancelled) return cancelledResult(input, executions);
-      const content = await this.finalizeResponse(workingMessages, input, executedAnyTool);
+      const content = await this.finalizeResponse(workingMessages, input, executedAnyTool, activeRun.controller.signal);
       emit(input.onStatus, { phase: 'done', message: '已达到工具轮次上限，正在返回现有结果' });
       return { content, executions };
     } catch (error) {
@@ -331,6 +332,7 @@ export class ToolRuntime {
     settings: ToolSettings,
     mode: ConversationMode,
     forceExecution = false,
+    signal?: AbortSignal,
   ): Promise<ToolPlan> {
     const plannerMessages = messages.map(message => ({ ...message }));
     const instruction = buildPlannerInstruction(definitions, settings, forceExecution);
@@ -349,6 +351,7 @@ export class ToolRuntime {
       buildPlanSchema(definitions),
       mode,
       { temperature: 0.1, topP: 0.78, maxTokens: 1536, numCtx: Math.max(this.llm.contextWindow, 12288) },
+      signal,
     );
     return parsePlan(raw, definitions);
   }
@@ -357,6 +360,7 @@ export class ToolRuntime {
     messages: ChatMessage[],
     input: ToolRuntimeInput,
     executedAnyTool: boolean,
+    signal?: AbortSignal,
   ): Promise<string> {
     const finalMessages = messages.map(message => ({ ...message }));
     if (executedAnyTool) {
@@ -374,6 +378,7 @@ export class ToolRuntime {
       input.onStream,
       input.mode,
       { numCtx: Math.max(input.numCtx ?? this.llm.contextWindow, executedAnyTool ? 12288 : this.llm.contextWindow) },
+      signal,
     );
   }
 

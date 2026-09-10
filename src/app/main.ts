@@ -777,6 +777,39 @@ function createWindow(): void {
              const toolHintRestored = toolAccessHint.dataset.level === originalSettings.settings.tools.modePermissions[originalMode];
              if (!modeReactive || !modePersisted || !modeRestored || !toolHintReactive || !toolHintRestored) return false;
 
+             // 陪伴 / 创作 / 推理 are three ways of answering inside one conversation.
+             // A reply written in one of them used to disappear the moment another
+             // was selected, which read as the history being thrown away -- while
+             // the model had been reading all of it the whole time. probeMode is
+             // never 'companion', so a companion message visible here is the guard.
+             const transcriptProbe = document.createElement('div');
+             transcriptProbe.className = 'message assistant';
+             transcriptProbe.dataset.mode = 'companion';
+             transcriptProbe.dataset.entry = 'history';
+             chatContainer.appendChild(transcriptProbe);
+             probeButton.click();
+             await new Promise(resolve => setTimeout(resolve, 90));
+             const transcriptSurvivesModeSwitch = getComputedStyle(transcriptProbe).display !== 'none';
+             originalButton.click();
+             await new Promise(resolve => setTimeout(resolve, 90));
+             transcriptProbe.remove();
+             if (!transcriptSurvivesModeSwitch) return false;
+
+             // A turn in flight turns the send control into a stop control instead
+             // of taking the whole composer away.
+             const sendControl = document.getElementById('send-btn');
+             const sendGlyph = sendControl && sendControl.querySelector('.send-glyph');
+             const stopGlyph = sendControl && sendControl.querySelector('.stop-glyph');
+             if (!sendGlyph || !stopGlyph) return false;
+             const idleShowsSend = getComputedStyle(sendGlyph).display !== 'none'
+               && getComputedStyle(stopGlyph).display === 'none';
+             sendControl.dataset.busy = 'true';
+             const busyShowsStop = getComputedStyle(stopGlyph).display !== 'none'
+               && getComputedStyle(sendGlyph).display === 'none';
+             sendControl.dataset.busy = 'false';
+             const stopControlReady = idleShowsSend && busyShowsStop;
+             if (!stopControlReady) return false;
+
              const previousChatWindowId = Number(chatWindowSelect.value);
              let promptCalledForNewChat = false;
              const originalPrompt = window.prompt;
@@ -1023,6 +1056,8 @@ function createWindow(): void {
                 modeReactive,
                 modePersisted,
                 modeRestored,
+                transcriptSurvivesModeSwitch,
+                stopControlReady,
                 toolHintReactive,
                 toolHintRestored,
                 toolPermissionControlsReady,
