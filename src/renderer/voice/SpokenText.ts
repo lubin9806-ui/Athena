@@ -37,9 +37,41 @@ export function toSpeakableText(markdown: string): string {
     }
     if (insideFence) continue;
     const spoken = toSpeakableLine(line);
-    if (spoken) lines.push(spoken);
+    if (spoken) lines.push(withSpokenTerminal(spoken));
   }
   return lines.join('\n').trim();
+}
+
+/** A closer that trails the real punctuation rather than replacing it. */
+const TRAILING_CLOSERS = /["'”’）)』」】\]]+$/;
+/** Anything that already tells the engine how the line ends. */
+const PAUSE_MARK = /[。！？!?…；;，,、：:.]$/;
+
+/**
+ * Give an utterance the sentence-final punctuation its delivery depends on.
+ *
+ * Piper reads intonation off the text, so a chunk ending in no mark at all gets
+ * an unfinished contour - nothing told the model the thought was over. Most of a
+ * normal reply arrives that way: measured on a representative answer, 5 of 8
+ * utterances had no terminal mark, because headings, list items and the line
+ * before a colon do not end in 。 and the splitter treats a newline as a
+ * boundary. Adding the mark deepened the terminal fall by 1-2 semitones in every
+ * case measured on zh_CN-huayan-medium (ATH-VOICE-013).
+ *
+ * A line that already ends in punctuation keeps it. A comma is a deliberate
+ * mid-thought break and a colon leads into what follows; replacing either with a
+ * full stop would flatten the very thing it encodes.
+ *
+ * This assumes a line break ends a thought, which is the same assumption
+ * `findBoundary` already makes when it treats a newline as a sentence end - so
+ * it makes an existing rule audible rather than introducing a new one.
+ */
+export function withSpokenTerminal(text: string): string {
+  const trimmed = text.trimEnd();
+  if (!trimmed) return text;
+  const core = trimmed.replace(TRAILING_CLOSERS, '');
+  if (!core || PAUSE_MARK.test(core)) return trimmed;
+  return `${trimmed}。`;
 }
 
 /** A ``` line, which opens or closes a code block. */
@@ -64,12 +96,12 @@ export function mayBecomeFence(line: string): boolean {
  * line, and the lines are joined into one spoken run.
  */
 export function toSpeakableChunk(raw: string): string {
-  return raw
+  return withSpokenTerminal(raw
     .split('\n')
     .map(toSpeakableLine)
     .filter(Boolean)
     .join(' ')
-    .trim();
+    .trim());
 }
 
 /**

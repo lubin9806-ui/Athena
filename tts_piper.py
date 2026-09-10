@@ -13,6 +13,8 @@ Text arrives in a file rather than on the command line: a reply can be long and
 is not ASCII, and neither survives a Windows command line reliably.
 """
 from pathlib import Path
+import array
+import io
 import json
 import os
 import sys
@@ -20,6 +22,21 @@ import wave
 
 DEFAULT_NOISE_SCALE = 0.667
 DEFAULT_NOISE_W_SCALE = 0.8
+
+# A streamed reply is read one sentence at a time, so every clip's own padding
+# lands between two spoken sentences. Measured on zh_CN-huayan-medium: 286ms of
+# leading and trailing silence per clip, which over an eight-sentence reply is
+# 2.3 seconds of dead air that no amount of voice tuning can remove
+# (ATH-VOICE-013). Trimming to a deliberate budget replaces it with one pause
+# the length a person leaves between sentences.
+LEAD_KEEP_MS = 10
+# Enough to read as the pause between two sentences rather than a cut. The lower
+# end of what a person leaves; the playback path adds its own load time on top.
+TAIL_KEEP_MS = 120
+# Relative to the clip's own peak, so a quiet voice is not trimmed into itself.
+SILENCE_RATIO = 0.02
+# Below this a clip is too short to hold a reliable peak; leave it alone.
+MIN_TRIM_FRAMES = 3
 
 
 def fail(category: str, message: str, exit_code: int) -> int:
@@ -44,6 +61,49 @@ def load_voice(model_path: str):
     return PiperVoice.load(model_path)
 
 
+def trim_edges(frames: bytes, channels: int, sample_width: int, framerate: int) -> bytes:
+    """Cut the silence off both ends, keeping a deliberate pause at the tail.
+
+    Only the outer edges: the pauses Piper puts *between* sentences of a single
+    request are its own phrasing and are left exactly as they are.
+    """
+    if sample_width != 2 or channels < 1 or framerate <= 0:
+        return frames
+
+    samples = array.array("h")
+    samples.frombytes(frames)
+    total_frames = len(samples) // channels
+    hop = max(1, int(framerate * 0.01))
+    if total_frames < hop * MIN_TRIM_FRAMES:
+        return frames
+
+    levels = []
+    for start in range(0, total_frames - hop + 1, hop):
+        total = 0
+        for index in range(start * channels, (start + hop) * channels):
+            value = samples[index]
+            total += value * value
+        levels.append((total / (hop * channels)) ** 0.5)
+
+    peak = max(levels) if levels else 0.0
+    if peak <= 0.0:
+        return frames
+    floor = peak * SILENCE_RATIO
+
+    first = next((index for index, level in enumerate(levels) if level > floor), None)
+    if first is None:
+        return frames
+    last = len(levels) - 1
+    while last > first and levels[last] <= floor:
+        last -= 1
+
+    start_frame = max(0, first * hop - int(framerate * LEAD_KEEP_MS / 1000))
+    end_frame = min(total_frames, (last + 1) * hop + int(framerate * TAIL_KEEP_MS / 1000))
+    if end_frame <= start_frame:
+        return frames
+    return samples[start_frame * channels:end_frame * channels].tobytes()
+
+
 def synthesize(voice, text: str, out_path: str, rate: float, volume: float,
                noise_scale: float, noise_w_scale: float) -> None:
     from piper import SynthesisConfig
@@ -52,13 +112,30 @@ def synthesize(voice, text: str, out_path: str, rate: float, volume: float,
         length_scale=length_scale_for(rate),
         volume=max(0.0, min(1.0, volume / 100.0)),
         noise_scale=noise_scale,
-        # Variation in phoneme duration. This is the knob that decides whether a
-        # reading sounds even or spoken; it is the one worth tuning if delivery
-        # is reported as flat.
+        # Variation in phoneme duration. This is randomness, not intent: three
+        # settings of it were A/B'd and heard as identical (ATH-VOICE-010), so
+        # delivery reported as flat is not fixed here. What the model does hear
+        # is the text - see the sentence-final punctuation in SpokenText.ts.
         noise_w_scale=noise_w_scale,
     )
+    # Synthesized to memory first so the edges can be trimmed before the file
+    # exists; the caller plays whatever it finds at out_path.
+    buffer = io.BytesIO()
+    with wave.open(buffer, "wb") as sink:
+        voice.synthesize_wav(text, sink, syn_config=config)
+    buffer.seek(0)
+    with wave.open(buffer, "rb") as source:
+        channels = source.getnchannels()
+        sample_width = source.getsampwidth()
+        framerate = source.getframerate()
+        frames = source.readframes(source.getnframes())
+
+    frames = trim_edges(frames, channels, sample_width, framerate)
     with wave.open(out_path, "wb") as handle:
-        voice.synthesize_wav(text, handle, syn_config=config)
+        handle.setnchannels(channels)
+        handle.setsampwidth(sample_width)
+        handle.setframerate(framerate)
+        handle.writeframes(frames)
 
 
 def read_text(text_path: Path) -> str:

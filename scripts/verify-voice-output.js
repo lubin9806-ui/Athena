@@ -26,7 +26,7 @@ process.env.ATHENA_VOICE_SCRIPT_DIR = RUNTIME;
 
 const { VoiceService } = require('../dist/core/voice/VoiceService.js');
 const { saveSettingsBundle } = require('../dist/core/config/SettingsStore.js');
-const { takeSpeakableSentences, toSpeakableText } = require('../dist/renderer/voice/SpokenText.js');
+const { takeSpeakableSentences, toSpeakableText, withSpokenTerminal } = require('../dist/renderer/voice/SpokenText.js');
 const { StreamingReader } = require('../dist/renderer/voice/StreamingReader.js');
 
 const SAMPLE = '这是当前音色的试听效果，用来验证语速、音量和音高。';
@@ -36,6 +36,10 @@ const FASTER_RATE = 8;
 /** Ratios rather than absolutes, because voices differ between machines. */
 const MIN_RATE_SHORTENING = 0.15;
 const MAX_QUIET_PEAK_RATIO = 0.75;
+/** Clip padding budgets; tts_piper.py trims to 10ms lead and 90ms tail. */
+const MAX_LEAD_SILENCE_MS = 40;
+const MAX_TAIL_SILENCE_MS = 160;
+const MIN_TAIL_SILENCE_MS = 40;
 
 /** Parse a PCM WAV by walking its chunks; SAPI's header layout is not fixed. */
 function readWav(filePath) {
@@ -79,6 +83,43 @@ function readWav(filePath) {
     peak: peak / 32768,
     bytes: data.length,
     sampleRate: format.sampleRate,
+    ...silenceEdges(data, format),
+  };
+}
+
+/**
+ * Silence at each end, in milliseconds.
+ *
+ * A streamed reply is one clip per sentence, so this padding is not cosmetic:
+ * it lands between two spoken sentences and adds up over a reply (ATH-VOICE-013).
+ */
+function silenceEdges(data, format) {
+  const frames = Math.floor(data.length / 2 / format.channels);
+  const hop = Math.max(1, Math.round(format.sampleRate * 0.01));
+  if (frames < hop * 3) return { leadMs: 0, tailMs: 0 };
+
+  const levels = [];
+  for (let start = 0; start + hop <= frames; start += hop) {
+    let total = 0;
+    for (let index = start * format.channels; index < (start + hop) * format.channels; index += 1) {
+      const value = data.readInt16LE(index * 2);
+      total += value * value;
+    }
+    levels.push(Math.sqrt(total / (hop * format.channels)));
+  }
+
+  const peak = Math.max(...levels);
+  if (peak <= 0) return { leadMs: 0, tailMs: 0 };
+  const floor = peak * 0.02;
+  const first = levels.findIndex(level => level > floor);
+  if (first < 0) return { leadMs: 0, tailMs: 0 };
+  let last = levels.length - 1;
+  while (last > first && levels[last] <= floor) last -= 1;
+
+  const msPerFrame = 1000 / format.sampleRate;
+  return {
+    leadMs: first * hop * msPerFrame,
+    tailMs: (frames - (last + 1) * hop) * msPerFrame,
   };
 }
 
@@ -154,6 +195,30 @@ function verifySpokenText() {
     const { sentences, rest } = takeSpeakableSentences('没有句号的结尾', true);
     assert.deepStrictEqual(sentences, ['没有句号的结尾']);
     assert.strictEqual(rest, '');
+  });
+
+  check('an utterance with no mark of its own is given one', () => {
+    assert.strictEqual(withSpokenTerminal('诊断函数只接一个 client'), '诊断函数只接一个 client。');
+    assert.strictEqual(withSpokenTerminal('他说「已经好了」'), '他说「已经好了」。');
+    // Punctuation the writer chose says how the line ends; it is not replaced.
+    assert.strictEqual(withSpokenTerminal('我核实过了。'), '我核实过了。');
+    assert.strictEqual(withSpokenTerminal('你想先修哪一个？'), '你想先修哪一个？');
+    assert.strictEqual(withSpokenTerminal('要改的有三处：'), '要改的有三处：');
+    assert.strictEqual(withSpokenTerminal('先说结论，'), '先说结论，');
+  });
+
+  // The trip wire for the real defect: markdown lines do not end in 。, and the
+  // splitter treats a newline as a sentence end, so most of a normal reply used
+  // to reach the engine with nothing telling it the thought was over.
+  check('most of a normal reply reaches the engine with a terminal mark', () => {
+    const reply = '## 连接测试的问题\n\n我核实过了。\n\n要改的有三处：\n\n- 诊断函数只接一个 client\n'
+      + '- 探测预算写死成十六个 token\n- 绿灯不要求每条腿都过\n\n你想先修哪一个？';
+    const lines = toSpeakableText(reply).split('\n').filter(Boolean);
+    const bare = lines.filter(line => !/[。！？!?…；;：:，,、.]["'”’）)』」】]*$/.test(line));
+    assert(
+      bare.length / lines.length <= 0.2,
+      `${bare.length} of ${lines.length} utterances carry no sentence-final punctuation: ${JSON.stringify(bare)}`,
+    );
   });
 }
 
@@ -286,6 +351,28 @@ async function main() {
 
   const piper = await verifyProfile('piper', 'piper');
   const sapi = await verifyProfile('sapi', 'sapi');
+
+  // Every clip's own padding lands between two spoken sentences, so a reply read
+  // one sentence at a time pays it once per sentence. Untrimmed this measured
+  // 286ms per clip - 2.3 seconds of dead air across an eight-sentence reply, and
+  // no voice or rate setting can remove it (ATH-VOICE-013).
+  assert(
+    piper.leadMs <= MAX_LEAD_SILENCE_MS,
+    `piper clips start with ${round(piper.leadMs)}ms of silence, over the ${MAX_LEAD_SILENCE_MS}ms budget - `
+    + 'a streamed reply pays this before every sentence.',
+  );
+  assert(
+    piper.tailMs <= MAX_TAIL_SILENCE_MS,
+    `piper clips end with ${round(piper.tailMs)}ms of silence, over the ${MAX_TAIL_SILENCE_MS}ms budget.`,
+  );
+  // The pause is deliberate, not absent: run together, sentences stop sounding
+  // like sentences.
+  assert(
+    piper.tailMs >= MIN_TAIL_SILENCE_MS,
+    `piper clips end with only ${round(piper.tailMs)}ms of silence, under the ${MIN_TAIL_SILENCE_MS}ms floor - `
+    + 'the trim ate the pause between sentences.',
+  );
+  console.log(`  ok  piper clip padding: lead ${round(piper.leadMs)}ms, tail ${round(piper.tailMs)}ms`);
 
   // Pitch runs through SpeakSsml, which only exists on SAPI. A mismatched
   // xml:lang makes SAPI substitute another voice for the whole prompt, and that

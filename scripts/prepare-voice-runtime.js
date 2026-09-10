@@ -94,6 +94,15 @@ function refreshRuntimeScripts() {
   if (!fs.existsSync(manifestPath)) {
     throw new Error('No managed voice runtime to refresh. Run npm.cmd run prepare:voice-runtime first.');
   }
+  // Before the checks, not after: the manifest pins no bytecode, so any .pyc is
+  // by definition unverified, and Python loads a valid one in preference to the
+  // source next to it. Deleting it is both the safe move and the one that keeps
+  // this path usable - running the runtime once left 98 .pyc behind and every
+  // later script refresh failed on them, demanding a full 438MB rebuild to edit
+  // one text file. The cleanup already existed; it just ran after the gate that
+  // its own leftovers tripped (ATH-VOICE-014).
+  removeGeneratedBytecode(OUTPUT);
+
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
   const inputs = new Set(RUNTIME_INPUTS);
   const pinned = new Set();
@@ -116,7 +125,6 @@ function refreshRuntimeScripts() {
   }
 
   copyRuntimeInputs();
-  removeGeneratedBytecode(OUTPUT);
   const refreshed = writeManifest();
   console.log(`ATHENA_VOICE_RUNTIME_SCRIPTS_REFRESHED files=${refreshed.files.length} scripts=${RUNTIME_INPUTS.length}`);
 }
