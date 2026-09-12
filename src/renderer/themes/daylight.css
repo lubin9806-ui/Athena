@@ -1,0 +1,50 @@
+/* Approved companion prototype → live renderer. Classic inherits the untouched
+   previous stylesheet; all layout/state/IPC objects remain mounted. */
+#app-shell[data-interface-preset="daylight"]:is([data-theme="day"], [data-theme="night"]) {
+  --athena-bg: #f5f1e8; --athena-surface: #fcfcf8; --athena-surface-soft: #e9ede7;
+  --athena-text: #222c2a; --athena-muted: #626d67; --athena-accent: #53675f;
+  --athena-line: #dadfd6; --athena-on-accent: #fff;
+  --accent: #53675f; --accent-rgb: 83, 103, 95; --text: #222c2a; --text-muted: #626d67;
+  --text-dim: #626d67; --sidebar-bg: #f0f0e9; --shell-bg: #f5f1e8;
+  --surface: #fcfcf8; --surface-raised: #fcfcf8; --surface-soft: #e9ede7;
+  --control-bg: #fcfcf8; --composer-bg: rgba(252,252,248,.86); --panel-bg: rgba(252,252,248,.97);
+  --message-user-bg: #e9ede7; --border: #dadfd6; --accent-action: #53675f; --accent-secondary: #53675f;
+  --athena-radius-control: 10px; --athena-radius-panel: 16px; --athena-radius-composer: 24px;
+  background: var(--athena-bg);
+  grid-template-rows: 64px 58px minmax(0, 1fr) auto;
+}
+#app-shell[data-interface-preset="daylight"][data-sidebar="open"] { grid-template-columns: 252px minmax(0, 1fr); }
+#app-shell[data-interface-preset="daylight"][data-sidebar="closed"] { grid-template-columns: 0 minmax(0, 1fr); }
+#app-shell[data-interface-preset="daylight"][data-theme="night"] {
+  --athena-bg: #18201d; --athena-surface: #222d27; --athena-surface-soft: #2d3a32;
+  --athena-text: #edf1ec; --athena-muted: #adbcaf; --athena-accent: #b4cdbb; --athena-line: #405046;
+  --athena-on-accent: #18201d; --accent: #b4cdbb; --accent-rgb: 180,205,187;
+  --text: #edf1ec; --text-muted: #adbcaf; --text-dim: #adbcaf; --sidebar-bg: #1d2721;
+  --shell-bg: #18201d; --surface: #222d27; --surface-raised: #26322c; --surface-soft: #2d3a32;
+  --control-bg: #222d27; --composer-bg: rgba(34,45,39,.9); --panel-bg: rgba(28,37,32,.98);
+  --message-user-bg: #2d3a32; --border: #405046; --accent-action: #b4cdbb; --accent-secondary: #b4cdbb;
+}
+#app-shell[data-interface-preset="daylight"] #titlebar { min-height: 64px; background: var(--athena-surface); border-bottom: 1px solid var(--athena-line); }
+#app-shell[data-interface-preset="daylight"] #chat-window-bar { background: var(--sidebar-bg); border-right: 1px solid var(--athena-line); box-shadow: none; backdrop-filter: none; }
+#app-shell[data-interface-preset="daylight"] #chat-window-new { min-height: 42px; color: var(--athena-on-accent); background: var(--athena-accent); }
+#app-shell[data-interface-preset="daylight"] #stage { background: transparent; }
+#app-shell[data-interface-preset="daylight"] #presence-panel { text-align: left; align-items: flex-start; width: min(740px, calc(100% - 72px)); margin-inline: auto; }
+#app-shell[data-interface-preset="daylight"] .presence-title { font-size: clamp(26px, 2.7vw, 36px); font-weight: 500; letter-spacing: -.045em; line-height: 1.5; text-wrap: balance; }
+#app-shell[data-interface-preset="daylight"] .presence-copy { margin-top: 12px; color: var(--athena-muted); font-size: 15px; line-height: 1.8; }
+#app-shell[data-interface-preset="daylight"] #presence-actions { justify-content: flex-start; margin-top: 24px; }
+#app-shell[data-interface-preset="daylight"] .presence-action { min-height: 42px; border: 1px solid var(--athena-line); background: var(--athena-surface); border-radius: 10px; box-shadow: none; }
+#app-shell[data-interface-preset="daylight"] .message { max-width: 800px; font-size: 16px; line-height: 1.85; }
+#app-shell[data-interface-preset="daylight"] .message.assistant { padding-block: 18px; background: transparent; border: 0; box-shadow: none; }
+#app-shell[data-interface-preset="daylight"] .message.user { background: var(--athena-surface-soft); border-radius: 18px 18px 5px 18px; }
+#app-shell[data-interface-preset="daylight"] #input-form { border: 1px solid var(--athena-line); border-radius: 24px; background: var(--composer-bg); box-shadow: 0 8px 26px rgb(34 44 42 / .08), inset 0 1px rgb(255 255 255 / .55); }
+#app-shell[data-interface-preset="daylight"] #input-box { font-size: 16px; line-height: 1.75; }
+#app-shell[data-interface-preset="daylight"] #send-btn { border-radius: 12px; }
+#app-shell[data-interface-preset="daylight"][data-glass="false"] :is(#input-form, #titlebar, .side-panel) { background: var(--athena-surface); backdrop-filter: none; }
+#app-shell[data-interface-preset="daylight"][data-compact="true"] .message { font-size: 14px; line-height: 1.65; }
+@media (max-width: 760px) {
+  #app-shell[data-interface-preset="daylight"] #presence-panel { width: calc(100% - 36px); }
+  #app-shell[data-interface-preset="daylight"] .presence-title { font-size: 26px; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  #app-shell[data-interface-preset="daylight"] :is(#input-form, #titlebar, .side-panel) { background: var(--athena-surface); backdrop-filter: none; }
+}

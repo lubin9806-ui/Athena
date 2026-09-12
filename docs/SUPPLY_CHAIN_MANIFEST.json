@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-09-09T06:59:43.156Z",
+  "generatedAt": "2026-09-12T12:37:57.255Z",
   "project": {
     "name": "athena",
     "version": "0.9.7-beta.1",
@@ -1531,6 +1531,21 @@
       "lineEndings": "lf-normalized"
     },
     {
+      "path": "resources/athena-brand-icon.png",
+      "bytes": 120234,
+      "sha256": "C7074184BFFD4DCDF62841B86F5652F020E962D8887D795D8084615D00C0C89F"
+    },
+    {
+      "path": "resources/athena-brand.ico",
+      "bytes": 27219,
+      "sha256": "E7E5243210C125597F3B235DF4C390F3EE250DACB4B1CAA37588429E7F3DF923"
+    },
+    {
+      "path": "resources/athena-tray.png",
+      "bytes": 2054,
+      "sha256": "02B9F56C09AEA8971CF98A1741484EFF9DB97ADE26B4F759DE64836E1C72C200"
+    },
+    {
       "path": "resources/icon.png",
       "bytes": 9222,
       "sha256": "7B93DE63E3800F30D341750BC25A02F0ADA79002BEB5E203FF2D1D3EB198E95D"
@@ -1720,11 +1735,6 @@
       "bytes": 6128,
       "sha256": "4D27A48545B57DD137AE35376FCF326D2064271084A487960686F8704B94DE4A",
       "lineEndings": "lf-normalized"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/_distutils_hack/__pycache__/__init__.cpython-311.pyc",
-      "bytes": 11160,
-      "sha256": "592BD30FEBF5AC226C82164AE29611A0E474DE91085303BA93B126F7FB2BCAC4"
     },
     {
       "path": "resources/voice-runtime/python/Lib/site-packages/_distutils_hack/override.py",
@@ -7693,56 +7703,6 @@
       "lineEndings": "lf-normalized"
     },
     {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/__pycache__/__config__.cpython-311.pyc",
-      "bytes": 6203,
-      "sha256": "F63A6555FB67E2081D7E4DCA7E58C39AB89119BDF28A4DBBC079E6AA198742BF"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/__pycache__/__init__.cpython-311.pyc",
-      "bytes": 35098,
-      "sha256": "E4948AD2D8F6021509CAE4D51453C9D2DD1003C66FD67065D307F3275663480D"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/__pycache__/_array_api_info.cpython-311.pyc",
-      "bytes": 12278,
-      "sha256": "9542986FCE255C13EC07EA27DF4DB26C3E1D35DFF4D7AEBA1A56A855374676F6"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/__pycache__/_distributor_init.cpython-311.pyc",
-      "bytes": 697,
-      "sha256": "E2F50E8E1D4CBA2D1CD1FE42E6549C2A354BEAD3D84CEBA7CDB53F14D56CE4FB"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/__pycache__/_expired_attrs_2_0.cpython-311.pyc",
-      "bytes": 4284,
-      "sha256": "1A1A512A7AC33D1FEEFD28678783DA4A3968C8A19D5D364A18B1FDFB27826208"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/__pycache__/_globals.cpython-311.pyc",
-      "bytes": 4939,
-      "sha256": "0F3AB28F9209C83A2F1927A88643A4E59834AE55FA6082A1A4DC10817B4D20BC"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/__pycache__/_pytesttester.cpython-311.pyc",
-      "bytes": 7098,
-      "sha256": "A70FD1331983A51EDE2D1B4DC24AE9A8D8888C828DDC7E57B3B770EA12FA0988"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/__pycache__/dtypes.cpython-311.pyc",
-      "bytes": 1640,
-      "sha256": "6FF095B11C07F23F6B00B16B4AD37F666D18CF21994C0C27465C7C744705A63A"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/__pycache__/exceptions.cpython-311.pyc",
-      "bytes": 9077,
-      "sha256": "97F7645902E28EFD53D393C88718CEC086D46435AB7A79AA4DA87DF86181005C"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/__pycache__/version.cpython-311.pyc",
-      "bytes": 564,
-      "sha256": "5BABB4DBC0646D342737853C6C486651DED519FBB6E6A47E8840DEE9B140FC2F"
-    },
-    {
       "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_array_api_info.py",
       "bytes": 10385,
       "sha256": "CE6EC789062ACA14AA165DC9586ECE2E1130F891843EAEFEEFEA968575AA559F",
@@ -7777,136 +7737,6 @@
       "bytes": 9973,
       "sha256": "9EEBB8C365455979ED098589F98E8BCBD74FDE0DF722816050E01DDABC6F9DEC",
       "lineEndings": "lf-normalized"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_core/__pycache__/__init__.cpython-311.pyc",
-      "bytes": 6869,
-      "sha256": "AF492329FCF1B6F2DCA5F0F72C4973103C713F4951D744050F8FBC8B4A3BECCD"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_core/__pycache__/_add_newdocs_scalars.cpython-311.pyc",
-      "bytes": 14299,
-      "sha256": "D7B87B2A28CC0391877AD0D2F6293B9EB11FD2D6884C1B6813C1AF58C7372FDE"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_core/__pycache__/_add_newdocs.cpython-311.pyc",
-      "bytes": 214017,
-      "sha256": "9DEFEE4A06A9A54DB0B8883383C28616E69EF332846DA9C506E635E28303840B"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_core/__pycache__/_asarray.cpython-311.pyc",
-      "bytes": 4671,
-      "sha256": "6EF358279566E3B98FE705670E4D0287A95AAD74091DC8A8D3D3C0C5ACCB91FC"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_core/__pycache__/_dtype_ctypes.cpython-311.pyc",
-      "bytes": 5182,
-      "sha256": "4A70D394788DBCDBF236DF358DE030F2E656970E1ED1570727D3E1019EA44BDA"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_core/__pycache__/_dtype.cpython-311.pyc",
-      "bytes": 13744,
-      "sha256": "2840E3B16BB7BB422F22CC4C67DD6410AC0EB706BF318E209E5E8C2FAC2BBE13"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_core/__pycache__/_exceptions.cpython-311.pyc",
-      "bytes": 9167,
-      "sha256": "A36D3B94DFC17A7A5F09D72B1DAC9E97B7A6D9B8593990E4B0BE90C3B6CDD67C"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_core/__pycache__/_internal.cpython-311.pyc",
-      "bytes": 39422,
-      "sha256": "9C890EB4663AA223FF18FB0D41DCCD49B940228D71D2BAC3A63151AB4AC01AB7"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_core/__pycache__/_methods.cpython-311.pyc",
-      "bytes": 11926,
-      "sha256": "022408EB78F0CFA77DE03DE692AC0EB2D51059F6F06C95460BD04A603CF5E8CD"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_core/__pycache__/_string_helpers.cpython-311.pyc",
-      "bytes": 3491,
-      "sha256": "0C916CFB01BC6C594B6A7EF67741798F4E7904FE3F259BB0D3B73E0FE4F4B9E7"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_core/__pycache__/_type_aliases.cpython-311.pyc",
-      "bytes": 3927,
-      "sha256": "82FED47EB4785E9709F32C9A58052D58CF1C7D808C228BDAFA7CDE2D1C59788D"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_core/__pycache__/_ufunc_config.cpython-311.pyc",
-      "bytes": 17675,
-      "sha256": "AAD4AB8A240392888214EF72031316930237083E58C9DBE29D499D8D8594ED2E"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_core/__pycache__/arrayprint.cpython-311.pyc",
-      "bytes": 78906,
-      "sha256": "9AA7811827BF646BF1DE5FBA053D78B0A0F0B6282DF1A9F935F3E3748341028E"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_core/__pycache__/einsumfunc.cpython-311.pyc",
-      "bytes": 61526,
-      "sha256": "74B39B3C3DD3193A414CD9C164ED84F12E7FFA13C00B1850F4481E91C4186957"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_core/__pycache__/fromnumeric.cpython-311.pyc",
-      "bytes": 152723,
-      "sha256": "1B778F5327EDB4058820E30418567E1318E1114E4E84090D5C6D694F8CB13997"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_core/__pycache__/function_base.cpython-311.pyc",
-      "bytes": 21811,
-      "sha256": "53E2675BBACF6DD38554493B585B6A9D377EDE68E2FA6D6819B05E337F80C141"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_core/__pycache__/getlimits.cpython-311.pyc",
-      "bytes": 19715,
-      "sha256": "A17C9392EE3C5AEA6D8FAA1F928DD22BAD7BAB779680713E3B38BC253AE5795C"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_core/__pycache__/memmap.cpython-311.pyc",
-      "bytes": 14105,
-      "sha256": "4E31B0524DA6D12BCB46EAD9BCB3580A65A4B0DC86F7A6D20A5FA3D1DA71AFD4"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_core/__pycache__/multiarray.cpython-311.pyc",
-      "bytes": 58080,
-      "sha256": "C660332E9FDB29ABF2A974D00DE36C650ABAE3FD2CE465487595242E176447BD"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_core/__pycache__/numeric.cpython-311.pyc",
-      "bytes": 98015,
-      "sha256": "C397109E148CAAD54043F0841312216FF015C1A4D192877C1AE7EB96A14BDAD0"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_core/__pycache__/numerictypes.cpython-311.pyc",
-      "bytes": 19168,
-      "sha256": "C1BCC51697EA15CEC46D69C1ED7DEDE026CC9B6DEE4DFDC444C59FEAB3BE4234"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_core/__pycache__/overrides.cpython-311.pyc",
-      "bytes": 8561,
-      "sha256": "EEEF865F8BAE6AFBDE11E324234BD428B06BBC7DE2DDEC927147CB0F4BE29E5C"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_core/__pycache__/printoptions.cpython-311.pyc",
-      "bytes": 975,
-      "sha256": "3FFB254E231DBDB8BB2DBCD747C35AFFDE78E58E989502B58BF67081F314E741"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_core/__pycache__/records.cpython-311.pyc",
-      "bytes": 43382,
-      "sha256": "AC72350E375195D8F77F9B636D746AD7300BE1109BFD86C5F3670A53D9CB7DD2"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_core/__pycache__/shape_base.cpython-311.pyc",
-      "bytes": 37491,
-      "sha256": "BFC37AD7845310568A7019B48C84BF22B5FE482B44E394FD346F5BC55C2017DF"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_core/__pycache__/umath.cpython-311.pyc",
-      "bytes": 2285,
-      "sha256": "83EBC46CBFC76362EA50471398C300DA05F510A590A4A6E670143BB0C4930F42"
     },
     {
       "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_core/_add_newdocs_scalars.py",
@@ -9212,56 +9042,6 @@
       "lineEndings": "lf-normalized"
     },
     {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_typing/__pycache__/__init__.cpython-311.pyc",
-      "bytes": 5370,
-      "sha256": "B004B223E6B48D21A38A52222D827A5D2FB3E4713BC50218D6089F03D28486DC"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_typing/__pycache__/_array_like.cpython-311.pyc",
-      "bytes": 6357,
-      "sha256": "164F28F32416D5B49CFE883772C84A312832B9D7ED059418D01ABCDB1A70A798"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_typing/__pycache__/_char_codes.cpython-311.pyc",
-      "bytes": 7387,
-      "sha256": "B52D9474D8CF822011ABC435DE9FEA5C82C84E6BED79483E02C042FC6DCE0C1C"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_typing/__pycache__/_dtype_like.cpython-311.pyc",
-      "bytes": 5062,
-      "sha256": "EF3CD4EE5B2B9E12C7908054EF640C8351DD63952DF28CA8C02A6282A8D263F3"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_typing/__pycache__/_nbit_base.cpython-311.pyc",
-      "bytes": 4483,
-      "sha256": "75A2A1306C9F434D6EE9273865CDC1CD1C068F6E7EC2CD6EEA1B4D8E018E79CF"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_typing/__pycache__/_nbit.cpython-311.pyc",
-      "bytes": 1094,
-      "sha256": "A6A46A34217F63E89E61CB830BB8835A404A83E44968242684BC67F10F3F903C"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_typing/__pycache__/_nested_sequence.cpython-311.pyc",
-      "bytes": 3832,
-      "sha256": "4633202DC85DF8FEB09DC828C3934C00736752C4EC0070F52DFB07242722E7B6"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_typing/__pycache__/_scalars.cpython-311.pyc",
-      "bytes": 1340,
-      "sha256": "718698386A011451D2FBCC32FA8614EDAC5CFA3107FC219BF57B90A6EC4C92F1"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_typing/__pycache__/_shape.cpython-311.pyc",
-      "bytes": 608,
-      "sha256": "BC1447792E98439B0EBEDD4062386B2BADB71ABD47B5E83C9C656C27FDC99271"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_typing/__pycache__/_ufunc.cpython-311.pyc",
-      "bytes": 386,
-      "sha256": "F7E7C98061C94A9C7064BAF6877864A91DE389CE64DBED9BE7C2828A5E6BC228"
-    },
-    {
       "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_typing/_add_docstring.py",
       "bytes": 3999,
       "sha256": "FF783B0FEE87010DCC4F85FA0C4D3BC8BB9AF4BA96161B24355C754D2ED7F4EE",
@@ -9350,21 +9130,6 @@
       "bytes": 700,
       "sha256": "8B28E66E4A9CFC54AA3D242758DD6B82320C2E062151BC63F2B0D26E06C1B4D4",
       "lineEndings": "lf-normalized"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_utils/__pycache__/__init__.cpython-311.pyc",
-      "bytes": 4484,
-      "sha256": "A1602DFBB9947067511E18CEC5C094A81CD997CA05E08DE929B5E8DD62A88D96"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_utils/__pycache__/_convertions.cpython-311.pyc",
-      "bytes": 942,
-      "sha256": "E6E9A5E76DD94B14C43FE2023EECB6486770241BCA5D6F4D864947588B912B95"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_utils/__pycache__/_inspect.cpython-311.pyc",
-      "bytes": 10365,
-      "sha256": "CC394253AC6C0CDD06689B34C9393D959C71E401A60A0B9F99073D72DA77D837"
     },
     {
       "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_utils/_convertions.py",
@@ -11525,151 +11290,6 @@
       "lineEndings": "lf-normalized"
     },
     {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/lib/__pycache__/__init__.cpython-311.pyc",
-      "bytes": 3476,
-      "sha256": "C6FBEB409CDCDFA1840847842E4333FAF9642FADDB627D5FBFAE0289243ACC3A"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/lib/__pycache__/_array_utils_impl.cpython-311.pyc",
-      "bytes": 2230,
-      "sha256": "1FC16D5BD76F842DAF1F287D626BCADB0DD19D8EC3AFF89EBF5E9C71567D5ACA"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/lib/__pycache__/_arraypad_impl.cpython-311.pyc",
-      "bytes": 32244,
-      "sha256": "6B2D5C38152A7030BB813C02081896ECB7E9AD05A078555EAA0C391FF24D7A02"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/lib/__pycache__/_arraysetops_impl.cpython-311.pyc",
-      "bytes": 41275,
-      "sha256": "EDB3955CF0D8EE3D0298986736F05CA8600B0417B2272D6B6484CC50CC032F84"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/lib/__pycache__/_arrayterator_impl.cpython-311.pyc",
-      "bytes": 10324,
-      "sha256": "E456A181DAA1670B5B21AAF02D6123F9A4911C75EE1BC22DD75B8C96EBB0779D"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/lib/__pycache__/_datasource.cpython-311.pyc",
-      "bytes": 27329,
-      "sha256": "2873DD7BF0E5DBF9E5FD0F6770FC1B1315FACAB16EE274D77AA6C45B13BC53CC"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/lib/__pycache__/_format_impl.cpython-311.pyc",
-      "bytes": 38737,
-      "sha256": "19960A99A7B1D42BC948793A5BC1E7F64B5B1EE61F89763D057024FA7B5981E5"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/lib/__pycache__/_function_base_impl.cpython-311.pyc",
-      "bytes": 216409,
-      "sha256": "7158D3A58C77E2C286BC7C20DC429930CA359E9EF214A2DABE8D55B5ADB62F15"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/lib/__pycache__/_histograms_impl.cpython-311.pyc",
-      "bytes": 42451,
-      "sha256": "2CF88D3388AC3CAF472B5B6D71D9ABB58F1AAC24CC874DB89F80691E792808A4"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/lib/__pycache__/_index_tricks_impl.cpython-311.pyc",
-      "bytes": 38016,
-      "sha256": "693810858BED6A5E6C38E0852CFDA501F39F16E6EF5371F0A3EDB9FC53B174B9"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/lib/__pycache__/_iotools.cpython-311.pyc",
-      "bytes": 37988,
-      "sha256": "947F089CC9F9AE95A874B7238BB65E60D8F77CF46927A9A45E453241C786248D"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/lib/__pycache__/_nanfunctions_impl.cpython-311.pyc",
-      "bytes": 76925,
-      "sha256": "3C17CA71FE6DE3748501F64338453716E996D167E4FB186627D3CCF21E261914"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/lib/__pycache__/_npyio_impl.cpython-311.pyc",
-      "bytes": 107489,
-      "sha256": "2DFDEAFDD86BB0316AF05A5BBDFED686A56359F83E3F7BC22742E226CC2D1C64"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/lib/__pycache__/_polynomial_impl.cpython-311.pyc",
-      "bytes": 56196,
-      "sha256": "31CEF23A87288254DA06B4527AF54CBE39752653835A09D2882AAC356ABD6DF2"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/lib/__pycache__/_scimath_impl.cpython-311.pyc",
-      "bytes": 19105,
-      "sha256": "1FEF734BF6DEA0F2DFE30C4F9710F167783F7D4AE4597475176979759E20CE19"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/lib/__pycache__/_shape_base_impl.cpython-311.pyc",
-      "bytes": 45469,
-      "sha256": "957C226A491B44DDBE2127A06CD2CC9572957F6977C7A81561FDDE4BD0C50F2F"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/lib/__pycache__/_stride_tricks_impl.cpython-311.pyc",
-      "bytes": 22060,
-      "sha256": "A5FCA2026D407CD845C6430C0DDEA52C5D44A79A3FE1DFD24C58FBCB51D8B2C1"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/lib/__pycache__/_twodim_base_impl.cpython-311.pyc",
-      "bytes": 40214,
-      "sha256": "F2AF6FEB3736B6DF22F1ED1CD02A70FB9945B21DCEC165D2DEA14583CE408C46"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/lib/__pycache__/_type_check_impl.cpython-311.pyc",
-      "bytes": 23471,
-      "sha256": "3EC378B3068D42E990723B101E70B27A8A26F13CCBE3111880E01314F7854949"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/lib/__pycache__/_ufunclike_impl.cpython-311.pyc",
-      "bytes": 7128,
-      "sha256": "6105C2B2E27877244032F2EA177F61ADC30995EEF5A9A8DADC63E09DD240CF16"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/lib/__pycache__/_utils_impl.cpython-311.pyc",
-      "bytes": 28028,
-      "sha256": "8B8F46AC8D4F2664AE5218948BF82EFEB3C2B1862A64CE17D04E88B525726F24"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/lib/__pycache__/_version.cpython-311.pyc",
-      "bytes": 7045,
-      "sha256": "EE7DD650EB6DC67E7B7017D4A06D793C907704F1CC0F31A03A05F0D932D844CD"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/lib/__pycache__/array_utils.cpython-311.pyc",
-      "bytes": 413,
-      "sha256": "CC0ED8F41EF2F69F347C53D62C977B3D9E82F59D3F1A7A482D775C395D84C22C"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/lib/__pycache__/format.cpython-311.pyc",
-      "bytes": 996,
-      "sha256": "AD526D190F2C99D23B237B96FF621CE7EAB24475FB4CF1645354F1B6BF17D184"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/lib/__pycache__/introspect.cpython-311.pyc",
-      "bytes": 3679,
-      "sha256": "CD852BF89E44B986BB542472C9DDCB89A33121AD8D0AA6F2D3E965B2CC3F93C5"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/lib/__pycache__/mixins.cpython-311.pyc",
-      "bytes": 9328,
-      "sha256": "FDF7D5A7C21AB6D1BD88296C25F6B86DC1322DC5BC17B679D6FC6DD6B72029FC"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/lib/__pycache__/npyio.cpython-311.pyc",
-      "bytes": 294,
-      "sha256": "3681A859D4542614307F66036CEE4127865E360C2751D4A055D8135E07ACF476"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/lib/__pycache__/scimath.cpython-311.pyc",
-      "bytes": 524,
-      "sha256": "32834590A389103B10FDBD391035BA7854DEBC70A45EE3066AA5A754B40B41F4"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/lib/__pycache__/stride_tricks.cpython-311.pyc",
-      "bytes": 322,
-      "sha256": "60C81B9566F6C1DA316EF868B0CB1AE266F60B445106A64E236D192729D8E7B8"
-    },
-    {
       "path": "resources/voice-runtime/python/Lib/site-packages/numpy/lib/_array_utils_impl.py",
       "bytes": 1697,
       "sha256": "1985A2C8DA8B43B0C6512057CF46DB47A000A994AD0C8C147BBB6C6D9FFFD793",
@@ -12245,16 +11865,6 @@
       "lineEndings": "lf-normalized"
     },
     {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/linalg/__pycache__/__init__.cpython-311.pyc",
-      "bytes": 2371,
-      "sha256": "137E62FED46EAEA0985289CBD18A732F91768085974C4A50F63D08A3C62701DB"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/linalg/__pycache__/_linalg.cpython-311.pyc",
-      "bytes": 135014,
-      "sha256": "97B5D8EA8B8DEAF27DA53017AE635CC3E98FDD00597C78BC93DB44EAC6B1FCDF"
-    },
-    {
       "path": "resources/voice-runtime/python/Lib/site-packages/numpy/linalg/_linalg.py",
       "bytes": 114861,
       "sha256": "E47D0E2AED21361291CD6651999A59E6479BA5866ABB8EABB1DBEA5B0D1618AC",
@@ -12477,16 +12087,6 @@
       "bytes": 88,
       "sha256": "B84E39F86A5C61F79C68E0EC158018399489C97512BD6B7BA0D19EAFE04EEC0B",
       "lineEndings": "lf-normalized"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/matrixlib/__pycache__/__init__.cpython-311.pyc",
-      "bytes": 523,
-      "sha256": "8D42A602AE1544FE1F58E06DF93728270CECA34BA69A9CD2484DCE3C7ECFBD71"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/numpy/matrixlib/__pycache__/defmatrix.cpython-311.pyc",
-      "bytes": 37748,
-      "sha256": "9D10B396E127E1C6006A19AB971ACC9F9FB1F5C04891D3F76ECF72E6F4B3ADE2"
     },
     {
       "path": "resources/voice-runtime/python/Lib/site-packages/numpy/matrixlib/defmatrix.py",
@@ -14285,11 +13885,6 @@
       "lineEndings": "lf-normalized"
     },
     {
-      "path": "resources/voice-runtime/python/Lib/site-packages/onnxruntime/__pycache__/__init__.cpython-311.pyc",
-      "bytes": 18687,
-      "sha256": "6FAE2DD016BC9A7BF829D8E959F824B425358D95D8AF4E7271157806D942F170"
-    },
-    {
       "path": "resources/voice-runtime/python/Lib/site-packages/onnxruntime/backend/__init__.py",
       "bytes": 328,
       "sha256": "92AD7C59C0743A5DFC0921872FE38DC2991F504D0A726A233AAEA4F951ADA306",
@@ -14312,41 +13907,6 @@
       "bytes": 247,
       "sha256": "592371B77978964580FF4BE1C35103E08ECA38ED269C0B87C1280562A6EAD0B8",
       "lineEndings": "lf-normalized"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/onnxruntime/capi/__pycache__/__init__.cpython-311.pyc",
-      "bytes": 196,
-      "sha256": "C9A00DB44457DF1E86A74F42A80BAEC9C347FB19675C446517D65EBC0C959959"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/onnxruntime/capi/__pycache__/_ld_preload.cpython-311.pyc",
-      "bytes": 199,
-      "sha256": "C65B75337AC6D2469D592D5128E1879AB2514FBDB1E6F378D608922C1DA856B2"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/onnxruntime/capi/__pycache__/_pybind_state.cpython-311.pyc",
-      "bytes": 1332,
-      "sha256": "09EEEB1823EF7BEE497A4629B1464BD7ADC67BDDCAD35FB55C9DD4A0D30C542D"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/onnxruntime/capi/__pycache__/build_and_package_info.cpython-311.pyc",
-      "bytes": 267,
-      "sha256": "F5030D843FD23C8ADEEB87E2A147C4A7D2C38A18C3A90A12508119CD08E91876"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/onnxruntime/capi/__pycache__/onnxruntime_inference_collection.cpython-311.pyc",
-      "bytes": 83467,
-      "sha256": "58774B8EB1E1F4E4747E9DFDD977911CC6B685CE8945C6D578656A003EEAB924"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/onnxruntime/capi/__pycache__/onnxruntime_validation.cpython-311.pyc",
-      "bytes": 6492,
-      "sha256": "81802B5DE3DCD77B5FA1D2B51343C8789FBF6AA6A76F4AF99569F48450AF4313"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/onnxruntime/capi/__pycache__/version_info.cpython-311.pyc",
-      "bytes": 228,
-      "sha256": "CDC0D97E8277F81066A3079DEC94552E2FDDF462F090761B62E113D0090C5513"
     },
     {
       "path": "resources/voice-runtime/python/Lib/site-packages/onnxruntime/capi/_ld_preload.py",
@@ -16586,36 +16146,6 @@
       "bytes": 8841,
       "sha256": "30401F01B3B266542339FDCA28023CF61FA6BAF52B99341CFEA3A3C2B8D7B802",
       "lineEndings": "lf-normalized"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/piper/__pycache__/__init__.cpython-311.pyc",
-      "bytes": 492,
-      "sha256": "84F8DF82F36DDD0CD789E0365D064E52A7122CBC1DA23E4F40765ABC4A53ADF5"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/piper/__pycache__/config.cpython-311.pyc",
-      "bytes": 5889,
-      "sha256": "8A31BD05B88D2F5D8877F8ADCA04008BF6D64ECE3F9B6777A5734BAC07DE06E6"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/piper/__pycache__/const.cpython-311.pyc",
-      "bytes": 253,
-      "sha256": "02834421CEC8D36F32CB311C9FB6E33A71EC067735071858E97EBF0784DD7812"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/piper/__pycache__/phoneme_ids.cpython-311.pyc",
-      "bytes": 7726,
-      "sha256": "3C2E548C6B0570E6B42174A39C0CBC2B7316662EB9BDA3E489033AB4C258757E"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/piper/__pycache__/phonemize_espeak.cpython-311.pyc",
-      "bytes": 4277,
-      "sha256": "4037C6C97773823CB3785CBCE36F37024E2CB2900EE26B0569E0F98B4C280597"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/piper/__pycache__/voice.cpython-311.pyc",
-      "bytes": 21302,
-      "sha256": "C12B385802FA5636D6EEDE96631E6C8C0878393661D6709E5237F15387360CA6"
     },
     {
       "path": "resources/voice-runtime/python/Lib/site-packages/piper/audio_playback.py",
@@ -18872,11 +18402,6 @@
       "bytes": 7119,
       "sha256": "1517463424D069A8BD5F4EFBBE5361E2D14EBD6826D54DA521482740A3B9AB4B",
       "lineEndings": "lf-normalized"
-    },
-    {
-      "path": "resources/voice-runtime/python/Lib/site-packages/piper/tashkeel/__pycache__/__init__.cpython-311.pyc",
-      "bytes": 12796,
-      "sha256": "C6423C71C92CE86EF502EC3468060FE807AF47C837B0D8AAC3A05C169797B306"
     },
     {
       "path": "resources/voice-runtime/python/Lib/site-packages/piper/tashkeel/hint_id_map.json",
@@ -24172,8 +23697,8 @@
     },
     {
       "path": "resources/voice-runtime/tts_piper.py",
-      "bytes": 6007,
-      "sha256": "91BA341EBE6BF513D855A5E45B4B82EF30B2F3FDAEA05867386E2E9702C31493",
+      "bytes": 9208,
+      "sha256": "F9CB9A5FF853F4190D44D14EFFE6143D0BFADA235F1838B6910093D447D19339",
       "lineEndings": "lf-normalized"
     },
     {
@@ -24191,7 +23716,7 @@
     {
       "path": "resources/voice-runtime/voice-runtime-manifest.json",
       "bytes": 720263,
-      "sha256": "A1BFA8D2416831FEAA187B616B90CFC253533D63FD4361856EE2E86CF45A29FB",
+      "sha256": "28D80FBDAFB17D436319AAC64B1E22CC1EEB3473BC44B8C3052396B4639F81E4",
       "lineEndings": "lf-normalized"
     },
     {
@@ -24246,6 +23771,21 @@
         "bytes": 523,
         "sha256": "A48D43347EF5F247FEC52EFED640FC1739C1FB67B75773B00E785EAB9F64F086",
         "lineEndings": "lf-normalized"
+      },
+      {
+        "path": "resources/athena-brand-icon.png",
+        "bytes": 120234,
+        "sha256": "C7074184BFFD4DCDF62841B86F5652F020E962D8887D795D8084615D00C0C89F"
+      },
+      {
+        "path": "resources/athena-brand.ico",
+        "bytes": 27219,
+        "sha256": "E7E5243210C125597F3B235DF4C390F3EE250DACB4B1CAA37588429E7F3DF923"
+      },
+      {
+        "path": "resources/athena-tray.png",
+        "bytes": 2054,
+        "sha256": "02B9F56C09AEA8971CF98A1741484EFF9DB97ADE26B4F759DE64836E1C72C200"
       },
       {
         "path": "resources/icon.png",
@@ -24437,11 +23977,6 @@
         "bytes": 6128,
         "sha256": "4D27A48545B57DD137AE35376FCF326D2064271084A487960686F8704B94DE4A",
         "lineEndings": "lf-normalized"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/_distutils_hack/__pycache__/__init__.cpython-311.pyc",
-        "bytes": 11160,
-        "sha256": "592BD30FEBF5AC226C82164AE29611A0E474DE91085303BA93B126F7FB2BCAC4"
       },
       {
         "path": "resources/voice-runtime/python/Lib/site-packages/_distutils_hack/override.py",
@@ -30410,56 +29945,6 @@
         "lineEndings": "lf-normalized"
       },
       {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/__pycache__/__config__.cpython-311.pyc",
-        "bytes": 6203,
-        "sha256": "F63A6555FB67E2081D7E4DCA7E58C39AB89119BDF28A4DBBC079E6AA198742BF"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/__pycache__/__init__.cpython-311.pyc",
-        "bytes": 35098,
-        "sha256": "E4948AD2D8F6021509CAE4D51453C9D2DD1003C66FD67065D307F3275663480D"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/__pycache__/_array_api_info.cpython-311.pyc",
-        "bytes": 12278,
-        "sha256": "9542986FCE255C13EC07EA27DF4DB26C3E1D35DFF4D7AEBA1A56A855374676F6"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/__pycache__/_distributor_init.cpython-311.pyc",
-        "bytes": 697,
-        "sha256": "E2F50E8E1D4CBA2D1CD1FE42E6549C2A354BEAD3D84CEBA7CDB53F14D56CE4FB"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/__pycache__/_expired_attrs_2_0.cpython-311.pyc",
-        "bytes": 4284,
-        "sha256": "1A1A512A7AC33D1FEEFD28678783DA4A3968C8A19D5D364A18B1FDFB27826208"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/__pycache__/_globals.cpython-311.pyc",
-        "bytes": 4939,
-        "sha256": "0F3AB28F9209C83A2F1927A88643A4E59834AE55FA6082A1A4DC10817B4D20BC"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/__pycache__/_pytesttester.cpython-311.pyc",
-        "bytes": 7098,
-        "sha256": "A70FD1331983A51EDE2D1B4DC24AE9A8D8888C828DDC7E57B3B770EA12FA0988"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/__pycache__/dtypes.cpython-311.pyc",
-        "bytes": 1640,
-        "sha256": "6FF095B11C07F23F6B00B16B4AD37F666D18CF21994C0C27465C7C744705A63A"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/__pycache__/exceptions.cpython-311.pyc",
-        "bytes": 9077,
-        "sha256": "97F7645902E28EFD53D393C88718CEC086D46435AB7A79AA4DA87DF86181005C"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/__pycache__/version.cpython-311.pyc",
-        "bytes": 564,
-        "sha256": "5BABB4DBC0646D342737853C6C486651DED519FBB6E6A47E8840DEE9B140FC2F"
-      },
-      {
         "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_array_api_info.py",
         "bytes": 10385,
         "sha256": "CE6EC789062ACA14AA165DC9586ECE2E1130F891843EAEFEEFEA968575AA559F",
@@ -30494,136 +29979,6 @@
         "bytes": 9973,
         "sha256": "9EEBB8C365455979ED098589F98E8BCBD74FDE0DF722816050E01DDABC6F9DEC",
         "lineEndings": "lf-normalized"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_core/__pycache__/__init__.cpython-311.pyc",
-        "bytes": 6869,
-        "sha256": "AF492329FCF1B6F2DCA5F0F72C4973103C713F4951D744050F8FBC8B4A3BECCD"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_core/__pycache__/_add_newdocs_scalars.cpython-311.pyc",
-        "bytes": 14299,
-        "sha256": "D7B87B2A28CC0391877AD0D2F6293B9EB11FD2D6884C1B6813C1AF58C7372FDE"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_core/__pycache__/_add_newdocs.cpython-311.pyc",
-        "bytes": 214017,
-        "sha256": "9DEFEE4A06A9A54DB0B8883383C28616E69EF332846DA9C506E635E28303840B"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_core/__pycache__/_asarray.cpython-311.pyc",
-        "bytes": 4671,
-        "sha256": "6EF358279566E3B98FE705670E4D0287A95AAD74091DC8A8D3D3C0C5ACCB91FC"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_core/__pycache__/_dtype_ctypes.cpython-311.pyc",
-        "bytes": 5182,
-        "sha256": "4A70D394788DBCDBF236DF358DE030F2E656970E1ED1570727D3E1019EA44BDA"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_core/__pycache__/_dtype.cpython-311.pyc",
-        "bytes": 13744,
-        "sha256": "2840E3B16BB7BB422F22CC4C67DD6410AC0EB706BF318E209E5E8C2FAC2BBE13"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_core/__pycache__/_exceptions.cpython-311.pyc",
-        "bytes": 9167,
-        "sha256": "A36D3B94DFC17A7A5F09D72B1DAC9E97B7A6D9B8593990E4B0BE90C3B6CDD67C"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_core/__pycache__/_internal.cpython-311.pyc",
-        "bytes": 39422,
-        "sha256": "9C890EB4663AA223FF18FB0D41DCCD49B940228D71D2BAC3A63151AB4AC01AB7"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_core/__pycache__/_methods.cpython-311.pyc",
-        "bytes": 11926,
-        "sha256": "022408EB78F0CFA77DE03DE692AC0EB2D51059F6F06C95460BD04A603CF5E8CD"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_core/__pycache__/_string_helpers.cpython-311.pyc",
-        "bytes": 3491,
-        "sha256": "0C916CFB01BC6C594B6A7EF67741798F4E7904FE3F259BB0D3B73E0FE4F4B9E7"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_core/__pycache__/_type_aliases.cpython-311.pyc",
-        "bytes": 3927,
-        "sha256": "82FED47EB4785E9709F32C9A58052D58CF1C7D808C228BDAFA7CDE2D1C59788D"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_core/__pycache__/_ufunc_config.cpython-311.pyc",
-        "bytes": 17675,
-        "sha256": "AAD4AB8A240392888214EF72031316930237083E58C9DBE29D499D8D8594ED2E"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_core/__pycache__/arrayprint.cpython-311.pyc",
-        "bytes": 78906,
-        "sha256": "9AA7811827BF646BF1DE5FBA053D78B0A0F0B6282DF1A9F935F3E3748341028E"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_core/__pycache__/einsumfunc.cpython-311.pyc",
-        "bytes": 61526,
-        "sha256": "74B39B3C3DD3193A414CD9C164ED84F12E7FFA13C00B1850F4481E91C4186957"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_core/__pycache__/fromnumeric.cpython-311.pyc",
-        "bytes": 152723,
-        "sha256": "1B778F5327EDB4058820E30418567E1318E1114E4E84090D5C6D694F8CB13997"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_core/__pycache__/function_base.cpython-311.pyc",
-        "bytes": 21811,
-        "sha256": "53E2675BBACF6DD38554493B585B6A9D377EDE68E2FA6D6819B05E337F80C141"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_core/__pycache__/getlimits.cpython-311.pyc",
-        "bytes": 19715,
-        "sha256": "A17C9392EE3C5AEA6D8FAA1F928DD22BAD7BAB779680713E3B38BC253AE5795C"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_core/__pycache__/memmap.cpython-311.pyc",
-        "bytes": 14105,
-        "sha256": "4E31B0524DA6D12BCB46EAD9BCB3580A65A4B0DC86F7A6D20A5FA3D1DA71AFD4"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_core/__pycache__/multiarray.cpython-311.pyc",
-        "bytes": 58080,
-        "sha256": "C660332E9FDB29ABF2A974D00DE36C650ABAE3FD2CE465487595242E176447BD"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_core/__pycache__/numeric.cpython-311.pyc",
-        "bytes": 98015,
-        "sha256": "C397109E148CAAD54043F0841312216FF015C1A4D192877C1AE7EB96A14BDAD0"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_core/__pycache__/numerictypes.cpython-311.pyc",
-        "bytes": 19168,
-        "sha256": "C1BCC51697EA15CEC46D69C1ED7DEDE026CC9B6DEE4DFDC444C59FEAB3BE4234"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_core/__pycache__/overrides.cpython-311.pyc",
-        "bytes": 8561,
-        "sha256": "EEEF865F8BAE6AFBDE11E324234BD428B06BBC7DE2DDEC927147CB0F4BE29E5C"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_core/__pycache__/printoptions.cpython-311.pyc",
-        "bytes": 975,
-        "sha256": "3FFB254E231DBDB8BB2DBCD747C35AFFDE78E58E989502B58BF67081F314E741"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_core/__pycache__/records.cpython-311.pyc",
-        "bytes": 43382,
-        "sha256": "AC72350E375195D8F77F9B636D746AD7300BE1109BFD86C5F3670A53D9CB7DD2"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_core/__pycache__/shape_base.cpython-311.pyc",
-        "bytes": 37491,
-        "sha256": "BFC37AD7845310568A7019B48C84BF22B5FE482B44E394FD346F5BC55C2017DF"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_core/__pycache__/umath.cpython-311.pyc",
-        "bytes": 2285,
-        "sha256": "83EBC46CBFC76362EA50471398C300DA05F510A590A4A6E670143BB0C4930F42"
       },
       {
         "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_core/_add_newdocs_scalars.py",
@@ -31929,56 +31284,6 @@
         "lineEndings": "lf-normalized"
       },
       {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_typing/__pycache__/__init__.cpython-311.pyc",
-        "bytes": 5370,
-        "sha256": "B004B223E6B48D21A38A52222D827A5D2FB3E4713BC50218D6089F03D28486DC"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_typing/__pycache__/_array_like.cpython-311.pyc",
-        "bytes": 6357,
-        "sha256": "164F28F32416D5B49CFE883772C84A312832B9D7ED059418D01ABCDB1A70A798"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_typing/__pycache__/_char_codes.cpython-311.pyc",
-        "bytes": 7387,
-        "sha256": "B52D9474D8CF822011ABC435DE9FEA5C82C84E6BED79483E02C042FC6DCE0C1C"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_typing/__pycache__/_dtype_like.cpython-311.pyc",
-        "bytes": 5062,
-        "sha256": "EF3CD4EE5B2B9E12C7908054EF640C8351DD63952DF28CA8C02A6282A8D263F3"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_typing/__pycache__/_nbit_base.cpython-311.pyc",
-        "bytes": 4483,
-        "sha256": "75A2A1306C9F434D6EE9273865CDC1CD1C068F6E7EC2CD6EEA1B4D8E018E79CF"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_typing/__pycache__/_nbit.cpython-311.pyc",
-        "bytes": 1094,
-        "sha256": "A6A46A34217F63E89E61CB830BB8835A404A83E44968242684BC67F10F3F903C"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_typing/__pycache__/_nested_sequence.cpython-311.pyc",
-        "bytes": 3832,
-        "sha256": "4633202DC85DF8FEB09DC828C3934C00736752C4EC0070F52DFB07242722E7B6"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_typing/__pycache__/_scalars.cpython-311.pyc",
-        "bytes": 1340,
-        "sha256": "718698386A011451D2FBCC32FA8614EDAC5CFA3107FC219BF57B90A6EC4C92F1"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_typing/__pycache__/_shape.cpython-311.pyc",
-        "bytes": 608,
-        "sha256": "BC1447792E98439B0EBEDD4062386B2BADB71ABD47B5E83C9C656C27FDC99271"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_typing/__pycache__/_ufunc.cpython-311.pyc",
-        "bytes": 386,
-        "sha256": "F7E7C98061C94A9C7064BAF6877864A91DE389CE64DBED9BE7C2828A5E6BC228"
-      },
-      {
         "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_typing/_add_docstring.py",
         "bytes": 3999,
         "sha256": "FF783B0FEE87010DCC4F85FA0C4D3BC8BB9AF4BA96161B24355C754D2ED7F4EE",
@@ -32067,21 +31372,6 @@
         "bytes": 700,
         "sha256": "8B28E66E4A9CFC54AA3D242758DD6B82320C2E062151BC63F2B0D26E06C1B4D4",
         "lineEndings": "lf-normalized"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_utils/__pycache__/__init__.cpython-311.pyc",
-        "bytes": 4484,
-        "sha256": "A1602DFBB9947067511E18CEC5C094A81CD997CA05E08DE929B5E8DD62A88D96"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_utils/__pycache__/_convertions.cpython-311.pyc",
-        "bytes": 942,
-        "sha256": "E6E9A5E76DD94B14C43FE2023EECB6486770241BCA5D6F4D864947588B912B95"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_utils/__pycache__/_inspect.cpython-311.pyc",
-        "bytes": 10365,
-        "sha256": "CC394253AC6C0CDD06689B34C9393D959C71E401A60A0B9F99073D72DA77D837"
       },
       {
         "path": "resources/voice-runtime/python/Lib/site-packages/numpy/_utils/_convertions.py",
@@ -34242,151 +33532,6 @@
         "lineEndings": "lf-normalized"
       },
       {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/lib/__pycache__/__init__.cpython-311.pyc",
-        "bytes": 3476,
-        "sha256": "C6FBEB409CDCDFA1840847842E4333FAF9642FADDB627D5FBFAE0289243ACC3A"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/lib/__pycache__/_array_utils_impl.cpython-311.pyc",
-        "bytes": 2230,
-        "sha256": "1FC16D5BD76F842DAF1F287D626BCADB0DD19D8EC3AFF89EBF5E9C71567D5ACA"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/lib/__pycache__/_arraypad_impl.cpython-311.pyc",
-        "bytes": 32244,
-        "sha256": "6B2D5C38152A7030BB813C02081896ECB7E9AD05A078555EAA0C391FF24D7A02"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/lib/__pycache__/_arraysetops_impl.cpython-311.pyc",
-        "bytes": 41275,
-        "sha256": "EDB3955CF0D8EE3D0298986736F05CA8600B0417B2272D6B6484CC50CC032F84"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/lib/__pycache__/_arrayterator_impl.cpython-311.pyc",
-        "bytes": 10324,
-        "sha256": "E456A181DAA1670B5B21AAF02D6123F9A4911C75EE1BC22DD75B8C96EBB0779D"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/lib/__pycache__/_datasource.cpython-311.pyc",
-        "bytes": 27329,
-        "sha256": "2873DD7BF0E5DBF9E5FD0F6770FC1B1315FACAB16EE274D77AA6C45B13BC53CC"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/lib/__pycache__/_format_impl.cpython-311.pyc",
-        "bytes": 38737,
-        "sha256": "19960A99A7B1D42BC948793A5BC1E7F64B5B1EE61F89763D057024FA7B5981E5"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/lib/__pycache__/_function_base_impl.cpython-311.pyc",
-        "bytes": 216409,
-        "sha256": "7158D3A58C77E2C286BC7C20DC429930CA359E9EF214A2DABE8D55B5ADB62F15"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/lib/__pycache__/_histograms_impl.cpython-311.pyc",
-        "bytes": 42451,
-        "sha256": "2CF88D3388AC3CAF472B5B6D71D9ABB58F1AAC24CC874DB89F80691E792808A4"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/lib/__pycache__/_index_tricks_impl.cpython-311.pyc",
-        "bytes": 38016,
-        "sha256": "693810858BED6A5E6C38E0852CFDA501F39F16E6EF5371F0A3EDB9FC53B174B9"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/lib/__pycache__/_iotools.cpython-311.pyc",
-        "bytes": 37988,
-        "sha256": "947F089CC9F9AE95A874B7238BB65E60D8F77CF46927A9A45E453241C786248D"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/lib/__pycache__/_nanfunctions_impl.cpython-311.pyc",
-        "bytes": 76925,
-        "sha256": "3C17CA71FE6DE3748501F64338453716E996D167E4FB186627D3CCF21E261914"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/lib/__pycache__/_npyio_impl.cpython-311.pyc",
-        "bytes": 107489,
-        "sha256": "2DFDEAFDD86BB0316AF05A5BBDFED686A56359F83E3F7BC22742E226CC2D1C64"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/lib/__pycache__/_polynomial_impl.cpython-311.pyc",
-        "bytes": 56196,
-        "sha256": "31CEF23A87288254DA06B4527AF54CBE39752653835A09D2882AAC356ABD6DF2"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/lib/__pycache__/_scimath_impl.cpython-311.pyc",
-        "bytes": 19105,
-        "sha256": "1FEF734BF6DEA0F2DFE30C4F9710F167783F7D4AE4597475176979759E20CE19"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/lib/__pycache__/_shape_base_impl.cpython-311.pyc",
-        "bytes": 45469,
-        "sha256": "957C226A491B44DDBE2127A06CD2CC9572957F6977C7A81561FDDE4BD0C50F2F"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/lib/__pycache__/_stride_tricks_impl.cpython-311.pyc",
-        "bytes": 22060,
-        "sha256": "A5FCA2026D407CD845C6430C0DDEA52C5D44A79A3FE1DFD24C58FBCB51D8B2C1"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/lib/__pycache__/_twodim_base_impl.cpython-311.pyc",
-        "bytes": 40214,
-        "sha256": "F2AF6FEB3736B6DF22F1ED1CD02A70FB9945B21DCEC165D2DEA14583CE408C46"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/lib/__pycache__/_type_check_impl.cpython-311.pyc",
-        "bytes": 23471,
-        "sha256": "3EC378B3068D42E990723B101E70B27A8A26F13CCBE3111880E01314F7854949"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/lib/__pycache__/_ufunclike_impl.cpython-311.pyc",
-        "bytes": 7128,
-        "sha256": "6105C2B2E27877244032F2EA177F61ADC30995EEF5A9A8DADC63E09DD240CF16"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/lib/__pycache__/_utils_impl.cpython-311.pyc",
-        "bytes": 28028,
-        "sha256": "8B8F46AC8D4F2664AE5218948BF82EFEB3C2B1862A64CE17D04E88B525726F24"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/lib/__pycache__/_version.cpython-311.pyc",
-        "bytes": 7045,
-        "sha256": "EE7DD650EB6DC67E7B7017D4A06D793C907704F1CC0F31A03A05F0D932D844CD"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/lib/__pycache__/array_utils.cpython-311.pyc",
-        "bytes": 413,
-        "sha256": "CC0ED8F41EF2F69F347C53D62C977B3D9E82F59D3F1A7A482D775C395D84C22C"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/lib/__pycache__/format.cpython-311.pyc",
-        "bytes": 996,
-        "sha256": "AD526D190F2C99D23B237B96FF621CE7EAB24475FB4CF1645354F1B6BF17D184"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/lib/__pycache__/introspect.cpython-311.pyc",
-        "bytes": 3679,
-        "sha256": "CD852BF89E44B986BB542472C9DDCB89A33121AD8D0AA6F2D3E965B2CC3F93C5"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/lib/__pycache__/mixins.cpython-311.pyc",
-        "bytes": 9328,
-        "sha256": "FDF7D5A7C21AB6D1BD88296C25F6B86DC1322DC5BC17B679D6FC6DD6B72029FC"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/lib/__pycache__/npyio.cpython-311.pyc",
-        "bytes": 294,
-        "sha256": "3681A859D4542614307F66036CEE4127865E360C2751D4A055D8135E07ACF476"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/lib/__pycache__/scimath.cpython-311.pyc",
-        "bytes": 524,
-        "sha256": "32834590A389103B10FDBD391035BA7854DEBC70A45EE3066AA5A754B40B41F4"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/lib/__pycache__/stride_tricks.cpython-311.pyc",
-        "bytes": 322,
-        "sha256": "60C81B9566F6C1DA316EF868B0CB1AE266F60B445106A64E236D192729D8E7B8"
-      },
-      {
         "path": "resources/voice-runtime/python/Lib/site-packages/numpy/lib/_array_utils_impl.py",
         "bytes": 1697,
         "sha256": "1985A2C8DA8B43B0C6512057CF46DB47A000A994AD0C8C147BBB6C6D9FFFD793",
@@ -34962,16 +34107,6 @@
         "lineEndings": "lf-normalized"
       },
       {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/linalg/__pycache__/__init__.cpython-311.pyc",
-        "bytes": 2371,
-        "sha256": "137E62FED46EAEA0985289CBD18A732F91768085974C4A50F63D08A3C62701DB"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/linalg/__pycache__/_linalg.cpython-311.pyc",
-        "bytes": 135014,
-        "sha256": "97B5D8EA8B8DEAF27DA53017AE635CC3E98FDD00597C78BC93DB44EAC6B1FCDF"
-      },
-      {
         "path": "resources/voice-runtime/python/Lib/site-packages/numpy/linalg/_linalg.py",
         "bytes": 114861,
         "sha256": "E47D0E2AED21361291CD6651999A59E6479BA5866ABB8EABB1DBEA5B0D1618AC",
@@ -35194,16 +34329,6 @@
         "bytes": 88,
         "sha256": "B84E39F86A5C61F79C68E0EC158018399489C97512BD6B7BA0D19EAFE04EEC0B",
         "lineEndings": "lf-normalized"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/matrixlib/__pycache__/__init__.cpython-311.pyc",
-        "bytes": 523,
-        "sha256": "8D42A602AE1544FE1F58E06DF93728270CECA34BA69A9CD2484DCE3C7ECFBD71"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/numpy/matrixlib/__pycache__/defmatrix.cpython-311.pyc",
-        "bytes": 37748,
-        "sha256": "9D10B396E127E1C6006A19AB971ACC9F9FB1F5C04891D3F76ECF72E6F4B3ADE2"
       },
       {
         "path": "resources/voice-runtime/python/Lib/site-packages/numpy/matrixlib/defmatrix.py",
@@ -37002,11 +36127,6 @@
         "lineEndings": "lf-normalized"
       },
       {
-        "path": "resources/voice-runtime/python/Lib/site-packages/onnxruntime/__pycache__/__init__.cpython-311.pyc",
-        "bytes": 18687,
-        "sha256": "6FAE2DD016BC9A7BF829D8E959F824B425358D95D8AF4E7271157806D942F170"
-      },
-      {
         "path": "resources/voice-runtime/python/Lib/site-packages/onnxruntime/backend/__init__.py",
         "bytes": 328,
         "sha256": "92AD7C59C0743A5DFC0921872FE38DC2991F504D0A726A233AAEA4F951ADA306",
@@ -37029,41 +36149,6 @@
         "bytes": 247,
         "sha256": "592371B77978964580FF4BE1C35103E08ECA38ED269C0B87C1280562A6EAD0B8",
         "lineEndings": "lf-normalized"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/onnxruntime/capi/__pycache__/__init__.cpython-311.pyc",
-        "bytes": 196,
-        "sha256": "C9A00DB44457DF1E86A74F42A80BAEC9C347FB19675C446517D65EBC0C959959"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/onnxruntime/capi/__pycache__/_ld_preload.cpython-311.pyc",
-        "bytes": 199,
-        "sha256": "C65B75337AC6D2469D592D5128E1879AB2514FBDB1E6F378D608922C1DA856B2"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/onnxruntime/capi/__pycache__/_pybind_state.cpython-311.pyc",
-        "bytes": 1332,
-        "sha256": "09EEEB1823EF7BEE497A4629B1464BD7ADC67BDDCAD35FB55C9DD4A0D30C542D"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/onnxruntime/capi/__pycache__/build_and_package_info.cpython-311.pyc",
-        "bytes": 267,
-        "sha256": "F5030D843FD23C8ADEEB87E2A147C4A7D2C38A18C3A90A12508119CD08E91876"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/onnxruntime/capi/__pycache__/onnxruntime_inference_collection.cpython-311.pyc",
-        "bytes": 83467,
-        "sha256": "58774B8EB1E1F4E4747E9DFDD977911CC6B685CE8945C6D578656A003EEAB924"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/onnxruntime/capi/__pycache__/onnxruntime_validation.cpython-311.pyc",
-        "bytes": 6492,
-        "sha256": "81802B5DE3DCD77B5FA1D2B51343C8789FBF6AA6A76F4AF99569F48450AF4313"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/onnxruntime/capi/__pycache__/version_info.cpython-311.pyc",
-        "bytes": 228,
-        "sha256": "CDC0D97E8277F81066A3079DEC94552E2FDDF462F090761B62E113D0090C5513"
       },
       {
         "path": "resources/voice-runtime/python/Lib/site-packages/onnxruntime/capi/_ld_preload.py",
@@ -39303,36 +38388,6 @@
         "bytes": 8841,
         "sha256": "30401F01B3B266542339FDCA28023CF61FA6BAF52B99341CFEA3A3C2B8D7B802",
         "lineEndings": "lf-normalized"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/piper/__pycache__/__init__.cpython-311.pyc",
-        "bytes": 492,
-        "sha256": "84F8DF82F36DDD0CD789E0365D064E52A7122CBC1DA23E4F40765ABC4A53ADF5"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/piper/__pycache__/config.cpython-311.pyc",
-        "bytes": 5889,
-        "sha256": "8A31BD05B88D2F5D8877F8ADCA04008BF6D64ECE3F9B6777A5734BAC07DE06E6"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/piper/__pycache__/const.cpython-311.pyc",
-        "bytes": 253,
-        "sha256": "02834421CEC8D36F32CB311C9FB6E33A71EC067735071858E97EBF0784DD7812"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/piper/__pycache__/phoneme_ids.cpython-311.pyc",
-        "bytes": 7726,
-        "sha256": "3C2E548C6B0570E6B42174A39C0CBC2B7316662EB9BDA3E489033AB4C258757E"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/piper/__pycache__/phonemize_espeak.cpython-311.pyc",
-        "bytes": 4277,
-        "sha256": "4037C6C97773823CB3785CBCE36F37024E2CB2900EE26B0569E0F98B4C280597"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/piper/__pycache__/voice.cpython-311.pyc",
-        "bytes": 21302,
-        "sha256": "C12B385802FA5636D6EEDE96631E6C8C0878393661D6709E5237F15387360CA6"
       },
       {
         "path": "resources/voice-runtime/python/Lib/site-packages/piper/audio_playback.py",
@@ -41589,11 +40644,6 @@
         "bytes": 7119,
         "sha256": "1517463424D069A8BD5F4EFBBE5361E2D14EBD6826D54DA521482740A3B9AB4B",
         "lineEndings": "lf-normalized"
-      },
-      {
-        "path": "resources/voice-runtime/python/Lib/site-packages/piper/tashkeel/__pycache__/__init__.cpython-311.pyc",
-        "bytes": 12796,
-        "sha256": "C6423C71C92CE86EF502EC3468060FE807AF47C837B0D8AAC3A05C169797B306"
       },
       {
         "path": "resources/voice-runtime/python/Lib/site-packages/piper/tashkeel/hint_id_map.json",
@@ -46889,8 +45939,8 @@
       },
       {
         "path": "resources/voice-runtime/tts_piper.py",
-        "bytes": 6007,
-        "sha256": "91BA341EBE6BF513D855A5E45B4B82EF30B2F3FDAEA05867386E2E9702C31493",
+        "bytes": 9208,
+        "sha256": "F9CB9A5FF853F4190D44D14EFFE6143D0BFADA235F1838B6910093D447D19339",
         "lineEndings": "lf-normalized"
       },
       {
@@ -46908,7 +45958,7 @@
       {
         "path": "resources/voice-runtime/voice-runtime-manifest.json",
         "bytes": 720263,
-        "sha256": "A1BFA8D2416831FEAA187B616B90CFC253533D63FD4361856EE2E86CF45A29FB",
+        "sha256": "28D80FBDAFB17D436319AAC64B1E22CC1EEB3473BC44B8C3052396B4639F81E4",
         "lineEndings": "lf-normalized"
       },
       {
@@ -47675,13 +46725,13 @@
   "buildArtifacts": [
     {
       "path": "release/Athena Setup 0.9.7-beta.1.exe",
-      "bytes": 688528555,
-      "sha256": "A842E7E0CE0A6919D905DF1CB81056F477AA6B08F0BFEDD6EEEDE90AB6B9F9FB"
+      "bytes": 687932552,
+      "sha256": "1325B664D298C9691C5FAA8F8A8936BD87F40C2ED02DCDDFEB687727B98D9D8D"
     },
     {
       "path": "release/win-unpacked/Athena.exe",
       "bytes": 232771584,
-      "sha256": "01B29B2DB594D7DDD49BA65CAFE7B50C6BFBD4A3A4A0A675040854FA56A497A0"
+      "sha256": "7BF954C728253A59571A9C2C1D35AFF3C3683662B56161BD909B16A78FA3C2D4"
     }
   ],
   "packagingDecisions": [

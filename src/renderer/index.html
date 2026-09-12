@@ -76,12 +76,9 @@
         <button id="btn-sidebar" class="icon-button" type="button" title="显示或隐藏对话列表" aria-label="显示或隐藏对话列表" aria-expanded="true">
           <svg class="icon"><use href="#icon-sidebar"></use></svg>
         </button>
-        <span id="life-core" class="life-core life-core-title" aria-hidden="true">
-          <span class="life-core-field"></span>
-          <span class="life-core-ring"></span>
-          <span class="life-core-focus"></span>
-        </span>
+        <span id="life-core" class="life-core life-core-title approved-brand-mark" role="img" aria-label="Athena"></span>
         <span class="brand-stack">
+          <span class="brand-name">Athena</span>
           <button id="model-status-button" class="brand-subtitle" type="button" title="打开模型设置">
             <span class="status-dot" id="status-dot"></span>
             <span id="status-text">正在连接</span>
@@ -154,8 +151,8 @@
     <section id="stage">
       <div id="presence-panel">
         <div class="presence-signal" aria-hidden="true"><span></span></div>
-        <div class="presence-title">今天想先做什么？</div>
-        <div class="presence-copy">聊两句，或者把手头的事往前推一点。</div>
+        <div class="presence-title">在这里，想法可以慢慢成形。</div>
+        <div class="presence-copy">创作、整理、推理，或者只是说两句。</div>
         <div id="presence-actions" aria-label="快速开始">
           <button class="presence-action" type="button" data-prompt-mode="create" data-prompt="帮我搭一个创作框架">搭一个创作框架</button>
           <button class="presence-action" type="button" data-prompt-mode="create" data-prompt="把这个想法扩写成三个方向">扩写三个方向</button>
@@ -771,13 +768,27 @@
               <span>最多深读网页</span>
               <input id="setting-web-search-max-pages" type="number" min="1" max="4" step="1" />
             </label>
-            <div class="settings-note">默认先用国内可直连的搜狗，失败时切换必应和 DuckDuckGo。深读会抽取 article/main、JSON-LD、表格与列表；二次搜索会尽量换一个搜索源交叉核验。</div>
+            <label class="settings-field settings-field-full">
+              <span>智谱搜索 API Key</span>
+              <input id="setting-search-api-key" type="password" autocomplete="new-password" placeholder="已保存的密钥不会回显" />
+            </label>
+            <div class="model-actions">
+              <button id="search-save-api-key" class="settings-panel-link" type="button">安全保存 Key</button>
+              <button id="search-clear-api-key" class="settings-panel-link settings-panel-danger" type="button">清除 Key</button>
+            </div>
+            <div id="search-credential-status" class="settings-note" role="status">尚未检查凭据</div>
+            <div class="settings-note">配置智谱 Key 后优先使用智谱搜索：结果带发布日期，并能按时间筛选。未配置或智谱失败时改用搜狗、必应网页搜索。深读会抽取 article/main、JSON-LD、表格与列表；二次搜索会尽量换一个搜索源交叉核验。</div>
           </div>
         </details>
 
         <details class="settings-section">
           <summary class="settings-heading">外观与动效</summary>
           <div class="settings-section-body">
+            <fieldset class="interface-preset-field">
+              <legend>主题与布局</legend>
+              <div id="interface-preset-options" role="radiogroup" aria-label="主题与布局" aria-describedby="interface-preset-feedback"></div>
+              <p id="interface-preset-feedback" class="settings-note" role="status" aria-live="polite"></p>
+            </fieldset>
             <label class="settings-toggle">
               <input id="setting-startup-intro" type="checkbox" />
               <span>窗口打开时轻微淡入</span>
@@ -821,7 +832,7 @@
               </select>
             </label>
             <label class="settings-field">
-              <span>主题</span>
+              <span>明暗外观</span>
               <select id="setting-theme">
                 <option value="day">日间</option>
                 <option value="night">夜间</option>

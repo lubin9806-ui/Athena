@@ -17,6 +17,9 @@ The normal Desktop installer includes `resources/` except
 - `resources/su-shixia-tray.png`
 - `resources/su-shixia.ico`
 - `resources/su-shixia-icon-1080.png`
+- `resources/athena-brand-icon.png`
+- `resources/athena-tray.png`
+- `resources/athena-brand.ico`
 - `tts.py`
 - `stt.py`
 - `stt_whisper.py`
@@ -85,14 +88,36 @@ only and are excluded from release resources.
 - Public offline redistribution remains Blocked until Ollama installer
   redistribution and Qwen notice-handling signoff are approved.
 
+## Approved Athena Brand Mark Exports
+
+The three desktop brand files below are deterministic format conversions of
+`docs/brand/companion-prototype/assets/athena-mark.svg`. The export script
+`scripts/generate-approved-brand-icons.cjs` pins the source SVG SHA-256 to
+`55AA336147DF7D5FBCE9FC485AB421988DF6108301817E023B800DDFD383E578` and aborts
+if the approved source changes. It uses the repository's pinned
+`@napi-rs/canvas` dependency to apply the documented background and foreground
+colors, rasterize fixed sizes, and assemble the multi-frame ICO; it does not
+generate or reinterpret the artwork.
+
+| Packaged output | Bytes | SHA-256 |
+|---|---:|---|
+| `resources/athena-brand-icon.png` | 120,234 | `C7074184BFFD4DCDF62841B86F5652F020E962D8887D795D8084615D00C0C89F` |
+| `resources/athena-tray.png` | 2,054 | `02B9F56C09AEA8971CF98A1741484EFF9DB97ADE26B4F759DE64836E1C72C200` |
+| `resources/athena-brand.ico` | 27,219 | `E7E5243210C125597F3B235DF4C390F3EE250DACB4B1CAA37588429E7F3DF923` |
+
+These records establish reproducibility and the exact packaged bytes only.
+Public distribution remains Blocked pending human ownership/originality review
+and Athena trademark clearance; this engineering ledger is not that approval.
+
 ## Blocked Proofs Needed
 
 Do not infer or invent these records. The user/project owner must provide them:
 
 - legal owner/publisher name and company authority to publish Athena
 - trademark clearance for `Athena` and `Su Shixia`
-- authoring or generation records for icons, tray images, splash images,
-  wallpapers, screenshots, posters, and promotional copy
+- human ownership/originality signoff for icons, tray images, splash images,
+  wallpapers, screenshots, posters, and promotional copy; authoring/generation
+  records are still required for any asset not documented elsewhere in this ledger
 - font and icon licenses if future UI assets embed non-system fonts or external
   icon packs
 - voice/audio rights if recorded voices, samples, or commercial TTS outputs are

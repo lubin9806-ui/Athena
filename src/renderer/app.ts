@@ -1,6 +1,11 @@
 /** Renderer entry: Athena workspace UI, chat, voice, settings, and IPC wiring. */
 
 import './style.css';
+import './themes/daylight.css';
+import './themes/preset-controls.css';
+import { installApprovedBrand } from './ui/ApprovedBrand';
+import { InterfacePresetController } from './ui/InterfacePresetController';
+import type { InterfacePreset } from '../shared/types/settings';
 import { ChatPanel, type ChatAttachmentSnapshot, type ChatMessageSnapshot, type ChatSource, type ChatToolExecution } from './ui/ChatPanel';
 import { DropZone, shouldStoreTextAsAttachment } from './ui/DropZone';
 import { InputBar } from './ui/InputBar';
@@ -171,6 +176,7 @@ declare global {
       getStartupSystemInfo: () => Promise<{ modelConnected: boolean; modelConnectionChecked?: boolean; modelProvider: ModelProvider; modelName: string; modelEndpoint: string; ollamaConnected: boolean; hour: number; ollamaModel: string; ollamaEndpoint: string } | null>;
       getSettings: () => Promise<SettingsBundle>;
       saveSettings: (patch: SettingsPatch) => Promise<SettingsBundle>;
+      saveAppearance: (patch: Partial<AppearanceSettings>) => Promise<AppearanceSettings>;
       getPersona: (profileId?: string) => Promise<PersonaEditorState | null>;
       savePersona: (profileId: string, patch: PersonaCardPatch) => Promise<PersonaEditorState | null>;
       choosePersonaImportFile: () => Promise<string | null>;
@@ -196,6 +202,9 @@ declare global {
       getImageCredentialStatus: (provider: ImageCloudProvider) => Promise<ImageCredentialStatus | null>;
       setImageCredential: (provider: ImageCloudProvider, apiKey: string) => Promise<ImageCredentialStatus | null>;
       clearImageCredential: (provider: ImageCloudProvider) => Promise<ImageCredentialStatus | null>;
+      getSearchCredentialStatus: () => Promise<SearchCredentialStatus | null>;
+      setSearchCredential: (apiKey: string) => Promise<SearchCredentialStatus | null>;
+      clearSearchCredential: () => Promise<SearchCredentialStatus | null>;
       listMemories: (options: MemoryListOptions) => Promise<MemoryListResult>;
       deleteMemory: (kind: MemoryKind, id: number) => Promise<boolean>;
       updateMemory: (kind: MemoryKind, id: number, patch: MemoryUpdatePatch) => Promise<boolean>;
@@ -736,6 +745,7 @@ interface GeneralSettings {
 }
 
 interface AppearanceSettings {
+  interfacePreset: InterfacePreset;
   theme: ThemeMode;
   animationLevel: AnimationLevel;
   glassEffects: boolean;
@@ -1093,6 +1103,14 @@ interface ModelCredentialStatus {
   error: 'credential.encryption_unavailable' | 'credential.decrypt_failed' | null;
 }
 
+interface SearchCredentialStatus {
+  provider: 'zhipu';
+  configured: boolean;
+  source: 'environment' | 'local-env-file' | 'windows-safe-storage' | 'none';
+  encryptionAvailable: boolean;
+  error: 'credential.encryption_unavailable' | 'credential.decrypt_failed' | null;
+}
+
 interface AssistModelDiagnostic {
   model: string;
   modelAvailable: boolean;
@@ -1170,6 +1188,14 @@ const appShell = mustGet<HTMLElement>('app-shell');
 const dialogs = new DialogSystem(document);
 const toasts = new ToastSystem(mustGet<HTMLElement>('ui-toast-region'));
 const themeController = new ThemeController(document.documentElement, appShell);
+const interfacePresets = new InterfacePresetController(
+  document.documentElement, appShell, mustGet<HTMLElement>('interface-preset-options'),
+  mustGet<HTMLElement>('interface-preset-feedback'), async preset => {
+    const appearance = await window.athenaAPI.saveAppearance({ interfacePreset: preset });
+    if (currentSettingsBundle) currentSettingsBundle.settings.appearance.interfacePreset = appearance.interfacePreset;
+    return appearance.interfacePreset;
+  },
+);
 const selectControls = new SelectControlManager(appShell);
 const titlebar = mustGet<HTMLElement>('titlebar');
 const btnSidebar = mustGet<HTMLButtonElement>('btn-sidebar');
@@ -1370,6 +1396,10 @@ const settingWebSearchMaxResults = mustGet<HTMLInputElement>('setting-web-search
 const settingWebSearchDeepRead = mustGet<HTMLInputElement>('setting-web-search-deep-read');
 const settingWebSearchSecondary = mustGet<HTMLInputElement>('setting-web-search-secondary');
 const settingWebSearchMaxPages = mustGet<HTMLInputElement>('setting-web-search-max-pages');
+const settingSearchApiKey = mustGet<HTMLInputElement>('setting-search-api-key');
+const searchSaveApiKey = mustGet<HTMLButtonElement>('search-save-api-key');
+const searchClearApiKey = mustGet<HTMLButtonElement>('search-clear-api-key');
+const searchCredentialStatus = mustGet<HTMLElement>('search-credential-status');
 const settingStartupIntro = mustGet<HTMLInputElement>('setting-startup-intro');
 const settingCompactMode = mustGet<HTMLInputElement>('setting-compact-mode');
 const settingGlassEffects = mustGet<HTMLInputElement>('setting-glass-effects');
@@ -2077,6 +2107,7 @@ function handleInputKeydown(event: KeyboardEvent): void {
 }
 
 function init(): void {
+  installApprovedBrand();
   themeController.apply('system');
   selectControls.enhance();
   setMode('companion');
@@ -2297,6 +2328,8 @@ function init(): void {
   modelSaveApiKey.addEventListener('click', () => void saveModelCredential());
   modelLoadOptions.addEventListener('click', () => void loadAvailableModels());
   modelClearApiKey.addEventListener('click', () => void clearModelCredential());
+  searchSaveApiKey.addEventListener('click', () => void saveSearchCredential());
+  searchClearApiKey.addEventListener('click', () => void clearSearchCredential());
   modelTestConnection.addEventListener('click', () => void testModelConnection());
   settingAssistModel.addEventListener('input', () => {
     syncAssistDiagnosticRow();
@@ -5123,6 +5156,59 @@ async function clearModelCredential(): Promise<void> {
   toasts.show(`${modelProviderLabel(provider)} 凭据已清除`, 'success');
 }
 
+async function refreshSearchCredentialStatus(): Promise<void> {
+  const status = await window.athenaAPI.getSearchCredentialStatus();
+  if (!status) {
+    searchCredentialStatus.textContent = '无法读取搜索凭据状态。';
+    return;
+  }
+  // An environment variable outranks whatever is saved here, so say where the key the
+  // app will actually use comes from, and that saving or clearing here will not move it.
+  searchCredentialStatus.textContent = status.error === 'credential.decrypt_failed'
+    ? '已保存的 Key 无法解密，请清除后重新保存。'
+    : status.error === 'credential.encryption_unavailable'
+      ? 'Windows 安全凭据当前不可读取，请重新保存 Key。'
+      : status.configured && status.source === 'environment'
+        ? '已配置，来自系统环境变量 ZHIPU_API_KEY。它优先于这里保存的 Key，在这里保存或清除不会改动它。'
+        : status.configured
+          ? `已配置（${status.source === 'local-env-file' ? '本地环境文件' : 'Windows 加密存储'}），联网搜索优先使用智谱。`
+          : status.encryptionAvailable
+            ? '未配置。联网搜索会使用搜狗和必应网页，结果没有发布日期，也不能按时间筛选。'
+            : 'Windows 安全凭据加密不可用，Key 不会保存。';
+  searchCredentialStatus.dataset.kind = status.error ? 'error' : status.configured ? 'success' : 'pending';
+}
+
+async function saveSearchCredential(): Promise<void> {
+  const apiKey = settingSearchApiKey.value.trim();
+  if (!apiKey) {
+    searchCredentialStatus.textContent = '请输入 API Key。';
+    return;
+  }
+  try {
+    const status = await window.athenaAPI.setSearchCredential(apiKey);
+    settingSearchApiKey.value = '';
+    await refreshSearchCredentialStatus();
+    if (status?.configured) toasts.show('智谱搜索 Key 已安全保存', 'success');
+  } catch (error) {
+    searchCredentialStatus.textContent = `保存失败：${error instanceof Error ? error.message : String(error)}`;
+    searchCredentialStatus.dataset.kind = 'error';
+  }
+}
+
+async function clearSearchCredential(): Promise<void> {
+  if (!await dialogs.confirm({
+    eyebrow: '搜索凭据',
+    title: '清除智谱搜索 API Key？',
+    message: '清除后联网搜索改用搜狗和必应网页，直到重新保存。',
+    confirmLabel: '清除凭据',
+    tone: 'danger',
+  })) return;
+  await window.athenaAPI.clearSearchCredential();
+  settingSearchApiKey.value = '';
+  await refreshSearchCredentialStatus();
+  toasts.show('智谱搜索凭据已清除', 'success');
+}
+
 function selectedImageCloudProvider(): ImageCloudProvider | null {
   const provider = settingImageProvider.value as ImageProviderId;
   return provider === 'local' ? null : provider;
@@ -5703,6 +5789,7 @@ function populateSettingsForm(bundle: SettingsBundle): void {
   settingOllamaModel.value = bundle.model.ollama.model;
   populateSelectedModelProvider();
   void refreshModelCredentialStatus();
+  void refreshSearchCredentialStatus();
   settingImageProvider.value = imageGeneration.provider;
   settingImageCloudFallback.value = imageGeneration.cloudFallback;
   settingImageLocalEngine.value = imageGeneration.local.engine;
@@ -5926,6 +6013,7 @@ async function refreshVoiceCapabilities(): Promise<void> {
 }
 
 async function saveSettingsForm(): Promise<void> {
+  await interfacePresets.whenIdle();
   setSettingsFeedback('保存中...');
   const previousModel = currentSettingsBundle ? JSON.stringify(currentSettingsBundle.model) : '';
   const previousImage = currentSettingsBundle ? JSON.stringify(currentSettingsBundle.settings.imageGeneration) : '';
@@ -5960,6 +6048,7 @@ async function saveSettingsForm(): Promise<void> {
           autoConnectModel: settingAutoConnectModel.checked,
         },
         appearance: {
+          interfacePreset: interfacePresets.preference,
           theme: settingTheme.value as ThemeMode,
           animationLevel: settingAnimationLevel.value as AnimationLevel,
           glassEffects: settingGlassEffects.checked,
@@ -6057,6 +6146,7 @@ async function saveSettingsForm(): Promise<void> {
 }
 
 function applyRuntimeSettings(settings: AppSettings): void {
+  interfacePresets.apply(settings.appearance.interfacePreset);
   setMode(settings.conversation.activeMode);
   appShell.dataset.compact = String(settings.ui.compactMode);
   appShell.dataset.animation = settings.appearance.animationLevel;

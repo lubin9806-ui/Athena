@@ -1,0 +1,26 @@
+/* One approved brand across every interface preset. No separate theme logos. */
+:root[data-brand="approved"] #app-shell #titlebar #life-core.approved-brand-mark {
+  width: 40px; height: 40px; flex: 0 0 40px; border: 0; border-radius: 0;
+  color: var(--athena-accent); background: currentColor; box-shadow: none; transform: none;
+  mask: url('../../../docs/brand/companion-prototype/assets/athena-mark.svg') center / contain no-repeat;
+}
+:root[data-brand="approved"] #app-shell #titlebar .brand-name {
+  font: 400 25px/1 Georgia, 'Times New Roman', serif; letter-spacing: .025em; color: var(--athena-accent);
+}
+:root[data-brand="approved"] #app-shell .icon { fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+.interface-preset-field { grid-column: 1 / -1; min-width: 0; padding: 0; margin: 0 0 16px; border: 0; }
+.interface-preset-field legend { padding: 0; margin: 0 0 12px; font-size: 14px; font-weight: 600; }
+#interface-preset-options { display: grid; gap: 8px; }
+#app-shell .interface-preset-option {
+  display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; width: 100%; min-height: 78px; padding: 13px 16px;
+  border: 1px solid var(--athena-line-strong); border-radius: 12px; color: var(--athena-text); background: var(--athena-surface); text-align: left;
+  transition: border-color 140ms ease, background-color 140ms ease;
+}
+#app-shell .interface-preset-option strong { font-size: 14px; font-weight: 600; }
+#app-shell .interface-preset-option small { font-size: 11px; color: var(--athena-muted); align-self: center; }
+#app-shell .interface-preset-option > span { grid-column: 1 / -1; font-size: 12px; line-height: 1.6; color: var(--athena-muted); }
+#app-shell .interface-preset-option[aria-checked="true"] { border-color: var(--athena-accent); background: var(--athena-surface-soft); box-shadow: inset 3px 0 var(--athena-accent); }
+#app-shell .interface-preset-option:hover:not(:disabled) { border-color: var(--athena-accent); }
+#app-shell .interface-preset-option:disabled { opacity: .64; }
+#interface-preset-feedback { margin: 12px 0 0; min-height: 38px; }
+@media (prefers-reduced-motion: reduce) { #app-shell .interface-preset-option { transition: none; } }

@@ -42,7 +42,7 @@ const isMicrosoftStoreBuild = isMicrosoftStoreSku();
 const appIconPath = path.join(
   __dirname,
   '../../resources',
-  process.platform === 'win32' ? 'su-shixia.ico' : 'su-shixia-icon.png',
+  process.platform === 'win32' ? 'athena-brand.ico' : 'athena-brand-icon.png',
 );
 
 if (process.platform === 'win32' && !isMicrosoftStoreBuild) {
@@ -60,12 +60,18 @@ const smokeAttachmentUi = isSmokeTest && (
   || app.commandLine.hasSwitch('smoke-attachments')
 );
 const smokeSelectId = isSmokeTest ? process.env.ATHENA_SMOKE_SELECT?.trim() || null : null;
+const smokeInterfacePreset = isSmokeTest && process.env.ATHENA_SMOKE_INTERFACE_PRESET === 'classic'
+  ? 'classic'
+  : isSmokeTest && process.env.ATHENA_SMOKE_INTERFACE_PRESET === 'daylight'
+    ? 'daylight'
+    : null;
 const smokeTheme = process.env.ATHENA_SMOKE_THEME === 'night'
   ? 'night'
   : process.env.ATHENA_SMOKE_THEME === 'day'
     ? 'day'
     : null;
-const smokePanel = process.env.ATHENA_SMOKE_PANEL === 'settings'
+const smokeRawPanel = process.env.ATHENA_SMOKE_PANEL;
+const smokePanel = smokeRawPanel === 'settings' || smokeRawPanel === 'appearance'
   ? 'settings'
   : process.env.ATHENA_SMOKE_PANEL === 'model'
     ? 'model'
@@ -1373,6 +1379,38 @@ function createWindow(): void {
           `);
           await new Promise(resolve => setTimeout(resolve, 220));
         }
+        if (smokeInterfacePreset) {
+          const presetState = await mainWindow.webContents.executeJavaScript(`
+            (async () => {
+              const button = document.querySelector('.interface-preset-option[data-preset="${smokeInterfacePreset}"]');
+              const shell = document.getElementById('app-shell');
+              const chat = document.getElementById('chat-container');
+              if (!(button instanceof HTMLButtonElement) || !shell || !chat) return null;
+              const chatChildrenBefore = chat.childElementCount;
+              button.click();
+              for (let attempt = 0; attempt < 80; attempt += 1) {
+                if (shell.dataset.interfacePreset === ${JSON.stringify(smokeInterfacePreset)} && button.getAttribute('aria-checked') === 'true') break;
+                await new Promise(resolve => setTimeout(resolve, 25));
+              }
+              return {
+                preset: shell.dataset.interfacePreset,
+                preference: shell.dataset.interfacePreference,
+                checked: button.getAttribute('aria-checked'),
+                chatChildrenBefore,
+                chatChildrenAfter: chat.childElementCount,
+              };
+            })()
+          `);
+          console.log('ATHENA_SMOKE_INTERFACE_PRESET', JSON.stringify(presetState));
+          if (!presetState
+            || presetState.preset !== smokeInterfacePreset
+            || presetState.preference !== smokeInterfacePreset
+            || presetState.checked !== 'true'
+            || presetState.chatChildrenAfter !== presetState.chatChildrenBefore) {
+            throw new Error('Interface preset did not switch without recreating the transcript');
+          }
+          await new Promise(resolve => setTimeout(resolve, 220));
+        }
         if (smokeTheme) {
           const themeApplied = await mainWindow.webContents.executeJavaScript(`
             (() => {
@@ -1417,6 +1455,26 @@ function createWindow(): void {
           `);
           if (!panelOpened) throw new Error('Smoke panel could not be opened');
           await new Promise(resolve => setTimeout(resolve, 380));
+          if (smokeRawPanel === 'appearance') {
+            const appearanceReady = await mainWindow.webContents.executeJavaScript(`
+              (async () => {
+                const target = document.getElementById('interface-preset-options');
+                const form = document.getElementById('settings-form');
+                const section = target?.closest('details');
+                if (!target || !form || !(section instanceof HTMLDetailsElement)) return false;
+                for (const details of form.querySelectorAll('details')) {
+                  details.open = details === section;
+                }
+                await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+                const formRect = form.getBoundingClientRect();
+                const sectionRect = section.getBoundingClientRect();
+                form.scrollTop = Math.max(0, form.scrollTop + sectionRect.top - formRect.top - 8);
+                return true;
+              })()
+            `);
+            if (!appearanceReady) throw new Error('Appearance preset section could not be opened');
+            await new Promise(resolve => setTimeout(resolve, 220));
+          }
           if (smokeTheme) {
             await mainWindow.webContents.executeJavaScript(`
               (() => {
@@ -1547,7 +1605,7 @@ function createWindow(): void {
           console.log('ATHENA_SMOKE_ATTACHMENT_LAYOUT', JSON.stringify(attachmentLayout));
           if (!attachmentLayout?.valid) throw new Error('Attachment composer layout overlaps');
         }
-        if (smokePanel === 'settings') {
+        if (smokeRawPanel === 'settings') {
           const diagnosticLayout = await mainWindow.webContents.executeJavaScript(`
             (async () => {
               const panel = document.getElementById('settings-panel');
@@ -1780,7 +1838,7 @@ function smokeDimension(value: string | undefined, fallback: number, minimum: nu
 }
 
 function createTray(): void {
-  const iconPath = path.join(__dirname, '../../resources/su-shixia-tray.png');
+  const iconPath = path.join(__dirname, '../../resources/athena-tray.png');
   const icon = nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 });
   tray = new Tray(icon);
   tray.setToolTip('Athena Desktop Assistant');

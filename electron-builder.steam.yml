@@ -56,6 +56,6 @@ extraResources:
     to: voice/requirements-voice.txt
 win:
   target: dir
-  icon: resources/su-shixia.ico
+  icon: resources/athena-brand.ico
   signAndEditExecutable: true
   requestedExecutionLevel: asInvoker

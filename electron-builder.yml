@@ -52,7 +52,7 @@ extraResources:
     to: image-runtime
 win:
   target: nsis
-  icon: resources/su-shixia.ico
+  icon: resources/athena-brand.ico
   signAndEditExecutable: true
 nsis:
   oneClick: false

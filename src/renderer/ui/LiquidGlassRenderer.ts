@@ -78,18 +78,20 @@ const FRAGMENT_SHADER = `
     refracted.r = texture2D(u_texture, base_uv + displacement * (1.0 + rim * 0.16)).r;
     refracted.g = texture2D(u_texture, base_uv + displacement).g;
     refracted.b = texture2D(u_texture, base_uv + displacement * (1.0 - rim * 0.12)).b;
-    refracted = mix(refracted, vec3(0.91, 0.918, 0.91), 0.2 * (1.0 - u_theme));
+    refracted = mix(refracted, vec3(0.976, 0.976, 0.965), 0.2 * (1.0 - u_theme));
     refracted = mix(refracted, refracted * vec3(0.19, 0.215, 0.195), u_theme);
 
-    vec3 daylight_tint = vec3(0.965, 0.982, 0.972);
-    vec3 night_tint = vec3(0.105, 0.118, 0.108);
+    // The plaster is a trace of material, not the surface colour: the tint is
+    // the V0.2 ivory/graphite surface, and the sample only disturbs it.
+    vec3 daylight_tint = vec3(0.988, 0.988, 0.973);
+    vec3 night_tint = vec3(0.133, 0.176, 0.153);
     vec3 tint = mix(daylight_tint, night_tint, u_theme);
-    float tint_amount = mix(0.085, 0.18, u_theme) + lens * 0.035;
+    float tint_amount = mix(0.62, 0.5, u_theme) + lens * 0.04;
     vec3 color = mix(refracted, tint, tint_amount);
-    color += rim * mix(0.055, 0.024, u_theme);
-    color -= (1.0 - rim) * mix(0.005, 0.016, u_theme);
+    color += rim * mix(0.03, 0.02, u_theme);
+    color -= (1.0 - rim) * mix(0.004, 0.012, u_theme);
 
-    gl_FragColor = vec4(color, 0.96);
+    gl_FragColor = vec4(color, mix(0.5, 0.62, u_theme));
   }
 `;
 
