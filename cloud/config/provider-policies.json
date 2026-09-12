@@ -14,6 +14,25 @@
       "dpaUrl": null,
       "reviewedAt": "2026-07-16",
       "reviewStatus": "local-only"
+    },
+    {
+      "id": "zhipu",
+      "purpose": "Zhipu BigModel chat completions for first-party Mobile clients. Same vendor the desktop already uses for web search.",
+      "productionEligible": false,
+      "dataSent": [
+        "prompt supplied to the current request",
+        "the conversation turns the client sent as history",
+        "the mode, as a fixed system prompt"
+      ],
+      "promptRetention": "unreviewed",
+      "voiceRetention": "not-applicable",
+      "trainingUse": "unreviewed",
+      "processingRegions": ["cn-mainland"],
+      "termsUrl": "https://open.bigmodel.cn/usercenter/service",
+      "dpaUrl": null,
+      "reviewedAt": null,
+      "reviewStatus": "pending-commercial-review",
+      "note": "Runs in local and staging. productionEligible stays false until retention, training use, subprocessors, deletion behaviour and a DPA are reviewed and recorded; the desktop's own search policy already records commercialApproved=false for this vendor."
     }
   ],
   "searchProviders": [

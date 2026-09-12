@@ -5,9 +5,10 @@ const { URL } = require('node:url');
 const { CloudDatabase } = require('./database');
 const { CloudError, assert } = require('./errors');
 const {
-  AuthService, SyncService, RateLimiter, ModelGateway, EntitlementService, LocalFixtureModelProvider,
+  AuthService, SyncService, RateLimiter, ModelGateway, EntitlementService,
   SearchGateway, LocalFixtureSearchProvider,
 } = require('./services');
+const { createModelProvider } = require('./model-providers');
 const { IdempotencyService, DataRightsService, BackupService, Metrics } = require('./lifecycle');
 const { PairingService } = require('./pairing');
 const { randomId } = require('./crypto');
@@ -21,7 +22,9 @@ function createCloudApp(config, adapters = {}) {
     auth: new AuthService(store, config, adapters.recoveryDelivery || new LocalRecoveryDeliveryAdapter()),
     sync,
     rate: new RateLimiter(config),
-    model: new ModelGateway(store, config, sync, adapters.modelProvider || new LocalFixtureModelProvider()),
+    // Built from the config rather than defaulted, so naming a provider in the
+    // config is what actually decides which one answers.
+    model: new ModelGateway(store, config, sync, adapters.modelProvider || createModelProvider(config)),
     search: new SearchGateway(store, config, adapters.searchProvider || new LocalFixtureSearchProvider()),
     entitlements: new EntitlementService(store, config, adapters.billingAdapter || new LocalNoChargeBillingAdapter()),
     deployment: adapters.deploymentAdapter || new LocalDeploymentAdapter(config.region, 'local-2'),

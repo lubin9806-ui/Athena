@@ -357,6 +357,14 @@ class ModelGateway {
     const policyPath = path.join(__dirname, '..', 'config', 'provider-policies.json');
     this.policy = JSON.parse(fs.readFileSync(policyPath, 'utf8')).providers.find((item) => item.id === config.modelProvider);
     if (!this.policy) throw new Error(`Model provider policy is missing for ${config.modelProvider}.`);
+    // The policy that was reviewed has to be the policy of the provider that
+    // actually answers. This used to be unchecked, so a deployment could name
+    // one vendor's reviewed terms in config and route every conversation
+    // through another - including through the echo fixture, which would look
+    // like a working service that had simply become unhelpful.
+    if (this.provider.id !== config.modelProvider) {
+      throw new Error(`Model provider mismatch: config names ${config.modelProvider} and the gateway was given ${this.provider.id}.`);
+    }
     if (config.environment === 'production' && !this.policy.productionEligible) throw new Error('Configured model provider is not production eligible.');
   }
 
@@ -364,7 +372,13 @@ class ModelGateway {
     assert(typeof input.prompt === 'string' && input.prompt.length >= 1 && input.prompt.length <= 32000, 400, 'invalid-prompt', 'Prompt is invalid.');
     assert(['create', 'companion', 'reason'].includes(input.mode), 400, 'invalid-mode', 'Cloud model gateway excludes Execute mode.');
     const history = normalizeHistory(input.history);
-    const safety = classifyContent(input.prompt);
+    // History is supplied by the client, not reconstructed from trusted server state.
+    // Apply the same outbound-content policy to every user-authored turn that will be
+    // sent to the provider; otherwise a caller can move a blocked prompt into history
+    // and use a harmless current prompt to bypass the gateway check.
+    const safety = [input.prompt, ...history.filter((item) => item.role === 'user').map((item) => item.content)]
+      .map((content) => classifyContent(content))
+      .find((result) => result.blocked) || { blocked: false };
     if (safety.blocked) {
       const caseId = randomId('abuse');
       const now = this.store.now();
