@@ -1001,12 +1001,59 @@ async function verifyAttachmentsAreNotComputerTasks() {
   console.log('ATHENA_CHAT_ATTACHMENT_INTENT_OK');
 }
 
+async function verifyConversationModeTools() {
+  const seenTools = [];
+  const runtime = new ToolRuntime({
+    contextWindow: 4096,
+    capabilities: { nativeToolCalls: true },
+    generate: async request => {
+      seenTools.push(...request.tools.map(tool => tool.name));
+      return {
+        provider: 'ollama',
+        model: 'fixture',
+        responseId: null,
+        content: '',
+        toolCalls: [{
+          id: 'image-1',
+          name: 'generate_image',
+          arguments: { prompt: '雪山日出，金色晨光照在湖面上', size: '1536x1024', quality: 'high' },
+          rawArguments: '{}',
+        }],
+        finishReason: 'tool_calls',
+        usage: { inputTokens: null, outputTokens: null, totalTokens: null },
+      };
+    },
+    chat: async () => { throw new Error('native mode tools must use one generate call'); },
+  });
+  runtime.setPermissionLevel('off');
+  try {
+    const result = await runtime.process({
+      messages: [{ role: 'system', content: 'test' }, { role: 'user', content: '给我画一张雪山日出' }],
+      userMessage: '给我画一张雪山日出',
+      mode: 'companion',
+      settings: settings('off'),
+      chatCapabilities: { imageGeneration: true },
+    });
+    assert.deepEqual(seenTools, ['generate_image', 'suggest_execute_mode']);
+    assert.deepEqual(result.imageRequest, {
+      prompt: '雪山日出，金色晨光照在湖面上',
+      size: '1536x1024',
+      quality: 'high',
+    });
+    assert.equal(result.executions.length, 0, 'image generation is not a computer-tool execution');
+  } finally {
+    runtime.shutdown();
+  }
+  console.log('ATHENA_CONVERSATION_MODE_TOOLS_OK image=offered execute=suggested');
+}
+
 (async () => {
   await verifyExecutionCenterUi();
   await verifyService();
   await verifyRuntimePermissionRevocation();
   await verifyNoFakeProgressAndCancellation();
   await verifyAttachmentsAreNotComputerTasks();
+  await verifyConversationModeTools();
   await verifyInFlightCancellation();
   if (process.argv.includes('--live')) await verifyLiveLoop();
 })().catch(async (error) => {

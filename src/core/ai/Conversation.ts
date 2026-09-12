@@ -4,7 +4,7 @@ import { LLMClient } from './Client';
 import { buildChatPromptWithSnapshot } from './PromptBuilder';
 import type { ContextSnapshotPayload } from './ContextManager';
 import { EmotionEngine } from './Emotion';
-import { ToolRuntime } from '../tools/ToolRuntime';
+import { ToolRuntime, type ChatImageRequest, type ToolRuntimeInput } from '../tools/ToolRuntime';
 import { toolPermissionPrompt } from '../tools/ComputerTools';
 import { settingsLocationPrompt } from '../config/SettingsLocations';
 import { saveContextSnapshot } from '../../memory';
@@ -30,6 +30,11 @@ interface ContextSnapshotOptions {
   projectId?: number;
   chatWindowId?: number;
   userMessageId?: number;
+}
+
+/** A reply, or - when the model chose to draw - the picture it asked for. */
+export interface ConversationResponse extends ChatResponse {
+  imageRequest?: ChatImageRequest;
 }
 
 const logger = createLogger('Conversation');
@@ -80,7 +85,8 @@ export class Conversation {
     onToolConfirm?: (request: ToolConfirmationRequest) => Promise<boolean>,
     contextSnapshotOptions?: ContextSnapshotOptions,
     images: ModelImageInput[] = [],
-  ): Promise<ChatResponse> {
+    chatCapabilities?: ToolRuntimeInput['chatCapabilities'],
+  ): Promise<ConversationResponse> {
     // 更新情绪基调
     this.emotion.setBaseEmotion(new Date().getHours());
 
@@ -88,6 +94,7 @@ export class Conversation {
       ? Math.max(this.llm.contextWindow, (webSearchContext.pages?.length ?? 0) > 0 ? 8192 : 6144)
       : undefined;
     const maxPromptTokens = resolvePromptBudgetTokens(webContextWindow ?? this.llm.contextWindow);
+    const offersImages = mode !== 'execute' && chatCapabilities?.imageGeneration === true;
     const prompt = buildChatPromptWithSnapshot({
       userMessage,
       recentMessages,
@@ -96,7 +103,11 @@ export class Conversation {
       // The settings map rides with the tool section because that is the one
       // that makes Athena talk about switches at all; without it she names a
       // setting and leaves the user to hunt for it (ATH-CHAT-006).
-      toolContext: `${toolPermissionPrompt(toolSettings)}\n\n${settingsLocationPrompt()}`,
+      toolContext: [
+        toolPermissionPrompt(toolSettings),
+        ...(offersImages ? [imageCapabilityPrompt()] : []),
+        settingsLocationPrompt(),
+      ].join('\n\n'),
       mode,
       maxPromptTokens,
     });
@@ -122,6 +133,7 @@ export class Conversation {
       onStream,
       onStatus: onToolStatus,
       onConfirm: onToolConfirm,
+      chatCapabilities,
     });
     const fullResponse = toolResult.content;
 
@@ -139,12 +151,24 @@ export class Conversation {
       contextSnapshot,
       toolExecutions: toolResult.executions.length > 0 ? toolResult.executions : undefined,
       suggestedAction: toolResult.suggestedAction,
+      imageRequest: toolResult.imageRequest,
     };
   }
 
   shutdown(): void {
     this.tools.shutdown();
   }
+}
+
+/**
+ * Said outright because every mode prompt also says "本模式不调用本机工具", and a
+ * model reading both has to know which side a picture falls on (ATH-IMG-005).
+ */
+function imageCapabilityPrompt(): string {
+  return [
+    '## 生图',
+    '- 生图在任何模式都能用，它不经过本机工具权限，也不需要切到执行模式。用户要图时直接调用 generate_image。',
+  ].join('\n');
 }
 
 function resolvePromptBudgetTokens(contextWindow: number): number {

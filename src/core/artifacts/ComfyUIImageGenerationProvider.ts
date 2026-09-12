@@ -1,6 +1,7 @@
 import * as crypto from 'crypto';
 import * as path from 'path';
 import type { LocalImageDiscoverySnapshot } from '../../shared/types';
+import { comfyNotRunningMessage, comfyUnresponsiveMessage } from './LocalImageDiscoveryService';
 import {
   inspectImage,
   type GeneratedImage,
@@ -21,7 +22,11 @@ export class ComfyUIImageGenerationProvider implements ImageGenerationProvider {
 
   async generate(request: ImageGenerationRequest, signal: AbortSignal): Promise<GeneratedImage> {
     const discovery = await this.options.discoveryResolver(signal);
-    if (!discovery.comfyui.connected) throw new Error('没有发现正在运行的 ComfyUI；可启动后重试，或改用 Athena 独立引擎。');
+    if (!discovery.comfyui.connected) {
+      if (discovery.comfyui.reachability === 'unresponsive') throw new Error(comfyUnresponsiveMessage(discovery.comfyui.baseUrl));
+      if (discovery.comfyui.launchable) throw new Error(`ComfyUI 没有在运行。打开 ${discovery.comfyui.launcherLabel || 'ComfyUI'} 之后再试一次。`);
+      throw new Error(comfyNotRunningMessage());
+    }
     const baseUrl = normalizeLocalBaseUrl(discovery.comfyui.baseUrl || this.options.baseUrl);
     const explicitCheckpoint = this.options.checkpoint.trim();
     const useZImageTurbo = !explicitCheckpoint && discovery.comfyui.workflows.includes('z-image-turbo');

@@ -1,10 +1,14 @@
 import { createLogger } from '../../engine/Logger';
-import type { SearchApiProvider, WebSearchSource } from '../../shared/types';
+import type { SearchApiProvider, SearchRecency, WebSearchSource } from '../../shared/types';
 
 const logger = createLogger('SearchApiClient');
 
 const REQUEST_TIMEOUT_MS = 10_000;
 const MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
+// Measured 2026-09-11 with a real key: search_std and search_pro answer with every
+// link empty, so nothing they return can be cited or opened. Quark is the documented
+// engine that carries links and publish dates and honours the recency filter.
+const SEARCH_ENGINE = 'search_pro_quark';
 
 /**
  * Failure shape the HTML pipeline already knows how to classify. Carrying the code on
@@ -37,11 +41,11 @@ export class SearchApiClient {
     return this.resolveCredentials()?.provider ?? null;
   }
 
-  async search(query: string, maxResults: number, signal?: AbortSignal): Promise<WebSearchSource[]> {
+  async search(query: string, maxResults: number, signal?: AbortSignal, recency: SearchRecency = 'noLimit'): Promise<WebSearchSource[]> {
     const credentials = this.resolveCredentials();
     if (!credentials) throw failure('access_denied', '没有配置搜索 API 凭据。');
 
-    const response = await this.post(credentials, query, maxResults, signal);
+    const response = await this.post(credentials, query, maxResults, recency, signal);
     const sources = parseZhipuResults(response, maxResults);
     if (sources.length === 0) throw failure('no_results', '搜索 API 没有返回可用结果。');
     return sources;
@@ -51,6 +55,7 @@ export class SearchApiClient {
     credentials: SearchApiCredentials,
     query: string,
     maxResults: number,
+    recency: SearchRecency,
     signal?: AbortSignal,
   ): Promise<unknown> {
     let response: Response;
@@ -64,10 +69,10 @@ export class SearchApiClient {
         },
         body: JSON.stringify({
           search_query: query,
-          search_engine: 'search_std',
+          search_engine: SEARCH_ENGINE,
           search_intent: false,
           count: maxResults,
-          search_recency_filter: 'noLimit',
+          search_recency_filter: recency,
         }),
         signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(REQUEST_TIMEOUT_MS)]) : AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       });
@@ -110,17 +115,20 @@ export function parseZhipuResults(payload: unknown, maxResults: number): WebSear
     const title = readText(item.title, 220);
     if (!url || !title || !isPublicHttpUrl(url) || seen.has(url)) continue;
     seen.add(url);
+    const publishedAt = readText(item.publish_date, 40);
     sources.push({
       id: sources.length + 1,
       title,
       url,
       domain: displayDomain(url),
       snippet: readText(item.content, 520),
+      ...(publishedAt ? { publishedAt } : {}),
     });
   }
 
   if (sources.length === 0 && results.length > 0) {
-    logger.warn(`Search API returned ${results.length} result(s) but none were usable; first keys=${Object.keys(isRecord(results[0]) ? results[0] : {}).join(',')}`);
+    const withoutLink = results.filter(item => isRecord(item) && !readText(item.link, 2_000)).length;
+    logger.warn(`Search API returned ${results.length} result(s) but none were usable (${withoutLink} without a link); first keys=${Object.keys(isRecord(results[0]) ? results[0] : {}).join(',')}`);
   }
   return sources;
 }

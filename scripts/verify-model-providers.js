@@ -294,7 +294,33 @@ async function main() {
     assert.strictEqual(credentials.resolveModelCredential('openai'), null, 'a commented-out assignment must not be read');
     fs.rmSync(envFile);
     assert.strictEqual(credentials.resolveModelCredential('openai'), null);
-    console.log('ATHENA_MODEL_PROVIDERS_OK providers=ollama+openai+deepseek+athena-cloud+custom credentials=encrypted');
+
+    // The search API key rides the same encrypted store the settings UI writes to. A
+    // ZHIPU_API_KEY already in this user's environment would outrank it, so park that
+    // for the duration instead of letting it decide what these assertions see.
+    const inheritedZhipuKey = process.env.ZHIPU_API_KEY;
+    delete process.env.ZHIPU_API_KEY;
+    try {
+      const searchStored = credentials.setSearchCredential('zhipu', 'zhipu-fixture-id.secret');
+      assert.strictEqual(searchStored.configured, true);
+      assert.strictEqual(searchStored.source, 'windows-safe-storage');
+      assert.strictEqual(credentials.resolveSearchCredential('zhipu'), 'zhipu-fixture-id.secret');
+      assert(!fs.readFileSync(credentialFile, 'utf8').includes('zhipu-fixture-id.secret'), 'The search key must be stored encrypted.');
+      process.env.ZHIPU_API_KEY = 'zhipu-from-environment';
+      assert.strictEqual(
+        credentials.getSearchCredentialStatus('zhipu').source,
+        'environment',
+        'An environment variable outranks the stored search key, and the status must say so.',
+      );
+      delete process.env.ZHIPU_API_KEY;
+      const searchCleared = credentials.clearSearchCredential('zhipu');
+      assert.strictEqual(searchCleared.configured, false, 'Clearing must leave the search key unconfigured.');
+      assert.strictEqual(credentials.resolveSearchCredential('zhipu'), null);
+    } finally {
+      if (inheritedZhipuKey === undefined) delete process.env.ZHIPU_API_KEY;
+      else process.env.ZHIPU_API_KEY = inheritedZhipuKey;
+    }
+    console.log('ATHENA_MODEL_PROVIDERS_OK providers=ollama+openai+deepseek+athena-cloud+custom credentials=encrypted search-credential=encrypted');
   } finally {
     process.chdir(originalCwd);
     delete process.env.OPENAI_API_KEY;

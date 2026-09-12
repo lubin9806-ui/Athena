@@ -1,5 +1,7 @@
 import * as fs from 'fs';
+import * as net from 'net';
 import * as path from 'path';
+import { SETTINGS_LOCATIONS } from '../config/SettingsLocations';
 import type {
   DiscoveredLocalImageModel,
   ImageGenerationSettings,
@@ -9,6 +11,11 @@ import type {
 const MODEL_EXTENSIONS = new Set<DiscoveredLocalImageModel['format']>(['.safetensors', '.gguf', '.ckpt', '.pth', '.pt']);
 const MAX_DISCOVERED_MODELS = 500;
 const MAX_VISITED_ENTRIES = 20_000;
+/**
+ * Long enough for an instance that is busy but healthy. A hung one is not waited
+ * out: the port probe that follows a failed health check catches it.
+ */
+const COMFY_HEALTH_TIMEOUT_MS = 3_000;
 
 export class LocalImageDiscoveryService {
   private cached: LocalImageDiscoverySnapshot | null = null;
@@ -76,24 +83,63 @@ export function findComfyUILaunchTarget(): { path: string; label: string } | nul
 export async function waitForComfyUIConnection(
   configuredBaseUrl: string,
   timeoutMs = 90_000,
+  signal?: AbortSignal,
 ): Promise<string | null> {
-  const candidates = Array.from(new Set([
-    normalizeComfyBaseUrl(configuredBaseUrl),
-    'http://127.0.0.1:8188',
-    'http://127.0.0.1:8189',
-    'http://127.0.0.1:8190',
-  ].filter(Boolean)));
+  const candidates = comfyCandidates(configuredBaseUrl);
   const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
+  while (Date.now() < deadline && !signal?.aborted) {
     for (const baseUrl of candidates) {
+      if (signal?.aborted) return null;
       try {
-        const response = await fetch(`${baseUrl}/system_stats`, { signal: AbortSignal.timeout(1_500), redirect: 'error' });
+        const attempt = signal ? boundedSignal(signal, 1_500) : AbortSignal.timeout(1_500);
+        const response = await fetch(`${baseUrl}/system_stats`, { signal: attempt, redirect: 'error' });
         if (response.ok) return baseUrl;
       } catch { /* The desktop app is still starting. */ }
     }
-    await new Promise(resolve => setTimeout(resolve, 1_500));
+    await abortableSleep(1_500, signal);
   }
   return null;
+}
+
+/**
+ * Asks one address whether a usable ComfyUI is behind it.
+ *
+ * A failed request alone cannot tell "nothing there" from "there, but not
+ * answering", and the difference is the whole diagnosis: on 2026-09-10 ComfyUI was
+ * alive and stuck decoding a long video, and Athena told the user it was not
+ * running at all. When HTTP fails, the port itself is asked.
+ */
+export async function probeComfyUIEndpoint(
+  baseUrl: string,
+  signal: AbortSignal,
+  timeoutMs = COMFY_HEALTH_TIMEOUT_MS,
+): Promise<{ state: 'connected' | 'unresponsive' | 'absent'; error?: string }> {
+  let response: Response;
+  try {
+    response = await fetch(`${baseUrl}/system_stats`, { signal: boundedSignal(signal, timeoutMs), redirect: 'error' });
+  } catch (error) {
+    if (signal.aborted) return { state: 'absent', error: '检测被取消。' };
+    const url = new URL(baseUrl);
+    const listening = await probeTcpPort(url.hostname, Number(url.port || 80), 800);
+    return listening
+      ? { state: 'unresponsive', error: comfyUnresponsiveMessage(baseUrl, timeoutMs) }
+      : { state: 'absent', error: error instanceof Error ? error.message : String(error) };
+  }
+  if (!response.ok) return { state: 'absent', error: `${baseUrl} 上的服务不是可用的 ComfyUI（HTTP ${response.status}）。` };
+  try {
+    await readBoundedJson(response, 512 * 1024);
+  } catch {
+    return { state: 'absent', error: `${baseUrl} 上的服务不是可用的 ComfyUI（返回的不是 JSON）。` };
+  }
+  return { state: 'connected' };
+}
+
+export function comfyUnresponsiveMessage(baseUrl: string, timeoutMs = COMFY_HEALTH_TIMEOUT_MS): string {
+  return `ComfyUI 在 ${baseUrl} 开着端口，但 ${Math.round(timeoutMs / 1000)} 秒内没有回应。它多半正忙着别的任务（比如在生成视频），或者已经卡住了，并不是没在运行。等它忙完，或者在 Comfy Desktop 里重启它，再试一次。`;
+}
+
+export function comfyNotRunningMessage(): string {
+  return `ComfyUI 没有在运行，Athena 也没找到能启动它的程序（Comfy Desktop 或 ComfyUI）。先手动把它打开，或者到${SETTINGS_LOCATIONS.imageGeneration}里填上它的地址，再点“自动检测”。`;
 }
 
 export function discoverLocalModels(configuredModelPath = '', signal?: AbortSignal): DiscoveredLocalImageModel[] {
@@ -149,47 +195,76 @@ type LiveComfyUIDiscovery = Omit<
 >;
 
 async function discoverComfyUI(configuredBaseUrl: string, signal: AbortSignal): Promise<LiveComfyUIDiscovery> {
-  const candidates = Array.from(new Set([
-    normalizeComfyBaseUrl(configuredBaseUrl),
-    'http://127.0.0.1:8188',
-    'http://127.0.0.1:8189',
-    'http://127.0.0.1:8190',
-  ].filter(Boolean)));
-  let lastError = '没有发现正在运行的 ComfyUI。';
-  for (const baseUrl of candidates) {
-    if (signal.aborted) break;
-    try {
-      const health = await fetch(`${baseUrl}/system_stats`, { signal: boundedSignal(signal, 1_500), redirect: 'error' });
-      if (!health.ok) throw new Error(`HTTP ${health.status}`);
-      await readBoundedJson(health, 512 * 1024);
-      const [checkpoints, diffusionModels, textEncoders, vaes] = await Promise.all([
-        fetchComfyChoices(baseUrl, 'CheckpointLoaderSimple', 'ckpt_name', signal),
-        fetchComfyChoices(baseUrl, 'UNETLoader', 'unet_name', signal),
-        fetchComfyChoices(baseUrl, 'CLIPLoader', 'clip_name', signal),
-        fetchComfyChoices(baseUrl, 'VAELoader', 'vae_name', signal),
-      ]);
-      const workflows: LocalImageDiscoverySnapshot['comfyui']['workflows'] = [];
-      if (checkpoints.length > 0) workflows.push('checkpoint');
-      if (
-        hasNamedModel(diffusionModels, 'z_image_turbo_bf16.safetensors')
-        && hasNamedModel(textEncoders, 'qwen_3_4b.safetensors')
-        && hasNamedModel(vaes, 'ae.safetensors')
-      ) workflows.push('z-image-turbo');
-      return { connected: true, baseUrl, checkpoints, diffusionModels, textEncoders, vaes, workflows };
-    } catch (error) {
-      lastError = error instanceof Error ? error.message : String(error);
-    }
+  const candidates = comfyCandidates(configuredBaseUrl);
+  // Side by side: a hung server costs its whole timeout, and asked in turn, three
+  // of them would spend the discovery budget before the last address was reached.
+  const probes = await Promise.all(candidates.map(baseUrl => probeComfyUIEndpoint(baseUrl, signal)));
+  const live = candidates.find((_, index) => probes[index].state === 'connected');
+  if (live) {
+    const [checkpoints, diffusionModels, textEncoders, vaes] = await Promise.all([
+      fetchComfyChoices(live, 'CheckpointLoaderSimple', 'ckpt_name', signal),
+      fetchComfyChoices(live, 'UNETLoader', 'unet_name', signal),
+      fetchComfyChoices(live, 'CLIPLoader', 'clip_name', signal),
+      fetchComfyChoices(live, 'VAELoader', 'vae_name', signal),
+    ]);
+    const workflows: LocalImageDiscoverySnapshot['comfyui']['workflows'] = [];
+    if (checkpoints.length > 0) workflows.push('checkpoint');
+    if (
+      hasNamedModel(diffusionModels, 'z_image_turbo_bf16.safetensors')
+      && hasNamedModel(textEncoders, 'qwen_3_4b.safetensors')
+      && hasNamedModel(vaes, 'ae.safetensors')
+    ) workflows.push('z-image-turbo');
+    return { connected: true, reachability: 'connected', baseUrl: live, checkpoints, diffusionModels, textEncoders, vaes, workflows };
   }
+  const stuck = probes.findIndex(probe => probe.state === 'unresponsive');
   return {
     connected: false,
-    baseUrl: normalizeComfyBaseUrl(configuredBaseUrl) || 'http://127.0.0.1:8188',
+    reachability: stuck >= 0 ? 'unresponsive' : 'absent',
+    baseUrl: stuck >= 0 ? candidates[stuck] : candidates[0] || 'http://127.0.0.1:8188',
     checkpoints: [],
     diffusionModels: [],
     textEncoders: [],
     vaes: [],
     workflows: [],
-    error: lastError,
+    error: stuck >= 0 ? probes[stuck].error : '没有发现正在运行的 ComfyUI。',
   };
+}
+
+function comfyCandidates(configuredBaseUrl: string): string[] {
+  return Array.from(new Set([
+    normalizeComfyBaseUrl(configuredBaseUrl),
+    'http://127.0.0.1:8188',
+    'http://127.0.0.1:8189',
+    'http://127.0.0.1:8190',
+  ].filter(Boolean)));
+}
+
+function probeTcpPort(host: string, port: number, timeoutMs: number): Promise<boolean> {
+  return new Promise(resolve => {
+    let settled = false;
+    const socket = net.connect({ host: host.replace(/^\[|\]$/g, ''), port });
+    const settle = (open: boolean) => {
+      if (settled) return;
+      settled = true;
+      socket.destroy();
+      resolve(open);
+    };
+    socket.setTimeout(timeoutMs, () => settle(false));
+    socket.once('connect', () => settle(true));
+    socket.on('error', () => settle(false));
+  });
+}
+
+function abortableSleep(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise(resolve => {
+    const done = () => {
+      clearTimeout(timer);
+      signal?.removeEventListener('abort', done);
+      resolve();
+    };
+    const timer = setTimeout(done, ms);
+    signal?.addEventListener('abort', done, { once: true });
+  });
 }
 
 function candidateModelRoots(configuredModelPath: string): Array<{ root: string; depth: number }> {

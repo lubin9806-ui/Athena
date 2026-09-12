@@ -3,6 +3,8 @@ export type ReplyLength = 'short' | 'balanced' | 'detailed';
 export type InitiativeLevel = 'low' | 'balanced' | 'high';
 export type AnimationLevel = 'low' | 'balanced' | 'high';
 export type ThemeMode = 'day' | 'night' | 'system';
+/** Interface layout/material preset, independent of the day/night preference. */
+export type InterfacePreset = 'daylight' | 'classic' | 'atelier';
 export type SttEngine = 'local_whisper';
 /**
  * Which engine speaks.
@@ -60,6 +62,7 @@ export interface GeneralSettings {
 }
 
 export interface AppearanceSettings {
+  interfacePreset: InterfacePreset;
   theme: ThemeMode;
   animationLevel: AnimationLevel;
   glassEffects: boolean;

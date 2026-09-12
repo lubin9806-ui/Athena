@@ -11,6 +11,8 @@ export interface ImageGenerationRequest {
   quality: ImageQuality;
   outputFormat: ImageOutputFormat;
   outputCompression?: number;
+  /** What to tell the person while nothing visible happens, such as a local engine starting up. */
+  onProgress?: (message: string) => void;
 }
 
 export interface ImageEditInput {

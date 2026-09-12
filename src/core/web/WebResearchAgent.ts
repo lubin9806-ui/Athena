@@ -1,7 +1,10 @@
 import { createLogger } from '../../engine/Logger';
 import type { LLMClient } from '../ai/Client';
 import type { ModelMessage, ModelToolCall, ModelToolDefinition } from '../ai/model/ModelTypes';
+import { describePromptDate } from '../ai/PromptClock';
+import { trustedNow } from '../runtime/TrustedClock';
 import type {
+  SearchRecency,
   WebPageEvidence,
   WebSearchContext,
   WebSearchProvider,
@@ -28,13 +31,24 @@ const RESEARCH_DEADLINE_MS = 90_000;
 // at all. Keep it roomy and treat that outcome as a fallback rather than an answer.
 const MAX_PLANNER_TOKENS = 4_096;
 
+const SEARCH_RECENCIES: SearchRecency[] = ['oneDay', 'oneWeek', 'oneMonth', 'oneYear', 'noLimit'];
+
 const SEARCH_TOOL: ModelToolDefinition = {
   name: 'web_search',
   description: 'Run one web search and add its results to the evidence list. Keep the query focused. When results do not answer the question, search again with different wording, a narrower angle, or the other language.',
   parameters: {
     type: 'object',
-    properties: { query: { type: 'string', minLength: 1, maxLength: 200 } },
-    required: ['query'],
+    properties: {
+      query: { type: 'string', minLength: 1, maxLength: 200 },
+      // Required, not optional: strict tool schemas reject optional fields, and the
+      // model should decide freshness on every search rather than inherit "any age".
+      recency: {
+        type: 'string',
+        enum: SEARCH_RECENCIES,
+        description: 'How recent results must be. For anything that changes over time (new products, prices, news, releases, who holds a role) use oneWeek or oneMonth; use noLimit only for facts that do not age.',
+      },
+    },
+    required: ['query', 'recency'],
     additionalProperties: false,
   },
   strict: true,
@@ -58,6 +72,8 @@ export interface WebResearchAgentInput {
   settings: WebSearchSettings;
   /** Turns before this question, so a follow-up can be read as a follow-up. */
   recentMessages?: ConversationTurn[];
+  /** The day the planner is told it is; injectable so tests can pin a date. */
+  now?: Date;
   onStatus?: (status: WebSearchStatus) => void;
   signal?: AbortSignal;
 }
@@ -117,7 +133,7 @@ export class WebResearchAgent {
     const deadline = Date.now() + RESEARCH_DEADLINE_MS;
     const state = new EvidenceState();
     const messages: ModelMessage[] = [
-      { role: 'system', content: buildPlannerSystemPrompt(budget) },
+      { role: 'system', content: buildPlannerSystemPrompt(budget, input.now ?? trustedNow()) },
       { role: 'user', content: buildPlannerTask(input.question, input.query, input.recentMessages) },
     ];
 
@@ -196,6 +212,7 @@ export class WebResearchAgent {
     budget: ResearchBudget,
   ): Promise<ModelMessage> {
     const query = readString(call.arguments.query, 200) || input.query;
+    const recency = readRecency(call.arguments.recency);
     const round = state.searchRounds + 1;
     input.onStatus?.({
       phase: round === 1 ? 'searching' : 'refining',
@@ -205,7 +222,7 @@ export class WebResearchAgent {
     });
 
     try {
-      const result = await this.search.search(query, budget.resultsPerSearch, undefined, input.signal);
+      const result = await this.search.search(query, budget.resultsPerSearch, undefined, input.signal, { recency });
       const added = state.addSearch(query, result.provider, result.sources);
       return toolMessage(call, {
         status: 'completed',
@@ -241,7 +258,9 @@ export class WebResearchAgent {
       const page = await this.extractor.read(source, state.lastQuery || input.query, input.signal);
       if (!page) return toolMessage(call, { status: 'failed', output: `Source ${sourceId} had no readable main text.` });
       state.addPage(page);
-      return toolMessage(call, { status: 'completed', output: `[${source.id}] ${page.title}\n${page.excerpt}` });
+      // The publish date is what lets the planner tell last year's leak from today's news.
+      const published = page.publishedAt ? `（发布于 ${page.publishedAt}）` : '';
+      return toolMessage(call, { status: 'completed', output: `[${source.id}] ${page.title}${published}\n${page.excerpt}` });
     } catch (error) {
       if (input.signal?.aborted) throw input.signal.reason || error;
       return toolMessage(call, { status: 'failed', output: `Could not read source ${sourceId}: ${describeError(error)}` });
@@ -295,7 +314,8 @@ class EvidenceState {
     return {
       query: originalQuery,
       provider: this.providers[0] || 'none',
-      searchedAt: new Date().toISOString(),
+      // Same clock as the stated date, or the prompt could name two different days.
+      searchedAt: trustedNow().toISOString(),
       sources: this.sources,
       pages: this.pages,
       // The first query is the one the caller planned; the rest are the model's own
@@ -319,9 +339,16 @@ function resolveBudget(settings: WebSearchSettings): ResearchBudget {
   };
 }
 
-function buildPlannerSystemPrompt(budget: ResearchBudget): string {
+function buildPlannerSystemPrompt(budget: ResearchBudget, now: Date): string {
   return [
     '你在为另一个助手收集联网资料，不要直接回答用户的问题。',
+    // Without the date the planner searches for the newest thing it remembers and
+    // accepts results that confirm it, however old they are.
+    `- 今天是 ${describePromptDate(now)}。你的训练知识停在比今天更早的某个时间点，`,
+    '  所以用户说的"新""最新""现在"指的是今天的最新，不是你记忆里的最新。',
+    '  写查询词以今天为准，需要时带上年份；拿到结果后用其中的发布日期核对它在今天是否仍然成立。',
+    '  结果都明显早于今天时，换个角度继续搜，不要拿旧消息交差。',
+    '  web_search 的 recency 决定结果要多新：答案会随时间变化的问题选 oneWeek 或 oneMonth。',
     '- 查询词由你自己写。用户的话往往是承接上文的省略说法（"你查一下""这个呢"），',
     '  主题要从最近的对话里判断出来再去搜；不要把"查一下"这类指令本身当查询词。',
     '- 用 web_search 搜索。查询词要具体；结果不够就换措辞、换角度或换语言再搜一次。',
@@ -361,7 +388,9 @@ function formatPlannerContext(recent?: ConversationTurn[]): string {
 }
 
 function describeSource(source: WebSearchSource): string {
-  return `[${source.id}] ${source.title} — ${source.domain}${source.snippet ? `\n    ${source.snippet}` : ''}`;
+  // The publish date is what lets the planner see that a result is last year's news.
+  const published = source.publishedAt ? `（${source.publishedAt}）` : '';
+  return `[${source.id}] ${source.title} — ${source.domain}${published}${source.snippet ? `\n    ${source.snippet}` : ''}`;
 }
 
 function toolMessage(call: ModelToolCall, result: { status: string; output: string }): ModelMessage {
@@ -375,6 +404,11 @@ function toolMessage(call: ModelToolCall, result: { status: string; output: stri
 
 function readString(value: unknown, maxChars: number): string {
   return typeof value === 'string' ? value.replace(/\s+/g, ' ').trim().slice(0, maxChars) : '';
+}
+
+/** A model that omits or garbles the recency gets an unfiltered search, not an error. */
+function readRecency(value: unknown): SearchRecency {
+  return typeof value === 'string' && (SEARCH_RECENCIES as string[]).includes(value) ? value as SearchRecency : 'noLimit';
 }
 
 function describeError(error: unknown): string {

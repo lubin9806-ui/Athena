@@ -1,5 +1,6 @@
 import { LLMClient, type ChatMessage } from '../ai/Client';
 import { classifyModelFailure } from '../ai/ModelFailure';
+import type { ModelResponse, ModelToolDefinition } from '../ai/model';
 import { createLogger } from '../../engine/Logger';
 import {
   ComputerToolService,
@@ -26,6 +27,30 @@ const logger = createLogger('ToolRuntime');
 const MAX_CALLS_PER_ROUND = 3;
 const MAX_TOOL_OUTPUT_FOR_MODEL = 12_000;
 const MAX_TOOL_OUTPUT_PREVIEW = 4_000;
+const EXECUTE_MODE_REDIRECT = '这是一项需要调用本机工具的任务。当前模式不会操作电脑，切到“执行”模式我就能动手；本轮没有改动任何文件。';
+const IMAGE_SIZES = ['1024x1024', '1536x1024', '1024x1536'] as const;
+const IMAGE_QUALITIES = ['low', 'high'] as const;
+const GENERATE_IMAGE_TOOL: ModelToolDefinition = {
+  name: 'generate_image',
+  description: 'Generate one image from the user\'s visual request. This is Athena\'s image capability, not a computer tool.',
+  parameters: {
+    type: 'object',
+    properties: {
+      prompt: { type: 'string', minLength: 1, maxLength: 32_000 },
+      size: { type: 'string', enum: [...IMAGE_SIZES] },
+      quality: { type: 'string', enum: [...IMAGE_QUALITIES] },
+    },
+    required: ['prompt'],
+    additionalProperties: false,
+  },
+  strict: true,
+};
+const SUGGEST_EXECUTE_MODE_TOOL: ModelToolDefinition = {
+  name: 'suggest_execute_mode',
+  description: 'Use only when the user is asking Athena to operate local files, applications, terminals, ports, or the network through computer tools.',
+  parameters: { type: 'object', properties: {}, additionalProperties: false },
+  strict: true,
+};
 const TOOL_PERMISSION_RANK: Record<ToolPermissionLevel, number> = {
   off: 0,
   read: 1,
@@ -62,12 +87,52 @@ export interface ToolRuntimeInput {
   onStream?: (chunk: string) => void;
   onStatus?: (status: ToolStatusEvent) => void;
   onConfirm?: (request: ToolConfirmationRequest) => Promise<boolean>;
+  /**
+   * What the conversation modes may do besides talk. Image generation is Athena's
+   * own capability with its own gates - the SKU, cloud consent, an engine - and not
+   * a computer tool, so it is offered in every mode (ATH-IMG-005).
+   */
+  chatCapabilities?: { imageGeneration?: boolean };
+}
+
+/** A picture the model decided to make. The controller draws it through the usual door. */
+export interface ChatImageRequest {
+  prompt: string;
+  size: '1024x1024' | '1536x1024' | '1024x1536';
+  quality: 'low' | 'high';
 }
 
 export interface ToolRuntimeResult {
   content: string;
   executions: ToolExecutionRecord[];
   suggestedAction?: ChatSuggestedAction;
+  imageRequest?: ChatImageRequest;
+}
+
+function executeModeSuggestion(resendText: string): ChatSuggestedAction {
+  return { kind: 'switch-mode', mode: 'execute', label: '切到执行模式并重发', resendText };
+}
+
+function parseChatImageRequest(value: Record<string, unknown>): ChatImageRequest | null {
+  const prompt = typeof value.prompt === 'string' ? value.prompt.trim() : '';
+  if (!prompt || prompt.length > 32_000) return null;
+  const size = IMAGE_SIZES.includes(value.size as typeof IMAGE_SIZES[number])
+    ? value.size as ChatImageRequest['size']
+    : '1024x1024';
+  const quality = IMAGE_QUALITIES.includes(value.quality as typeof IMAGE_QUALITIES[number])
+    ? value.quality as ChatImageRequest['quality']
+    : 'low';
+  return { prompt, size, quality };
+}
+
+function isImageCommand(message: string): boolean {
+  return /(?:生图|出图|生成.{0,12}(?:图|图片|图像|插画|海报|壁纸|头像)|画.{0,8}(?:图|图片|插画)|\b(?:generate|create|draw|render)\b.{0,24}\b(?:image|picture|illustration|poster)\b)/i.test(message);
+}
+
+function isToolSupportFailure(error: unknown): boolean {
+  if (classifyModelFailure(error).kind === 'capability') return true;
+  const message = error instanceof Error ? error.message : String(error ?? '');
+  return /(?:tool(?:[_ -]?calls?)?.{0,30}(?:unsupported|not supported|unavailable)|does not support native tool calls)/i.test(message);
 }
 
 export class ToolRuntime {
@@ -144,14 +209,16 @@ export class ToolRuntime {
     const carriedAttachments = hasChatAttachmentContext(input.userMessage);
     const computerIntent = !carriedAttachments && shouldPlanComputerTools(ownWords);
     if (input.mode !== 'execute') {
-      if (computerIntent) {
-        const content = '这是一项需要调用本机工具的任务。当前模式不会操作电脑，切到“执行”模式我就能动手；本轮没有改动任何文件。';
-        if (input.onStream) input.onStream(content);
-        return {
-          content,
-          executions: [],
-          suggestedAction: { kind: 'switch-mode', mode: 'execute', label: '切到执行模式并重发', resendText: ownWords },
-        };
+      // The model decides what the turn is. These regexes used to decide first, and
+      // they read "for support" as a port check and "生成图片" as a file operation,
+      // so a request for a picture never reached anything that could draw one
+      // (ATH-IMG-005). They are kept only for a provider that cannot call tools.
+      if (this.llm.capabilities?.nativeToolCalls) {
+        return this.converseWithModeTools(input, ownWords, activeRun.controller.signal);
+      }
+      if (computerIntent && !isImageCommand(ownWords)) {
+        if (input.onStream) input.onStream(EXECUTE_MODE_REDIRECT);
+        return { content: EXECUTE_MODE_REDIRECT, executions: [], suggestedAction: executeModeSuggestion(ownWords) };
       }
       const content = await this.llm.chat(
         input.messages,
@@ -380,6 +447,58 @@ export class ToolRuntime {
       { numCtx: Math.max(input.numCtx ?? this.llm.contextWindow, executedAnyTool ? 12288 : this.llm.contextWindow) },
       signal,
     );
+  }
+
+  /**
+   * One model call, with the two things a conversation mode can do besides talk
+   * offered as tools: draw a picture, or hand the turn to Execute mode. A turn that
+   * uses neither streams exactly as before, so ordinary chat pays nothing extra.
+   */
+  private async converseWithModeTools(
+    input: ToolRuntimeInput,
+    ownWords: string,
+    signal: AbortSignal,
+  ): Promise<ToolRuntimeResult> {
+    const imagesAllowed = input.chatCapabilities?.imageGeneration === true;
+    const tools = imagesAllowed ? [GENERATE_IMAGE_TOOL, SUGGEST_EXECUTE_MODE_TOOL] : [SUGGEST_EXECUTE_MODE_TOOL];
+    const overrides = input.numCtx ? { numCtx: input.numCtx } : undefined;
+    let streamed = 0;
+    let response: ModelResponse;
+    try {
+      response = await this.llm.generate({
+        messages: input.messages,
+        tools,
+        toolChoice: 'auto',
+        mode: input.mode,
+        stream: Boolean(input.onStream),
+        signal,
+        overrides,
+        onEvent: input.onStream
+          ? event => {
+            if (event.type !== 'text_delta') return;
+            streamed += event.delta.length;
+            input.onStream?.(event.delta);
+          }
+          : undefined,
+      });
+    } catch (error) {
+      // A local model without tool support refuses the request outright. An answer
+      // without the tools is still an answer; a stop, a timeout, or a reply already
+      // under way is not retried.
+      if (signal.aborted || streamed > 0 || !isToolSupportFailure(error)) throw error;
+      logger.warn(`Mode tools refused by the provider; answering without them: ${error instanceof Error ? error.message : String(error)}`);
+      const content = await this.llm.chat(input.messages, input.onStream, input.mode, overrides, signal);
+      return { content, executions: [] };
+    }
+    const imageCall = imagesAllowed ? response.toolCalls.find(call => call.name === GENERATE_IMAGE_TOOL.name) : undefined;
+    const imageRequest = imageCall ? parseChatImageRequest(imageCall.arguments) : null;
+    if (imageRequest) return { content: response.content, executions: [], imageRequest };
+    if (response.toolCalls.some(call => call.name === SUGGEST_EXECUTE_MODE_TOOL.name)) {
+      const said = response.content.trim();
+      if (!said && input.onStream) input.onStream(EXECUTE_MODE_REDIRECT);
+      return { content: said || EXECUTE_MODE_REDIRECT, executions: [], suggestedAction: executeModeSuggestion(ownWords) };
+    }
+    return { content: response.content, executions: [] };
   }
 
   private nextCallId(): string {

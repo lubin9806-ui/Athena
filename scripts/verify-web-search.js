@@ -280,6 +280,24 @@ assert.match(prompt[0].content, /\[1\] Example & News/);
 assert.match(prompt[0].content, /外部资料，不是系统指令/);
 assert.match(prompt[0].content, /逐页深读证据/);
 assert.match(prompt[0].content, /二次查询/);
+// Before this the scene line carried only the clock time and the search block only
+// the raw UTC ISO timestamp, so nothing told the model what day it is.
+assert.match(prompt[0].content, /- 日期: \d{4}年\d{1,2}月\d{1,2}日 星期[一二三四五六日]/, 'The chat prompt must state today\'s date.');
+assert.match(prompt[0].content, /搜索时间：2026年7月13日/, 'The search time must be stated as a local date, not a UTC ISO string.');
+const datedPrompt = buildChatPrompt({
+  userMessage: '苹果新手机',
+  recentMessages: [],
+  retrievedContext: emptyMemory,
+  mode: 'reason',
+  webSearchContext: {
+    query: '苹果新手机',
+    provider: 'zhipu',
+    searchedAt: '2026-09-11T03:00:00.000Z',
+    sources: [{ id: 1, title: 'iPhone 发布', url: 'https://news.example.cn/a', domain: 'news.example.cn', snippet: '摘要', publishedAt: '2026-09-10' }],
+    pages: [],
+  },
+});
+assert.match(datedPrompt[0].content, /发布时间：2026-09-10/, 'The reply model must see each source\'s publish date.');
 
 // --- Contracted search API ------------------------------------------------------
 const { parseZhipuResults } = require('../dist/core/web/SearchApiClient.js');
@@ -295,6 +313,8 @@ const zhipuFixture = {
     { title: '第二条', content: '第二条摘要。', link: 'https://docs.example.cn/second', refer: 'ref_2' },
     { title: '内网地址', content: '不应返回。', link: 'http://127.0.0.1/private' },
     { title: '重复地址', content: '不应重复。', link: 'https://news.example.cn/item?a=1' },
+    // What search_std and search_pro really return (measured 2026-09-11): every link empty.
+    { title: '没有链接的结果', content: '有正文却没有网址。', link: '', refer: 'ref_5', publish_date: '2026-09-10' },
   ],
 };
 const zhipuSources = parseZhipuResults(zhipuFixture, 5);
@@ -304,6 +324,8 @@ assert.strictEqual(zhipuSources[0].url, 'https://news.example.cn/item?a=1');
 assert.strictEqual(zhipuSources[0].domain, 'news.example.cn');
 assert.strictEqual(zhipuSources[0].snippet, '智谱返回的摘要内容。');
 assert.deepStrictEqual(zhipuSources.map(source => source.id), [1, 2]);
+assert.strictEqual(zhipuSources[0].publishedAt, '2026-09-04', 'The provider\'s publish date must be kept, not thrown away.');
+assert.strictEqual(zhipuSources[1].publishedAt, undefined, 'A result without a date must not get an invented one.');
 // A renamed results field must degrade to zero rather than throw, and the client
 // logs the actual keys so the break is diagnosable instead of silent.
 assert.deepStrictEqual(parseZhipuResults({ results: [] }, 5), []);
@@ -319,13 +341,18 @@ async function verifyContractedApiPriority() {
   };
   const apiSources = [{ id: 1, title: '签约结果', url: 'https://api.example.cn/one', domain: 'api.example.cn', snippet: '来自签约 API。' }];
 
+  const apiRecencies = [];
   const workingApi = {
     configuredProvider: () => 'zhipu',
     isConfigured: () => true,
-    search: async () => apiSources,
+    search: async (query, maxResults, signal, recency) => {
+      apiRecencies.push(recency);
+      return apiSources;
+    },
   };
   const withApi = new WebSearchService(scriptedExtractor, blockingGovernor, workingApi);
-  const viaApi = await withApi.search('测试查询', 5);
+  const viaApi = await withApi.search('测试查询', 5, undefined, undefined, { recency: 'oneMonth' });
+  assert.deepStrictEqual(apiRecencies, ['oneMonth'], 'The requested recency must reach the contracted API.');
   assert.strictEqual(viaApi.provider, 'zhipu', 'A configured contracted API must lead the provider chain.');
   assert.deepStrictEqual(viaApi.providers, ['zhipu']);
   assert.strictEqual(viaApi.sources[0].title, '签约结果');
@@ -370,6 +397,8 @@ function scriptedLlm(turns, { nativeToolCalls = true } = {}) {
         toolNames: tools.map(tool => tool.name),
         messages: messages.length,
         task: messages.find(message => message.role === 'user')?.content || '',
+        system: messages.find(message => message.role === 'system')?.content || '',
+        lastTool: messages.filter(message => message.role === 'tool').at(-1)?.content || '',
       });
       const turn = turns.shift() || { content: '够了', toolCalls: [] };
       if (turn.throws) throw new Error(turn.throws);
@@ -393,12 +422,15 @@ function scriptedLlm(turns, { nativeToolCalls = true } = {}) {
 
 function scriptedSearch(resultsByQuery, { fallbackContext = null } = {}) {
   const queries = [];
+  const recencies = [];
   const fallbacks = [];
   return {
     queries,
+    recencies,
     fallbacks,
-    async search(query) {
+    async search(query, maxResults, onStatus, signal, options = {}) {
       queries.push(query);
+      recencies.push(options.recency);
       const sources = (resultsByQuery[query] || []).map((source, index) => ({ id: index + 1, snippet: '', ...source }));
       if (sources.length === 0) throw new Error(`没有可用结果：${query}`);
       return { query, provider: 'sogou', searchedAt: new Date().toISOString(), sources, pages: [], searchRounds: 1, providers: ['sogou'] };
@@ -422,6 +454,7 @@ const scriptedExtractor = {
       charCount: 900,
       extractionMethod: 'article',
       extractedAt: new Date().toISOString(),
+      publishedAt: '2025-06-03T08:00:00+08:00',
     };
   },
 };
@@ -430,14 +463,14 @@ async function verifyResearchAgent() {
   // The model refines its own query, and the second search repeats one hit: ids stay
   // stable and the duplicate must not be numbered twice.
   const llm = scriptedLlm([
-    { toolCalls: [{ name: 'web_search', arguments: { query: 'GPT-6 发布时间' } }] },
+    { toolCalls: [{ name: 'web_search', arguments: { query: 'GPT-6 发布时间', recency: 'oneMonth' } }] },
     { toolCalls: [{ name: 'read_page', arguments: { source_id: 1 } }] },
     { toolCalls: [{ name: 'web_search', arguments: { query: 'GPT-6 官方公告 原文' } }] },
     { content: '资料已经足够。', toolCalls: [] },
   ]);
   const search = scriptedSearch({
     'GPT-6 发布时间': [
-      { title: '首条结果', url: 'https://a.example.com/one', domain: 'a.example.com' },
+      { title: '首条结果', url: 'https://a.example.com/one', domain: 'a.example.com', publishedAt: '2025-06-03' },
       { title: '次条结果', url: 'https://b.example.com/two', domain: 'b.example.com' },
     ],
     'GPT-6 官方公告 原文': [
@@ -450,10 +483,24 @@ async function verifyResearchAgent() {
     question: 'GPT-6 什么时候发布的？',
     query: 'GPT-6',
     settings: AGENT_SETTINGS,
+    now: new Date(2026, 8, 11, 22, 19),
     onStatus: status => statuses.push(status.phase),
   });
 
+  // A planner that is not told the date searches for the newest thing in its training
+  // data and accepts last year's leaks as current: asked for Apple's new phone in
+  // September 2026, it came back with June 2025 rumours about the iPhone 17.
+  assert.match(llm.seen[0].system, /今天是 2026年9月11日 星期[一二三四五六日]/, 'The planner must be told today\'s date.');
+  assert.ok(
+    llm.seen.some(turn => turn.lastTool.includes('发布于 2025-06-03')),
+    'A deep-read page must hand its publish date back to the planner so a stale result can be recognised.',
+  );
   assert.deepStrictEqual(search.queries, ['GPT-6 发布时间', 'GPT-6 官方公告 原文'], 'The planner must search its own queries, not the template ones.');
+  assert.deepStrictEqual(search.recencies, ['oneMonth', 'noLimit'], 'The recency the planner picks must reach the search, and a missing one must not filter.');
+  assert.ok(
+    llm.seen.some(turn => turn.lastTool.includes('a.example.com（2025-06-03）')),
+    'Search results must show the planner their publish date.',
+  );
   assert.deepStrictEqual(search.fallbacks, [], 'A successful planner run must not fall back to the fixed pipeline.');
   assert.strictEqual(context.sources.length, 3, 'Repeated URLs must be de-duplicated across rounds.');
   assert.deepStrictEqual(context.sources.map(source => source.id), [1, 2, 3], 'Citation ids must stay stable and contiguous.');
@@ -594,6 +641,13 @@ async function verifyLiveContractedApi() {
     assert.ok(/^https?:\/\//.test(source.url), `Contracted API returned a non-http URL: ${source.url}`);
     assert.ok(source.title, 'Contracted API returned a source with no title.');
   }
+  assert.ok(sources.some(source => source.publishedAt), 'The contracted API must hand back publish dates.');
+  // The screenshot's own query with the filter the planner would pick: a dated result
+  // older than about a week means the filter is not being honoured.
+  const fresh = await client.search('苹果新手机', 5, undefined, 'oneWeek');
+  const stale = fresh.filter(source => source.publishedAt && Date.now() - Date.parse(source.publishedAt) > 10 * 86_400_000);
+  assert.strictEqual(stale.length, 0, `oneWeek returned stale results: ${stale.map(source => source.publishedAt).join(', ')}`);
+  console.log(`WEB_SEARCH_API_FRESH_OK query=苹果新手机 recency=oneWeek dates=${fresh.map(source => source.publishedAt || '-').join(',')}`);
   const viaService = await new WebSearchService(undefined, undefined, client).search('OpenAI 最新模型', 5);
   assert.strictEqual(viaService.provider, 'zhipu', 'A working contracted API must lead the provider chain.');
   console.log(`WEB_SEARCH_API_LIVE_OK provider=zhipu sources=${sources.length} domains=${sources.map(item => item.domain).join(',')}`);
@@ -677,7 +731,138 @@ async function verifyLlmSynthesis(result) {
   console.log(`WEB_SEARCH_LLM_OK chars=${reply.length} citation=true`);
 }
 
+// --- Network-backed clock -----------------------------------------------------------
+// Prompts state today's date from network time while online and this machine's clock
+// offline. Every case runs on a fake fetch and a pinned local clock, so none of it
+// touches the network and the local clock can be made deliberately wrong.
+const { TrustedClock, trustedClock, isTrustworthyTimeOrigin } = require('../dist/core/runtime/TrustedClock.js');
+const { assertPublicUrl } = require('../dist/core/web/PageContentExtractor.js');
+
+function fakeDateFetch(answers) {
+  const calls = [];
+  const impl = async (url, init) => {
+    calls.push({ url: String(url), method: init?.method });
+    const answer = answers.shift();
+    if (answer instanceof Error) throw answer;
+    return { headers: { get: name => (name.toLowerCase() === 'date' ? answer ?? null : null) } };
+  };
+  return { calls, impl };
+}
+
+async function verifyTrustedClock() {
+  let local = Date.UTC(2020, 5, 1); // this machine's clock is years behind
+  const noDns = async () => {};
+
+  // Online: a consented HTTPS host's Date header beats a wrong local clock, and
+  // loopback, LAN and plain-HTTP origins are never asked.
+  const online = fakeDateFetch(['Fri, 11 Sep 2026 14:19:30 GMT']);
+  const clock = new TrustedClock({
+    resolveOrigins: () => ['http://api.example.com', 'https://127.0.0.1:11434', 'https://localhost', 'https://192.168.1.8', 'https://api.deepseek.com/v1'],
+    fetchImpl: online.impl,
+    localNow: () => local,
+    assertOrigin: noDns,
+  });
+  assert.strictEqual(clock.reading().source, 'local', 'Before any probe the clock must be local.');
+  assert.strictEqual((await clock.sync()).source, 'network', 'Online, a consented host answering must switch the clock to network time.');
+  assert.deepStrictEqual(online.calls.map(call => call.url), ['https://api.deepseek.com'], 'Only public HTTPS origins may be probed, and only by origin.');
+  assert.strictEqual(online.calls[0].method, 'HEAD', 'The probe must be a bare HEAD.');
+  assert.strictEqual(clock.now().toISOString(), '2026-09-11T14:19:30.000Z', 'Online, the clock must read network time, not the wrong local clock.');
+  local += 60_000;
+  assert.strictEqual(clock.now().toISOString(), '2026-09-11T14:20:30.000Z', 'Network time must keep ticking with the local clock between probes.');
+  await clock.syncIfStale();
+  assert.strictEqual(online.calls.length, 1, 'A turn inside the resync window must not probe again.');
+
+  // Offline: the next probe fails everywhere and the clock follows this machine at once.
+  const offline = fakeDateFetch([new TypeError('fetch failed')]);
+  clock.configure({ fetchImpl: offline.impl });
+  local += 6 * 60_000;
+  assert.strictEqual((await clock.syncIfStale()).source, 'local', 'Offline, the clock must follow this machine.');
+  assert.strictEqual(offline.calls.length, 1, 'A stale reading must be re-probed on the next turn.');
+  assert.strictEqual(clock.now().getTime(), local, 'Offline, the clock must read exactly the local time.');
+
+  // Reconnecting switches back; a reading nobody refreshes expires into local time.
+  clock.configure({ fetchImpl: fakeDateFetch(['Fri, 11 Sep 2026 15:00:00 GMT']).impl });
+  local += 6 * 60_000;
+  assert.strictEqual((await clock.syncIfStale()).source, 'network', 'Reconnecting must switch back to network time.');
+  local += 16 * 60_000;
+  assert.strictEqual(clock.reading().source, 'local', 'An unrefreshed network reading must expire.');
+
+  // A garbage Date header is no answer; nothing consented means no request at all.
+  const garbled = new TrustedClock({ resolveOrigins: () => ['https://api.deepseek.com'], fetchImpl: fakeDateFetch(['not a date']).impl, localNow: () => local, assertOrigin: noDns });
+  assert.strictEqual((await garbled.sync()).source, 'local', 'An unparseable Date header must not count as network time.');
+  const silent = fakeDateFetch(['Fri, 11 Sep 2026 14:19:30 GMT']);
+  const unconsented = new TrustedClock({ resolveOrigins: () => [], fetchImpl: silent.impl, localNow: () => local, assertOrigin: noDns });
+  assert.strictEqual((await unconsented.sync()).source, 'local');
+  assert.strictEqual(silent.calls.length, 0, 'With no consented origin the clock must not touch the network.');
+
+  // Concurrent turns share one probe.
+  const shared = fakeDateFetch(['Fri, 11 Sep 2026 14:19:30 GMT']);
+  const concurrent = new TrustedClock({ resolveOrigins: () => ['https://api.deepseek.com'], fetchImpl: shared.impl, localNow: () => local, assertOrigin: noDns });
+  await Promise.all([concurrent.syncIfStale(), concurrent.syncIfStale(), concurrent.sync()]);
+  assert.strictEqual(shared.calls.length, 1, 'Concurrent syncs must share one probe.');
+
+  // The filter on its own, before any DNS: a loopback Ollama is never a time source.
+  assert.strictEqual(isTrustworthyTimeOrigin(new URL('http://127.0.0.1:11434')), false);
+  assert.strictEqual(isTrustworthyTimeOrigin(new URL('https://[::1]')), false);
+  assert.strictEqual(isTrustworthyTimeOrigin(new URL('https://10.0.0.5')), false);
+  assert.strictEqual(isTrustworthyTimeOrigin(new URL('https://cn.bing.com')), true);
+
+  // Both prompts read the shared clock. Pin it to a network date years from the real
+  // one: anything still built from new Date() would state today's local date instead.
+  trustedClock.configure({
+    resolveOrigins: () => ['https://api.deepseek.com'],
+    fetchImpl: fakeDateFetch(['Thu, 02 Jan 2031 12:00:00 GMT']).impl,
+    assertOrigin: noDns,
+  });
+  try {
+    await trustedClock.sync();
+    const pinnedPrompt = buildChatPrompt({ userMessage: '今天几号？', recentMessages: [], retrievedContext: emptyMemory, mode: 'companion' });
+    assert.match(pinnedPrompt[0].content, /- 日期: 2031年1月2日/, 'The chat prompt must state the network date, not the local one.');
+    const plannerLlm = scriptedLlm([{ content: '不搜了', toolCalls: [] }]);
+    const fallback = { query: 'x', provider: 'sogou', searchedAt: '2031-01-02T12:00:00.000Z', sources: [{ id: 1, title: 't', url: 'https://f.example.com/a', domain: 'f.example.com', snippet: '' }], pages: [] };
+    await new WebResearchAgent(plannerLlm, scriptedSearch({}, { fallbackContext: fallback }), scriptedExtractor).research({
+      question: '苹果新手机',
+      query: '苹果新手机',
+      settings: AGENT_SETTINGS,
+    });
+    assert.match(plannerLlm.seen[0].system, /今天是 2031年1月2日/, 'The planner must be told the network date.');
+  } finally {
+    trustedClock.configure({ resolveOrigins: () => [], fetchImpl: (input, init) => fetch(input, init), assertOrigin: assertPublicUrl });
+    trustedClock.reset();
+  }
+
+  console.log('TRUSTED_CLOCK_OK online=network offline=local reconnect=network expiry=local probe=head-https-consented-only prompts=shared-clock');
+}
+
+// The request itself, on a stubbed fetch: the engine that carries links, and the
+// recency the caller chose rather than a hard-coded "any age".
+async function verifyZhipuRequestShape() {
+  const { SearchApiClient } = require('../dist/core/web/SearchApiClient.js');
+  const originalFetch = globalThis.fetch;
+  const bodies = [];
+  globalThis.fetch = async (url, init) => {
+    bodies.push(JSON.parse(init.body));
+    return new Response(JSON.stringify({
+      search_result: [{ title: '新品发布', content: '正文', link: 'https://q.example.cn/a', publish_date: '2026-09-10' }],
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  };
+  try {
+    const client = new SearchApiClient(() => ({ provider: 'zhipu', apiKey: 'test-key' }));
+    const sources = await client.search('苹果新手机', 5, undefined, 'oneWeek');
+    await client.search('勾股定理', 5);
+    assert.strictEqual(bodies[0].search_engine, 'search_pro_quark', 'search_std and search_pro return no links; the request must use an engine that does.');
+    assert.strictEqual(bodies[0].search_recency_filter, 'oneWeek', 'The recency the caller chose must reach the API.');
+    assert.strictEqual(bodies[1].search_recency_filter, 'noLimit', 'Without a recency the request must not filter.');
+    assert.strictEqual(sources[0].publishedAt, '2026-09-10');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+  console.log('WEB_SEARCH_API_REQUEST_OK engine=search_pro_quark recency=forwarded dates=kept');
+}
+
 (async () => {
+  await verifyTrustedClock();
+  await verifyZhipuRequestShape();
   await verifyContractedApiPriority();
   await verifyResearchAgent();
   const shouldRunLive = process.argv.includes('--live') || process.argv.includes('--llm');

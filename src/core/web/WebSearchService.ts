@@ -5,10 +5,12 @@ import type {
   WebSearchSettings,
   WebSearchSource,
   WebSearchStatus,
+  SearchRecency,
 } from '../../shared/types';
 import { createLogger } from '../../engine/Logger';
 import { assertPublicUrl, PageContentExtractor } from './PageContentExtractor';
 import { isSearchApiFailure, SearchApiClient } from './SearchApiClient';
+import { trustedNow } from '../runtime/TrustedClock';
 
 const logger = createLogger('WebSearchService');
 
@@ -200,13 +202,14 @@ export class WebSearchService {
     maxResults: number,
     onStatus?: (status: WebSearchStatus) => void,
     signal?: AbortSignal,
+    options: { recency?: SearchRecency } = {},
   ): Promise<WebSearchContext> {
     const cleanedQuery = cleanQuery(query);
     if (!cleanedQuery) throw new Error('搜索词为空。');
 
     onStatus?.({ phase: 'searching', query: cleanedQuery });
     try {
-      const context = await this.searchAcrossProviders(cleanedQuery, clamp(maxResults, 3, 8), undefined, signal);
+      const context = await this.searchAcrossProviders(cleanedQuery, clamp(maxResults, 3, 8), undefined, signal, options.recency);
       onStatus?.({
         phase: 'done',
         query: cleanedQuery,
@@ -308,7 +311,7 @@ export class WebSearchService {
     const context: WebSearchContext = {
       query: cleanedQuery,
       provider: initial.provider,
-      searchedAt: new Date().toISOString(),
+      searchedAt: trustedNow().toISOString(),
       sources,
       pages,
       secondaryQueries,
@@ -331,6 +334,7 @@ export class WebSearchService {
     maxResults: number,
     deprioritizeProvider?: WebSearchProvider,
     signal?: AbortSignal,
+    recency?: SearchRecency,
   ): Promise<WebSearchContext> {
     const orderedEndpoints = deprioritizeProvider && deprioritizeProvider !== 'none'
       ? [
@@ -350,12 +354,12 @@ export class WebSearchService {
       try {
         throwIfAborted(signal);
         await this.governor.acquire(apiProvider, Date.now(), signal);
-        const sources = await this.api.search(query, maxResults, signal);
+        const sources = await this.api.search(query, maxResults, signal, recency);
         this.recordSuccess(apiProvider);
         return {
           query,
           provider: apiProvider,
-          searchedAt: new Date().toISOString(),
+          searchedAt: trustedNow().toISOString(),
           sources: reindexSources(sources, maxResults),
           pages: [],
           secondaryQueries: [],
@@ -386,7 +390,7 @@ export class WebSearchService {
         return {
           query,
           provider: endpoint.provider,
-          searchedAt: new Date().toISOString(),
+          searchedAt: trustedNow().toISOString(),
           sources: reindexSources(sources, maxResults),
           pages: [],
           secondaryQueries: [],

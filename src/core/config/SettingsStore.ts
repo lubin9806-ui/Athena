@@ -4,6 +4,7 @@ import { resolveConfigFile, resolveLocalConfigOverlayPath, resolveWritableConfig
 import { resolvePersonaCardWithSource, summarizePersonaCard } from '../ai/Personality';
 import { applySteamSettingsPolicy, capSteamToolSettings, isSteamSku } from '../steam/SteamSkuPolicy';
 import { isMicrosoftStoreSku } from '../store/MicrosoftStoreSku';
+import { DEFAULT_INTERFACE_PRESET, normalizeInterfacePreset } from '../../shared/interfacePresets';
 import type {
   AnimationLevel,
   AppSettings,
@@ -16,6 +17,7 @@ import type {
   LocalImageBackend,
   LocalImageProfile,
   InitiativeLevel,
+  InterfacePreset,
   MemorySettings,
   MemoryImportContentMode,
   ModelProvider,
@@ -56,6 +58,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     autoConnectModel: true,
   },
   appearance: {
+    interfacePreset: DEFAULT_INTERFACE_PRESET,
     theme: 'system',
     animationLevel: 'balanced',
     glassEffects: true,
@@ -279,6 +282,24 @@ export function saveSettingsBundle(patch: SettingsPatch): SettingsBundle {
   return next;
 }
 
+/** Persist visual preferences only; do not reload a model or rewrite unrelated settings. */
+export function saveAppearanceSettings(patch: Partial<AppearanceSettings>): AppearanceSettings {
+  const current = loadAppSettings();
+  const appearance = sanitizeAppearance({ ...current.appearance, ...patch });
+  const source = readJson(resolveConfigFile('settings.json'), DEFAULT_SETTINGS);
+  const overlayPath = resolveLocalConfigOverlayPath('settings.json');
+  const stored = overlayPath && fs.existsSync(overlayPath) ? readJson(overlayPath, source) : source;
+  const record = isRecord(stored) ? stored : DEFAULT_SETTINGS;
+  const rawAppearance = isRecord(record.appearance) ? record.appearance : {};
+  // Preserve fields owned by other settings domains, including future/unknown
+  // fields. In development only the local overlay is written, never the baseline.
+  writeJson(overlayPath || configPath('settings.json'), {
+    ...record,
+    appearance: { ...rawAppearance, ...appearance },
+  });
+  return appearance;
+}
+
 export function getPersonalizationSettings(): PersonalizationSettings {
   return loadAppSettings().personalization;
 }
@@ -332,7 +353,13 @@ export function shouldSaveHistory(): boolean {
 }
 
 function loadAppSettings(): AppSettings {
-  const tracked = sanitizeAppSettings(readJson(resolveConfigFile('settings.json'), DEFAULT_SETTINGS));
+  const sourcePath = resolveConfigFile('settings.json');
+  // A missing preset adopts the newly approved default. Existing explicit
+  // preset choices and independent day/night, glass and motion choices survive.
+  const tracked = sanitizeAppSettings(
+    readJson(sourcePath, DEFAULT_SETTINGS),
+    DEFAULT_INTERFACE_PRESET,
+  );
   const overlayPath = resolveLocalConfigOverlayPath('settings.json');
   // Overlay is opt-in for unpackaged Electron only. Node tests keep seeing the
   // tracked file, which is how ATH-SEC-003/ATH-PRIV-001 regressions are caught.
@@ -450,11 +477,11 @@ function mergeModelSettings(current: ModelSettings, patch?: SettingsPatch['model
   };
 }
 
-function sanitizeAppSettings(value: unknown): AppSettings {
+function sanitizeAppSettings(value: unknown, missingPreset: InterfacePreset = DEFAULT_INTERFACE_PRESET): AppSettings {
   const source = isRecord(value) ? value : {};
   const sourceVersion = clampInteger(source.version, 1, 99, 1);
   const general = sanitizeGeneral(source.general);
-  const appearance = sanitizeAppearance(source.appearance);
+  const appearance = sanitizeAppearance(source.appearance, missingPreset);
   const conversation = sanitizeConversation(source.conversation);
   const normalizedTools = normalizeToolSettings(source.tools);
   const tools: ToolSettings = sourceVersion < 2
@@ -503,10 +530,11 @@ function sanitizeGeneral(value: unknown): GeneralSettings {
   };
 }
 
-function sanitizeAppearance(value: unknown): AppearanceSettings {
+function sanitizeAppearance(value: unknown, missingPreset: InterfacePreset = DEFAULT_INTERFACE_PRESET): AppearanceSettings {
   const source = isRecord(value) ? value : {};
   const legacyTheme = source.theme === 'dark' ? 'night' : source.theme;
   return {
+    interfacePreset: normalizeInterfacePreset(source.interfacePreset, missingPreset),
     theme: cleanEnum(legacyTheme, THEME_MODES, DEFAULT_SETTINGS.appearance.theme),
     animationLevel: cleanEnum(source.animationLevel, ANIMATION_LEVELS, DEFAULT_SETTINGS.appearance.animationLevel),
     glassEffects: cleanBoolean(source.glassEffects, DEFAULT_SETTINGS.appearance.glassEffects),

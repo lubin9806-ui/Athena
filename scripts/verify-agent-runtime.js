@@ -270,7 +270,8 @@ async function main() {
   const invalidModel = new FixtureModel([
     modelResponse('', [toolCall('call-invalid', 'flaky_read', {})]),
     messages => {
-      assert.match(messages.at(-1).content, /validation failed/i);
+      assert.match(messages.at(-1).content, /flaky_read/);
+      assert.match(messages.at(-1).content, /参数不符合要求/);
       return modelResponse('Invalid arguments were rejected.');
     },
   ]);

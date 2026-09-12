@@ -307,7 +307,7 @@ export class AgentRunner {
       } else if (item.validationError || !item.resolved || !item.decision) {
         result = {
           status: 'failed',
-          summary: 'Tool call validation failed',
+          summary: describeUnrunnableCall(item.pending.call.name, item.validationError),
           content: errorMessage(item.validationError),
         };
         completeStepWithResult(this.store, currentStep, result, 0);
@@ -572,7 +572,9 @@ export class AgentRunner {
     }
     const result = lastResult || {
       status: 'failed' as const,
-      summary: `Tool ${call.name} failed`,
+      // The reason, not "Tool generate_image_artifact failed": this line is what the
+      // step list shows and the first thing the model reads about the failure.
+      summary: describeToolFailure(call.name, lastError),
       content: errorMessage(lastError),
       retryable: false,
     };
@@ -907,6 +909,28 @@ function resolveVerification(
   if (status !== 'completed') return 'not_applicable';
   if (task.spec.validation.some(item => item.required)) return 'verified';
   return toolCallCount > 0 ? 'unverified' : 'not_applicable';
+}
+
+/**
+ * What the step list and the model are told when a call never reached its tool.
+ *
+ * "Tool call validation failed" was all either of them got. When the tool had
+ * left the registry between approval and execution - the image engine went quiet
+ * overnight while the approval waited - the model read the internal "is not
+ * registered" detail as "Athena has no image tool" and told the user so.
+ */
+function describeUnrunnableCall(name: string, error: Error | null): string {
+  if (error instanceof AgentToolNotFoundError) {
+    return `${name} 现在不可用（它依赖的权限或服务在这期间变了），这一步没有执行`;
+  }
+  if (error instanceof AgentToolArgumentsError) return `${name} 的参数不符合要求，这一步没有执行`;
+  return `${name} 的调用无效，这一步没有执行`;
+}
+
+function describeToolFailure(name: string, error: unknown): string {
+  const reason = errorMessage(error).replace(/\s+/g, ' ').trim();
+  if (!reason) return `${name} 执行失败`;
+  return reason.length > 300 ? `${reason.slice(0, 297)}...` : reason;
 }
 
 function assertRequiredValidations(task: AgentTaskRecord, state: AgentRunnerCheckpointV1): void {

@@ -43,6 +43,7 @@ import { getAppSettings, resolveToolSettingsForMode, shouldSaveHistory } from '.
 import { WebSearchService } from '../web/WebSearchService';
 import { WebResearchAgent } from '../web/WebResearchAgent';
 import { SearchApiClient } from '../web/SearchApiClient';
+import { trustedClock } from '../runtime/TrustedClock';
 import { resolveSearchCredential } from '../ai/CredentialStore';
 import {
   AgentRunner,
@@ -255,6 +256,15 @@ export class AthenaController {
     this.workflows = new WorkflowManager();
     // The contracted API leads only when a key is actually resolvable; without one
     // the service keeps the scraped providers exactly as before.
+    // Prompts state today's date from network time whenever a host the user already
+    // consented to answers: the remote model's endpoint first, since every turn talks
+    // to it anyway, then the search providers while search is on. Nothing else.
+    trustedClock.configure({
+      resolveOrigins: () => [
+        ...(this.llm.providerName !== 'ollama' && canUseNetworkCapability('remoteModel') ? [this.llm.endpoint] : []),
+        ...(canUseNetworkCapability('webSearch') && getAppSettings().webSearch.enabled ? ['https://cn.bing.com', 'https://m.sogou.com'] : []),
+      ],
+    });
     this.webSearch = new WebSearchService(undefined, undefined, new SearchApiClient(() => {
       const apiKey = resolveSearchCredential('zhipu');
       return apiKey ? { provider: 'zhipu', apiKey } : null;
@@ -328,6 +338,8 @@ export class AthenaController {
   async initialize(): Promise<void> {
     if (this.initialized) return;
     if (this.initializePromise) return this.initializePromise;
+    // Fire and forget: prompts read this machine's clock until a consented host answers.
+    void trustedClock.sync();
 
     this.initializePromise = this.runInitialize().finally(() => {
       this.initializePromise = null;
@@ -417,6 +429,8 @@ export class AthenaController {
     const modeToolSettings = this.applyToolPermission(settings.tools, mode);
     modeToolSettings.allowExternalNetwork = settings.privacy.networkConsent.externalToolNetwork;
     logger.info(`User message received [mode=${mode}, tools=${modeToolSettings.permissionLevel}, chars=${userMessage.length}]`);
+    // Notices a reconnect or a dropped network since the last turn; never delays this one.
+    void trustedClock.syncIfStale();
     const inputGuardrail = evaluateSteamAiContent(userMessage);
     if (!inputGuardrail.allowed) {
       const content = steamAiGuardrailRefusal();
@@ -590,9 +604,21 @@ export class AthenaController {
         options?.onToolConfirm,
         { chatWindowId, userMessageId: savedUser.chatMessageId },
         modelImages,
+        { imageGeneration: !isSteamSku() },
       ),
       value => (value.toolExecutions?.length ? `tools:${value.toolExecutions.length}` : 'ok'),
     );
+
+    if (response.imageRequest) {
+      const imageResponse = await this.processDirectImageRequest(
+        response.imageRequest,
+        mode,
+        chatWindowId,
+        options,
+      );
+      if (effectiveSaveHistory) this.persistExtractedMemory(userMessage, savedUser.messageId, chatWindowId);
+      return imageResponse;
+    }
 
     const outputGuardrail = evaluateSteamAiContent(response.content);
     if (!outputGuardrail.allowed) {

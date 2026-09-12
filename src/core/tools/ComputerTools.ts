@@ -1,8 +1,8 @@
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 import * as net from 'net';
 import { spawn, type ChildProcessWithoutNullStreams } from 'child_process';
-import { resolveProjectRoot } from '../runtime/Paths';
 import { isSteamToolAllowed } from '../steam/SteamSkuPolicy';
 import type { ToolCatalogItem, ToolExecutionStatus, ToolPermissionLevel, ToolSettings } from '../../shared/types';
 import {
@@ -477,7 +477,7 @@ export class ComputerToolService {
 
   private async runCommand(args: Record<string, unknown>, settings: ToolSettings, signal?: AbortSignal): Promise<ComputerToolResult> {
     const command = requireString(args.command, 'command', 20_000);
-    const cwd = optionalString(args.cwd) ? resolveComputerPath(requireString(args.cwd, 'cwd')) : resolveProjectRoot();
+    const cwd = resolveWorkingDirectoryArgument(args.cwd);
     const timeoutSeconds = clampInteger(args.timeout_seconds, 1, 300, settings.commandTimeoutSeconds);
     const result = await executeShellCommand(command, cwd, timeoutSeconds * 1000, signal);
     const output = [`cwd: ${cwd}`, `exit_code: ${result.exitCode}`, '', result.stdout, result.stderr ? `\n[stderr]\n${result.stderr}` : '']
@@ -501,7 +501,7 @@ export class ComputerToolService {
 
     const requestedShell = args.shell === 'cmd' ? 'cmd' : 'powershell';
     const shell: TerminalSession['shell'] = process.platform === 'win32' ? requestedShell : 'bash';
-    const cwd = optionalString(args.cwd) ? resolveComputerPath(requireString(args.cwd, 'cwd')) : resolveProjectRoot();
+    const cwd = resolveWorkingDirectoryArgument(args.cwd);
     const initialCommand = optionalString(args.command)?.slice(0, 20_000);
     const id = this.nextTerminalId();
     const executable = shell === 'powershell' ? 'powershell.exe' : shell === 'cmd' ? 'cmd.exe' : '/bin/bash';
@@ -655,7 +655,7 @@ export class ComputerToolService {
     const programArgs = Array.isArray(args.args)
       ? args.args.filter((item): item is string => typeof item === 'string').slice(0, 100)
       : [];
-    const cwd = optionalString(args.cwd) ? resolveComputerPath(requireString(args.cwd, 'cwd')) : resolveProjectRoot();
+    const cwd = resolveWorkingDirectoryArgument(args.cwd);
     const child = spawn(program, programArgs, {
       cwd,
       detached: true,
@@ -673,7 +673,7 @@ export class ComputerToolService {
     const isUrl = /^https?:\/\//i.test(rawTarget);
     const target = isUrl ? rawTarget : resolveComputerPath(rawTarget);
     const command = process.platform === 'win32' ? 'explorer.exe' : process.platform === 'darwin' ? 'open' : 'xdg-open';
-    const child = spawn(command, [target], { detached: true, stdio: 'ignore', windowsHide: false });
+    const child = spawn(command, [target], { cwd: resolveDefaultWorkingDirectory(), detached: true, stdio: 'ignore', windowsHide: false });
     await waitForSpawn(child);
     child.unref();
     return completed(`已打开 ${target}`, `target: ${target}\npid: ${child.pid ?? 'unknown'}`);
@@ -701,7 +701,11 @@ export class ComputerToolService {
     }
     const timeoutSeconds = clampInteger(args.timeout_seconds, 1, 120, Math.min(settings.commandTimeoutSeconds, 60));
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutSeconds * 1000);
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, timeoutSeconds * 1000);
     const externalAbort = () => controller.abort();
     if (signal) {
       if (signal.aborted) {
@@ -733,6 +737,21 @@ export class ComputerToolService {
     } catch (error) {
       if (signal?.aborted) {
         return { status: 'cancelled', summary: 'HTTP 请求已取消。', output: `url: ${url.toString()}\nreason: cancelled_by_user` };
+      }
+      // An abort this function caused is a timeout and has to read like one. The bare
+      // "This operation was aborted" left the model to guess, and it guessed that
+      // nothing was listening - on a port it had just been told was open.
+      if (timedOut) {
+        return {
+          status: 'failed',
+          summary: `${timeoutSeconds} 秒内没有收到响应（超时）`,
+          output: [
+            `url: ${url.toString()}`,
+            'reason: timeout',
+            `timeout_seconds: ${timeoutSeconds}`,
+            '连接建立了，但对方一直没有回应。端口能连上而 HTTP 迟迟不回，通常是服务正忙于别的任务或已经卡住，不代表没有服务在运行。',
+          ].join('\n'),
+        };
       }
       throw error;
     } finally {
@@ -774,7 +793,71 @@ function resolveComputerPath(value: string): string {
   expanded = expanded.replace(/%([^%]+)%/g, (_, key: string) => process.env[key] ?? `%${key}%`);
   expanded = expanded.replace(/\$env:([A-Za-z_][A-Za-z0-9_]*)/gi, (_, key: string) => process.env[key] ?? `$env:${key}`);
   expanded = resolveKnownFolderAlias(expanded);
-  return path.isAbsolute(expanded) ? path.normalize(expanded) : path.resolve(resolveProjectRoot(), expanded);
+  return path.isAbsolute(expanded) ? path.normalize(expanded) : path.resolve(resolveDefaultWorkingDirectory(), expanded);
+}
+
+/**
+ * Where a command, terminal or program starts when the model names no directory,
+ * and what a relative path is relative to.
+ *
+ * This used to be the project root, which in the packaged app is
+ * `resources\app.asar`. Electron's `fs` reads inside that archive, so it passed
+ * every existence check, but the OS cannot start a process in it: every
+ * run_command, terminal_start and launch_program failed with
+ * `spawn powershell.exe ENOENT` - naming the program, not the directory - even for
+ * cmd.exe by its absolute path, and the agent spent its whole round budget looking
+ * for a shell that was there all along (ATH-EXEC-001).
+ */
+export function resolveDefaultWorkingDirectory(): string {
+  const candidates = [os.homedir(), process.env.USERPROFILE, process.env.HOME, os.tmpdir()];
+  return candidates.find((candidate): candidate is string => isUsableWorkingDirectory(candidate)) ?? os.tmpdir();
+}
+
+/** A real directory the OS can start a process in - never a path inside an asar archive. */
+export function isUsableWorkingDirectory(candidate: string | undefined): boolean {
+  if (!candidate || isInsideAsar(candidate)) return false;
+  try {
+    return fs.statSync(candidate).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+function isInsideAsar(candidate: string): boolean {
+  return /\.asar(?:[\\/]|$)/i.test(candidate);
+}
+
+function resolveWorkingDirectoryArgument(value: unknown): string {
+  if (!optionalString(value)) return resolveDefaultWorkingDirectory();
+  const cwd = resolveComputerPath(requireString(value, 'cwd'));
+  if (isUsableWorkingDirectory(cwd)) return cwd;
+  // Checked before spawning because the OS reports a missing directory as a missing
+  // program ("spawn powershell.exe ENOENT"), which sends everyone after the wrong thing.
+  throw new ToolOperationError(
+    `工作目录不可用：${cwd}`,
+    [
+      `cwd: ${cwd}`,
+      `reason: ${isInsideAsar(cwd) ? '这个路径在应用的打包文件里，系统不能在其中启动进程' : '目录不存在，或者不是文件夹'}`,
+      `不传 cwd 时默认在 ${resolveDefaultWorkingDirectory()} 运行。`,
+    ].join('\n'),
+  );
+}
+
+/**
+ * Text from a child process: UTF-8 when it is UTF-8, otherwise the Chinese console
+ * code page. The PowerShell prefix gets PowerShell and the native programs it runs
+ * to write UTF-8, but a program that writes its own bytes can still produce GBK, and
+ * that has to arrive as words rather than replacement characters (ATH-EXEC-002).
+ */
+export function decodeProcessOutput(bytes: Buffer): string {
+  if (bytes.length === 0) return '';
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+  } catch { /* Not UTF-8. */ }
+  try {
+    return new TextDecoder('gbk').decode(bytes);
+  } catch { /* This runtime has no GBK table. */ }
+  return bytes.toString('utf8');
 }
 
 function resolveKnownFolderAlias(value: string): string {
@@ -785,7 +868,7 @@ function resolveKnownFolderAlias(value: string): string {
   const alias = match[1].toLocaleLowerCase();
   const child = match[2] || '';
   const folderName = /桌面|desktop/i.test(alias) ? 'Desktop' : 'Downloads';
-  const userProfile = process.env.USERPROFILE || process.env.HOME || resolveProjectRoot();
+  const userProfile = process.env.USERPROFILE || process.env.HOME || os.homedir();
   const candidates = [
     path.join(userProfile, folderName),
     process.env.OneDrive ? path.join(process.env.OneDrive, folderName) : '',
@@ -982,10 +1065,20 @@ interface CommandResult {
   cancelled?: boolean;
 }
 
+/**
+ * Switches the console to UTF-8 before the command runs. A piped Windows
+ * PowerShell 5.1 otherwise writes in the OEM code page - 936 (GBK) on a Chinese
+ * system - and every Chinese character a command printed reached the model as
+ * "�������": error messages, file names, all of it. Native programs the command
+ * starts inherit the console code page, so cmd and ipconfig are covered too
+ * (ATH-EXEC-002).
+ */
+const POWERSHELL_UTF8_PREFIX = '$OutputEncoding = [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new(); ';
+
 function executeShellCommand(command: string, cwd: string, timeoutMs: number, signal?: AbortSignal): Promise<CommandResult> {
   const executable = process.platform === 'win32' ? 'powershell.exe' : '/bin/sh';
   const shellArgs = process.platform === 'win32'
-    ? ['-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', command]
+    ? ['-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', `${POWERSHELL_UTF8_PREFIX}${command}`]
     : ['-lc', command];
 
   return new Promise((resolve, reject) => {
@@ -995,8 +1088,11 @@ function executeShellCommand(command: string, cwd: string, timeoutMs: number, si
       stdio: ['ignore', 'pipe', 'pipe'],
       shell: false,
     });
-    let stdout = '';
-    let stderr = '';
+    const stdout = collectProcessOutput(MAX_COMMAND_OUTPUT);
+    const stderr = collectProcessOutput(MAX_COMMAND_OUTPUT);
+    // PowerShell quotes the whole command line in its error records. The prefix is
+    // Athena's, not the model's, and would only muddy what it reads.
+    const errorText = () => stderr.text().split(POWERSHELL_UTF8_PREFIX).join('');
     let settled = false;
     const finish = (result: CommandResult) => {
       if (settled) return;
@@ -1010,8 +1106,8 @@ function executeShellCommand(command: string, cwd: string, timeoutMs: number, si
       try { child.kill(); } catch { /* Child may already be gone. */ }
       finish({
         exitCode: -1,
-        stdout: truncate(stdout, MAX_COMMAND_OUTPUT),
-        stderr: truncate(stderr || '[CANCELLED] 命令执行已取消，子进程已被终止。', MAX_COMMAND_OUTPUT),
+        stdout: truncate(stdout.text(), MAX_COMMAND_OUTPUT),
+        stderr: truncate(errorText() || '[CANCELLED] 命令执行已取消，子进程已被终止。', MAX_COMMAND_OUTPUT),
         cancelled: true,
       });
     };
@@ -1020,8 +1116,8 @@ function executeShellCommand(command: string, cwd: string, timeoutMs: number, si
       try { child.kill(); } catch { /* Child may already be gone. */ }
       finish({
         exitCode: -1,
-        stdout: truncate(stdout, MAX_COMMAND_OUTPUT),
-        stderr: truncate(stderr || '[TIMEOUT] 命令执行超时。', MAX_COMMAND_OUTPUT),
+        stdout: truncate(stdout.text(), MAX_COMMAND_OUTPUT),
+        stderr: truncate(errorText() || '[TIMEOUT] 命令执行超时。', MAX_COMMAND_OUTPUT),
       });
     }, timeoutMs);
     if (signal) {
@@ -1031,27 +1127,59 @@ function executeShellCommand(command: string, cwd: string, timeoutMs: number, si
       }
       signal.addEventListener('abort', onAbort, { once: true });
     }
-    child.stdout.on('data', chunk => {
-      if (stdout.length < MAX_COMMAND_OUTPUT) stdout += String(chunk);
-    });
-    child.stderr.on('data', chunk => {
-      if (stderr.length < MAX_COMMAND_OUTPUT) stderr += String(chunk);
-    });
+    child.stdout.on('data', chunk => stdout.push(chunk));
+    child.stderr.on('data', chunk => stderr.push(chunk));
     child.on('error', error => {
       if (settled) return;
       clearTimeout(killTimer);
       signal?.removeEventListener('abort', onAbort);
       settled = true;
-      reject(new ToolOperationError(`无法启动命令解释器 ${executable}`, error.message));
+      reject(new ToolOperationError(`无法在 ${cwd} 启动 ${executable}`, error.message));
     });
     child.on('close', code => {
       finish({
         exitCode: typeof code === 'number' ? code : -1,
-        stdout: truncate(stdout, MAX_COMMAND_OUTPUT),
-        stderr: truncate(stderr, MAX_COMMAND_OUTPUT),
+        stdout: truncate(stdout.text(), MAX_COMMAND_OUTPUT),
+        stderr: truncate(errorText(), MAX_COMMAND_OUTPUT),
       });
     });
   });
+}
+
+/** Keeps the raw bytes and decodes once at the end, so no character is split across chunks. */
+function collectProcessOutput(maxChars: number): { push(chunk: Buffer | string): void; text(): string } {
+  const chunks: Buffer[] = [];
+  // Four bytes is the widest UTF-8 character, so the byte cap never cuts text that
+  // the character cap would have kept.
+  const maxBytes = maxChars * 4;
+  let bytes = 0;
+  return {
+    push(chunk) {
+      if (bytes >= maxBytes) return;
+      const buffer = typeof chunk === 'string' ? Buffer.from(chunk, 'utf8') : chunk;
+      const kept = buffer.length > maxBytes - bytes ? buffer.subarray(0, maxBytes - bytes) : buffer;
+      chunks.push(kept);
+      bytes += kept.length;
+    },
+    text() {
+      const all = Buffer.concat(chunks);
+      return decodeProcessOutput(bytes >= maxBytes ? trimPartialCharacter(all) : all);
+    },
+  };
+}
+
+/** Drops a character the byte cap cut in half, so the strict decode still recognises UTF-8. */
+function trimPartialCharacter(bytes: Buffer): Buffer {
+  let index = bytes.length - 1;
+  let continuation = 0;
+  while (index >= 0 && continuation < 3 && (bytes[index] & 0xc0) === 0x80) {
+    index -= 1;
+    continuation += 1;
+  }
+  if (index < 0) return bytes;
+  const lead = bytes[index];
+  const width = lead >= 0xf0 ? 4 : lead >= 0xe0 ? 3 : lead >= 0xc0 ? 2 : 1;
+  return width > continuation + 1 ? bytes.subarray(0, index) : bytes;
 }
 
 function waitForSpawn(child: ReturnType<typeof spawn>): Promise<void> {

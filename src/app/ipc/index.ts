@@ -3,7 +3,8 @@
 import { ipcMain, BrowserWindow, clipboard, dialog, IpcMainEvent, IpcMainInvokeEvent, shell } from 'electron';
 import { AthenaController } from '../../core/controller/AthenaController';
 import { DiagnosticsService } from '../../core/diagnostics';
-import { getAppSettings, getSettingsBundle, saveSettingsBundle } from '../../core/config/SettingsStore';
+import { getAppSettings, getSettingsBundle, saveSettingsBundle, saveAppearanceSettings } from '../../core/config/SettingsStore';
+import type { AppearanceSettings } from '../../shared/types/settings';
 import {
   applyDataRetention,
   canUseNetworkCapability,
@@ -32,6 +33,9 @@ import {
   getModelCredentialStatus,
   setImageCredential,
   setModelCredential,
+  clearSearchCredential,
+  getSearchCredentialStatus,
+  setSearchCredential,
 } from '../../core/ai/CredentialStore';
 import {
   IMAGE_PROVIDER_DESCRIPTORS,
@@ -153,6 +157,7 @@ const INVOKE_CHANNELS = [
   'system:infoStartup',
   'config:get',
   'config:set',
+  'appearance:set',
   'persona:get',
   'persona:save',
   'persona:chooseImportFile',
@@ -177,6 +182,9 @@ const INVOKE_CHANNELS = [
   'image:credentialStatus',
   'image:setCredential',
   'image:clearCredential',
+  'search:credentialStatus',
+  'search:setCredential',
+  'search:clearCredential',
   'memory:list',
   'memory:delete',
   'memory:update',
@@ -866,6 +874,19 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<vo
     return toRendererSettingsBundle(bundle);
   });
 
+  // Presentation-only saves must not reload a model, touch permission caps,
+  // run retention or rewrite model credentials while a conversation is running.
+  ipcMain.handle('appearance:set', (event, patch: unknown) => {
+    if (!isTrustedSender(event)) return null;
+    if (!isRecord(patch)) throw new Error('外观设置格式不正确');
+    const clean = Object.fromEntries(
+      ['interfacePreset', 'theme', 'animationLevel', 'glassEffects']
+        .filter(key => Object.prototype.hasOwnProperty.call(patch, key))
+        .map(key => [key, patch[key]]),
+    ) as Partial<AppearanceSettings>;
+    return saveAppearanceSettings(clean);
+  });
+
   ipcMain.handle('persona:get', async (event, profileId: unknown) => {
     if (!isTrustedSender(event)) return null;
     const resolved = getPersonaEditorState(cleanString(profileId, 80) || getAppSettings().profile);
@@ -919,6 +940,25 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<vo
     const status = clearModelCredential(provider);
     controller.reloadModel();
     return status;
+  });
+
+  // The contracted search key has a single provider, so the renderer never names it.
+  // It goes straight to the encrypted store and every search resolves it afresh, so
+  // nothing needs reloading after a save or a clear.
+  ipcMain.handle('search:credentialStatus', async event => {
+    if (!isTrustedSender(event)) return null;
+    return getSearchCredentialStatus('zhipu');
+  });
+
+  ipcMain.handle('search:setCredential', async (event, apiKeyValue: unknown) => {
+    if (!isTrustedSender(event)) return null;
+    const apiKey = typeof apiKeyValue === 'string' ? apiKeyValue : '';
+    return setSearchCredential('zhipu', apiKey);
+  });
+
+  ipcMain.handle('search:clearCredential', async event => {
+    if (!isTrustedSender(event)) return null;
+    return clearSearchCredential('zhipu');
   });
 
   ipcMain.handle('image:listProviders', async event => {

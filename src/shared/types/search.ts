@@ -3,6 +3,8 @@ export type WebSearchPhase = 'searching' | 'reading' | 'refining' | 'done' | 'fa
 /** 'zhipu' is the contracted search API; the rest are the Internal Alpha HTML sources. */
 export type WebSearchProvider = 'zhipu' | 'sogou' | 'bing' | 'duckduckgo' | 'none';
 export type SearchApiProvider = 'zhipu';
+/** How fresh results must be. Only the contracted API can filter on it; the scraped providers ignore it. */
+export type SearchRecency = 'oneDay' | 'oneWeek' | 'oneMonth' | 'oneYear' | 'noLimit';
 export type WebPageExtractionMethod = 'json-ld' | 'article' | 'main' | 'semantic' | 'body' | 'text' | 'json';
 
 export interface WebSearchSettings {
@@ -20,6 +22,8 @@ export interface WebSearchSource {
   url: string;
   domain: string;
   snippet: string;
+  /** Provider-reported publish date, when the provider gives one. */
+  publishedAt?: string;
 }
 
 export interface WebPageEvidence {

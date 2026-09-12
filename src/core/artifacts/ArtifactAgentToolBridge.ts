@@ -25,6 +25,10 @@ export interface ArtifactAgentToolBridgeOptions {
   canWriteArtifacts: () => boolean;
   canGenerateImages: () => boolean;
   hasImageCredential: () => boolean;
+  /** Re-reads what `hasImageCredential` answers from - the local engine scan - just before a call. */
+  refreshImageReadiness?: (signal: AbortSignal) => Promise<void>;
+  /** Why images cannot be made right now, in words the person can act on, including where to fix it. */
+  describeImageUnavailable?: () => string;
   resolveReferenceImages: (runId: string, attachmentIds: string[]) => ModelImageInput[];
 }
 
@@ -38,7 +42,12 @@ export class ArtifactAgentToolBridge {
     const pending = new Map<string, Readonly<AgentToolRegistration>>();
     try {
       if (this.options.canWriteArtifacts()) this.registerDocumentTool(pending);
-      if (this.options.canWriteArtifacts() && this.options.canGenerateImages() && this.options.hasImageCredential()) {
+      // Registered whenever images are allowed at all, ready or not. Dropping the
+      // tool while the engine was down made the capability vanish from the model's
+      // view: it told the user Athena had no way to make a picture, then searched C:
+      // for ComfyUI by hand. Readiness is checked per call instead, where a failure
+      // can say what is wrong and where to fix it (ATH-IMG-006).
+      if (this.options.canWriteArtifacts() && this.options.canGenerateImages()) {
         this.registerImageTool(pending);
         if (this.options.images.supportsEditing?.() !== false) this.registerImageEditTool(pending);
       }
@@ -157,7 +166,7 @@ export class ArtifactAgentToolBridge {
       },
       execute: async (args, context) => {
         this.requireWritePermission();
-        this.requireImageAccess();
+        await this.requireImageAccess(context.signal);
         const prompt = String(args.prompt);
         const generated = await this.options.images.generate({
           prompt,
@@ -214,7 +223,7 @@ export class ArtifactAgentToolBridge {
       },
       execute: async (args, context) => {
         this.requireWritePermission();
-        this.requireImageAccess();
+        await this.requireImageAccess(context.signal);
         const referenceIds = Array.isArray(args.reference_attachment_ids) ? args.reference_attachment_ids.map(String) : [];
         const maskId = typeof args.mask_attachment_id === 'string' ? args.mask_attachment_id : undefined;
         if (maskId && referenceIds.includes(maskId)) throw new Error('Mask attachment must be separate from reference attachments');
@@ -284,9 +293,15 @@ export class ArtifactAgentToolBridge {
     });
   }
 
-  private requireImageAccess(): void {
+  private async requireImageAccess(signal: AbortSignal): Promise<void> {
     if (!this.options.canGenerateImages()) throw new Error('The selected image provider is not permitted by the current privacy or SKU policy');
-    if (!this.options.hasImageCredential()) throw new Error('The selected image provider is not ready; configure its local runtime/model or cloud credential first');
+    // Answered from a fresh scan rather than the one taken at startup: the engine
+    // may have been started, stopped or wedged since.
+    if (this.options.refreshImageReadiness) await this.options.refreshImageReadiness(signal).catch(() => undefined);
+    if (!this.options.hasImageCredential()) {
+      throw new Error(this.options.describeImageUnavailable?.()
+        || 'The selected image provider is not ready; configure its local runtime/model or cloud credential first');
+    }
   }
 
   private clearOwned(): void {

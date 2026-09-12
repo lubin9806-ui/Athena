@@ -89,6 +89,12 @@ export interface LocalImageDiscoverySnapshot {
     installedModelCount: number;
     installedWorkflows: Array<'checkpoint' | 'z-image-turbo'>;
     connected: boolean;
+    /**
+     * `unresponsive`: something holds the port but did not answer HTTP in time -
+     * ComfyUI busy with another job (a long video render did exactly this) or hung.
+     * That is not "not running", and the two need different advice.
+     */
+    reachability?: 'connected' | 'unresponsive' | 'absent';
     baseUrl: string;
     checkpoints: string[];
     diffusionModels: string[];
