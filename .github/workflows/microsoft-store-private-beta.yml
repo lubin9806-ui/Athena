@@ -49,8 +49,9 @@ jobs:
           git diff --exit-code
           if (git status --porcelain --untracked-files=all) { throw 'Store build created an unignored source-tree file.' }
       - uses: actions/upload-artifact@v4
+        if: ${{ github.event_name == 'workflow_dispatch' }}
         with:
           name: athena-microsoft-store-${{ github.sha }}
           path: release-store/*
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 7

@@ -100,8 +100,9 @@ jobs:
           git diff --exit-code
           if (git status --porcelain --untracked-files=all) { throw 'Build created an unignored source-tree file.' }
       - uses: actions/upload-artifact@v4
+        if: ${{ startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch' }}
         with:
           name: athena-desktop-${{ github.sha }}
           path: release/candidates/**
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 7
