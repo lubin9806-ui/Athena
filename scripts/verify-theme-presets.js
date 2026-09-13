@@ -5,6 +5,11 @@ const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const ts = require('typescript');
 
+function stableTextSha256(bytes) {
+  const normalized = bytes.toString('utf8').replace(/\r\n?/g, '\n');
+  return crypto.createHash('sha256').update(normalized).digest('hex').toUpperCase();
+}
+
 const root = path.resolve(__dirname, '..');
 const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'athena-theme-presets-'));
 const config = path.join(scratch, 'config');
@@ -72,8 +77,8 @@ try {
 
   const mark = fs.readFileSync(path.join(root, 'docs/brand/companion-prototype/assets/athena-mark.svg'));
   const icons = fs.readFileSync(path.join(root, 'docs/brand/companion-prototype/assets/icons.svg'));
-  assert.equal(crypto.createHash('sha256').update(mark).digest('hex').toUpperCase(), '55AA336147DF7D5FBCE9FC485AB421988DF6108301817E023B800DDFD383E578');
-  assert.equal(crypto.createHash('sha256').update(icons).digest('hex').toUpperCase(), '3852D37EF58BAFCBD6A8D3459A68F02DCDB452914D8E4DC5FD43825808318783');
+  assert.equal(stableTextSha256(mark), '55AA336147DF7D5FBCE9FC485AB421988DF6108301817E023B800DDFD383E578');
+  assert.equal(stableTextSha256(icons), '3852D37EF58BAFCBD6A8D3459A68F02DCDB452914D8E4DC5FD43825808318783');
   for (const file of ['athena-brand.ico', 'athena-brand-icon.png', 'athena-tray.png']) assert(fs.statSync(path.join(root, 'resources', file)).size > 500);
   console.log('ATHENA_INTERFACE_PRESETS_OK default=daylight classic=ready atelier=prototype appearance-only=true brand=unchanged');
 } finally {
