@@ -15,6 +15,8 @@ Machine-readable source: `cloud/config/provider-policies.json`.
 
 No real fee, cloud resource, model request, email or SMS is produced by Window 09.
 
+Every configured adapter name is a runtime binding, not descriptive metadata. Service startup rejects missing port methods or an adapter ID that differs from the reviewed configuration, and `/health/ready` reports the bound IDs for deployment verification.
+
 ## Required production model-provider record
 
 Do not set `productionEligible=true` until all fields have named approvers and evidence:
