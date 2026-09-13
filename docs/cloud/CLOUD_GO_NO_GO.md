@@ -17,7 +17,7 @@
 | Assets, boundaries, threat model, classification | Architecture and threat register complete; Desktop/Electron/SQLite/tools imports/routes statically rejected | Pass for design |
 | Authentication, sessions, MFA/recovery, tenant isolation | scrypt, TOTP, one-time codes/tokens, token hash/rotation, device revocation, cross-tenant tests | Independent production pen test required |
 | Transport, static encryption, keys, rotation, secrets | TLS production gate; AES-256-GCM envelope encryption; rotation and restore tests | KMS/HSM, real TLS/IAM and custody review missing |
-| API version/idempotency/rate/quota/retry/compatibility | v1 contract, problem details, exact vectors, limits, typed conflicts, idempotency tests | Distributed limiter/capacity test missing |
+| API version/idempotency/rate/quota/retry/compatibility | v1 contract, problem details, exact vectors, limits, typed conflicts, idempotency tests; readiness reports exact runtime adapter bindings | Distributed limiter/capacity test missing |
 | Model data terms/region/retention | Local fixture registry; Athena stores no prompt/voice | Real provider/DPA/region unselected |
 | Content safety, abuse, block/appeal/escalation | Local block baseline, encrypted appeal and manual-review state | Policy, staffing, contact and provider review missing |
 | Billing, entitlements, tax/trial/debt/refund | Replaceable state adapter; local adapter cannot charge; trial/past-due/refunded tested | Price, processor, tax, invoice/refund policy unselected |
@@ -34,7 +34,7 @@ Run from `G:\Athena\cloud`:
 npm.cmd test
 npm.cmd run drill
 npm.cmd run verify
-npm.cmd audit --audit-level=high
+npm.cmd audit --audit-level=high --registry=https://registry.npmjs.org
 ```
 
 Required markers are `ATHENA_CLOUD_DRILL_OK` and `ATHENA_CLOUD_1_0_ENGINEERING_OK`. Passing markers never turn this No-Go into production Go by themselves.

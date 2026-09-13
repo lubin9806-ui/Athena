@@ -74,4 +74,4 @@ The defaults are `local-fixture`, `local-no-charge`, local two-region simulation
 
 ## Production fail-closed gate
 
-`ATHENA_CLOUD_ENV=production` refuses startup if any of these are still local or missing: TLS termination proof, master key, region, cloud provider, billing adapter or model provider. This prevents an engineering fixture from being mistaken for Cloud 1.0 production.
+`ATHENA_CLOUD_ENV=production` refuses startup if any of these are still local or missing: TLS termination proof, master key, region, cloud provider, billing adapter, recovery delivery adapter, model provider or search provider. Startup also requires every runtime adapter ID to exactly match its reviewed configuration and exposes those bindings through `/health/ready`. This prevents an engineering fixture from being mistaken for Cloud 1.0 production.

@@ -441,6 +441,9 @@ class SearchGateway {
     const policies = JSON.parse(fs.readFileSync(policyPath, 'utf8'));
     this.policy = (policies.searchProviders || []).find((item) => item.id === config.searchProvider);
     if (!this.policy) throw new Error(`Search provider policy is missing for ${config.searchProvider}.`);
+    if (this.provider.id !== config.searchProvider) {
+      throw new Error(`Search provider mismatch: config names ${config.searchProvider} and the gateway was given ${this.provider.id}.`);
+    }
     if (config.environment === 'production' && !this.policy.productionEligible) {
       throw new Error('Configured search provider is not production eligible.');
     }
@@ -506,7 +509,15 @@ class UnavailableModelProvider {
 }
 
 class EntitlementService {
-  constructor(store, config, billingAdapter) { this.store = store; this.db = store.db; this.config = config; this.billingAdapter = billingAdapter; }
+  constructor(store, config, billingAdapter) {
+    this.store = store;
+    this.db = store.db;
+    this.config = config;
+    this.billingAdapter = billingAdapter;
+    if (billingAdapter.id !== config.billingAdapter) {
+      throw new Error(`Billing adapter mismatch: config names ${config.billingAdapter} and the service was given ${billingAdapter.id}.`);
+    }
+  }
   get(context) {
     const row = this.db.prepare('SELECT state,plan,source,updated_at AS updatedAt FROM entitlements WHERE tenant_id=?').get(context.tenantId);
     return { ...row, billingEnabled: this.billingAdapter.id !== 'local-no-charge', chargesCreated: this.billingAdapter.chargesCreated || 0 };

@@ -12,7 +12,9 @@ Copy-Item .env.example .env
 npm.cmd start
 ```
 
-The server listens on `127.0.0.1:8787` by default. Local HTTP is intentionally loopback-only. Production mode refuses to start unless TLS termination, a non-test master key, deployment region, cloud provider, billing adapter, and model provider decision are supplied.
+The server listens on `127.0.0.1:8787` by default. Local HTTP is intentionally loopback-only. Production mode refuses to start unless TLS termination, a non-test master key, deployment region, cloud provider, billing adapter, account-recovery delivery adapter, model provider, and search provider decisions are supplied.
+
+Configuration names are binding: startup rejects a model, search, billing, deployment, or recovery adapter whose runtime `id` does not exactly match the reviewed configuration. Naming a production vendor can therefore never silently fall back to a local fixture. `/health/ready` reports the bound adapter IDs so deployment evidence can verify what is actually running.
 
 ## Verification
 
