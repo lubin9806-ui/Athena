@@ -1,17 +1,25 @@
 # Athena Live2D Release Gate
 
-Date: 2026-08-23
+Updated: 2026-09-13
 
-## Runtime Skeleton: GO
+## Archived Runtime Fixture: SOURCE-ONLY GO
 
-The Live2D runtime skeleton is eligible for local validation when all of the following pass:
+The retired v1 runtime remains in the repository as a development fixture. It is eligible for source-level regression testing when all of the following pass:
 
-- Vite output contains the Cubism model, texture, physics, expressions, motions, Cubism Core, pet HTML, and dedicated preload.
-- Vite output and ASAR exclude PSDs, generated layer sources, rigging notes, the retired 3D prototype, and duplicate raw avatar directories.
-- The packaged application passes the Live2D desktop-pet smoke test with the `cubism-web` engine.
-- `npm.cmd run test:live2d:package` reports `ATHENA_LIVE2D_PACKAGE_OK`.
+- `npm.cmd run test:live2d:runtime` validates the archived Cubism model, texture, motion, physics, host and controller contracts.
+- PixiJS and the Live2D adapter remain development dependencies, not distributable production dependencies.
+- `npm.cmd run test:live2d:desktop-pet` validates the archived source contracts and proves the release-disabled smoke does not start a desktop-pet window.
 
-This GO is an engineering statement about the renderer and packaging path only. It does not approve Athena's own default character.
+This GO is only an engineering statement about retained source fixtures. It does not enable or advertise Live2D in the current product.
+
+## Current Release Gate: DISABLED GO
+
+The current release is correct only while all of the following remain true:
+
+- `RELEASE_FEATURES.live2d=false`.
+- Vite does not build a Live2D entry point and prunes the complete renderer avatar tree.
+- Desktop, Store and Steam builder configurations exclude avatar assets, Cubism Core, compiled avatar code, desktop-pet preload and the Live2D engine dependency.
+- `npm.cmd run test:live2d:package` reports `ATHENA_LIVE2D_RELEASE_GATE_OK` and proves the packaged ASAR contains none of those disabled artifacts.
 
 ## Athena Default Character: NO-GO
 
@@ -19,7 +27,7 @@ The previous `athena-live2d-default` visual direction is retired as of 2026-08-2
 
 `live2d-official-haru` is a temporary official sample reference for Cubism runtime validation. It must not be treated as Athena's identity or a public product asset.
 
-The next default character must follow `docs/LIVE2D_RESTART_V2.md` and pass a new visual quality gate before it becomes the default.
+The next default character must follow `docs/LIVE2D_RESTART_V2.md`, use a genuine reviewed Cubism export, and pass a new visual quality gate before the release flag can change.
 
 ## Public Distribution: NO-GO
 

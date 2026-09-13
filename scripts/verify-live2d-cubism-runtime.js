@@ -48,8 +48,15 @@ async function main() {
     'draggable_overlay',
     'desktop_pet',
   ]);
-  assert.equal(packageJson.dependencies['untitled-pixi-live2d-engine'], '1.3.5');
-  assert.equal(packageJson.dependencies['pixi.js'], '8.20.0');
+  assert.equal(packageJson.devDependencies['untitled-pixi-live2d-engine'], '1.3.5');
+  assert.equal(packageJson.devDependencies['pixi.js'], '8.20.0');
+  assert.equal(packageJson.dependencies['untitled-pixi-live2d-engine'], undefined);
+  assert.equal(packageJson.dependencies['pixi.js'], undefined);
+  assert.match(
+    fs.readFileSync(path.join(ROOT, 'src', 'shared', 'releaseFeatures.ts'), 'utf8'),
+    /live2d:\s*false/,
+    'the archived Live2D fixture must remain disabled for release',
+  );
   assert.equal(runtimeMoc.subarray(0, 4).toString('ascii'), 'MOC3');
   assert.equal(runtimeMoc[4], 5, 'runtime MOC must remain compatible with the pinned SDK 5 renderer');
   assert.equal(sourceMoc[4], 6, 'the Cubism 5.3 source export must remain preserved');
@@ -84,7 +91,7 @@ async function main() {
     assert.ok(controllerSource.includes(contract), `Live2D controller is missing placement contract: ${contract}`);
   }
 
-  console.log(`ATHENA_LIVE2D_CUBISM_RUNTIME_OK moc=${runtimeMoc.length} sourceMoc=${sourceMoc.length} placements=${manifest.runtime.validatedPlacements.length} status=${manifest.status} core=${manifest.runtime.coreSha256.slice(0, 12)}`);
+  console.log(`ATHENA_LIVE2D_CUBISM_RUNTIME_OK moc=${runtimeMoc.length} sourceMoc=${sourceMoc.length} placements=${manifest.runtime.validatedPlacements.length} status=${manifest.status} core=${manifest.runtime.coreSha256.slice(0, 12)} release=disabled`);
 }
 
 async function inspectTexture(filePath) {

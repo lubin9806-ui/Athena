@@ -17,6 +17,14 @@ files:
   - assets/**/*
   - "!assets/avatar/**/*"
   - "!assets/vendor/live2d/**/*"
+  - "!dist/app/avatar/**/*"
+  - "!dist/app/live2d-preload.js"
+  - "!dist/core/avatar/**/*"
+  - "!dist/renderer/avatar/**/*"
+  - "!dist/renderer/live2d-*.html"
+  - "!dist/renderer/live2d-*.js"
+  - "!dist/renderer/live2d-*.css"
+  - "!node_modules/untitled-pixi-live2d-engine/**/*"
   - "!assets/steam/**/*"
   - node_modules/steamworks.js/**/*
   - "!node_modules/steamworks.js/dist/win64/*.lib"

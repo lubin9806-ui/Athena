@@ -23,6 +23,7 @@ function main() {
   const html = read('src/renderer/live2d-pet.html');
   const host = read('src/renderer/avatar/live2d/BrowserCubismLive2DHost.ts');
   const vite = read('vite.config.mts');
+  const releaseFeatures = read('src/shared/releaseFeatures.ts');
   for (const contract of ['transparent: true', 'alwaysOnTop: true', 'skipTaskbar: true', 'setVisibleOnAllWorkspaces', 'cleanAvatarEvent']) {
     assert.ok(manager.includes(contract), `desktop pet manager missing ${contract}`);
   }
@@ -41,7 +42,11 @@ function main() {
   for (const contract of ['ENABLE_VISIBLE_LAYERED_RUNTIME_RIG = false', 'createLayeredPerformanceRig', 'hairSideL', 'eyeL', 'mouth', 'armR', 'skirt', 'sleeveR']) {
     assert.ok(host.includes(contract), `Cubism host is missing visible layered mesh contract: ${contract}`);
   }
-  assert.ok(vite.includes('live2dPet'));
+  assert.match(releaseFeatures, /live2d:\s*false/, 'Live2D must remain disabled for release');
+  assert.match(vite, /disabledPaths\s*=\s*\[\s*['"]avatar['"]\s*\]/, 'Vite must prune the renderer avatar tree');
+  assert.doesNotMatch(vite, /\blive2dPet\s*:/, 'Vite must not build the disabled desktop-pet entry point');
+  assert.equal(fs.existsSync(path.join(ROOT, 'dist', 'renderer', 'avatar')), false);
+  assert.equal(fs.existsSync(path.join(ROOT, 'dist', 'renderer', 'live2d-pet.html')), false);
 
   const result = spawnSync(electronPath, [ROOT, '--smoke-test'], {
     cwd: ROOT,
@@ -51,11 +56,11 @@ function main() {
   });
   const output = `${result.stdout || ''}\n${result.stderr || ''}`;
   if (result.status !== 0) process.stderr.write(output);
-  assert.equal(result.status, 0, 'desktop pet Electron smoke failed');
-  assert.match(output, /ATHENA_LIVE2D_PET_READY engine=live2d-lite/);
-  assert.match(output, /ATHENA_LIVE2D_DESKTOP_PET_STATE .*"stateSync":"emotion.update".*"lipSyncValue":"0.720".*"movingPixels":([3-9][5-9][0-9]|[4-9][0-9]{2}|[1-9][0-9]{3,})/);
+  assert.equal(result.status, 0, 'release-disabled Electron smoke failed');
   assert.match(output, /ATHENA_SMOKE_DOM_OK/);
-  console.log('ATHENA_LIVE2D_DESKTOP_PET_OK transparent=true alwaysOnTop=true stateSync=true pixels=verified motion=visible layeredRig=disabled default=su_shixia_v2 bounds=persisted');
+  assert.doesNotMatch(output, /ATHENA_LIVE2D_PET_READY/, 'disabled release unexpectedly started the desktop pet');
+  assert.doesNotMatch(output, /ATHENA_LIVE2D_DESKTOP_PET_STATE/, 'disabled release unexpectedly emitted desktop-pet state');
+  console.log('ATHENA_LIVE2D_DESKTOP_PET_DISABLED_OK source=archived release=disabled renderer=pruned smoke=main-window-only');
 }
 
 main();

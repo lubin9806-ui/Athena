@@ -75,6 +75,9 @@ jobs:
           npm.cmd run test:initiative
           npm.cmd run test:voice-service
           npm.cmd run test:voice-activity
+          npm.cmd run test:live2d:runtime
+          npm.cmd run test:live2d:desktop-pet
+          node scripts/verify-live2d-release-package.js --source-only
       - name: Prove audit checkout remained clean
         shell: pwsh
         run: |
