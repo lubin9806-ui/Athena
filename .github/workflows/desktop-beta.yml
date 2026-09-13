@@ -17,6 +17,70 @@ permissions:
   contents: read
 
 jobs:
+  module-audit:
+    runs-on: windows-2022
+    timeout-minutes: 35
+    env:
+      CI: 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            cloud/package-lock.json
+      - name: Install locked Node dependencies
+        run: |
+          npm.cmd ci
+          npm.cmd --prefix cloud ci
+      - name: Verify Node and service modules
+        shell: pwsh
+        run: |
+          npm.cmd run typecheck
+          npm.cmd run test:model-adapters
+          npm.cmd run test:skill-library
+          npm.cmd run test:mcp-integrations
+          npm.cmd run test:research-tools
+          npm.cmd run test:agent-routing
+          npm.cmd run test:creative-state
+          npm.cmd run test:cloud-sync
+          npm.cmd --prefix cloud run verify
+          npm.cmd --prefix cloud run drill
+      - name: Rebuild SQLite for Electron ABI
+        run: npm.cmd run rebuild:sqlite:electron
+      - name: Verify Electron-backed modules
+        shell: pwsh
+        run: |
+          npm.cmd run test:chat-windows
+          npm.cmd run test:memory-retention
+          npm.cmd run test:update-policy
+          npm.cmd run test:desktop-reliability
+          npm.cmd run test:model-providers
+          npm.cmd run test:agent-foundation
+          npm.cmd run test:agent-runtime
+          npm.cmd run test:project-workspace
+          npm.cmd run test:artifact-tools
+          npm.cmd run test:image-providers
+          npm.cmd run test:image-runtime
+          npm.cmd run test:chat-attachments
+          npm.cmd run test:chat-attachment-formats
+          npm.cmd run test:chat-attachment-migration
+          npm.cmd run test:chat-drop
+          npm.cmd run test:project-memory
+          npm.cmd run test:project-documents
+          npm.cmd run test:local-ocr
+          npm.cmd run test:diagnostics
+          npm.cmd run test:initiative
+          npm.cmd run test:voice-service
+          npm.cmd run test:voice-activity
+      - name: Prove audit checkout remained clean
+        shell: pwsh
+        run: |
+          git diff --exit-code
+          if (git status --porcelain --untracked-files=all) { throw 'Module audit created an unignored source-tree file.' }
+
   clean-checkout:
     runs-on: windows-2022
     timeout-minutes: 45
