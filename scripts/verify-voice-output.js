@@ -18,6 +18,7 @@ const path = require('path');
 const ROOT = path.resolve(__dirname, '..');
 const RUNTIME = path.resolve(process.env.ATHENA_VOICE_RUNTIME_DIR || path.join(ROOT, 'resources', 'voice-runtime'));
 const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'athena-voice-output-'));
+let voiceForCleanup = null;
 
 process.env.ATHENA_CONFIG_DIR = path.join(scratch, 'config');
 process.env.ATHENA_DB_DIR = path.join(scratch, 'database');
@@ -313,6 +314,7 @@ async function main() {
   }
 
   const voice = new VoiceService();
+  voiceForCleanup = voice;
   const capabilities = await voice.getCapabilities();
   assert(capabilities.tts.voices.length > 0, 'No enabled Windows SAPI voices were detected.');
   const voiceName = capabilities.tts.voices[0].name;
@@ -410,6 +412,8 @@ async function main() {
 }
 
 function cleanupVoiceOutput() {
+  try { voiceForCleanup?.dispose(); } catch {}
+  voiceForCleanup = null;
   delete process.env.ATHENA_CONFIG_DIR;
   delete process.env.ATHENA_DB_DIR;
   delete process.env.ATHENA_VOICE_TEMP_DIR;

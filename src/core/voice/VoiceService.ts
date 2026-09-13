@@ -226,7 +226,9 @@ export class VoiceService {
     if (!content) return failure('input_error', '没有可朗读的文本。');
     if (content.length > MAX_SYNTHESIZE_CHARS) return failure('input_error', `朗读文本超过 ${MAX_SYNTHESIZE_CHARS} 个字符上限，请缩短后重试。`);
     const piperModel = resolvePiperModelPath();
-    const usePiper = resolveTtsEngine() === 'piper' && fs.existsSync(piperModel);
+    const python = resolvePythonRuntime();
+    const piperRuntimePresent = !path.isAbsolute(python) || fs.existsSync(python);
+    const usePiper = resolveTtsEngine() === 'piper' && piperRuntimePresent && fs.existsSync(piperModel);
     // SAPI is the only Windows-bound engine; piper runs wherever the sidecar does.
     if (!usePiper && process.platform !== 'win32') {
       return failure('service_unavailable', '当前版本的本地朗读仅支持 Windows。');

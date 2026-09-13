@@ -36,6 +36,7 @@ async function main() {
   assert.strictEqual(voice.stt.ready, false);
   assert.match(voice.stt.reason, /运行时未安装|模型缺失/);
   assert.strictEqual(voice.tts.ready, true, voice.tts.reason);
+  assert.strictEqual(voice.tts.provider, 'sapi', 'missing Piper runtime must fall back to SAPI');
   const localTts = await new VoiceService().synthesize('Athena local voice readiness test.');
   assert.strictEqual(localTts.ok, true, localTts.error);
   assert(localTts.audioPath && fs.existsSync(localTts.audioPath), 'local SAPI TTS must produce a WAV file without network');
