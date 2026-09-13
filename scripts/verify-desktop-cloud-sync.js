@@ -11,11 +11,62 @@ async function main() {
   const root = path.resolve(__dirname, '..');
   const mapperPath = path.join(root, 'dist', 'core', 'cloud', 'CloudSyncMapper.js');
   const protocolPath = path.join(root, 'dist', 'core', 'cloud', 'CloudProtocol.js');
-  if (!fs.existsSync(mapperPath) || !fs.existsSync(protocolPath)) {
+  const vectorStatePath = path.join(root, 'dist', 'core', 'cloud', 'CloudSyncVectorState.js');
+  const syncPushPath = path.join(root, 'dist', 'core', 'cloud', 'CloudSyncPush.js');
+  if (!fs.existsSync(mapperPath) || !fs.existsSync(protocolPath) || !fs.existsSync(vectorStatePath) || !fs.existsSync(syncPushPath)) {
     throw new Error('dist/core/cloud is missing. Run tsc first.');
   }
   const mapper = require(mapperPath);
   const { CloudProtocol, CloudProtocolError } = require(protocolPath);
+  const { CloudSyncVectorState, parseCloudSyncVector } = require(vectorStatePath);
+  const { pushTrackedRecord, sameSyncRecord } = require(syncPushPath);
+
+  const deviceId = `dev_${'a'.repeat(32)}`;
+  const vectors = new CloudSyncVectorState();
+  assert.deepEqual(vectors.baseFor('conversation.desktop-1'), {});
+  assert.equal(vectors.observe('conversation.desktop-1', { [deviceId]: 1 }), true);
+  const detachedBase = vectors.baseFor('conversation.desktop-1');
+  detachedBase[deviceId] = 99;
+  assert.deepEqual(vectors.baseFor('conversation.desktop-1'), { [deviceId]: 1 }, 'callers must not mutate stored vectors');
+  assert.equal(vectors.observe('conversation.desktop-1', { bad: 2 }), false);
+  assert.equal(parseCloudSyncVector({ [deviceId]: 0 }), null);
+
+  const trackedRecord = {
+    resourceId: 'conversation.desktop-1', resourceType: 'conversation', schemaVersion: 1,
+    payload: { title: 'same' }, deleted: false,
+  };
+  const capturedBases = [];
+  const trackedClient = {
+    async putRecord(record) {
+      capturedBases.push(record.baseVector);
+      const revision = capturedBases.length;
+      return { outcome: 'accepted', record: { ...record, vector: { [deviceId]: revision } } };
+    },
+  };
+  const trackedVectors = new CloudSyncVectorState();
+  await pushTrackedRecord(trackedClient, trackedVectors, trackedRecord);
+  await pushTrackedRecord(trackedClient, trackedVectors, trackedRecord);
+  assert.deepEqual(capturedBases, [{}, { [deviceId]: 1 }]);
+
+  const legacyVectors = new CloudSyncVectorState();
+  const identicalConflictClient = {
+    async putRecord() {
+      return { outcome: 'conflict', reason: 'server-ahead', server: { ...trackedRecord, vector: { [deviceId]: 7 } } };
+    },
+  };
+  const recovered = await pushTrackedRecord(identicalConflictClient, legacyVectors, trackedRecord);
+  assert.equal(recovered.outcome, 'unchanged');
+  assert.deepEqual(legacyVectors.baseFor(trackedRecord.resourceId), { [deviceId]: 7 });
+  assert.equal(sameSyncRecord(trackedRecord, { ...trackedRecord, payload: { title: 'different' } }), false);
+
+  const divergentVectors = new CloudSyncVectorState();
+  const divergent = await pushTrackedRecord({
+    async putRecord() {
+      return { outcome: 'conflict', reason: 'server-ahead', server: { ...trackedRecord, payload: { title: 'different' }, vector: { [deviceId]: 8 } } };
+    },
+  }, divergentVectors, trackedRecord);
+  assert.equal(divergent.outcome, 'conflict');
+  assert.deepEqual(divergentVectors.baseFor(trackedRecord.resourceId), {}, 'a divergent conflict must not advance the vector');
 
   assert.equal(mapper.shouldSyncWindow({ mode: 'companion', is_temporary: false }), true);
   assert.equal(mapper.shouldSyncWindow({ mode: 'execute', is_temporary: false }), false);
@@ -141,14 +192,16 @@ async function main() {
   // either. Retrying the write against the server's vector looks like a retry
   // and is a silent overwrite: the other device's turns disappear unannounced.
   const service = fs.readFileSync(path.join(root, 'src', 'core', 'cloud', 'CloudAccountService.ts'), 'utf8');
+  const syncPushSource = fs.readFileSync(path.join(root, 'src', 'core', 'cloud', 'CloudSyncPush.ts'), 'utf8');
   const pushBody = service.slice(service.indexOf('async function pushLocalState'), service.indexOf('function ownsResource'));
-  assert.match(pushBody, /conflicted\.push\(/, 'a conflicting conversation must be reported');
-  assert.match(pushBody, /conversation-conflict/, 'a sync that left a conflict must not report success');
-  assert.doesNotMatch(
-    pushBody,
-    /outcome === 'conflict'[\s\S]{0,400}?await client\.putRecord/,
-    'the desktop is writing again after a conflict, which discards the other client turns',
-  );
+  assert.match(pushBody, /conflicts\.push\(/, 'a conflicting resource must be reported');
+  assert.match(service, /sync-conflict/, 'a sync that left a conflict must not report success');
+  assert.match(service, /if \(conflictedIds\.has\(resourceId\)\) continue/, 'a conflicted server payload must not be merged implicitly');
+  assert.match(syncPushSource, /sameSyncRecord\(record, server\)[\s\S]{0,100}?server\.vector/, 'a conflict vector may be recovered only for identical content');
+  assert.match(syncPushSource, /vectorState\.baseFor\(resourceId\)/, 'writes must use the last observed server vector');
+  assert.doesNotMatch(pushBody, /baseVector:\s*\{\}/, 'a hard-coded empty vector makes every second write conflict');
+  assert.doesNotMatch(pushBody, /\.catch\(\(\) => undefined\)/, 'memory or reminder upload errors must not be reported as success');
+  assert.match(service, /resourceVectors: vectorState\.snapshot\(\)/, 'accepted vectors must survive application restart');
 
   // The mapper being right is not the same as the sync using it. Reminders were
   // an allowed resource type that neither client ever read or wrote, which is
@@ -192,6 +245,24 @@ async function main() {
       deleted: false,
     });
     assert.equal(pushed.outcome, 'accepted');
+    const updated = await client.putRecord({
+      resourceId: 'conversation.desktop-1',
+      resourceType: 'conversation',
+      schemaVersion: 1,
+      baseVector: pushed.record.vector,
+      payload: { ...payload, title: 'Night chat updated' },
+      deleted: false,
+    });
+    assert.equal(updated.outcome, 'accepted', 'a second write with the observed vector must not conflict');
+    const stale = await client.putRecord({
+      resourceId: 'conversation.desktop-1',
+      resourceType: 'conversation',
+      schemaVersion: 1,
+      baseVector: {},
+      payload,
+      deleted: false,
+    });
+    assert.equal(stale.outcome, 'conflict', 'resetting the vector must remain fail-closed');
     const changes = await client.listChanges();
     assert.ok(changes.records.some((item) => item.resourceId === 'conversation.desktop-1'));
   } finally {

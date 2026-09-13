@@ -6293,6 +6293,7 @@ async function syncCloudAccountNow(): Promise<void> {
     setSettingsFeedback('已与 Athena Cloud 同步。', 'success');
   } catch (error) {
     setSettingsFeedback(`同步失败：${error instanceof Error ? error.message : String(error)}`, 'error');
+    await refreshCloudAccountStatus();
   }
 }
 

@@ -9,6 +9,8 @@ import { adoptSyncedReminder } from '../scheduler/Reminder';
 import { listSyncableReminders } from '../scheduler/ScheduledJobStore';
 import type { CloudAccountSettings, CloudSessionStatus } from '../../shared/types/cloud';
 import { CloudProtocol, CloudProtocolError } from './CloudProtocol';
+import { pushTrackedRecord } from './CloudSyncPush';
+import { CloudSyncVectorState, type CloudSyncVector } from './CloudSyncVectorState';
 import {
   conversationResourceId,
   desktopWindowIdFromResourceId,
@@ -25,7 +27,7 @@ import {
 } from './CloudSyncMapper';
 
 interface StoredSession {
-  version: 1;
+  version: 1 | 2;
   accessToken: string;
   refreshToken: string;
   tenantId: string;
@@ -35,6 +37,13 @@ interface StoredSession {
   lastSyncAt: string | null;
   cursor: string | null;
   imported: Record<string, number>;
+  resourceVectors?: Record<string, CloudSyncVector>;
+}
+
+interface SyncConflict {
+  resourceId: string;
+  label: string;
+  reason: string;
 }
 
 let lastError: string | null = null;
@@ -123,79 +132,145 @@ export async function syncCloudAccountNow(): Promise<CloudSessionStatus> {
   if (!session) throw new CloudProtocolError(401, 'invalid-session', '尚未登录 Athena 账号。');
 
   const imported = { ...session.imported };
-  await pushLocalState(client, imported);
-  const changes = await client.listChanges(session.cursor) as { records?: unknown[]; nextCursor?: string };
-  for (const record of Array.isArray(changes.records) ? changes.records : []) {
-    if (!isRecord(record) || record.deleted === true) continue;
-    const resourceId = String(record.resourceId || '');
-    const payload = isRecord(record.payload) ? record.payload : null;
-    if (!payload) continue;
-
-    // Memories written elsewhere become real memories here. Until now the loop
-    // skipped every record that was not a conversation, so a memory noted on
-    // the phone reached the account and stopped there.
-    if (resourceId.startsWith('memory.')) {
-      if (ownsMemoryResource(resourceId)) continue;
-      const applied = upsertSyncedMemory(
-        {
-          kind: String(payload.kind || ''),
-          title: String(payload.title || ''),
-          content: String(payload.content || ''),
-          importance: typeof payload.importance === 'number' ? payload.importance : undefined,
-        },
-        imported[resourceId],
-      );
-      // The local row id is remembered, so a later edit of the same record
-      // updates that memory instead of adding a second copy of it.
-      if (applied) imported[resourceId] = applied.id;
-      continue;
-    }
-
-    // A reminder set on the phone becomes a real reminder here, with a timer,
-    // and one finished on the phone calls the timer off. Without this the
-    // account carried reminders that only one device ever acted on.
-    if (resourceId.startsWith('reminder.')) {
-      if (ownsReminderResource(resourceId)) continue;
-      const reminder = parseReminderPayload(payload);
-      if (reminder) {
-        adoptSyncedReminder({
-          id: resourceId,
-          title: reminder.title,
-          dueAt: reminder.dueAt,
-          status: reminder.status,
-        });
+  const vectorState = new CloudSyncVectorState(session.resourceVectors);
+  let cursor = session.cursor;
+  try {
+    const conflicts = await pushLocalState(client, imported, vectorState);
+    const conflictedIds = new Set(conflicts.map(conflict => conflict.resourceId));
+    const changes = await client.listChanges(session.cursor) as { records?: unknown[]; nextCursor?: string };
+    for (const record of Array.isArray(changes.records) ? changes.records : []) {
+      if (!isRecord(record)) continue;
+      const resourceId = String(record.resourceId || '');
+      // A 409 means the local and server payloads still need an explicit
+      // resolution. Do not merge or adopt the server side merely because it
+      // also appears in the change feed.
+      if (conflictedIds.has(resourceId)) continue;
+      if (record.deleted === true) {
+        // Local deletion semantics are not implemented yet. Advancing to the
+        // tombstone vector would let the next local push resurrect the record,
+        // so hold the old vector and make the unresolved deletion visible.
+        if (!conflictedIds.has(resourceId)) {
+          conflicts.push({ resourceId, label: resourceId, reason: 'remote-delete' });
+          conflictedIds.add(resourceId);
+        }
+        continue;
       }
-      continue;
+      const payload = isRecord(record.payload) ? record.payload : null;
+      if (!payload) continue;
+
+      // Memories written elsewhere become real memories here. Until now the loop
+      // skipped every record that was not a conversation, so a memory noted on
+      // the phone reached the account and stopped there.
+      if (resourceId.startsWith('memory.')) {
+        if (!ownsMemoryResource(resourceId)) {
+          const applied = upsertSyncedMemory(
+            {
+              kind: String(payload.kind || ''),
+              title: String(payload.title || ''),
+              content: String(payload.content || ''),
+              importance: typeof payload.importance === 'number' ? payload.importance : undefined,
+            },
+            imported[resourceId],
+          );
+          // The local row id is remembered, so a later edit of the same record
+          // updates that memory instead of adding a second copy of it.
+          if (applied) imported[resourceId] = applied.id;
+        }
+        observeRecordVector(vectorState, resourceId, record, conflictedIds);
+        continue;
+      }
+
+      // A reminder set on the phone becomes a real reminder here, with a timer,
+      // and one finished on the phone calls the timer off. Without this the
+      // account carried reminders that only one device ever acted on.
+      if (resourceId.startsWith('reminder.')) {
+        if (!ownsReminderResource(resourceId)) {
+          const reminder = parseReminderPayload(payload);
+          if (reminder) {
+            adoptSyncedReminder({
+              id: resourceId,
+              title: reminder.title,
+              dueAt: reminder.dueAt,
+              status: reminder.status,
+            });
+          }
+        }
+        observeRecordVector(vectorState, resourceId, record, conflictedIds);
+        continue;
+      }
+
+      if (!resourceId.startsWith('conversation.')) {
+        observeRecordVector(vectorState, resourceId, record, conflictedIds);
+        continue;
+      }
+
+      // A conversation is one thing both clients edit, not a copy each keeps. A
+      // record already adopted here is merged into the window it belongs to;
+      // skipping it, as this did, meant a chat continued on the phone never
+      // reached the desktop again after the first import.
+      const adopted = imported[resourceId];
+      if (adopted) {
+        if (getChatWindow(adopted)) mergeConversation(adopted, payload);
+      } else if (!ownsResource(resourceId)) {
+        // Records this desktop writes for its own windows come back on the feed;
+        // adopting them would clone every window on every sync.
+        const windowId = adoptConversation(payload);
+        if (windowId) imported[resourceId] = windowId;
+      }
+      observeRecordVector(vectorState, resourceId, record, conflictedIds);
     }
-
-    if (!resourceId.startsWith('conversation.')) continue;
-
-    // A conversation is one thing both clients edit, not a copy each keeps. A
-    // record already adopted here is merged into the window it belongs to;
-    // skipping it, as this did, meant a chat continued on the phone never
-    // reached the desktop again after the first import.
-    const adopted = imported[resourceId];
-    if (adopted) {
-      if (getChatWindow(adopted)) mergeConversation(adopted, payload);
-      continue;
+    cursor = typeof changes.nextCursor === 'string' ? changes.nextCursor : session.cursor;
+    persistSyncProgress(session, client, imported, vectorState, cursor, new Date().toISOString());
+    if (conflicts.length) {
+      throw new CloudProtocolError(
+        409,
+        'sync-conflict',
+        `这些云端项目也在别的设备上改过，已停止覆盖：${conflicts.slice(0, 3).map(item => item.label).join('、')}`,
+        { conflicts },
+      );
     }
-    // Records this desktop writes for its own windows come back on the feed;
-    // adopting them would clone every window on every sync.
-    if (ownsResource(resourceId)) continue;
-
-    const windowId = adoptConversation(payload);
-    if (windowId) imported[resourceId] = windowId;
+    lastError = null;
+    return getCloudAccountStatus();
+  } catch (error) {
+    // Preserve every accepted vector even when a later resource or the pull
+    // fails. Otherwise the next run retries successful writes from `{}` and
+    // turns a partial network failure into permanent conflicts.
+    persistSyncProgress(session, client, imported, vectorState, cursor, session.lastSyncAt);
+    lastError = error instanceof Error ? error.message : String(error);
+    throw error;
   }
+}
+
+function observeRecordVector(
+  vectorState: CloudSyncVectorState,
+  resourceId: string,
+  record: Record<string, unknown>,
+  conflictedIds: Set<string>,
+): void {
+  if (conflictedIds.has(resourceId)) return;
+  if (!vectorState.observe(resourceId, record.vector)) {
+    throw new CloudProtocolError(502, 'invalid-sync-vector', 'Athena Cloud 返回了无效的同步版本。');
+  }
+}
+
+function persistSyncProgress(
+  session: StoredSession,
+  client: CloudProtocol,
+  imported: Record<string, number>,
+  vectorState: CloudSyncVectorState,
+  cursor: string | null,
+  lastSyncAt: string | null,
+): void {
   writeSession({
     ...session,
+    version: 2,
     accessToken: client.session.accessToken || session.accessToken,
     refreshToken: client.session.refreshToken || session.refreshToken,
-    lastSyncAt: new Date().toISOString(),
-    cursor: typeof changes.nextCursor === 'string' ? changes.nextCursor : session.cursor,
+    lastSyncAt,
+    cursor,
     imported,
+    resourceVectors: vectorState.snapshot(),
   });
-  lastError = null;
-  return getCloudAccountStatus();
 }
 
 export function queueCloudWindowSync(windowId: number): void {
@@ -207,7 +282,11 @@ export function queueCloudWindowSync(windowId: number): void {
   void windowId;
 }
 
-async function pushLocalState(client: CloudProtocol, imported: Record<string, number>): Promise<void> {
+async function pushLocalState(
+  client: CloudProtocol,
+  imported: Record<string, number>,
+  vectorState: CloudSyncVectorState,
+): Promise<SyncConflict[]> {
   // windowId -> the record it belongs to. A window adopted from another client
   // keeps writing to that client's record; pushing it under a desktop id would
   // put two records in the account for one conversation, and the phone would
@@ -217,7 +296,7 @@ async function pushLocalState(client: CloudProtocol, imported: Record<string, nu
 
   // Named so the account panel can say which conversations are waiting, rather
   // than the sync appearing to have succeeded.
-  const conflicted: string[] = [];
+  const conflicts: SyncConflict[] = [];
 
   const windows = listChatWindows(false, false);
   for (const window of windows) {
@@ -228,11 +307,10 @@ async function pushLocalState(client: CloudProtocol, imported: Record<string, nu
     // pushing an empty conversation would only create a record of its existence.
     if (payload.turns.length === 0) continue;
     const resourceId = adopted.get(window.id) || conversationResourceId(window.id);
-    const first = await client.putRecord({
+    const first = await pushTrackedRecord(client, vectorState, {
       resourceId,
       resourceType: 'conversation',
       schemaVersion: 1,
-      baseVector: {},
       payload,
       deleted: false,
     });
@@ -242,44 +320,38 @@ async function pushLocalState(client: CloudProtocol, imported: Record<string, nu
       // turns the other client had added went away without anyone being told.
       // The server refuses to pick a side and the client may not either, so the
       // conflict is reported and the window is left alone until it is settled.
-      conflicted.push(window.title || resourceId);
+      conflicts.push({ resourceId, label: window.title || resourceId, reason: String(first.reason || 'conflict') });
     }
   }
 
   // Reminders finished here are pushed alongside the pending ones: a phone that
   // is never told a reminder was done goes on showing it forever.
   for (const job of listSyncableReminders()) {
-    await client.putRecord({
-      resourceId: reminderResourceId(job.id),
+    const resourceId = reminderResourceId(job.id);
+    const result = await pushTrackedRecord(client, vectorState, {
+      resourceId,
       resourceType: 'reminder',
       schemaVersion: 1,
-      baseVector: {},
       payload: toReminderPayload(job),
       deleted: false,
-    }).catch(() => undefined);
+    });
+    if (result.outcome === 'conflict') conflicts.push({ resourceId, label: job.title || resourceId, reason: String(result.reason || 'conflict') });
   }
 
   const memories = listMemories({ kind: 'profile', limit: 40 });
   for (const item of memories.items) {
-    await client.putRecord({
-      resourceId: memoryResourceId(item.kind, item.id),
+    const resourceId = memoryResourceId(item.kind, item.id);
+    const result = await pushTrackedRecord(client, vectorState, {
+      resourceId,
       resourceType: 'memory',
       schemaVersion: 1,
-      baseVector: {},
       payload: toMemoryPayload(item),
       deleted: false,
-    }).catch(() => undefined);
+    });
+    if (result.outcome === 'conflict') conflicts.push({ resourceId, label: item.title || resourceId, reason: String(result.reason || 'conflict') });
   }
 
-  if (conflicted.length) {
-    // Surfaced through the status the account panel already reads, so a sync
-    // that left something unsettled does not look like one that finished.
-    throw new CloudProtocolError(
-      409,
-      'conversation-conflict',
-      `这些对话在别的设备上也改过，需要先决定保留哪一边：${conflicted.slice(0, 3).join('、')}`,
-    );
-  }
+  return conflicts;
 }
 
 /**
@@ -351,7 +423,7 @@ function createClientFromSession(): CloudProtocol | null {
 
 function persistSession(client: CloudProtocol, email: string, body: Record<string, unknown>): void {
   writeSession({
-    version: 1,
+    version: 2,
     accessToken: String(body.accessToken || client.session.accessToken || ''),
     refreshToken: String(body.refreshToken || client.session.refreshToken || ''),
     tenantId: String(body.tenantId || client.session.tenantId || ''),
@@ -361,6 +433,7 @@ function persistSession(client: CloudProtocol, email: string, body: Record<strin
     lastSyncAt: null,
     cursor: null,
     imported: {},
+    resourceVectors: {},
   });
 }
 
