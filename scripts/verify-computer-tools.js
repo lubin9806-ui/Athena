@@ -894,13 +894,22 @@ async function verifyLiveLoop() {
     mode: 'execute',
   });
   try {
+    let organizeConfirmations = 0;
     const organizeResult = await organizeRuntime.process({
       messages: organizeMessages,
       userMessage: organizeMessage,
       mode: 'execute',
       settings: toolSettings,
+      onConfirm: async () => {
+        organizeConfirmations += 1;
+        return true;
+      },
     });
-    assert(organizeResult.executions.some(item => item.status === 'completed'));
+    assert(
+      organizeResult.executions.some(item => item.status === 'completed'),
+      `natural file organization completed no tool call: ${JSON.stringify(organizeResult)}`,
+    );
+    assert(organizeConfirmations > 0, 'natural file organization must require explicit confirmation');
     assert.equal(await fs.readFile(path.join(organizeDestination, '海报素材.png'), 'utf8'), 'image');
     assert.equal(await fs.readFile(path.join(organizeSource, '说明.txt'), 'utf8'), 'text');
     console.log('ATHENA_NATURAL_FILE_ORGANIZE_LLM_OK');
@@ -931,17 +940,29 @@ async function verifyLiveLoop() {
     mode: 'execute',
   });
   try {
+    let terminalConfirmations = 0;
     const terminalResult = await terminalRuntime.process({
       messages: terminalMessages,
       userMessage: terminalMessage,
       mode: 'execute',
       settings: terminalSettings,
+      onConfirm: async () => {
+        terminalConfirmations += 1;
+        return true;
+      },
     });
-    assert(terminalResult.executions.some(item => item.name === 'terminal_start' && item.status === 'completed'));
+    assert(
+      terminalResult.executions.some(item => item.name === 'terminal_start' && item.status === 'completed'),
+      `persistent terminal completed no start call: ${JSON.stringify(terminalResult)}`,
+    );
     assert(terminalResult.executions.some(item => item.name === 'terminal_write' && item.status === 'completed'));
     assert(terminalResult.executions.some(item => item.name.startsWith('terminal_') && item.outputPreview.includes('ATHENA_LLM_TERMINAL_OK')));
     assert(terminalResult.executions.some(item => item.name === 'terminal_stop' && item.status === 'completed'));
-    assert(/ATHENA_LLM_TERMINAL_OK/i.test(terminalResult.content));
+    assert(terminalConfirmations >= 2, 'persistent terminal start and write must each require explicit confirmation');
+    assert(
+      /(?:成功|正常|完成)/i.test(terminalResult.content),
+      `persistent terminal final response did not report the verified success: ${JSON.stringify(terminalResult)}`,
+    );
     console.log('ATHENA_TERMINAL_LLM_LOOP_OK');
   } finally {
     terminalRuntime.shutdown();
