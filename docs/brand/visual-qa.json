@@ -1,0 +1,129 @@
+{
+  "scope": "Standalone design review, not Athena runtime",
+  "contrast": [
+    {
+      "theme": "day",
+      "fg": "text",
+      "bg": "bg",
+      "ratio": 12.7
+    },
+    {
+      "theme": "day",
+      "fg": "text",
+      "bg": "surface",
+      "ratio": 13.97
+    },
+    {
+      "theme": "day",
+      "fg": "muted",
+      "bg": "bg",
+      "ratio": 5.46
+    },
+    {
+      "theme": "day",
+      "fg": "muted",
+      "bg": "surface",
+      "ratio": 6
+    },
+    {
+      "theme": "day",
+      "fg": "muted",
+      "bg": "surface-soft",
+      "ratio": 5.03
+    },
+    {
+      "theme": "day",
+      "fg": "on-accent",
+      "bg": "accent",
+      "ratio": 6.33
+    },
+    {
+      "theme": "day",
+      "fg": "accent",
+      "bg": "surface",
+      "ratio": 6.16
+    },
+    {
+      "theme": "day",
+      "fg": "danger",
+      "bg": "surface",
+      "ratio": 6.38
+    },
+    {
+      "theme": "day",
+      "fg": "focus",
+      "bg": "bg",
+      "ratio": 5.6
+    },
+    {
+      "theme": "night",
+      "fg": "text",
+      "bg": "bg",
+      "ratio": 14.56
+    },
+    {
+      "theme": "night",
+      "fg": "text",
+      "bg": "surface",
+      "ratio": 12.49
+    },
+    {
+      "theme": "night",
+      "fg": "muted",
+      "bg": "bg",
+      "ratio": 8.84
+    },
+    {
+      "theme": "night",
+      "fg": "muted",
+      "bg": "surface",
+      "ratio": 7.58
+    },
+    {
+      "theme": "night",
+      "fg": "muted",
+      "bg": "surface-soft",
+      "ratio": 6.33
+    },
+    {
+      "theme": "night",
+      "fg": "on-accent",
+      "bg": "accent",
+      "ratio": 9.81
+    },
+    {
+      "theme": "night",
+      "fg": "accent",
+      "bg": "surface",
+      "ratio": 8.41
+    },
+    {
+      "theme": "night",
+      "fg": "danger",
+      "bg": "surface",
+      "ratio": 7.47
+    },
+    {
+      "theme": "night",
+      "fg": "focus",
+      "bg": "bg",
+      "ratio": 9.81
+    }
+  ],
+  "interaction": {
+    "passed": true,
+    "checks": 12
+  },
+  "layout": {
+    "viewport": 390,
+    "scrollWidth": 375,
+    "images": true,
+    "fontStatus": "loaded"
+  },
+  "errors": [],
+  "captures": [
+    "visual-ui-day.png",
+    "visual-ui-night.png",
+    "visual-ui-mobile.png"
+  ]
+}

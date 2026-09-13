@@ -1,0 +1,166 @@
+/* Athena's web approximation of liquid glass: real backdrop blur, a tinted
+   reading plane and an event-driven optical rim. It does not refract live DOM
+   pixels physically, and it is not a native operating-system material. */
+:root {
+  --glass-composer: rgba(252, 252, 248, .80);
+  --glass-menu: rgba(252, 252, 248, .91);
+  --glass-drawer: rgba(252, 252, 248, .96);
+  --glass-edge: rgba(255, 255, 252, .86);
+  --glass-edge-low: rgba(83, 103, 95, .13);
+  --glass-glint: rgba(255, 255, 249, .78);
+  --glass-shade: rgba(83, 103, 95, .035);
+  --glass-field: rgba(130, 155, 137, .16);
+  --glass-shadow: rgba(49, 66, 57, .065);
+}
+:root[data-theme="night"] {
+  --glass-composer: rgba(34, 45, 39, .84);
+  --glass-menu: rgba(34, 45, 39, .94);
+  --glass-drawer: rgba(34, 45, 39, .97);
+  --glass-edge: rgba(209, 227, 214, .22);
+  --glass-edge-low: rgba(10, 20, 14, .32);
+  --glass-glint: rgba(190, 218, 198, .13);
+  --glass-shade: rgba(6, 16, 10, .10);
+  --glass-field: rgba(124, 157, 132, .13);
+  --glass-shadow: rgba(7, 16, 11, .16);
+}
+
+/* A contained, static color field makes the material visible without making
+   the whole reading area translucent or adding a continuously moving layer. */
+.composer-wrap::before {
+  content: "";
+  position: absolute;
+  left: 4%;
+  right: 4%;
+  top: 10px;
+  bottom: 30px;
+  z-index: -1;
+  pointer-events: none;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at 24% 72%, var(--glass-field), transparent 68%);
+}
+
+#composer-form,
+#tools-popover,
+.drawer {
+  --glass-x: 24%;
+  --glass-y: 18%;
+  --glass-shift-x: 0px;
+  --glass-shift-y: 0px;
+  --glass-pressure: 1;
+  --glass-light-opacity: .42;
+  isolation: isolate;
+  -webkit-backdrop-filter: blur(22px) saturate(112%);
+  backdrop-filter: blur(22px) saturate(112%);
+}
+#composer-form {
+  position: relative;
+  background: var(--glass-composer);
+  border-color: var(--glass-edge-low);
+  box-shadow: 0 8px 28px var(--glass-shadow),
+    inset 0 1px 0 var(--glass-edge),
+    inset 0 -1px 0 var(--glass-edge-low);
+}
+#composer-form:focus-within {
+  border-color: var(--focus);
+  box-shadow: 0 8px 28px var(--glass-shadow),
+    inset 0 1px 0 var(--glass-edge),
+    0 0 0 2px var(--glass-shade);
+}
+#tools-popover {
+  background: var(--glass-menu);
+  border-color: var(--glass-edge-low);
+  box-shadow: 0 12px 34px var(--glass-shadow),
+    inset 0 1px 0 var(--glass-edge),
+    inset 0 -1px 0 var(--glass-edge-low);
+}
+.drawer {
+  background: var(--glass-drawer);
+  -webkit-backdrop-filter: blur(18px) saturate(106%);
+  backdrop-filter: blur(18px) saturate(106%);
+  border-left-color: var(--glass-edge-low);
+  box-shadow: -12px 0 36px var(--glass-shadow), inset 1px 0 0 var(--glass-edge);
+}
+
+/* Optical decoration is always behind content. It never captures a pointer,
+   displaces a glyph or expands a surface's scroll bounds. */
+#composer-form::before,
+#tools-popover::before,
+.drawer::before {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 260px 135px at var(--glass-x) var(--glass-y), var(--glass-glint), transparent 76%),
+    linear-gradient(162deg, var(--glass-glint) 0%, transparent 28%, transparent 70%, var(--glass-shade));
+  opacity: var(--glass-light-opacity);
+  transform: translate(var(--glass-shift-x), var(--glass-shift-y)) scale(var(--glass-pressure));
+  transform-origin: center;
+  transition: opacity 160ms ease-out, transform 220ms cubic-bezier(.2, .7, .2, 1);
+}
+.drawer::before {
+  bottom: auto;
+  height: min(220px, 32%);
+  --glass-light-opacity: .22;
+}
+#composer-form::after,
+#tools-popover::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border: 1px solid transparent;
+  border-top-color: var(--glass-edge);
+  border-bottom-color: var(--glass-edge-low);
+  border-radius: inherit;
+  box-shadow: inset 1px 0 0 var(--glass-edge), inset -1px 0 0 var(--glass-shade);
+  pointer-events: none;
+}
+:is(#composer-form, #tools-popover, .drawer)[data-glass-response="tracking"] { --glass-light-opacity: .66; }
+:is(#composer-form, #tools-popover, .drawer)[data-glass-response="pressed"] { --glass-light-opacity: .82; }
+.drawer[data-glass-response="tracking"]::before { --glass-light-opacity: .34; }
+.drawer[data-glass-response="pressed"]::before { --glass-light-opacity: .43; }
+
+/* User choice, capability fallback and operating-system transparency needs
+   use the same genuinely opaque surface. No hidden blur remains active. */
+:root[data-glass="solid"] :is(#composer-form, #tools-popover, .drawer),
+:root[data-glass-renderer="solid"] :is(#composer-form, #tools-popover, .drawer) {
+  background: var(--surface);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  border-color: var(--border);
+  box-shadow: none;
+}
+:root[data-glass="solid"] #composer-form:focus-within,
+:root[data-glass-renderer="solid"] #composer-form:focus-within { border-color: var(--focus); }
+:root[data-glass="solid"] :is(#composer-form, #tools-popover, .drawer, .composer-wrap)::before,
+:root[data-glass="solid"] :is(#composer-form, #tools-popover)::after,
+:root[data-glass-renderer="solid"] :is(#composer-form, #tools-popover, .drawer, .composer-wrap)::before,
+:root[data-glass-renderer="solid"] :is(#composer-form, #tools-popover)::after { display: none; }
+
+:root[data-reduced-motion="true"] :is(#composer-form, #tools-popover, .drawer)::before {
+  transform: none;
+  transition: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  :is(#composer-form, #tools-popover, .drawer)::before { transform: none; transition: none; }
+}
+@media (prefers-reduced-transparency: reduce), (forced-colors: active) {
+  :is(#composer-form, #tools-popover, .drawer) {
+    background: var(--surface);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    border-color: var(--border);
+    box-shadow: none;
+  }
+  #composer-form:focus-within { border-color: var(--focus); }
+  :is(#composer-form, #tools-popover, .drawer, .composer-wrap)::before,
+  :is(#composer-form, #tools-popover)::after { display: none; }
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :is(#composer-form, #tools-popover, .drawer) { background: var(--surface); box-shadow: none; }
+  :is(#composer-form, #tools-popover, .drawer, .composer-wrap)::before,
+  :is(#composer-form, #tools-popover)::after { display: none; }
+}

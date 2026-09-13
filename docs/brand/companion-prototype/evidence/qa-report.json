@@ -1,0 +1,1660 @@
+{
+  "scope": "Standalone clickable visual prototype. Canned examples only; not Athena runtime or LLM evidence.",
+  "startedAt": "2026-09-13T13:03:01.451Z",
+  "checks": [
+    {
+      "name": "1440x900-day: window and essential controls",
+      "passed": true,
+      "details": {
+        "documentState": {
+          "width": 1440,
+          "height": 900,
+          "scrollWidth": 1440,
+          "bodyScrollWidth": 1440,
+          "fontStatus": "loaded",
+          "images": [],
+          "theme": "day"
+        },
+        "controls": [
+          {
+            "selector": "#btn-sidebar",
+            "hidden": false,
+            "x": 16,
+            "y": 13.5,
+            "right": 52,
+            "bottom": 49.5,
+            "width": 36,
+            "height": 36,
+            "viewportWidth": 1440,
+            "viewportHeight": 900
+          },
+          {
+            "selector": "#btn-theme",
+            "hidden": false,
+            "x": 1279,
+            "y": 13.5,
+            "right": 1315,
+            "bottom": 49.5,
+            "width": 36,
+            "height": 36,
+            "viewportWidth": 1440,
+            "viewportHeight": 900
+          },
+          {
+            "selector": "#message-input",
+            "hidden": false,
+            "x": 485,
+            "y": 782.40625,
+            "right": 1161,
+            "bottom": 825.40625,
+            "width": 676,
+            "height": 43,
+            "viewportWidth": 1440,
+            "viewportHeight": 900
+          },
+          {
+            "selector": "#btn-more",
+            "hidden": false,
+            "x": 441,
+            "y": 785.40625,
+            "right": 477,
+            "bottom": 821.40625,
+            "width": 36,
+            "height": 36,
+            "viewportWidth": 1440,
+            "viewportHeight": 900
+          },
+          {
+            "selector": "#btn-send",
+            "hidden": false,
+            "x": 1213,
+            "y": 784.40625,
+            "right": 1251,
+            "bottom": 822.40625,
+            "width": 38,
+            "height": 38,
+            "viewportWidth": 1440,
+            "viewportHeight": 900
+          },
+          {
+            "selector": "#composer-meta",
+            "hidden": false,
+            "x": 441,
+            "y": 825.40625,
+            "right": 1251,
+            "bottom": 851.40625,
+            "width": 810,
+            "height": 26,
+            "viewportWidth": 1440,
+            "viewportHeight": 900
+          }
+        ]
+      }
+    },
+    {
+      "name": "1440x900-day: sidebar toggle",
+      "passed": true,
+      "details": {
+        "before": "open",
+        "after": {
+          "state": "closed",
+          "expanded": "false"
+        }
+      }
+    },
+    {
+      "name": "1440x900-day: tools menu above composer",
+      "passed": true,
+      "details": {
+        "gap": 12,
+        "menu": {
+          "selector": "#tools-popover",
+          "hidden": false,
+          "x": 312,
+          "y": 438.40625,
+          "right": 544,
+          "bottom": 753.40625,
+          "width": 232,
+          "height": 315,
+          "viewportWidth": 1440,
+          "viewportHeight": 900
+        },
+        "composer": {
+          "selector": "#composer-form",
+          "hidden": false,
+          "x": 426,
+          "y": 765.40625,
+          "right": 1266,
+          "bottom": 862.40625,
+          "width": 840,
+          "height": 97,
+          "viewportWidth": 1440,
+          "viewportHeight": 900
+        }
+      }
+    },
+    {
+      "name": "1440x900-day: drawer fits and closes",
+      "passed": true,
+      "details": {
+        "selector": "#memory-drawer",
+        "hidden": false,
+        "x": 1056,
+        "y": 64,
+        "right": 1440,
+        "bottom": 900,
+        "width": 384,
+        "height": 836,
+        "viewportWidth": 1440,
+        "viewportHeight": 900
+      }
+    },
+    {
+      "name": "1440x900-night: window and essential controls",
+      "passed": true,
+      "details": {
+        "documentState": {
+          "width": 1440,
+          "height": 900,
+          "scrollWidth": 1440,
+          "bodyScrollWidth": 1440,
+          "fontStatus": "loaded",
+          "images": [],
+          "theme": "night"
+        },
+        "controls": [
+          {
+            "selector": "#btn-sidebar",
+            "hidden": false,
+            "x": 16,
+            "y": 13.5,
+            "right": 52,
+            "bottom": 49.5,
+            "width": 36,
+            "height": 36,
+            "viewportWidth": 1440,
+            "viewportHeight": 900
+          },
+          {
+            "selector": "#btn-theme",
+            "hidden": false,
+            "x": 1279,
+            "y": 13.5,
+            "right": 1315,
+            "bottom": 49.5,
+            "width": 36,
+            "height": 36,
+            "viewportWidth": 1440,
+            "viewportHeight": 900
+          },
+          {
+            "selector": "#message-input",
+            "hidden": false,
+            "x": 485,
+            "y": 782.40625,
+            "right": 1161,
+            "bottom": 825.40625,
+            "width": 676,
+            "height": 43,
+            "viewportWidth": 1440,
+            "viewportHeight": 900
+          },
+          {
+            "selector": "#btn-more",
+            "hidden": false,
+            "x": 441,
+            "y": 785.40625,
+            "right": 477,
+            "bottom": 821.40625,
+            "width": 36,
+            "height": 36,
+            "viewportWidth": 1440,
+            "viewportHeight": 900
+          },
+          {
+            "selector": "#btn-send",
+            "hidden": false,
+            "x": 1213,
+            "y": 784.40625,
+            "right": 1251,
+            "bottom": 822.40625,
+            "width": 38,
+            "height": 38,
+            "viewportWidth": 1440,
+            "viewportHeight": 900
+          },
+          {
+            "selector": "#composer-meta",
+            "hidden": false,
+            "x": 441,
+            "y": 825.40625,
+            "right": 1251,
+            "bottom": 851.40625,
+            "width": 810,
+            "height": 26,
+            "viewportWidth": 1440,
+            "viewportHeight": 900
+          }
+        ]
+      }
+    },
+    {
+      "name": "1440x900-night: sidebar toggle",
+      "passed": true,
+      "details": {
+        "before": "open",
+        "after": {
+          "state": "closed",
+          "expanded": "false"
+        }
+      }
+    },
+    {
+      "name": "1440x900-night: tools menu above composer",
+      "passed": true,
+      "details": {
+        "gap": 12,
+        "menu": {
+          "selector": "#tools-popover",
+          "hidden": false,
+          "x": 312,
+          "y": 438.40625,
+          "right": 544,
+          "bottom": 753.40625,
+          "width": 232,
+          "height": 315,
+          "viewportWidth": 1440,
+          "viewportHeight": 900
+        },
+        "composer": {
+          "selector": "#composer-form",
+          "hidden": false,
+          "x": 426,
+          "y": 765.40625,
+          "right": 1266,
+          "bottom": 862.40625,
+          "width": 840,
+          "height": 97,
+          "viewportWidth": 1440,
+          "viewportHeight": 900
+        }
+      }
+    },
+    {
+      "name": "1440x900-night: drawer fits and closes",
+      "passed": true,
+      "details": {
+        "selector": "#memory-drawer",
+        "hidden": false,
+        "x": 1056,
+        "y": 64,
+        "right": 1440,
+        "bottom": 900,
+        "width": 384,
+        "height": 836,
+        "viewportWidth": 1440,
+        "viewportHeight": 900
+      }
+    },
+    {
+      "name": "1280x800-day: window and essential controls",
+      "passed": true,
+      "details": {
+        "documentState": {
+          "width": 1280,
+          "height": 800,
+          "scrollWidth": 1280,
+          "bodyScrollWidth": 1280,
+          "fontStatus": "loaded",
+          "images": [],
+          "theme": "day"
+        },
+        "controls": [
+          {
+            "selector": "#btn-sidebar",
+            "hidden": false,
+            "x": 16,
+            "y": 13.5,
+            "right": 52,
+            "bottom": 49.5,
+            "width": 36,
+            "height": 36,
+            "viewportWidth": 1280,
+            "viewportHeight": 800
+          },
+          {
+            "selector": "#btn-theme",
+            "hidden": false,
+            "x": 1119,
+            "y": 13.5,
+            "right": 1155,
+            "bottom": 49.5,
+            "width": 36,
+            "height": 36,
+            "viewportWidth": 1280,
+            "viewportHeight": 800
+          },
+          {
+            "selector": "#message-input",
+            "hidden": false,
+            "x": 405,
+            "y": 682.40625,
+            "right": 1081,
+            "bottom": 725.40625,
+            "width": 676,
+            "height": 43,
+            "viewportWidth": 1280,
+            "viewportHeight": 800
+          },
+          {
+            "selector": "#btn-more",
+            "hidden": false,
+            "x": 361,
+            "y": 685.40625,
+            "right": 397,
+            "bottom": 721.40625,
+            "width": 36,
+            "height": 36,
+            "viewportWidth": 1280,
+            "viewportHeight": 800
+          },
+          {
+            "selector": "#btn-send",
+            "hidden": false,
+            "x": 1133,
+            "y": 684.40625,
+            "right": 1171,
+            "bottom": 722.40625,
+            "width": 38,
+            "height": 38,
+            "viewportWidth": 1280,
+            "viewportHeight": 800
+          },
+          {
+            "selector": "#composer-meta",
+            "hidden": false,
+            "x": 361,
+            "y": 725.40625,
+            "right": 1171,
+            "bottom": 751.40625,
+            "width": 810,
+            "height": 26,
+            "viewportWidth": 1280,
+            "viewportHeight": 800
+          }
+        ]
+      }
+    },
+    {
+      "name": "1280x800-day: sidebar toggle",
+      "passed": true,
+      "details": {
+        "before": "open",
+        "after": {
+          "state": "closed",
+          "expanded": "false"
+        }
+      }
+    },
+    {
+      "name": "1280x800-day: tools menu above composer",
+      "passed": true,
+      "details": {
+        "gap": 12,
+        "menu": {
+          "selector": "#tools-popover",
+          "hidden": false,
+          "x": 232,
+          "y": 338.40625,
+          "right": 464,
+          "bottom": 653.40625,
+          "width": 232,
+          "height": 315,
+          "viewportWidth": 1280,
+          "viewportHeight": 800
+        },
+        "composer": {
+          "selector": "#composer-form",
+          "hidden": false,
+          "x": 346,
+          "y": 665.40625,
+          "right": 1186,
+          "bottom": 762.40625,
+          "width": 840,
+          "height": 97,
+          "viewportWidth": 1280,
+          "viewportHeight": 800
+        }
+      }
+    },
+    {
+      "name": "1280x800-day: drawer fits and closes",
+      "passed": true,
+      "details": {
+        "selector": "#memory-drawer",
+        "hidden": false,
+        "x": 896,
+        "y": 64,
+        "right": 1280,
+        "bottom": 800,
+        "width": 384,
+        "height": 736,
+        "viewportWidth": 1280,
+        "viewportHeight": 800
+      }
+    },
+    {
+      "name": "1280x800-night: window and essential controls",
+      "passed": true,
+      "details": {
+        "documentState": {
+          "width": 1280,
+          "height": 800,
+          "scrollWidth": 1280,
+          "bodyScrollWidth": 1280,
+          "fontStatus": "loaded",
+          "images": [],
+          "theme": "night"
+        },
+        "controls": [
+          {
+            "selector": "#btn-sidebar",
+            "hidden": false,
+            "x": 16,
+            "y": 13.5,
+            "right": 52,
+            "bottom": 49.5,
+            "width": 36,
+            "height": 36,
+            "viewportWidth": 1280,
+            "viewportHeight": 800
+          },
+          {
+            "selector": "#btn-theme",
+            "hidden": false,
+            "x": 1119,
+            "y": 13.5,
+            "right": 1155,
+            "bottom": 49.5,
+            "width": 36,
+            "height": 36,
+            "viewportWidth": 1280,
+            "viewportHeight": 800
+          },
+          {
+            "selector": "#message-input",
+            "hidden": false,
+            "x": 405,
+            "y": 682.40625,
+            "right": 1081,
+            "bottom": 725.40625,
+            "width": 676,
+            "height": 43,
+            "viewportWidth": 1280,
+            "viewportHeight": 800
+          },
+          {
+            "selector": "#btn-more",
+            "hidden": false,
+            "x": 361,
+            "y": 685.40625,
+            "right": 397,
+            "bottom": 721.40625,
+            "width": 36,
+            "height": 36,
+            "viewportWidth": 1280,
+            "viewportHeight": 800
+          },
+          {
+            "selector": "#btn-send",
+            "hidden": false,
+            "x": 1133,
+            "y": 684.40625,
+            "right": 1171,
+            "bottom": 722.40625,
+            "width": 38,
+            "height": 38,
+            "viewportWidth": 1280,
+            "viewportHeight": 800
+          },
+          {
+            "selector": "#composer-meta",
+            "hidden": false,
+            "x": 361,
+            "y": 725.40625,
+            "right": 1171,
+            "bottom": 751.40625,
+            "width": 810,
+            "height": 26,
+            "viewportWidth": 1280,
+            "viewportHeight": 800
+          }
+        ]
+      }
+    },
+    {
+      "name": "1280x800-night: sidebar toggle",
+      "passed": true,
+      "details": {
+        "before": "open",
+        "after": {
+          "state": "closed",
+          "expanded": "false"
+        }
+      }
+    },
+    {
+      "name": "1280x800-night: tools menu above composer",
+      "passed": true,
+      "details": {
+        "gap": 12,
+        "menu": {
+          "selector": "#tools-popover",
+          "hidden": false,
+          "x": 232,
+          "y": 338.40625,
+          "right": 464,
+          "bottom": 653.40625,
+          "width": 232,
+          "height": 315,
+          "viewportWidth": 1280,
+          "viewportHeight": 800
+        },
+        "composer": {
+          "selector": "#composer-form",
+          "hidden": false,
+          "x": 346,
+          "y": 665.40625,
+          "right": 1186,
+          "bottom": 762.40625,
+          "width": 840,
+          "height": 97,
+          "viewportWidth": 1280,
+          "viewportHeight": 800
+        }
+      }
+    },
+    {
+      "name": "1280x800-night: drawer fits and closes",
+      "passed": true,
+      "details": {
+        "selector": "#memory-drawer",
+        "hidden": false,
+        "x": 896,
+        "y": 64,
+        "right": 1280,
+        "bottom": 800,
+        "width": 384,
+        "height": 736,
+        "viewportWidth": 1280,
+        "viewportHeight": 800
+      }
+    },
+    {
+      "name": "960x720-day: window and essential controls",
+      "passed": true,
+      "details": {
+        "documentState": {
+          "width": 960,
+          "height": 720,
+          "scrollWidth": 960,
+          "bodyScrollWidth": 960,
+          "fontStatus": "loaded",
+          "images": [],
+          "theme": "day"
+        },
+        "controls": [
+          {
+            "selector": "#btn-sidebar",
+            "hidden": false,
+            "x": 16,
+            "y": 13.5,
+            "right": 52,
+            "bottom": 49.5,
+            "width": 36,
+            "height": 36,
+            "viewportWidth": 960,
+            "viewportHeight": 720
+          },
+          {
+            "selector": "#btn-theme",
+            "hidden": false,
+            "x": 799,
+            "y": 13.5,
+            "right": 835,
+            "bottom": 49.5,
+            "width": 36,
+            "height": 36,
+            "viewportWidth": 960,
+            "viewportHeight": 720
+          },
+          {
+            "selector": "#message-input",
+            "hidden": false,
+            "x": 307,
+            "y": 602.40625,
+            "right": 831,
+            "bottom": 645.40625,
+            "width": 524,
+            "height": 43,
+            "viewportWidth": 960,
+            "viewportHeight": 720
+          },
+          {
+            "selector": "#btn-more",
+            "hidden": false,
+            "x": 263,
+            "y": 605.40625,
+            "right": 299,
+            "bottom": 641.40625,
+            "width": 36,
+            "height": 36,
+            "viewportWidth": 960,
+            "viewportHeight": 720
+          },
+          {
+            "selector": "#btn-send",
+            "hidden": false,
+            "x": 883,
+            "y": 604.40625,
+            "right": 921,
+            "bottom": 642.40625,
+            "width": 38,
+            "height": 38,
+            "viewportWidth": 960,
+            "viewportHeight": 720
+          },
+          {
+            "selector": "#composer-meta",
+            "hidden": false,
+            "x": 263,
+            "y": 645.40625,
+            "right": 921,
+            "bottom": 671.40625,
+            "width": 658,
+            "height": 26,
+            "viewportWidth": 960,
+            "viewportHeight": 720
+          }
+        ]
+      }
+    },
+    {
+      "name": "960x720-day: sidebar toggle",
+      "passed": true,
+      "details": {
+        "before": "open",
+        "after": {
+          "state": "closed",
+          "expanded": "false"
+        }
+      }
+    },
+    {
+      "name": "960x720-day: tools menu above composer",
+      "passed": true,
+      "details": {
+        "gap": 12,
+        "menu": {
+          "selector": "#tools-popover",
+          "hidden": false,
+          "x": 36,
+          "y": 258.40625,
+          "right": 268,
+          "bottom": 573.40625,
+          "width": 232,
+          "height": 315,
+          "viewportWidth": 960,
+          "viewportHeight": 720
+        },
+        "composer": {
+          "selector": "#composer-form",
+          "hidden": false,
+          "x": 248,
+          "y": 585.40625,
+          "right": 936,
+          "bottom": 682.40625,
+          "width": 688,
+          "height": 97,
+          "viewportWidth": 960,
+          "viewportHeight": 720
+        }
+      }
+    },
+    {
+      "name": "960x720-day: drawer fits and closes",
+      "passed": true,
+      "details": {
+        "selector": "#memory-drawer",
+        "hidden": false,
+        "x": 576,
+        "y": 64,
+        "right": 960,
+        "bottom": 720,
+        "width": 384,
+        "height": 656,
+        "viewportWidth": 960,
+        "viewportHeight": 720
+      }
+    },
+    {
+      "name": "960x720-night: window and essential controls",
+      "passed": true,
+      "details": {
+        "documentState": {
+          "width": 960,
+          "height": 720,
+          "scrollWidth": 960,
+          "bodyScrollWidth": 960,
+          "fontStatus": "loaded",
+          "images": [],
+          "theme": "night"
+        },
+        "controls": [
+          {
+            "selector": "#btn-sidebar",
+            "hidden": false,
+            "x": 16,
+            "y": 13.5,
+            "right": 52,
+            "bottom": 49.5,
+            "width": 36,
+            "height": 36,
+            "viewportWidth": 960,
+            "viewportHeight": 720
+          },
+          {
+            "selector": "#btn-theme",
+            "hidden": false,
+            "x": 799,
+            "y": 13.5,
+            "right": 835,
+            "bottom": 49.5,
+            "width": 36,
+            "height": 36,
+            "viewportWidth": 960,
+            "viewportHeight": 720
+          },
+          {
+            "selector": "#message-input",
+            "hidden": false,
+            "x": 307,
+            "y": 602.40625,
+            "right": 831,
+            "bottom": 645.40625,
+            "width": 524,
+            "height": 43,
+            "viewportWidth": 960,
+            "viewportHeight": 720
+          },
+          {
+            "selector": "#btn-more",
+            "hidden": false,
+            "x": 263,
+            "y": 605.40625,
+            "right": 299,
+            "bottom": 641.40625,
+            "width": 36,
+            "height": 36,
+            "viewportWidth": 960,
+            "viewportHeight": 720
+          },
+          {
+            "selector": "#btn-send",
+            "hidden": false,
+            "x": 883,
+            "y": 604.40625,
+            "right": 921,
+            "bottom": 642.40625,
+            "width": 38,
+            "height": 38,
+            "viewportWidth": 960,
+            "viewportHeight": 720
+          },
+          {
+            "selector": "#composer-meta",
+            "hidden": false,
+            "x": 263,
+            "y": 645.40625,
+            "right": 921,
+            "bottom": 671.40625,
+            "width": 658,
+            "height": 26,
+            "viewportWidth": 960,
+            "viewportHeight": 720
+          }
+        ]
+      }
+    },
+    {
+      "name": "960x720-night: sidebar toggle",
+      "passed": true,
+      "details": {
+        "before": "open",
+        "after": {
+          "state": "closed",
+          "expanded": "false"
+        }
+      }
+    },
+    {
+      "name": "960x720-night: tools menu above composer",
+      "passed": true,
+      "details": {
+        "gap": 12,
+        "menu": {
+          "selector": "#tools-popover",
+          "hidden": false,
+          "x": 36,
+          "y": 258.40625,
+          "right": 268,
+          "bottom": 573.40625,
+          "width": 232,
+          "height": 315,
+          "viewportWidth": 960,
+          "viewportHeight": 720
+        },
+        "composer": {
+          "selector": "#composer-form",
+          "hidden": false,
+          "x": 248,
+          "y": 585.40625,
+          "right": 936,
+          "bottom": 682.40625,
+          "width": 688,
+          "height": 97,
+          "viewportWidth": 960,
+          "viewportHeight": 720
+        }
+      }
+    },
+    {
+      "name": "960x720-night: drawer fits and closes",
+      "passed": true,
+      "details": {
+        "selector": "#memory-drawer",
+        "hidden": false,
+        "x": 576,
+        "y": 64,
+        "right": 960,
+        "bottom": 720,
+        "width": 384,
+        "height": 656,
+        "viewportWidth": 960,
+        "viewportHeight": 720
+      }
+    },
+    {
+      "name": "390x844-day: window and essential controls",
+      "passed": true,
+      "details": {
+        "documentState": {
+          "width": 390,
+          "height": 844,
+          "scrollWidth": 390,
+          "bodyScrollWidth": 390,
+          "fontStatus": "loaded",
+          "images": [],
+          "theme": "day"
+        },
+        "controls": [
+          {
+            "selector": "#btn-sidebar",
+            "hidden": false,
+            "x": 12,
+            "y": 11.5,
+            "right": 44,
+            "bottom": 45.5,
+            "width": 32,
+            "height": 34,
+            "viewportWidth": 390,
+            "viewportHeight": 844
+          },
+          {
+            "selector": "#btn-theme",
+            "hidden": false,
+            "x": 275,
+            "y": 11.5,
+            "right": 307,
+            "bottom": 45.5,
+            "width": 32,
+            "height": 34,
+            "viewportWidth": 390,
+            "viewportHeight": 844
+          },
+          {
+            "selector": "#message-input",
+            "hidden": false,
+            "x": 58,
+            "y": 735,
+            "right": 293,
+            "bottom": 778,
+            "width": 235,
+            "height": 43,
+            "viewportWidth": 390,
+            "viewportHeight": 844
+          },
+          {
+            "selector": "#btn-more",
+            "hidden": false,
+            "x": 22,
+            "y": 740,
+            "right": 53,
+            "bottom": 774,
+            "width": 31,
+            "height": 34,
+            "viewportWidth": 390,
+            "viewportHeight": 844
+          },
+          {
+            "selector": "#btn-send",
+            "hidden": false,
+            "x": 334,
+            "y": 740,
+            "right": 368,
+            "bottom": 774,
+            "width": 34,
+            "height": 34,
+            "viewportWidth": 390,
+            "viewportHeight": 844
+          },
+          {
+            "selector": "#composer-meta",
+            "hidden": false,
+            "x": 22,
+            "y": 778,
+            "right": 368,
+            "bottom": 802,
+            "width": 346,
+            "height": 24,
+            "viewportWidth": 390,
+            "viewportHeight": 844
+          }
+        ]
+      }
+    },
+    {
+      "name": "390x844-day: sidebar toggle",
+      "passed": true,
+      "details": {
+        "before": "closed",
+        "after": {
+          "state": "open",
+          "expanded": "true"
+        }
+      }
+    },
+    {
+      "name": "390x844-day: tools menu above composer",
+      "passed": true,
+      "details": {
+        "gap": 12,
+        "menu": {
+          "selector": "#tools-popover",
+          "hidden": false,
+          "x": 24,
+          "y": 393,
+          "right": 256,
+          "bottom": 708,
+          "width": 232,
+          "height": 315,
+          "viewportWidth": 390,
+          "viewportHeight": 844
+        },
+        "composer": {
+          "selector": "#composer-form",
+          "hidden": false,
+          "x": 12,
+          "y": 720,
+          "right": 378,
+          "bottom": 811,
+          "width": 366,
+          "height": 91,
+          "viewportWidth": 390,
+          "viewportHeight": 844
+        }
+      }
+    },
+    {
+      "name": "390x844-day: drawer fits and closes",
+      "passed": true,
+      "details": {
+        "selector": "#memory-drawer",
+        "hidden": false,
+        "x": 6,
+        "y": 58,
+        "right": 390,
+        "bottom": 844,
+        "width": 384,
+        "height": 786,
+        "viewportWidth": 390,
+        "viewportHeight": 844
+      }
+    },
+    {
+      "name": "390x844-night: window and essential controls",
+      "passed": true,
+      "details": {
+        "documentState": {
+          "width": 390,
+          "height": 844,
+          "scrollWidth": 390,
+          "bodyScrollWidth": 390,
+          "fontStatus": "loaded",
+          "images": [],
+          "theme": "night"
+        },
+        "controls": [
+          {
+            "selector": "#btn-sidebar",
+            "hidden": false,
+            "x": 12,
+            "y": 11.5,
+            "right": 44,
+            "bottom": 45.5,
+            "width": 32,
+            "height": 34,
+            "viewportWidth": 390,
+            "viewportHeight": 844
+          },
+          {
+            "selector": "#btn-theme",
+            "hidden": false,
+            "x": 275,
+            "y": 11.5,
+            "right": 307,
+            "bottom": 45.5,
+            "width": 32,
+            "height": 34,
+            "viewportWidth": 390,
+            "viewportHeight": 844
+          },
+          {
+            "selector": "#message-input",
+            "hidden": false,
+            "x": 58,
+            "y": 735,
+            "right": 293,
+            "bottom": 778,
+            "width": 235,
+            "height": 43,
+            "viewportWidth": 390,
+            "viewportHeight": 844
+          },
+          {
+            "selector": "#btn-more",
+            "hidden": false,
+            "x": 22,
+            "y": 740,
+            "right": 53,
+            "bottom": 774,
+            "width": 31,
+            "height": 34,
+            "viewportWidth": 390,
+            "viewportHeight": 844
+          },
+          {
+            "selector": "#btn-send",
+            "hidden": false,
+            "x": 334,
+            "y": 740,
+            "right": 368,
+            "bottom": 774,
+            "width": 34,
+            "height": 34,
+            "viewportWidth": 390,
+            "viewportHeight": 844
+          },
+          {
+            "selector": "#composer-meta",
+            "hidden": false,
+            "x": 22,
+            "y": 778,
+            "right": 368,
+            "bottom": 802,
+            "width": 346,
+            "height": 24,
+            "viewportWidth": 390,
+            "viewportHeight": 844
+          }
+        ]
+      }
+    },
+    {
+      "name": "390x844-night: sidebar toggle",
+      "passed": true,
+      "details": {
+        "before": "closed",
+        "after": {
+          "state": "open",
+          "expanded": "true"
+        }
+      }
+    },
+    {
+      "name": "390x844-night: tools menu above composer",
+      "passed": true,
+      "details": {
+        "gap": 12,
+        "menu": {
+          "selector": "#tools-popover",
+          "hidden": false,
+          "x": 24,
+          "y": 393,
+          "right": 256,
+          "bottom": 708,
+          "width": 232,
+          "height": 315,
+          "viewportWidth": 390,
+          "viewportHeight": 844
+        },
+        "composer": {
+          "selector": "#composer-form",
+          "hidden": false,
+          "x": 12,
+          "y": 720,
+          "right": 378,
+          "bottom": 811,
+          "width": 366,
+          "height": 91,
+          "viewportWidth": 390,
+          "viewportHeight": 844
+        }
+      }
+    },
+    {
+      "name": "390x844-night: drawer fits and closes",
+      "passed": true,
+      "details": {
+        "selector": "#memory-drawer",
+        "hidden": false,
+        "x": 6,
+        "y": 58,
+        "right": 390,
+        "bottom": 844,
+        "width": 384,
+        "height": 786,
+        "viewportWidth": 390,
+        "viewportHeight": 844
+      }
+    },
+    {
+      "name": "Input: empty/whitespace disabled, prompt and typed text enabled",
+      "passed": true,
+      "details": {
+        "prompt": {
+          "value": "聊聊今天",
+          "disabled": false
+        }
+      }
+    },
+    {
+      "name": "Keyboard: Shift+Enter does not submit; Enter starts response",
+      "passed": true,
+      "details": {
+        "shiftEnterPreservesDraft": true,
+        "enterSubmits": true
+      }
+    },
+    {
+      "name": "Demo response: submitted text, responding, finished reply",
+      "passed": true,
+      "details": {
+        "responding": "responding",
+        "completed": "idle",
+        "replyAdded": true
+      }
+    },
+    {
+      "name": "Cancel response: stops immediately and does not append late reply",
+      "passed": true,
+      "details": {
+        "cancelState": "idle",
+        "noLateReply": true
+      }
+    },
+    {
+      "name": "Panels: popover and drawers are mutually exclusive",
+      "passed": true,
+      "details": {
+        "mutuallyExclusive": true,
+        "escapeFocus": "btn-more",
+        "reason": "Return to the visible menu trigger; its menu item is hidden after the drawer closes"
+      }
+    },
+    {
+      "name": "Drawer: focus stays inside during keyboard traversal",
+      "passed": true,
+      "details": {
+        "count": 13,
+        "forward": true,
+        "reverse": true
+      }
+    },
+    {
+      "name": "Tabs: separate spaces, work submodes and keyboard navigation",
+      "passed": true,
+      "details": {
+        "initial": {
+          "space": "companion",
+          "mode": "companion",
+          "workHidden": true
+        },
+        "work": {
+          "space": "work",
+          "hidden": false,
+          "focused": "work",
+          "selected": "true"
+        },
+        "tablists": [
+          {
+            "tabs": 2,
+            "selected": 1,
+            "tabStops": 1
+          },
+          {
+            "tabs": 3,
+            "selected": 1,
+            "tabStops": 1
+          },
+          {
+            "tabs": 5,
+            "selected": 1,
+            "tabStops": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Error demo: visible retry succeeds and does not call a provider",
+      "passed": true,
+      "details": {
+        "errorVisible": true,
+        "retryCompleted": true
+      }
+    },
+    {
+      "name": "New conversation clears demo conversation and composer",
+      "passed": true,
+      "details": {
+        "state": "idle",
+        "input": "",
+        "disabled": true
+      }
+    },
+    {
+      "name": "Example conversation is explicitly a local demonstration",
+      "passed": true,
+      "details": {
+        "examplePopulated": true,
+        "demoLabel": true
+      }
+    },
+    {
+      "name": "day: text and active control contrast",
+      "passed": true,
+      "details": [
+        {
+          "selector": "#message-input",
+          "pseudo": null,
+          "threshold": 4.5,
+          "foreground": [
+            34,
+            44,
+            42,
+            1
+          ],
+          "background": [
+            250.60000000000002,
+            249.8,
+            244.8,
+            1
+          ],
+          "ratio": 13.72
+        },
+        {
+          "selector": "#message-input",
+          "pseudo": "::placeholder",
+          "threshold": 4.5,
+          "foreground": [
+            98,
+            109,
+            103,
+            1
+          ],
+          "background": [
+            250.60000000000002,
+            249.8,
+            244.8,
+            1
+          ],
+          "ratio": 5.14
+        },
+        {
+          "selector": "#composer-meta",
+          "pseudo": null,
+          "threshold": 4.5,
+          "foreground": [
+            98,
+            109,
+            103,
+            1
+          ],
+          "background": [
+            250.60000000000002,
+            249.8,
+            244.8,
+            1
+          ],
+          "ratio": 5.14
+        },
+        {
+          "selector": "#btn-more",
+          "pseudo": null,
+          "threshold": 3,
+          "foreground": [
+            98,
+            109,
+            103,
+            1
+          ],
+          "background": [
+            233,
+            237,
+            231,
+            1
+          ],
+          "ratio": 4.54
+        },
+        {
+          "selector": "#btn-send",
+          "pseudo": null,
+          "threshold": 3,
+          "foreground": [
+            255,
+            255,
+            255,
+            1
+          ],
+          "background": [
+            83,
+            103,
+            95,
+            1
+          ],
+          "ratio": 6.05
+        },
+        {
+          "selector": "[role=\"tab\"][data-space=\"companion\"]",
+          "pseudo": null,
+          "threshold": 4.5,
+          "foreground": [
+            255,
+            255,
+            255,
+            1
+          ],
+          "background": [
+            83,
+            103,
+            95,
+            1
+          ],
+          "ratio": 6.05
+        }
+      ]
+    },
+    {
+      "name": "night: text and active control contrast",
+      "passed": true,
+      "details": [
+        {
+          "selector": "#message-input",
+          "pseudo": null,
+          "threshold": 4.5,
+          "foreground": [
+            237,
+            241,
+            236,
+            1
+          ],
+          "background": [
+            33.23137254901961,
+            42.909803921568624,
+            37.3921568627451,
+            1
+          ],
+          "ratio": 12.8
+        },
+        {
+          "selector": "#message-input",
+          "pseudo": "::placeholder",
+          "threshold": 4.5,
+          "foreground": [
+            173,
+            188,
+            175,
+            1
+          ],
+          "background": [
+            33.23137254901961,
+            42.909803921568624,
+            37.3921568627451,
+            1
+          ],
+          "ratio": 7.37
+        },
+        {
+          "selector": "#composer-meta",
+          "pseudo": null,
+          "threshold": 4.5,
+          "foreground": [
+            173,
+            188,
+            175,
+            1
+          ],
+          "background": [
+            33.23137254901961,
+            42.909803921568624,
+            37.3921568627451,
+            1
+          ],
+          "ratio": 7.37
+        },
+        {
+          "selector": "#btn-more",
+          "pseudo": null,
+          "threshold": 3,
+          "foreground": [
+            173,
+            188,
+            175,
+            1
+          ],
+          "background": [
+            45,
+            58,
+            50,
+            1
+          ],
+          "ratio": 6.01
+        },
+        {
+          "selector": "#btn-send",
+          "pseudo": null,
+          "threshold": 3,
+          "foreground": [
+            24,
+            32,
+            29,
+            1
+          ],
+          "background": [
+            180,
+            205,
+            187,
+            1
+          ],
+          "ratio": 9.81
+        },
+        {
+          "selector": "[role=\"tab\"][data-space=\"companion\"]",
+          "pseudo": null,
+          "threshold": 4.5,
+          "foreground": [
+            24,
+            32,
+            29,
+            1
+          ],
+          "background": [
+            180,
+            205,
+            187,
+            1
+          ],
+          "ratio": 9.81
+        }
+      ]
+    },
+    {
+      "name": "Reduced motion: user control suppresses transitions and animation",
+      "passed": true,
+      "details": {
+        "enabled": "true",
+        "offenders": []
+      }
+    },
+    {
+      "name": "Reduced motion: operating-system preference supported",
+      "passed": true,
+      "details": {
+        "mediaRulePresent": true,
+        "scope": "Source rule presence; user-control computed styles checked separately"
+      }
+    },
+    {
+      "name": "Motion: closing surfaces are immediately inert, then hidden; rapid reopening is safe",
+      "passed": true,
+      "details": {
+        "exit": {
+          "inert": true,
+          "ariaHidden": "true",
+          "focus": "btn-more"
+        },
+        "drawer": {
+          "memoryHidden": true,
+          "settingsOpen": true,
+          "workspaceInert": true,
+          "focusInside": true
+        }
+      }
+    },
+    {
+      "name": "Layout motion: two-level navigation stays anchored; rapid sidebar toggles retain draft",
+      "passed": true,
+      "details": {
+        "navigationStable": true,
+        "closed": {
+          "inert": true,
+          "visibility": "hidden",
+          "draft": "侧栏展开与收起时保留的草稿",
+          "overflow": false
+        }
+      }
+    },
+    {
+      "name": "Messages: old nodes persist and incoming reply does not pull a reader to the bottom",
+      "passed": true,
+      "details": {
+        "sameNode": true,
+        "scrollTop": 0,
+        "overflow": true,
+        "latestVisible": true
+      }
+    },
+    {
+      "name": "Layout: growing composer keeps menu above input and bottom metadata visible",
+      "passed": true,
+      "details": {
+        "gap": 12,
+        "composerHeight": 220
+      }
+    },
+    {
+      "name": "Glass: pointer response, pressure and idle reset; no idle animation loop",
+      "passed": true,
+      "details": {
+        "renderer": "backdrop",
+        "tracking": "tracking",
+        "idle": {
+          "response": "idle",
+          "running": 0,
+          "frames": "2",
+          "pending": "false"
+        }
+      }
+    },
+    {
+      "name": "Glass: solid fallback removes transparency and backdrop filtering",
+      "passed": true,
+      "details": {
+        "solid": {
+          "renderer": "solid",
+          "motion": "disabled",
+          "filter": "none",
+          "checked": "false",
+          "response": "disabled"
+        },
+        "reduced": {
+          "motion": "reduced",
+          "running": 0
+        }
+      }
+    },
+    {
+      "name": "Narrow layout: sidebar traps focus, makes content inert, Escape restores reading",
+      "passed": true,
+      "details": {
+        "mainInert": true,
+        "focus": "btn-sidebar"
+      }
+    },
+    {
+      "name": "No renderer errors or remote requests",
+      "passed": true,
+      "details": {
+        "rendererErrors": 0,
+        "remoteRequests": 0,
+        "permissionRequests": "denied by isolated harness"
+      }
+    }
+  ],
+  "captures": [
+    "companion-1440x900-day.png",
+    "companion-1440x900-night.png",
+    "companion-1280x800-day.png",
+    "companion-1280x800-night.png",
+    "companion-960x720-day.png",
+    "companion-960x720-night.png",
+    "companion-390x844-day.png",
+    "companion-390x844-night.png",
+    "companion-conversation-day.png",
+    "companion-example-day.png",
+    "companion-glass-day.png",
+    "companion-tools-menu-day.png",
+    "companion-memory-day.png",
+    "companion-settings-day.png",
+    "companion-tools-menu-night.png"
+  ],
+  "consoleErrors": [],
+  "blockedRemoteRequests": [],
+  "finishedAt": "2026-09-13T13:03:44.561Z",
+  "passed": true,
+  "summary": {
+    "passed": 54,
+    "failed": 0,
+    "captures": 15
+  }
+}

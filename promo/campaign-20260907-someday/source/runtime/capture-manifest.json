@@ -1,0 +1,93 @@
+{
+  "version": "0.9.7-beta.1",
+  "executable": "G:\\Athena\\release\\win-unpacked\\Athena.exe",
+  "archive": "G:\\Athena\\release\\win-unpacked\\resources\\app.asar",
+  "archiveModified": "2026-09-07T11:57:36.000Z",
+  "privacy": "No existing personal config, database, persona, or provider environment was passed to the screenshot processes. No live model or microphone probe enabled.",
+  "captures": [
+    {
+      "id": "04-companion-day",
+      "mode": "companion",
+      "theme": "day",
+      "outputPath": "G:\\Athena\\promo\\campaign-20260907-someday\\source\\runtime\\04-companion-day.png",
+      "logPath": "G:\\Athena\\promo\\campaign-20260907-someday\\source\\runtime\\04-companion-day.log",
+      "width": 1280,
+      "height": 820,
+      "bytes": 1238520,
+      "sha256": "ccfa906a27ffc8cd914a5fba35817b25d8c8a2c2827e7167bc0e14b2a61f6fa7",
+      "started": "2026-09-07T14:37:46.735Z",
+      "completed": "2026-09-07T14:37:52.086Z",
+      "source": "Existing packaged Athena.exe --smoke-test; Electron webContents.capturePage(); isolated fresh public preview profile"
+    },
+    {
+      "id": "05-create-day",
+      "mode": "create",
+      "theme": "day",
+      "outputPath": "G:\\Athena\\promo\\campaign-20260907-someday\\source\\runtime\\05-create-day.png",
+      "logPath": "G:\\Athena\\promo\\campaign-20260907-someday\\source\\runtime\\05-create-day.log",
+      "width": 1280,
+      "height": 820,
+      "bytes": 1105970,
+      "sha256": "66a64b794946c837f657bc6a3f25cdff3bb2f572eb8217d74eeddcd2afc1327c",
+      "started": "2026-09-07T14:37:52.086Z",
+      "completed": "2026-09-07T14:37:57.215Z",
+      "source": "Existing packaged Athena.exe --smoke-test; Electron webContents.capturePage(); isolated fresh public preview profile"
+    },
+    {
+      "id": "06-reason-day",
+      "mode": "reason",
+      "theme": "day",
+      "outputPath": "G:\\Athena\\promo\\campaign-20260907-someday\\source\\runtime\\06-reason-day.png",
+      "logPath": "G:\\Athena\\promo\\campaign-20260907-someday\\source\\runtime\\06-reason-day.log",
+      "width": 1280,
+      "height": 820,
+      "bytes": 1106304,
+      "sha256": "844353e2c3fd38f524ed11358781f48804dd1f6a35e647ee0bd1968d9c9711ee",
+      "started": "2026-09-07T14:37:57.215Z",
+      "completed": "2026-09-07T14:38:02.631Z",
+      "source": "Existing packaged Athena.exe --smoke-test; Electron webContents.capturePage(); isolated fresh public preview profile"
+    },
+    {
+      "id": "07-execution-day",
+      "panel": "execution",
+      "theme": "day",
+      "outputPath": "G:\\Athena\\promo\\campaign-20260907-someday\\source\\runtime\\07-execution-day.png",
+      "logPath": "G:\\Athena\\promo\\campaign-20260907-someday\\source\\runtime\\07-execution-day.log",
+      "width": 1280,
+      "height": 820,
+      "bytes": 1065750,
+      "sha256": "fa59b507b95f53c9f18fee758289c342cd9130c20d6796c20fb0575484296127",
+      "started": "2026-09-07T14:38:02.631Z",
+      "completed": "2026-09-07T14:38:08.024Z",
+      "source": "Existing packaged Athena.exe --smoke-test; Electron webContents.capturePage(); isolated fresh public preview profile"
+    },
+    {
+      "id": "08-memory-day",
+      "panel": "memory",
+      "theme": "day",
+      "outputPath": "G:\\Athena\\promo\\campaign-20260907-someday\\source\\runtime\\08-memory-day.png",
+      "logPath": "G:\\Athena\\promo\\campaign-20260907-someday\\source\\runtime\\08-memory-day.log",
+      "width": 1280,
+      "height": 820,
+      "bytes": 786758,
+      "sha256": "7bb785bb00fc43f13555a0e57a3e3c61437f01c55bf38b75cbc295e5f09b1710",
+      "started": "2026-09-07T14:38:08.024Z",
+      "completed": "2026-09-07T14:38:13.041Z",
+      "source": "Existing packaged Athena.exe --smoke-test; Electron webContents.capturePage(); isolated fresh public preview profile"
+    },
+    {
+      "id": "09-companion-night",
+      "mode": "companion",
+      "theme": "night",
+      "outputPath": "G:\\Athena\\promo\\campaign-20260907-someday\\source\\runtime\\09-companion-night.png",
+      "logPath": "G:\\Athena\\promo\\campaign-20260907-someday\\source\\runtime\\09-companion-night.log",
+      "width": 1280,
+      "height": 820,
+      "bytes": 764523,
+      "sha256": "c2f68a47752830104536bf0707ffd732d85411e3f5d9eae0253c69ce0199223a",
+      "started": "2026-09-07T14:38:13.041Z",
+      "completed": "2026-09-07T14:38:18.241Z",
+      "source": "Existing packaged Athena.exe --smoke-test; Electron webContents.capturePage(); isolated fresh public preview profile"
+    }
+  ]
+}

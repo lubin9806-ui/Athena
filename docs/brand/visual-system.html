@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="day">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Athena 主视觉与 UI 统一基线评审页。">
+  <title>Athena · 视觉基线</title>
+  <link rel="stylesheet" href="visual-tokens.css">
+  <link rel="stylesheet" href="visual-system.css">
+  <script src="visual-system.js" defer></script>
+</head>
+<body>
+  <a class="skip" href="#main">跳到内容</a>
+  <header class="page-header">
+    <a class="wordmark" href="#main" aria-label="Athena 视觉基线">Athena<span>视觉基线</span></a>
+    <nav aria-label="页面导航"><a href="#palette">色彩</a><a href="#interface">界面</a><a href="#identity">品牌与 IP</a></nav>
+    <button id="theme-toggle" aria-pressed="false">切换夜色</button>
+  </header>
+  <main id="main">
+    <section class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow">个人智慧 · 本地优先</p>
+        <h1>让思考，<br>逐渐清晰。</h1>
+        <p class="intro">以日光的从容、石墨的清醒与克制的矿物绿，连接品牌表达和每一次日常使用。</p>
+        <a class="text-link" href="#interface">体验统一后的界面组件 ↗</a>
+      </div>
+      <div class="material-study" role="img" aria-label="象牙白、石墨与矿物绿构成的材质和字体样本">
+        <div class="study-top"><span>Athena</span><span>智慧 · 清醒 · 亲近</span></div>
+        <div class="study-type">Aa<span>有自己的判断。</span></div>
+        <div class="study-bottom"><span>日光与夜色<br>共享一种秩序</span><span class="material-chip"></span><span class="material-chip silver"></span></div>
+      </div>
+    </section>
+    <section id="palette" class="palette-section">
+      <h2>一套品牌，两种光照。</h2>
+      <p class="section-copy">背景和阅读面建立层次，矿物绿标记主要操作。更换空间或人格，都沿用同一套色彩语义。</p>
+      <div class="swatches">
+        <div class="swatch" data-token="bg"><div></div><strong>背景</strong><code></code></div>
+        <div class="swatch" data-token="surface"><div></div><strong>阅读面</strong><code></code></div>
+        <div class="swatch" data-token="text"><div></div><strong>文字</strong><code></code></div>
+        <div class="swatch" data-token="accent"><div></div><strong>交互绿</strong><code></code></div>
+        <div class="swatch" data-token="silver"><div></div><strong>银色细节</strong><code></code></div>
+      </div>
+    </section>
+    <section id="interface" class="interface-section">
+      <h2>内容安静，操作清楚。</h2>
+      <p class="section-copy">下面是可操作的设计样例，不连接模型。切换空间、主题和状态，检查它们是否仍属于同一个 Athena。</p>
+      <div class="review-controls">
+        <label>状态示例 <select id="state-picker"><option value="idle">初始</option><option value="working">处理中</option><option value="success">已完成</option><option value="error">连接失败</option></select></label>
+        <label class="checkbox-label"><input id="solid-toggle" type="checkbox"> 使用实色控件</label>
+      </div>
+      <div class="app-demo" data-space="companion" data-state="idle">
+        <div class="app-top"><strong class="app-name">Athena</strong><span>视觉组件样例</span><button id="settings-toggle" aria-expanded="false" aria-controls="settings-panel">外观设置</button></div>
+        <aside class="demo-sidebar" aria-label="示例对话"><strong>你的空间</strong><button id="new-demo">新对话</button><p>当前示例</p><div class="selected-conversation">把想法说清楚</div><p class="sidebar-note">内容为设计样例<br>不会写入长期记忆</p></aside>
+        <div class="demo-main">
+          <div class="space-switch" role="group" aria-label="空间"><button data-space="companion" aria-pressed="true">陪伴</button><button data-space="work" aria-pressed="false">创作</button></div>
+          <div class="work-switch" role="group" aria-label="创作方式" hidden><button data-mode="create" aria-pressed="true">创作</button><button data-mode="reason" aria-pressed="false">推理</button><button data-mode="execute" aria-pressed="false">执行</button></div>
+          <div class="conversation">
+            <p class="speaker">Athena · 产品交互示例</p>
+            <h3 id="demo-title">从你正在想的事情开始。</h3>
+            <p id="demo-description">不必一次说完整，我们可以一起把它理清楚。</p>
+            <div class="suggestions"><button data-prompt="我想把一个模糊的想法理清楚。">梳理一个想法</button><button data-prompt="我想比较两个不同的选择。">看看不同选择</button></div>
+            <p id="sample-result" hidden></p>
+          </div>
+          <form class="composer" id="demo-form">
+            <label class="sr-only" for="demo-input">示例输入</label>
+            <textarea id="demo-input" rows="2" placeholder="写下你想一起思考的问题…"></textarea>
+            <div class="composer-bottom"><span id="demo-status" role="status" aria-live="polite">初始 · 设计样例</span><button class="primary" id="send-demo" disabled>预览提交</button></div>
+          </form>
+        </div>
+        <aside id="settings-panel" class="settings-panel" hidden aria-label="外观设置样例"><div><h3>外观</h3><button id="settings-close" aria-label="关闭外观设置">关闭</button></div><p>全局主题</p><button id="panel-theme-toggle">切换为夜色</button><p>文字与表面</p><span>正文 15px · 1.75 行高<br>面板 18px 圆角<br>键盘焦点清晰可见</span><p class="settings-note">这些设置仅影响本页预览。</p></aside>
+      </div>
+    </section>
+    <section class="rules-section">
+      <div class="type-specimen"><h2>读得清楚，<br>才能想得深入。</h2><p>品牌标题用有文化气质的衬线字体，产品正文用清楚的系统字体。长文有稳定行宽，说明文字保持可读。</p><div class="type-scale"><span>标题 32</span><span>正文 15</span><span>辅助 12</span></div></div>
+      <div class="component-rules"><h3>共同的组件规则</h3><dl><div><dt>4px</dt><dd>基础间距单位；常用 8、12、16、24、32</dd></div><div><dt>10 / 18 / 24</dt><dd>控件、面板与输入框的圆角</dd></div><div><dt>120 / 220 / 360</dt><dd>反馈、过渡与面板的动效时长，单位 ms</dd></div><div><dt>静止优先</dt><dd>空闲无循环；减少动态效果时取消位移</dd></div></dl></div>
+    </section>
+    <section id="identity" class="identity-section">
+      <h2>雅典娜，二次元的智慧女神。</h2>
+      <p class="section-copy">银白长发、叶形银饰与克制的古典垂褶。角色的象牙白、石墨灰和矿物绿，与界面的颜色彼此呼应。</p>
+      <figure class="character-sheet"><img src="athena-character-direction-02.png" width="1536" height="1024" alt="雅典娜二次元设定探索：银白长发、灰绿眼睛、橄榄叶形银饰、象牙白垂褶与石墨灰裙装，包含全身正背面和表情。"><figcaption>新角色概念方向，尚未定稿。发饰侧别与表情强度需继续校准；不是分层原画或可运行 Live2D。</figcaption></figure>
+      <div class="identity-rows"><div><strong>Athena 产品品牌</strong><p>应用名称、导航、色彩和控件构成稳定外壳。</p><span>持续保留</span></div><div><strong>雅典娜主 IP</strong><p>二次元智慧女神；有判断力、亲近、清醒。具体面部与服装仍在探索。</p><span>新概念待评审</span></div><div><strong>苏时夏等独立人格</strong><p>名字与形象独立，身份清楚，使用同一套产品界面。</p><span>保持独立</span></div></div>
+    </section>
+  </main>
+  <footer><span>Athena · 统一视觉评审基线</span><a href="VISUAL_SYSTEM.md">查看完整规范 ↗</a><span>设计预览，尚未接入桌面应用</span></footer>
+</body>
+</html>

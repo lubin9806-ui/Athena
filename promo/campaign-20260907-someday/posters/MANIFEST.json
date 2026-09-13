@@ -1,0 +1,117 @@
+{
+  "campaign": "总有一天 · SOMEDAY",
+  "build": "DESKTOP 0.9.7-BETA.1 · 私有测试",
+  "canvas": "1536x2048",
+  "generated": "2026-09-07T14:55:38.622Z",
+  "note": "Runtime captures are placed unmodified; only scale and rounded corners are applied by the poster frame.",
+  "posters": [
+    {
+      "id": "01-clouds",
+      "index": "01",
+      "kind": "art",
+      "file": "athena-someday-01-clouds.png",
+      "width": 1536,
+      "height": 2048,
+      "bytes": 2778308,
+      "sha256": "b1ded6424e7e815fae211005b91f43a02e3ae704379bab8437f252cfa0a89ca6",
+      "source": "source/art/clouds.png",
+      "headline": "总有一天，我们一同望向云端之上"
+    },
+    {
+      "id": "02-moon",
+      "index": "02",
+      "kind": "art",
+      "file": "athena-someday-02-moon.png",
+      "width": 1536,
+      "height": 2048,
+      "bytes": 2624332,
+      "sha256": "f8ffd19b45fca2ca12cb99f6ce9d9a72a7ba5ccd7003c38beae0b2a519041e77",
+      "source": "source/art/moon.png",
+      "headline": "等到巨石推过高山"
+    },
+    {
+      "id": "03-snow",
+      "index": "03",
+      "kind": "art",
+      "file": "athena-someday-03-snow.png",
+      "width": 1536,
+      "height": 2048,
+      "bytes": 2777679,
+      "sha256": "25a73e9a93ab0eae9182ef7027a29228c021ec59df784ad25e51d34f79f08c50",
+      "source": "source/art/snow.png",
+      "headline": "埋藏的第二天是他的归途"
+    },
+    {
+      "id": "04-companion",
+      "index": "04",
+      "kind": "product",
+      "file": "athena-someday-04-companion.png",
+      "width": 1536,
+      "height": 2048,
+      "bytes": 2018822,
+      "sha256": "94d21040836764f3bd6f0c4e7a6869fed362d9419e90c96c13b98600e9b3ca64",
+      "source": "source/runtime/04-companion-day.png",
+      "headline": "陪伴，不只是回答"
+    },
+    {
+      "id": "05-create",
+      "index": "05",
+      "kind": "product",
+      "file": "athena-someday-05-create.png",
+      "width": 1536,
+      "height": 2048,
+      "bytes": 2031973,
+      "sha256": "179eb70aee414977f69c016d78d9738e4773eaa6f87b32fd72343577adef68aa",
+      "source": "source/runtime/05-create-day.png",
+      "headline": "创作，从一句模糊的想法开始"
+    },
+    {
+      "id": "06-reason",
+      "index": "06",
+      "kind": "product",
+      "file": "athena-someday-06-reason.png",
+      "width": 1536,
+      "height": 2048,
+      "bytes": 2024014,
+      "sha256": "714e0e74408de0610aba45cce9fa6c0965a0f85798861781da0ff9bf8a4cd09f",
+      "source": "source/runtime/06-reason-day.png",
+      "headline": "推理，是把话拆开再验一遍"
+    },
+    {
+      "id": "07-execute",
+      "index": "07",
+      "kind": "product",
+      "file": "athena-someday-07-execute.png",
+      "width": 1536,
+      "height": 2048,
+      "bytes": 2017654,
+      "sha256": "00127596c060521619e203da487931b694910803bb078950af6ffbc3b33007aa",
+      "source": "source/runtime/07-execution-day.png",
+      "headline": "执行，是真的动手"
+    },
+    {
+      "id": "08-memory",
+      "index": "08",
+      "kind": "product",
+      "file": "athena-someday-08-memory.png",
+      "width": 1536,
+      "height": 2048,
+      "bytes": 1914057,
+      "sha256": "e0eb995218876bf0a492b3ef60d6d0336982111b3ed3e537f1d5a03c35fe50a2",
+      "source": "source/runtime/08-memory-day.png",
+      "headline": "记住昨天，继续今天"
+    },
+    {
+      "id": "09-night",
+      "index": "09",
+      "kind": "product",
+      "file": "athena-someday-09-night.png",
+      "width": 1536,
+      "height": 2048,
+      "bytes": 1854944,
+      "sha256": "7b7d2c0c5c337385d5aa2d176eebf827126bace6bddbc8b34300bb70eb62647e",
+      "source": "source/runtime/09-companion-night.png",
+      "headline": "夜里也亮着"
+    }
+  ]
+}

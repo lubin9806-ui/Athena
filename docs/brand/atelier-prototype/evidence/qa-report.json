@@ -1,0 +1,1027 @@
+{
+  "scope": "Standalone ephemeral interaction fixture only. Not production theme switching or AI evidence.",
+  "startedAt": "2026-09-13T13:03:07.882Z",
+  "checks": [
+    {
+      "name": "1440x900 day: layout, visible controls, no horizontal overflow",
+      "passed": true,
+      "details": {
+        "width": 1440,
+        "scrollWidth": 1440,
+        "bodyWidth": 1440,
+        "controls": [
+          {
+            "id": "btn-new",
+            "left": 413,
+            "right": 540,
+            "top": 814,
+            "bottom": 864,
+            "width": 127,
+            "height": 50
+          },
+          {
+            "id": "btn-connect",
+            "left": 547,
+            "right": 660,
+            "top": 814,
+            "bottom": 864,
+            "width": 113,
+            "height": 50
+          },
+          {
+            "id": "btn-chat",
+            "left": 667,
+            "right": 780,
+            "top": 814,
+            "bottom": 864,
+            "width": 113,
+            "height": 50
+          },
+          {
+            "id": "btn-shelf",
+            "left": 787,
+            "right": 887,
+            "top": 814,
+            "bottom": 864,
+            "width": 100,
+            "height": 50
+          },
+          {
+            "id": "btn-settings",
+            "left": 1360,
+            "right": 1400,
+            "top": 20,
+            "bottom": 60,
+            "width": 40,
+            "height": 40
+          }
+        ],
+        "cards": [
+          {
+            "id": "idea",
+            "left": 120.38751220703125,
+            "right": 405.61248779296875,
+            "top": 313.8601989746094,
+            "bottom": 559.8272705078125,
+            "width": 285.2249755859375,
+            "height": 245.96707153320312
+          },
+          {
+            "id": "week",
+            "left": 468.7252502441406,
+            "right": 871.2747802734375,
+            "top": 355.9657897949219,
+            "bottom": 626.0341796875,
+            "width": 402.5495300292969,
+            "height": 270.0683898925781
+          },
+          {
+            "id": "question",
+            "left": 1011.2919921875,
+            "right": 1274.7080078125,
+            "top": 264.6381530761719,
+            "bottom": 540.25244140625,
+            "width": 263.416015625,
+            "height": 275.6142883300781
+          },
+          {
+            "id": "feeling",
+            "left": 173.64404296875,
+            "right": 412.35595703125,
+            "top": 591.1864013671875,
+            "bottom": 720.8135986328125,
+            "width": 238.7119140625,
+            "height": 129.627197265625
+          },
+          {
+            "id": "quote",
+            "left": 949.6673583984375,
+            "right": 1238.3326416015625,
+            "top": 583.3973388671875,
+            "bottom": 736.6026611328125,
+            "width": 288.665283203125,
+            "height": 153.205322265625
+          }
+        ],
+        "dock": {
+          "left": 399,
+          "right": 1041,
+          "top": 802,
+          "bottom": 876,
+          "width": 642,
+          "height": 74
+        },
+        "activeAnimations": 0
+      }
+    },
+    {
+      "name": "1440x900 night: layout, visible controls, no horizontal overflow",
+      "passed": true,
+      "details": {
+        "width": 1440,
+        "scrollWidth": 1440,
+        "bodyWidth": 1440,
+        "controls": [
+          {
+            "id": "btn-new",
+            "left": 413,
+            "right": 540,
+            "top": 814,
+            "bottom": 864,
+            "width": 127,
+            "height": 50
+          },
+          {
+            "id": "btn-connect",
+            "left": 547,
+            "right": 660,
+            "top": 814,
+            "bottom": 864,
+            "width": 113,
+            "height": 50
+          },
+          {
+            "id": "btn-chat",
+            "left": 667,
+            "right": 780,
+            "top": 814,
+            "bottom": 864,
+            "width": 113,
+            "height": 50
+          },
+          {
+            "id": "btn-shelf",
+            "left": 787,
+            "right": 887,
+            "top": 814,
+            "bottom": 864,
+            "width": 100,
+            "height": 50
+          },
+          {
+            "id": "btn-settings",
+            "left": 1360,
+            "right": 1400,
+            "top": 20,
+            "bottom": 60,
+            "width": 40,
+            "height": 40
+          }
+        ],
+        "cards": [
+          {
+            "id": "idea",
+            "left": 120.38751220703125,
+            "right": 405.61248779296875,
+            "top": 313.8601989746094,
+            "bottom": 559.8272705078125,
+            "width": 285.2249755859375,
+            "height": 245.96707153320312
+          },
+          {
+            "id": "week",
+            "left": 468.7252502441406,
+            "right": 871.2747802734375,
+            "top": 355.9657897949219,
+            "bottom": 626.0341796875,
+            "width": 402.5495300292969,
+            "height": 270.0683898925781
+          },
+          {
+            "id": "question",
+            "left": 1011.2919921875,
+            "right": 1274.7080078125,
+            "top": 264.6381530761719,
+            "bottom": 540.25244140625,
+            "width": 263.416015625,
+            "height": 275.6142883300781
+          },
+          {
+            "id": "feeling",
+            "left": 173.64404296875,
+            "right": 412.35595703125,
+            "top": 591.1864013671875,
+            "bottom": 720.8135986328125,
+            "width": 238.7119140625,
+            "height": 129.627197265625
+          },
+          {
+            "id": "quote",
+            "left": 949.6673583984375,
+            "right": 1238.3326416015625,
+            "top": 583.3973388671875,
+            "bottom": 736.6026611328125,
+            "width": 288.665283203125,
+            "height": 153.205322265625
+          }
+        ],
+        "dock": {
+          "left": 399,
+          "right": 1041,
+          "top": 802,
+          "bottom": 876,
+          "width": 642,
+          "height": 74
+        },
+        "activeAnimations": 0
+      }
+    },
+    {
+      "name": "1280x800 day: layout, visible controls, no horizontal overflow",
+      "passed": true,
+      "details": {
+        "width": 1280,
+        "scrollWidth": 1265,
+        "bodyWidth": 1265,
+        "controls": [
+          {
+            "id": "btn-new",
+            "left": 325.5,
+            "right": 452.5,
+            "top": 714,
+            "bottom": 764,
+            "width": 127,
+            "height": 50
+          },
+          {
+            "id": "btn-connect",
+            "left": 459.5,
+            "right": 572.5,
+            "top": 714,
+            "bottom": 764,
+            "width": 113,
+            "height": 50
+          },
+          {
+            "id": "btn-chat",
+            "left": 579.5,
+            "right": 692.5,
+            "top": 714,
+            "bottom": 764,
+            "width": 113,
+            "height": 50
+          },
+          {
+            "id": "btn-shelf",
+            "left": 699.5,
+            "right": 799.5,
+            "top": 714,
+            "bottom": 764,
+            "width": 100,
+            "height": 50
+          },
+          {
+            "id": "btn-settings",
+            "left": 1185,
+            "right": 1225,
+            "top": 14.5,
+            "bottom": 54.5,
+            "width": 40,
+            "height": 40
+          }
+        ],
+        "cards": [
+          {
+            "id": "idea",
+            "left": 66.38751220703125,
+            "right": 351.61248779296875,
+            "top": 257.4695739746094,
+            "bottom": 503.4366760253906,
+            "width": 285.2249755859375,
+            "height": 245.96710205078125
+          },
+          {
+            "id": "week",
+            "left": 384.7252502441406,
+            "right": 787.2747802734375,
+            "top": 291.5751647949219,
+            "bottom": 561.6435546875,
+            "width": 402.5495300292969,
+            "height": 270.0683898925781
+          },
+          {
+            "id": "question",
+            "left": 893.2919921875,
+            "right": 1156.7080078125,
+            "top": 217.24752807617188,
+            "bottom": 492.8618469238281,
+            "width": 263.416015625,
+            "height": 275.61431884765625
+          },
+          {
+            "id": "feeling",
+            "left": 116.64404296875,
+            "right": 355.35595703125,
+            "top": 508.7957458496094,
+            "bottom": 638.4229736328125,
+            "width": 238.7119140625,
+            "height": 129.62722778320312
+          },
+          {
+            "id": "quote",
+            "left": 834.6673583984375,
+            "right": 1123.3326416015625,
+            "top": 499.0066833496094,
+            "bottom": 652.2120361328125,
+            "width": 288.665283203125,
+            "height": 153.20535278320312
+          }
+        ],
+        "dock": {
+          "left": 311.5,
+          "right": 953.5,
+          "top": 702,
+          "bottom": 776,
+          "width": 642,
+          "height": 74
+        },
+        "activeAnimations": 0
+      }
+    },
+    {
+      "name": "1280x800 night: layout, visible controls, no horizontal overflow",
+      "passed": true,
+      "details": {
+        "width": 1280,
+        "scrollWidth": 1265,
+        "bodyWidth": 1265,
+        "controls": [
+          {
+            "id": "btn-new",
+            "left": 325.5,
+            "right": 452.5,
+            "top": 714,
+            "bottom": 764,
+            "width": 127,
+            "height": 50
+          },
+          {
+            "id": "btn-connect",
+            "left": 459.5,
+            "right": 572.5,
+            "top": 714,
+            "bottom": 764,
+            "width": 113,
+            "height": 50
+          },
+          {
+            "id": "btn-chat",
+            "left": 579.5,
+            "right": 692.5,
+            "top": 714,
+            "bottom": 764,
+            "width": 113,
+            "height": 50
+          },
+          {
+            "id": "btn-shelf",
+            "left": 699.5,
+            "right": 799.5,
+            "top": 714,
+            "bottom": 764,
+            "width": 100,
+            "height": 50
+          },
+          {
+            "id": "btn-settings",
+            "left": 1185,
+            "right": 1225,
+            "top": 14.5,
+            "bottom": 54.5,
+            "width": 40,
+            "height": 40
+          }
+        ],
+        "cards": [
+          {
+            "id": "idea",
+            "left": 66.38751220703125,
+            "right": 351.61248779296875,
+            "top": 257.4695739746094,
+            "bottom": 503.4366760253906,
+            "width": 285.2249755859375,
+            "height": 245.96710205078125
+          },
+          {
+            "id": "week",
+            "left": 384.7252502441406,
+            "right": 787.2747802734375,
+            "top": 291.5751647949219,
+            "bottom": 561.6435546875,
+            "width": 402.5495300292969,
+            "height": 270.0683898925781
+          },
+          {
+            "id": "question",
+            "left": 893.2919921875,
+            "right": 1156.7080078125,
+            "top": 217.24752807617188,
+            "bottom": 492.8618469238281,
+            "width": 263.416015625,
+            "height": 275.61431884765625
+          },
+          {
+            "id": "feeling",
+            "left": 116.64404296875,
+            "right": 355.35595703125,
+            "top": 508.7957458496094,
+            "bottom": 638.4229736328125,
+            "width": 238.7119140625,
+            "height": 129.62722778320312
+          },
+          {
+            "id": "quote",
+            "left": 834.6673583984375,
+            "right": 1123.3326416015625,
+            "top": 499.0066833496094,
+            "bottom": 652.2120361328125,
+            "width": 288.665283203125,
+            "height": 153.20535278320312
+          }
+        ],
+        "dock": {
+          "left": 311.5,
+          "right": 953.5,
+          "top": 702,
+          "bottom": 776,
+          "width": 642,
+          "height": 74
+        },
+        "activeAnimations": 0
+      }
+    },
+    {
+      "name": "960x720 day: layout, visible controls, no horizontal overflow",
+      "passed": true,
+      "details": {
+        "width": 960,
+        "scrollWidth": 945,
+        "bodyWidth": 945,
+        "controls": [
+          {
+            "id": "btn-new",
+            "left": 190,
+            "right": 307,
+            "top": 633,
+            "bottom": 683,
+            "width": 117,
+            "height": 50
+          },
+          {
+            "id": "btn-connect",
+            "left": 314,
+            "right": 417,
+            "top": 633,
+            "bottom": 683,
+            "width": 103,
+            "height": 50
+          },
+          {
+            "id": "btn-chat",
+            "left": 424,
+            "right": 527,
+            "top": 633,
+            "bottom": 683,
+            "width": 103,
+            "height": 50
+          },
+          {
+            "id": "btn-shelf",
+            "left": 534,
+            "right": 625,
+            "top": 633,
+            "bottom": 683,
+            "width": 91,
+            "height": 50
+          },
+          {
+            "id": "btn-settings",
+            "left": 879,
+            "right": 919,
+            "top": 14.5,
+            "bottom": 54.5,
+            "width": 40,
+            "height": 40
+          }
+        ],
+        "cards": [
+          {
+            "id": "idea",
+            "left": 485.54510498046875,
+            "right": 908.9548950195312,
+            "top": 220.966064453125,
+            "bottom": 455.940185546875,
+            "width": 423.4097900390625,
+            "height": 234.97412109375
+          },
+          {
+            "id": "week",
+            "left": 38,
+            "right": 457.5,
+            "top": 224.609375,
+            "bottom": 474.609375,
+            "width": 419.5,
+            "height": 250
+          },
+          {
+            "id": "question",
+            "left": 38,
+            "right": 457.5,
+            "top": 504.609375,
+            "bottom": 767.5,
+            "width": 419.5,
+            "height": 262.890625
+          },
+          {
+            "id": "feeling",
+            "left": 487.5,
+            "right": 907,
+            "top": 504.609375,
+            "bottom": 614.609375,
+            "width": 419.5,
+            "height": 110
+          },
+          {
+            "id": "quote",
+            "left": 36.862632751464844,
+            "right": 458.6373519897461,
+            "top": 793.8495483398438,
+            "bottom": 935.1504516601562,
+            "width": 421.77471923828125,
+            "height": 141.3009033203125
+          }
+        ],
+        "dock": {
+          "left": 176,
+          "right": 769,
+          "top": 621,
+          "bottom": 695,
+          "width": 593,
+          "height": 74
+        },
+        "activeAnimations": 0
+      }
+    },
+    {
+      "name": "960x720 night: layout, visible controls, no horizontal overflow",
+      "passed": true,
+      "details": {
+        "width": 960,
+        "scrollWidth": 945,
+        "bodyWidth": 945,
+        "controls": [
+          {
+            "id": "btn-new",
+            "left": 190,
+            "right": 307,
+            "top": 633,
+            "bottom": 683,
+            "width": 117,
+            "height": 50
+          },
+          {
+            "id": "btn-connect",
+            "left": 314,
+            "right": 417,
+            "top": 633,
+            "bottom": 683,
+            "width": 103,
+            "height": 50
+          },
+          {
+            "id": "btn-chat",
+            "left": 424,
+            "right": 527,
+            "top": 633,
+            "bottom": 683,
+            "width": 103,
+            "height": 50
+          },
+          {
+            "id": "btn-shelf",
+            "left": 534,
+            "right": 625,
+            "top": 633,
+            "bottom": 683,
+            "width": 91,
+            "height": 50
+          },
+          {
+            "id": "btn-settings",
+            "left": 879,
+            "right": 919,
+            "top": 14.5,
+            "bottom": 54.5,
+            "width": 40,
+            "height": 40
+          }
+        ],
+        "cards": [
+          {
+            "id": "idea",
+            "left": 485.54510498046875,
+            "right": 908.9548950195312,
+            "top": 220.966064453125,
+            "bottom": 455.940185546875,
+            "width": 423.4097900390625,
+            "height": 234.97412109375
+          },
+          {
+            "id": "week",
+            "left": 38,
+            "right": 457.5,
+            "top": 224.609375,
+            "bottom": 474.609375,
+            "width": 419.5,
+            "height": 250
+          },
+          {
+            "id": "question",
+            "left": 38,
+            "right": 457.5,
+            "top": 504.609375,
+            "bottom": 767.5,
+            "width": 419.5,
+            "height": 262.890625
+          },
+          {
+            "id": "feeling",
+            "left": 487.5,
+            "right": 907,
+            "top": 504.609375,
+            "bottom": 614.609375,
+            "width": 419.5,
+            "height": 110
+          },
+          {
+            "id": "quote",
+            "left": 36.862632751464844,
+            "right": 458.6373519897461,
+            "top": 793.8495483398438,
+            "bottom": 935.1504516601562,
+            "width": 421.77471923828125,
+            "height": 141.3009033203125
+          }
+        ],
+        "dock": {
+          "left": 176,
+          "right": 769,
+          "top": 621,
+          "bottom": 695,
+          "width": 593,
+          "height": 74
+        },
+        "activeAnimations": 0
+      }
+    },
+    {
+      "name": "390x844 day: layout, visible controls, no horizontal overflow",
+      "passed": true,
+      "details": {
+        "width": 390,
+        "scrollWidth": 375,
+        "bodyWidth": 375,
+        "controls": [
+          {
+            "id": "btn-new",
+            "left": 20,
+            "right": 103.75,
+            "top": 762,
+            "bottom": 818,
+            "width": 83.75,
+            "height": 56
+          },
+          {
+            "id": "btn-connect",
+            "left": 103.75,
+            "right": 187.5,
+            "top": 762,
+            "bottom": 818,
+            "width": 83.75,
+            "height": 56
+          },
+          {
+            "id": "btn-chat",
+            "left": 187.5,
+            "right": 271.25,
+            "top": 762,
+            "bottom": 818,
+            "width": 83.75,
+            "height": 56
+          },
+          {
+            "id": "btn-shelf",
+            "left": 271.25,
+            "right": 355,
+            "top": 762,
+            "bottom": 818,
+            "width": 83.75,
+            "height": 56
+          },
+          {
+            "id": "btn-settings",
+            "left": 320,
+            "right": 355,
+            "top": 19,
+            "bottom": 54,
+            "width": 35,
+            "height": 35
+          }
+        ],
+        "cards": [
+          {
+            "id": "idea",
+            "left": 27.7664794921875,
+            "right": 330.2335205078125,
+            "top": 480.9345703125,
+            "bottom": 703.5498046875,
+            "width": 302.467041015625,
+            "height": 222.615234375
+          },
+          {
+            "id": "week",
+            "left": 28.049888610839844,
+            "right": 346.9500961303711,
+            "top": 250.8391571044922,
+            "bottom": 463.03582763671875,
+            "width": 318.90020751953125,
+            "height": 212.19667053222656
+          },
+          {
+            "id": "question",
+            "left": 54,
+            "right": 345,
+            "top": 724.453125,
+            "bottom": 970.53125,
+            "width": 291,
+            "height": 246.078125
+          },
+          {
+            "id": "feeling",
+            "left": 30,
+            "right": 297,
+            "top": 994.53125,
+            "bottom": 1098.46875,
+            "width": 267,
+            "height": 103.9375
+          },
+          {
+            "id": "quote",
+            "left": 43.97842788696289,
+            "right": 346.02157974243164,
+            "top": 1119.8599853515625,
+            "bottom": 1244.7650146484375,
+            "width": 302.04315185546875,
+            "height": 124.905029296875
+          }
+        ],
+        "dock": {
+          "left": 12,
+          "right": 363,
+          "top": 753,
+          "bottom": 827,
+          "width": 351,
+          "height": 74
+        },
+        "activeAnimations": 0
+      }
+    },
+    {
+      "name": "390x844 night: layout, visible controls, no horizontal overflow",
+      "passed": true,
+      "details": {
+        "width": 390,
+        "scrollWidth": 375,
+        "bodyWidth": 375,
+        "controls": [
+          {
+            "id": "btn-new",
+            "left": 20,
+            "right": 103.75,
+            "top": 762,
+            "bottom": 818,
+            "width": 83.75,
+            "height": 56
+          },
+          {
+            "id": "btn-connect",
+            "left": 103.75,
+            "right": 187.5,
+            "top": 762,
+            "bottom": 818,
+            "width": 83.75,
+            "height": 56
+          },
+          {
+            "id": "btn-chat",
+            "left": 187.5,
+            "right": 271.25,
+            "top": 762,
+            "bottom": 818,
+            "width": 83.75,
+            "height": 56
+          },
+          {
+            "id": "btn-shelf",
+            "left": 271.25,
+            "right": 355,
+            "top": 762,
+            "bottom": 818,
+            "width": 83.75,
+            "height": 56
+          },
+          {
+            "id": "btn-settings",
+            "left": 320,
+            "right": 355,
+            "top": 19,
+            "bottom": 54,
+            "width": 35,
+            "height": 35
+          }
+        ],
+        "cards": [
+          {
+            "id": "idea",
+            "left": 27.7664794921875,
+            "right": 330.2335205078125,
+            "top": 480.9345703125,
+            "bottom": 703.5498046875,
+            "width": 302.467041015625,
+            "height": 222.615234375
+          },
+          {
+            "id": "week",
+            "left": 28.049888610839844,
+            "right": 346.9500961303711,
+            "top": 250.8391571044922,
+            "bottom": 463.03582763671875,
+            "width": 318.90020751953125,
+            "height": 212.19667053222656
+          },
+          {
+            "id": "question",
+            "left": 54,
+            "right": 345,
+            "top": 724.453125,
+            "bottom": 970.53125,
+            "width": 291,
+            "height": 246.078125
+          },
+          {
+            "id": "feeling",
+            "left": 30,
+            "right": 297,
+            "top": 994.53125,
+            "bottom": 1098.46875,
+            "width": 267,
+            "height": 103.9375
+          },
+          {
+            "id": "quote",
+            "left": 43.97842788696289,
+            "right": 346.02157974243164,
+            "top": 1119.8599853515625,
+            "bottom": 1244.7650146484375,
+            "width": 302.04315185546875,
+            "height": 124.905029296875
+          }
+        ],
+        "dock": {
+          "left": 12,
+          "right": 363,
+          "top": 753,
+          "bottom": 827,
+          "width": 351,
+          "height": 74
+        },
+        "activeAnimations": 0
+      }
+    },
+    {
+      "name": "Initial desk has five thoughts, two edges and no old sidebar or mode tabs",
+      "passed": true
+    },
+    {
+      "name": "Native modal focus, editable thought and Escape restore source",
+      "passed": true
+    },
+    {
+      "name": "New thought rejects whitespace; long content stays bounded and is editable in full",
+      "passed": true
+    },
+    {
+      "name": "Connect without dragging, reject self, deduplicate, disconnect",
+      "passed": true
+    },
+    {
+      "name": "Connect from detail keeps chosen source and exits cleanly",
+      "passed": true
+    },
+    {
+      "name": "Keyboard movement and arrange work without pointer dragging",
+      "passed": true
+    },
+    {
+      "name": "Native pointer drag moves object; pointer release ends drag",
+      "passed": true,
+      "details": {
+        "before": 28,
+        "after": 88
+      }
+    },
+    {
+      "name": "Expand thought, keep question, preserve source edge",
+      "passed": true
+    },
+    {
+      "name": "Plan is an editable, retained and retractable three-step draft",
+      "passed": true
+    },
+    {
+      "name": "Archive hides object and edges; restore retains both",
+      "passed": true
+    },
+    {
+      "name": "Search supports shortcut, query, empty state and opening a thought",
+      "passed": true
+    },
+    {
+      "name": "Companion is explicit canned text; IME Enter does not submit; stop has no late reply",
+      "passed": true
+    },
+    {
+      "name": "Search Up from query starts at final result; modal closes to its original trigger",
+      "passed": true
+    },
+    {
+      "name": "Archiving every object produces a reachable empty state",
+      "passed": true
+    },
+    {
+      "name": "Glass is event driven; solid mode and reduced motion stop visual effects",
+      "passed": true
+    },
+    {
+      "name": "Mobile objects are reachable in flow; detail modal fits viewport",
+      "passed": true,
+      "details": {
+        "left": 12,
+        "right": 363,
+        "top": 71.1875,
+        "bottom": 772.8125
+      }
+    },
+    {
+      "name": "Approved logo and functional icon sprite are byte-for-byte unchanged",
+      "passed": true,
+      "details": {
+        "athena-mark.svg": "55AA336147DF7D5FBCE9FC485AB421988DF6108301817E023B800DDFD383E578",
+        "icons.svg": "3852D37EF58BAFCBD6A8D3459A68F02DCDB452914D8E4DC5FD43825808318783"
+      }
+    },
+    {
+      "name": "No renderer errors or remote request attempts",
+      "passed": true
+    },
+    {
+      "name": "Three presets distinguish default from optional and disclose prototype limits",
+      "passed": true,
+      "details": [
+        "companion-prototype/?preview=default",
+        "atelier-prototype/",
+        "THEME_PRESETS.md"
+      ]
+    },
+    {
+      "name": "Theme chooser has no mobile horizontal overflow",
+      "passed": true
+    }
+  ],
+  "captures": [
+    "atelier-1440x900-day.png",
+    "atelier-1440x900-night.png",
+    "atelier-1280x800-day.png",
+    "atelier-1280x800-night.png",
+    "atelier-960x720-day.png",
+    "atelier-960x720-night.png",
+    "atelier-390x844-day.png",
+    "atelier-390x844-night.png",
+    "atelier-plan-draft.png",
+    "atelier-shelf.png",
+    "atelier-companion.png",
+    "atelier-empty.png",
+    "atelier-mobile-detail.png",
+    "theme-presets-desktop.png",
+    "theme-presets-mobile.png"
+  ],
+  "consoleErrors": [],
+  "remoteRequests": [],
+  "finishedAt": "2026-09-13T13:03:48.945Z",
+  "passed": true,
+  "summary": {
+    "passed": 28,
+    "failed": 0,
+    "captures": 15
+  }
+}

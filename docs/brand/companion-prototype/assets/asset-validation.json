@@ -1,0 +1,56 @@
+{
+  "source": "docs/brand/athena-primary-mark-colorways-v1.png",
+  "status": "prototype trace, not hand-polished production master",
+  "sourceDimensions": [
+    1774,
+    887
+  ],
+  "crop": {
+    "x": 186,
+    "y": 117,
+    "width": 507,
+    "height": 519
+  },
+  "viewBox": [
+    0,
+    0,
+    519,
+    519
+  ],
+  "loops": 19,
+  "pathPoints": 1496,
+  "bytes": 17945,
+  "icons": [
+    "icon-memory",
+    "icon-settings",
+    "icon-minimize",
+    "icon-close",
+    "icon-plus",
+    "icon-mic",
+    "icon-file",
+    "icon-volume",
+    "icon-send",
+    "icon-globe",
+    "icon-pin",
+    "icon-sidebar",
+    "icon-tools",
+    "icon-refresh",
+    "icon-chat",
+    "icon-folder",
+    "icon-chevron",
+    "icon-sun",
+    "icon-moon",
+    "icon-search",
+    "icon-check",
+    "icon-paperclip",
+    "icon-copy",
+    "icon-stop",
+    "icon-sliders",
+    "icon-arrow",
+    "icon-bookmark",
+    "icon-more",
+    "icon-temporary",
+    "icon-heart",
+    "icon-maximize"
+  ]
+}

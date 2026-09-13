@@ -1,0 +1,176 @@
+[
+  {
+    "label": "opened",
+    "value": {
+      "hidden": false,
+      "inert": false,
+      "phase": "opening",
+      "docHidden": false,
+      "time": 170.79999999998836,
+      "animations": [
+        {
+          "target": "btn-more",
+          "time": 0,
+          "state": "running",
+          "timing": {
+            "delay": 0,
+            "direction": "normal",
+            "duration": 140,
+            "easing": "cubic-bezier(0.2, 0.8, 0.2, 1)",
+            "endDelay": 0,
+            "fill": "backwards",
+            "iterationStart": 0,
+            "iterations": 1
+          }
+        },
+        {
+          "target": "btn-more",
+          "time": 0,
+          "state": "running",
+          "timing": {
+            "delay": 0,
+            "direction": "normal",
+            "duration": 140,
+            "easing": "cubic-bezier(0.2, 0.8, 0.2, 1)",
+            "endDelay": 0,
+            "fill": "backwards",
+            "iterationStart": 0,
+            "iterations": 1
+          }
+        },
+        {
+          "target": "tools-popover",
+          "time": 0,
+          "state": "running",
+          "timing": {
+            "delay": 0,
+            "direction": "normal",
+            "duration": 180,
+            "easing": "cubic-bezier(0.2, 0.8, 0.2, 1)",
+            "endDelay": 0,
+            "fill": "auto",
+            "iterationStart": 0,
+            "iterations": 1
+          }
+        }
+      ]
+    }
+  },
+  {
+    "label": "open+600",
+    "value": {
+      "hidden": false,
+      "inert": false,
+      "docHidden": false,
+      "time": 774.2999999999884,
+      "animations": []
+    }
+  },
+  {
+    "label": "closed",
+    "value": {
+      "hidden": false,
+      "inert": true,
+      "phase": "closing",
+      "docHidden": false,
+      "time": 776.7000000000116,
+      "animations": [
+        {
+          "target": "btn-more",
+          "time": 0,
+          "state": "running",
+          "timing": {
+            "delay": 0,
+            "direction": "normal",
+            "duration": 140,
+            "easing": "cubic-bezier(0.2, 0.8, 0.2, 1)",
+            "endDelay": 0,
+            "fill": "backwards",
+            "iterationStart": 0,
+            "iterations": 1
+          }
+        },
+        {
+          "target": "btn-more",
+          "time": 0,
+          "state": "running",
+          "timing": {
+            "delay": 0,
+            "direction": "normal",
+            "duration": 140,
+            "easing": "cubic-bezier(0.2, 0.8, 0.2, 1)",
+            "endDelay": 0,
+            "fill": "backwards",
+            "iterationStart": 0,
+            "iterations": 1
+          }
+        },
+        {
+          "target": "tools-popover",
+          "time": 0,
+          "state": "running",
+          "timing": {
+            "delay": 0,
+            "direction": "normal",
+            "duration": 140,
+            "easing": "cubic-bezier(0.2, 0.8, 0.2, 1)",
+            "endDelay": 0,
+            "fill": "auto",
+            "iterationStart": 0,
+            "iterations": 1
+          }
+        }
+      ]
+    }
+  },
+  {
+    "label": "close+600",
+    "value": {
+      "hidden": true,
+      "inert": true,
+      "docHidden": false,
+      "time": 1391.7999999999884,
+      "animations": []
+    }
+  },
+  {
+    "label": "close+1600",
+    "value": {
+      "hidden": true,
+      "inert": true,
+      "docHidden": false,
+      "time": 2400.7999999999884,
+      "animations": []
+    }
+  },
+  {
+    "label": "before-scroll",
+    "value": {
+      "top": 391,
+      "height": 976,
+      "client": 585,
+      "latest": true,
+      "state": "responding"
+    }
+  },
+  {
+    "label": "after-scroll",
+    "value": {
+      "top": 0,
+      "height": 976,
+      "client": 585,
+      "latest": true,
+      "state": "responding"
+    }
+  },
+  {
+    "label": "reply",
+    "value": {
+      "top": 0,
+      "height": 1120,
+      "client": 585,
+      "latest": false,
+      "state": "idle"
+    }
+  }
+]

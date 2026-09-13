@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="day" data-glass="liquid">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'none'; media-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>Athena · 陪伴界面交互样板</title>
+  <link rel="icon" href="assets/athena-mark.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="glass.css">
+  <script src="app.js" defer></script>
+  <script src="glass.js" defer></script>
+</head>
+<body>
+  <div id="prototype-app" data-sidebar="open" data-space="companion" data-mode="companion" data-state="idle">
+    <header class="titlebar">
+      <div class="brand-group">
+        <button id="btn-sidebar" class="icon-button" aria-label="显示或隐藏侧栏" aria-controls="sidebar" aria-expanded="true" title="显示或隐藏侧栏"><svg class="icon"><use href="assets/icons.svg#icon-sidebar"></use></svg></button>
+        <span class="brand-mark" role="img" aria-label="Athena 月弧、神殿与羽毛标志"></span>
+        <span class="wordmark">Athena</span>
+        <button class="preview-badge" id="btn-about">交互样板 <span>· 示例回复</span></button>
+      </div>
+      <div class="window-context"><span id="context-title">新对话</span><span id="context-project">个人空间</span></div>
+      <div class="window-actions">
+        <button id="btn-theme" class="icon-button" aria-label="切换到夜色主题" title="切换主题"><svg class="icon"><use href="assets/icons.svg#icon-moon"></use></svg></button>
+        <span class="toolbar-divider"></span>
+        <button id="btn-memory" class="icon-button" aria-label="记忆" aria-expanded="false" aria-controls="memory-drawer" title="记忆"><svg class="icon"><use href="assets/icons.svg#icon-memory"></use></svg></button>
+        <button id="btn-settings" class="icon-button" aria-label="设置" aria-expanded="false" aria-controls="settings-drawer" title="设置"><svg class="icon"><use href="assets/icons.svg#icon-settings"></use></svg></button>
+      </div>
+    </header>
+
+    <div id="workspace">
+      <button id="sidebar-scrim" class="sidebar-scrim" aria-label="关闭侧栏" hidden></button>
+      <aside id="sidebar" aria-label="对话与 Project">
+        <div class="sidebar-top">
+          <button id="btn-new" class="new-chat"><svg class="icon"><use href="assets/icons.svg#icon-plus"></use></svg><span>新对话</span><kbd>Ctrl N</kbd></button>
+          <button id="btn-temporary" class="sidebar-action"><svg class="icon"><use href="assets/icons.svg#icon-temporary"></use></svg><span>临时聊天</span></button>
+        </div>
+        <div class="section-caption"><span>Project</span><button id="btn-project-new" class="icon-button small" aria-label="新建 Project" title="新建 Project"><svg class="icon"><use href="assets/icons.svg#icon-plus"></use></svg></button></div>
+        <label class="project-picker"><svg class="icon"><use href="assets/icons.svg#icon-folder"></use></svg><select id="project-select" aria-label="选择 Project"><option>个人空间</option><option>创作笔记</option></select><svg class="icon chevron"><use href="assets/icons.svg#icon-chevron"></use></svg></label>
+        <button id="btn-project-edit" class="sidebar-action project-edit"><svg class="icon"><use href="assets/icons.svg#icon-sliders"></use></svg><span>编辑 Project 指令</span></button>
+        <div class="section-caption conversation-caption"><span>对话</span><span class="caption-note">示例</span></div>
+        <nav id="conversation-list" aria-label="选择对话"></nav>
+        <div class="sidebar-footer"><svg class="icon"><use href="assets/icons.svg#icon-bookmark"></use></svg><p>本页对话仅在当前页面暂存，<br>不写入 Athena 的长期记忆。</p></div>
+      </aside>
+
+      <main id="main-stage">
+        <div class="space-navigation">
+          <div class="space-tabs" role="tablist" aria-label="空间">
+            <button role="tab" id="space-companion" data-space="companion" aria-selected="true" tabindex="0" aria-controls="conversation-stage">陪伴</button>
+            <button role="tab" id="space-work" data-space="work" aria-selected="false" tabindex="-1" aria-controls="conversation-stage">创作</button>
+          </div>
+          <div id="work-modes" class="work-tabs" role="tablist" aria-label="创作方式" hidden>
+            <button role="tab" data-mode="create" aria-selected="true" tabindex="0">创作</button>
+            <button role="tab" data-mode="reason" aria-selected="false" tabindex="-1">推理</button>
+            <button role="tab" data-mode="execute" aria-selected="false" tabindex="-1">执行</button>
+          </div>
+        </div>
+
+        <section id="conversation-stage" aria-label="当前对话" class="conversation-stage">
+          <div id="empty-scene" class="empty-scene">
+            <div class="empty-content">
+              <span class="welcome-note" id="welcome-note">不用急着得出答案。</span>
+              <h1 id="welcome-title">在这里，想法可以慢慢成形。</h1>
+              <p class="welcome-description" id="welcome-description">可以聊聊今天，也可以一起把问题理清。</p>
+              <div class="prompt-actions" id="prompt-actions"></div>
+              <button id="btn-example" class="text-link">看看一段对话 <svg class="icon"><use href="assets/icons.svg#icon-arrow"></use></svg></button>
+            </div>
+          </div>
+          <div id="chat-log" class="chat-log" role="log" aria-label="示例对话记录" aria-live="polite" aria-relevant="additions text" hidden></div>
+          <section id="execution-preview" class="execution-preview" aria-label="执行工作区预览" hidden>
+            <div class="execution-heading"><div><span class="welcome-note">工作空间预览</span><h1>把想法，推进一步。</h1></div><span class="state-badge">待命</span></div>
+            <div class="project-card"><h2>当前 Project</h2><strong id="execution-project">个人空间</strong><div class="two-fields"><div><span>工作目录</span><p>未设置</p></div><div><span>项目目标</span><p>在下面描述一个目标</p></div></div></div>
+            <div class="execution-card"><div class="card-heading"><h2>当前任务</h2><span class="subtle">示例状态</span></div><p id="execution-goal">还没有正在执行的电脑任务。</p><div class="two-fields"><div><span>计划与步骤</span><p>暂无计划</p></div><div><span>交付产物</span><p>暂无产物</p></div></div></div>
+            <div class="execution-links"><button data-notice="此处预览 Skill 库入口，不安装或运行技能。"><svg class="icon"><use href="assets/icons.svg#icon-folder"></use></svg>Agent Skills<svg class="icon"><use href="assets/icons.svg#icon-chevron"></use></svg></button><button data-notice="此处预览 MCP 配置入口，不建立外部连接。"><svg class="icon"><use href="assets/icons.svg#icon-tools"></use></svg>MCP Servers<svg class="icon"><use href="assets/icons.svg#icon-chevron"></use></svg></button></div>
+            <div class="permission-note"><svg class="icon"><use href="assets/icons.svg#icon-tools"></use></svg><div><strong>工具权限 · 关闭</strong><p>本样板仅演示界面，不调用电脑工具。</p></div></div>
+          </section>
+        </section>
+
+        <div class="composer-wrap">
+          <button id="btn-latest" class="latest-button" hidden aria-label="回到最新消息"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#icon-arrow"></use></svg>回到最新消息</button>
+          <div id="temporary-note" class="temporary-note" hidden>临时聊天 · 本页刷新后清除</div>
+          <form id="composer-form" autocomplete="off">
+            <div id="attachment-chips" class="attachment-chips" hidden></div>
+            <div class="composer-row">
+              <button type="button" id="btn-more" class="icon-button composer-more" aria-label="更多功能" aria-haspopup="menu" aria-expanded="false" aria-controls="tools-popover"><svg class="icon"><use href="assets/icons.svg#icon-plus"></use></svg></button>
+              <textarea id="message-input" rows="1" maxlength="6000" placeholder="和 Athena 说点什么…" aria-label="消息输入"></textarea>
+              <button type="button" id="btn-mic" class="icon-button mic-button" aria-label="预览语音输入" title="语音输入预览"><svg class="icon"><use href="assets/icons.svg#icon-mic"></use></svg></button>
+              <button type="submit" id="btn-send" class="send-button" aria-label="发送示例消息" disabled><svg class="icon"><use href="assets/icons.svg#icon-send"></use></svg></button>
+            </div>
+            <div id="composer-meta"><span><span id="mode-caption">陪伴 · 纯聊天</span><span id="web-caption" hidden> · 本轮联网预览</span></span><span class="keyboard-hint"><kbd>Enter</kbd> 发送 <span class="shift-hint">· Shift + Enter 换行</span></span></div>
+          </form>
+          <div class="composer-footnote">当前为交互样板，回复使用预设示例。<button id="btn-reset" class="text-link">重置体验</button></div>
+        </div>
+      </main>
+    </div>
+
+    <div id="tools-popover" class="tools-popover" role="menu" aria-label="更多功能" hidden>
+      <button role="menuitem" data-tool="file"><svg class="icon"><use href="assets/icons.svg#icon-paperclip"></use></svg>添加文件<span class="shortcut">仅名称</span></button>
+      <button role="menuitem" data-tool="document"><svg class="icon"><use href="assets/icons.svg#icon-file"></use></svg>导入文档</button>
+      <button role="menuitem" data-tool="ocr"><svg class="icon"><use href="assets/icons.svg#icon-search"></use></svg>扫描 PDF OCR</button>
+      <button role="menuitem" id="btn-tools" data-tool="tools"><svg class="icon"><use href="assets/icons.svg#icon-tools"></use></svg>可调用工具</button>
+      <div class="menu-divider" role="separator"></div>
+      <button role="menuitemcheckbox" data-tool="web" aria-checked="false"><svg class="icon"><use href="assets/icons.svg#icon-globe"></use></svg>本轮联网搜索<svg class="icon menu-check"><use href="assets/icons.svg#icon-check"></use></svg></button>
+      <button role="menuitem" data-tool="transcribe"><svg class="icon"><use href="assets/icons.svg#icon-mic"></use></svg>转写音频</button>
+      <button role="menuitem" data-tool="read"><svg class="icon"><use href="assets/icons.svg#icon-volume"></use></svg>朗读回复</button>
+      <button role="menuitem" data-tool="voice"><svg class="icon"><use href="assets/icons.svg#icon-chat"></use></svg>语音对话</button>
+    </div>
+    <input id="attachment-input" type="file" multiple hidden>
+
+    <button id="drawer-scrim" class="drawer-scrim" aria-label="关闭抽屉" tabindex="-1" hidden></button>
+    <aside id="memory-drawer" class="drawer" role="dialog" aria-modal="true" aria-labelledby="memory-title" hidden>
+      <div class="drawer-head"><div><p class="welcome-note">回看与整理</p><h2 id="memory-title">记忆</h2></div><button class="icon-button" data-close-drawer aria-label="关闭记忆"><svg class="icon"><use href="assets/icons.svg#icon-close"></use></svg></button></div>
+      <p class="drawer-intro">这里展示记忆界面的示例状态。</p>
+      <div id="memory-tabs" class="memory-tabs" role="tablist" aria-label="记忆分类">
+        <button role="tab" data-memory="window" aria-selected="true" tabindex="0">窗口</button><button role="tab" data-memory="review" aria-selected="false" tabindex="-1">待确认</button><button role="tab" data-memory="manage" aria-selected="false" tabindex="-1">记忆</button><button role="tab" data-memory="search" aria-selected="false" tabindex="-1">检索</button><button role="tab" data-memory="import" aria-selected="false" tabindex="-1">导入</button>
+      </div>
+      <div id="memory-content" class="drawer-content"></div>
+      <div class="drawer-footer">示例内容 · 未读取你的实际记忆</div>
+    </aside>
+
+    <aside id="settings-drawer" class="drawer" role="dialog" aria-modal="true" aria-labelledby="settings-title" hidden>
+      <div class="drawer-head"><div><p class="welcome-note">调整到舒服的状态</p><h2 id="settings-title">设置</h2></div><button class="icon-button" data-close-drawer aria-label="关闭设置"><svg class="icon"><use href="assets/icons.svg#icon-close"></use></svg></button></div>
+      <div class="drawer-content settings-content">
+        <details><summary><svg class="icon"><use href="assets/icons.svg#icon-settings"></use></svg>常规</summary><p class="settings-note">按 Enter 发送，Shift + Enter 换行。按 Esc 关闭展开的菜单或抽屉。</p><a class="text-link" href="http://127.0.0.1:4175/theme-presets.html" target="_blank" rel="noopener">主题与布局：查看三套方案</a></details>
+        <details><summary><svg class="icon"><use href="assets/icons.svg#icon-heart"></use></svg>个性化</summary><p class="settings-note">陪伴角色保持独立，本样板使用 Athena 品牌标识。</p></details>
+        <details><summary><svg class="icon"><use href="assets/icons.svg#icon-chat"></use></svg>对话</summary><div class="setting-row"><label for="font-size">正文字号</label><output id="font-size-value" for="font-size">16 px</output></div><input id="font-size" type="range" min="14" max="20" value="16" step="1"><p class="settings-note">调整对话文字的阅读大小。</p></details>
+        <details><summary><svg class="icon"><use href="assets/icons.svg#icon-tools"></use></svg>执行与权限</summary><p class="settings-note">电脑工具只在执行空间开放。本样板的工具权限固定为关闭。</p><button class="secondary-button" id="btn-open-execute">查看执行空间</button></details>
+        <details><summary><svg class="icon"><use href="assets/icons.svg#icon-globe"></use></svg>联网搜索</summary><p class="settings-note">样板演示本轮联网选项的界面状态，不发起搜索请求。</p></details>
+        <details open><summary><svg class="icon"><use href="assets/icons.svg#icon-sun"></use></svg>外观与动效</summary><div class="setting-row"><span>主题模式</span><div class="theme-options" role="group" aria-label="主题模式"><button data-theme-choice="day" aria-pressed="true">日光</button><button data-theme-choice="night" aria-pressed="false">夜色</button></div></div><div class="setting-row"><span>液态玻璃</span><button id="btn-glass" class="switch" role="switch" aria-checked="true" aria-label="液态玻璃"><span></span></button></div><p class="settings-note">柔和透光与触控高光，仅用于输入框和浮层。关闭后使用实色表面。</p><div class="setting-row"><span>减少动效</span><button id="btn-reduced-motion" class="switch" role="switch" aria-checked="false" aria-label="减少动效"><span></span></button></div><p class="settings-note">同时尊重系统的减少动态效果与减少透明度设置。</p></details>
+        <details><summary><svg class="icon"><use href="assets/icons.svg#icon-sliders"></use></svg>模型</summary><p class="settings-note">当前使用预设示例回复，未连接本地或远程模型。</p></details>
+        <details><summary><svg class="icon"><use href="assets/icons.svg#icon-check"></use></svg>样板体验</summary><p class="settings-note">检查失败提示与重试，也可以随时停止正在展示的回复。</p><button id="btn-demo-error" class="secondary-button">下一条展示失败状态</button><p id="demo-error-state" class="settings-note" role="status"></p></details>
+      </div>
+      <div class="drawer-footer">仅影响此页的视觉体验</div>
+    </aside>
+
+    <aside id="tools-drawer" class="drawer" role="dialog" aria-modal="true" aria-labelledby="tools-title" hidden>
+      <div class="drawer-head"><div><p class="welcome-note">能力与边界</p><h2 id="tools-title">可调用工具</h2></div><button class="icon-button" data-close-drawer aria-label="关闭工具"><svg class="icon"><use href="assets/icons.svg#icon-close"></use></svg></button></div>
+      <div class="drawer-content"><div class="memory-block"><h3>电脑工具 · 关闭</h3><p>陪伴、创作与推理保持纯聊天。执行空间单独管理电脑工具权限。</p></div><div class="memory-block"><h3>文件、联网与语音</h3><p>在此样板中仅演示操作入口和视觉状态。</p></div><button id="btn-tools-execute" class="secondary-button">查看执行空间</button></div><div class="drawer-footer">本样板不执行本机或联网操作</div>
+    </aside>
+    <div id="toast" class="toast" role="status" hidden></div>
+  </div>
+
+  <dialog id="project-dialog" aria-labelledby="project-dialog-title"><form id="project-form"><div class="dialog-head"><h2 id="project-dialog-title">Project 指令</h2><button class="icon-button" type="button" data-close-dialog aria-label="关闭"><svg class="icon"><use href="assets/icons.svg#icon-close"></use></svg></button></div><label for="project-name">名称</label><input id="project-name" maxlength="30" required><label for="project-instructions">这个空间希望 Athena 怎样协助你？</label><textarea id="project-instructions" rows="4" maxlength="1000" placeholder="例如：回答简洁一些，帮助我把事情拆成小步骤。"></textarea><p class="settings-note">只保存在当前样板页面，刷新后清除。</p><div class="dialog-actions"><button type="button" class="secondary-button" data-close-dialog>取消</button><button class="primary-button" type="submit">保存</button></div></form></dialog>
+  <dialog id="voice-dialog" aria-labelledby="voice-title"><div class="dialog-head"><h2 id="voice-title">语音输入预览</h2><button class="icon-button" data-close-dialog aria-label="关闭语音预览"><svg class="icon"><use href="assets/icons.svg#icon-close"></use></svg></button></div><div class="voice-bars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div><p>可以慢慢说。</p><p class="settings-note">这是视觉状态预览，未开启麦克风。</p><button id="btn-voice-example" class="primary-button">使用示例转写</button></dialog>
+  <dialog id="about-dialog" aria-labelledby="about-title"><div class="dialog-head"><h2 id="about-title">陪伴界面交互样板</h2><button class="icon-button" data-close-dialog aria-label="关闭说明"><svg class="icon"><use href="assets/icons.svg#icon-close"></use></svg></button></div><p>体验日夜主题、侧栏、对话输入、加号菜单，以及记忆和设置抽屉。</p><p>回复与记忆均为预设示例。此页面不连接模型，不读取真实聊天、人格或数据库，不调用电脑工具。</p><p class="settings-note">Logo 使用已确定图形的描摹稿。小尺寸细节仍需在正式资产阶段校准。</p><button class="primary-button" data-close-dialog>开始体验</button></dialog>
+</body>
+</html>

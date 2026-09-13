@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="day" data-glass="liquid" data-reduced-motion="false">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; media-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>Athena · 随心桌面</title>
+  <link rel="icon" href="../companion-prototype/assets/athena-mark.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+</head>
+<body id="app">
+  <header class="app-header">
+    <div class="brand"><span class="brand-mark" role="img" aria-label="Athena 标志"></span><span class="wordmark">Athena</span></div>
+    <span class="place-label">随心桌面</span>
+    <div class="header-actions">
+      <button id="btn-search" class="text-button" aria-label="搜索想法与操作"><span data-icon="search"></span><span class="search-caption">搜索 <kbd>Ctrl K</kbd></span></button>
+      <button id="btn-theme" class="icon-button" aria-label="切换夜色" title="切换日光 / 夜色"><span data-icon="sun"></span></button>
+      <button id="btn-settings" class="icon-button" aria-label="外观与说明" title="外观与说明"><span data-icon="settings"></span></button>
+    </div>
+  </header>
+  <main>
+    <section class="desk-intro" aria-labelledby="welcome-title">
+      <div><h1 id="welcome-title">今天，<br>想从哪里开始？</h1><p>把念头放下来，再一起慢慢展开。</p></div>
+      <button id="btn-arrange" class="text-button"><span data-icon="sliders"></span>整理桌面</button>
+    </section>
+    <section id="desk" class="desk" aria-label="随心桌面">
+      <svg id="connections" class="connections" aria-hidden="true"></svg>
+      <div id="thoughts"></div>
+      <div id="desk-empty" class="empty-state" hidden><h2>桌面空了，思绪不必空着。</h2><p>写下一句还不完整的话，也可以从收纳里取回。</p><button id="btn-empty-new" class="primary-button">记下第一个念头</button></div>
+    </section>
+    <p class="desk-hint">拖动卡片上的移动柄摆放，也可以点击展开。</p>
+  </main>
+  <div id="connection-status" class="connection-status" role="status" hidden><span id="connection-instruction">选两个想法，把它们连起来。</span><button id="btn-cancel-connect" class="text-button">取消</button></div>
+  <nav class="tool-dock glass" aria-label="桌面工具">
+    <button id="btn-new" class="primary-tool"><span data-icon="plus"></span><span>记个念头</span></button>
+    <button id="btn-connect" aria-pressed="false"><span data-icon="pin"></span><span>连一连</span></button>
+    <button id="btn-chat"><span data-icon="chat"></span><span>一起聊</span></button>
+    <button id="btn-shelf"><span data-icon="folder"></span><span>收纳</span><span id="shelf-count" hidden>0</span></button>
+    <span class="dock-divider"></span>
+    <button id="btn-search-dock"><span data-icon="search"></span><span>找一找</span></button>
+  </nav>
+  <span class="prototype-note">交互探索 · 本页示例</span>
+  <div id="toast" class="toast" role="status" hidden></div>
+
+  <dialog id="new-dialog" aria-labelledby="new-title">
+    <form id="new-form">
+      <div class="dialog-head"><div><p class="dialog-kicker">不用先想完整</p><h2 id="new-title">放下一个念头</h2></div><button type="button" class="icon-button close-button" data-close aria-label="关闭"><span data-icon="close"></span></button></div>
+      <label class="field" for="new-name">一句话就好<input id="new-name" maxlength="80" required placeholder="比如，想给周末留一点空白" autocomplete="off"></label>
+      <label class="field" for="new-body">还想补充什么？<textarea id="new-body" maxlength="3000" rows="4" placeholder="暂时不知道也没关系。"></textarea></label>
+      <div class="dialog-actions"><button type="button" class="text-button" data-close>先不写了</button><button class="primary-button" type="submit">放到桌面<span data-icon="arrow"></span></button></div>
+    </form>
+  </dialog>
+
+  <dialog id="focus-dialog" class="focus-dialog" aria-labelledby="focus-label">
+    <div class="dialog-head"><div><p id="focus-kind" class="dialog-kicker">桌上的念头</p><h2 id="focus-label">展开这个想法</h2></div><button type="button" class="icon-button close-button" data-close aria-label="回到桌面"><span data-icon="close"></span></button></div>
+    <label class="field" for="focus-title">想法标题<input id="focus-title" maxlength="80" required></label>
+    <label class="field" for="focus-body">写下来，也可以慢慢改<textarea id="focus-body" rows="4" maxlength="3000"></textarea></label>
+    <div class="focus-actions">
+      <button id="btn-focus-chat" class="secondary-button"><span data-icon="chat"></span>先聊聊</button>
+      <button id="btn-expand" class="secondary-button"><span data-icon="sliders"></span>换个角度</button>
+      <button id="btn-plan" class="primary-button"><span data-icon="check"></span>留下一步</button>
+    </div>
+    <section id="expansion-area" class="expansion-area" hidden aria-label="展开建议"><p class="dialog-kicker">示例提问 · 不是模型输出</p><p id="expansion-copy"></p><button id="btn-keep-question" class="text-button">把这个问题放到桌面<span data-icon="plus"></span></button></section>
+    <section id="plan-area" class="plan-area" hidden aria-label="下一步草稿"><p class="dialog-kicker">下一步草稿 · 本页示例，不执行电脑操作</p><div id="plan-steps"></div><button id="btn-clear-plan" class="text-button">撤回这份草稿</button></section>
+    <section class="relations"><h3>和它有关</h3><div id="focus-links" class="relation-list"></div><button id="btn-focus-connect" class="text-button"><span data-icon="plus"></span>连接另一条想法</button></section>
+    <div class="dialog-actions"><button id="btn-archive" class="text-button"><span data-icon="folder"></span>先收起来</button><button class="primary-button" data-close>回到桌面</button></div>
+    <p class="settings-note">修改只保存在当前页面；刷新后恢复示例。</p>
+  </dialog>
+
+  <dialog id="chat-dialog" aria-labelledby="chat-title">
+    <div class="dialog-head"><div><p class="dialog-kicker">一起聊</p><h2 id="chat-title">先陪你待一会儿。</h2></div><button class="icon-button close-button" data-close aria-label="结束本次展开，回到桌面"><span data-icon="close"></span></button></div>
+    <p id="chat-context" class="settings-note">没有要完成的任务，也可以聊。</p>
+    <div id="chat-stream" class="chat-stream" role="log" aria-label="本页示例对话"></div>
+    <form id="chat-form" class="glass"><label class="sr-only" for="chat-input">想说的话</label><textarea id="chat-input" rows="2" maxlength="3000" placeholder="今天想说些什么？"></textarea><button id="btn-chat-send" class="primary-button" type="submit" disabled aria-label="发送示例消息"><span data-icon="send"></span></button></form>
+    <p class="settings-note">这里是预设示例回复，尚未连接模型。不记录或上传内容。</p>
+  </dialog>
+
+  <dialog id="shelf-dialog" aria-labelledby="shelf-title">
+    <div class="dialog-head"><div><p class="dialog-kicker">不必现在想完</p><h2 id="shelf-title">先收在这里</h2></div><button class="icon-button close-button" data-close aria-label="关闭收纳"><span data-icon="close"></span></button></div>
+    <p class="settings-note">收起的想法随时可以取回，关联也会保留。</p><div id="shelf-list" class="shelf-list"></div>
+  </dialog>
+
+  <dialog id="search-dialog" aria-labelledby="search-title">
+    <div class="dialog-head"><h2 id="search-title">找一个念头，也找一个开始</h2><button class="icon-button close-button" data-close aria-label="关闭搜索"><span data-icon="close"></span></button></div>
+    <label class="sr-only" for="search-input">搜索想法或操作</label><input id="search-input" type="search" placeholder="搜索标题、片段，或输入一个动作…" autocomplete="off"><div id="search-results" class="search-results"></div>
+  </dialog>
+
+  <dialog id="settings-dialog" aria-labelledby="settings-title">
+    <div class="dialog-head"><h2 id="settings-title">让桌面更舒服</h2><button class="icon-button close-button" data-close aria-label="关闭外观设置"><span data-icon="close"></span></button></div>
+    <label class="setting-row" for="setting-glass"><span>液态玻璃近似效果</span><input id="setting-glass" type="checkbox" checked></label>
+    <label class="setting-row" for="setting-motion"><span>减少动效</span><input id="setting-motion" type="checkbox"></label>
+    <p class="settings-note">系统要求减少动效或透明度时，同样优先遵循。玻璃只影响装饰，不扭曲文字。</p>
+    <p class="settings-note" id="scope-note">本页是全新交互探索，不是正式 Athena。内容、关联和计划都是本页示例；不会访问真实记忆、文件、模型或执行电脑操作。</p>
+    <a class="text-button" href="../theme-presets.html" target="_blank" rel="noopener">主题与布局：查看三套方案<span data-icon="arrow"></span></a>
+  </dialog>
+</body>
+</html>

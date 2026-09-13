@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Athena 界面视觉方案</title>
+<link rel="stylesheet" href="visual-tokens.css" />
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 52px 48px 76px;
+    color: var(--athena-text);
+    background: var(--athena-bg);
+    font-family: var(--athena-font-ui);
+    font-size: 14px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .sheet { max-width: 1420px; margin: 0 auto; }
+
+  header.masthead { display: flex; align-items: flex-end; justify-content: space-between; gap: 40px; padding-bottom: 22px; border-bottom: 1px solid var(--athena-line); }
+  .brandline { display: flex; align-items: center; gap: 18px; }
+  .brandline svg { width: 42px; height: 42px; color: var(--athena-accent); }
+  .brandline .bar { width: 1px; height: 40px; background: var(--athena-line); }
+  .brandline h1 { margin: 0; font-family: var(--athena-font-display); font-size: 27px; font-weight: 500; letter-spacing: .22em; text-indent: .22em; }
+  .brandline .sub { margin: 0; color: var(--athena-muted); font-size: 13px; letter-spacing: .02em; }
+  .stamp { flex: 0 0 auto; padding: 6px 12px; border: 1px solid var(--athena-line); border-radius: 999px; color: var(--athena-muted); font-size: 12px; }
+
+  .logic { display: flex; align-items: center; gap: 10px; margin: 26px 0 34px; padding: 16px 20px; border: 1px solid var(--athena-line); border-radius: 14px; background: var(--athena-surface); font-size: 13px; flex-wrap: wrap; }
+  .logic b { color: var(--athena-text); font-weight: 600; }
+  .pill { padding: 4px 13px; border-radius: 999px; background: var(--athena-surface-soft); color: var(--athena-muted); }
+  .pill.on { background: var(--athena-accent); color: #fff; }
+  .arrow { color: var(--athena-silver); }
+  .logic .tail { margin-left: auto; color: var(--athena-muted); }
+
+  .hero { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 28px; align-items: start; }
+  .frame { border-radius: 12px; overflow: hidden; background: var(--athena-surface); box-shadow: 0 22px 54px rgba(34,44,42,.13), 0 0 0 1px rgba(34,44,42,.07); }
+  .frame img { display: block; width: 100%; height: auto; }
+  .label { display: flex; align-items: baseline; gap: 9px; margin: 0 0 9px; font-size: 13px; font-weight: 600; }
+  .label span { color: var(--athena-muted); font-size: 12px; font-weight: 400; }
+
+  .sidenote h3 { margin: 0 0 8px; font-size: 15px; font-weight: 600; }
+  .sidenote p { margin: 0 0 16px; color: var(--athena-muted); font-size: 13px; }
+  .sidenote ul { margin: 0; padding-left: 17px; color: var(--athena-muted); font-size: 13px; }
+  .sidenote li { margin-bottom: 7px; }
+  .sidenote li b { color: var(--athena-text); font-weight: 600; }
+
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-top: 40px; }
+  .grid2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; margin-top: 24px; }
+
+  .swatches { display: flex; gap: 0; margin-top: 44px; border-radius: 12px; overflow: hidden; box-shadow: 0 0 0 1px rgba(34,44,42,.07); }
+  .sw { flex: 1; padding: 20px 16px 16px; font-size: 11px; }
+  .sw b { display: block; margin-bottom: 30px; font-size: 12px; font-weight: 600; }
+  .sw.a { background: #f2f1ec; color: #58645f; }
+  .sw.b { background: #fcfcf8; color: #58645f; }
+  .sw.c { background: #e6e9e2; color: #58645f; }
+  .sw.d { background: #3e6855; color: rgba(255,255,255,.72); }
+  .sw.d b { color: #fff; }
+  .sw.e { background: #222c2a; color: rgba(237,241,236,.6); }
+  .sw.e b { color: #edf1ec; }
+  .sw.f { background: #a6ada7; color: rgba(34,44,42,.66); }
+  .sw.f b { color: #222c2a; }
+
+  .note { margin-top: 30px; padding: 16px 18px; border-left: 2px solid var(--athena-accent); color: var(--athena-muted); font-size: 13px; background: color-mix(in srgb, var(--athena-surface-soft) 50%, transparent); }
+  .note b { color: var(--athena-text); }
+</style>
+</head>
+<body>
+<div class="sheet">
+
+  <header class="masthead">
+    <div class="brandline">
+      <svg viewBox="0 0 48 48"><path fill="currentColor" fill-rule="evenodd" d="M21.8 5h4.4L44 43H33.6l-2.7-6.8H17.1L14.4 43H4L21.8 5Zm2.2 12.6Q19.7 26.2 17.1 36.2h13.8Q28.3 26.2 24 17.6Z"/></svg>
+      <span class="bar"></span>
+      <div>
+        <h1>ATHENA</h1>
+        <p class="sub">界面视觉方案 · 按现在的操作逻辑</p>
+      </div>
+    </div>
+    <span class="stamp">实机渲染，非概念图 · 0.9.7-beta.1</span>
+  </header>
+
+  <div class="logic">
+    <b>操作逻辑</b>
+    <span class="pill on">陪伴</span>
+    <span class="pill">创作</span>
+    <span class="arrow">→ 创作之下</span>
+    <span class="pill on">创作</span>
+    <span class="pill">推理</span>
+    <span class="pill">执行</span>
+    <span class="tail">两个顶层空间，创作空间内三种方式；记忆与设置是抽屉，不占导航层级</span>
+  </div>
+
+  <div class="hero">
+    <div>
+      <p class="label">陪伴 · 日光 <span>顶层默认空间</span></p>
+      <div class="frame"><img src="ui-shots/companion-day.png" alt="陪伴空间日光模式" /></div>
+    </div>
+    <div class="sidenote">
+      <h3>这一版改了什么</h3>
+      <p>把背景从灰绿的照片材质换成象牙白实色，玻璃只留在标题栏、导航和输入框；正文区域一律安静。</p>
+      <ul>
+        <li><b>一个强调色</b>四种模式共用矿物绿，靠位置和选中面区分，不再是四套皮肤</li>
+        <li><b>界面不放角色</b>空状态是排版，不是形象；角色只留在品牌与宣传物料</li>
+        <li><b>折叠侧栏只留两件事</b>新对话和临时聊天，其余等展开；84px 下不再露出半截控件</li>
+        <li><b>标志是临时的</b>标题栏里那个 A 是占位，等主视觉定稿后替换</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="grid3">
+    <div>
+      <p class="label">创作 <span>目标导向的工作区</span></p>
+      <div class="frame"><img src="ui-shots/create-day.png" alt="创作空间" /></div>
+    </div>
+    <div>
+      <p class="label">推理 <span>核验假设与结论</span></p>
+      <div class="frame"><img src="ui-shots/reason-day.png" alt="推理模式" /></div>
+    </div>
+    <div>
+      <p class="label">执行 <span>授权范围内调用工具</span></p>
+      <div class="frame"><img src="ui-shots/execution-day.png" alt="执行工作区" /></div>
+    </div>
+  </div>
+
+  <div class="grid3">
+    <div>
+      <p class="label">陪伴 · 夜色 <span>同一套语义 token，不是简单反色</span></p>
+      <div class="frame"><img src="ui-shots/companion-night.png" alt="陪伴空间夜色模式" /></div>
+    </div>
+    <div>
+      <p class="label">设置抽屉 <span>与输入区共享背景与焦点样式</span></p>
+      <div class="frame"><img src="ui-shots/settings-day.png" alt="设置抽屉" /></div>
+    </div>
+    <div>
+      <p class="label">记忆抽屉 <span>可查看、可纠正、可删除</span></p>
+      <div class="frame"><img src="ui-shots/memory-day.png" alt="记忆抽屉" /></div>
+    </div>
+  </div>
+
+  <div class="swatches">
+    <div class="sw a"><b>#F2F1EC</b>背景</div>
+    <div class="sw b"><b>#FCFCF8</b>阅读面 / 浮层</div>
+    <div class="sw c"><b>#E6E9E2</b>选中底 / 用户消息</div>
+    <div class="sw d"><b>#3E6855</b>主按钮 / 选中 / 焦点</div>
+    <div class="sw e"><b>#222C2A</b>主要文字</div>
+    <div class="sw f"><b>#A6ADA7</b>装饰银，不用于小字</div>
+  </div>
+
+  <div class="note">
+    这些是桌面端实际跑出来的截图，不是概念稿——所以里面的字、控件和状态都是真的。<b>标志、应用图标、软件内图标仍在改</b>：截图里的 A 与图标是当前构建的样子，不代表定稿。夜色的强调色为 #B4CDBB，正文 #EDF1EC。
+  </div>
+
+</div>
+</body>
+</html>

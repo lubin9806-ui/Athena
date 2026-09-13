@@ -1,0 +1,53 @@
+/* Athena visual baseline proposal. Consumed by the review page, not yet by the desktop renderer. */
+:root {
+  /* Daylight ran three tiers within six percent of each other, which is the
+     flatness this system lists as its first UI problem. `sunken` is a fourth,
+     genuinely lower tier for the page behind content, so a reading surface has
+     something to sit above. Nothing existing moved: this is additive, and the
+     contrast results in visual-qa.json still hold because a darker ground only
+     helps dark text. */
+  --athena-sunken: #e7e4da;
+  --athena-bg: #f2f1ec;
+  --athena-surface: #fcfcf8;
+  --athena-surface-soft: #e6e9e2;
+  --athena-text: #222c2a;
+  --athena-muted: #58645f;
+  --athena-accent: #3e6855;
+  --athena-on-accent: #ffffff;
+  --athena-line: #c4ccc2;
+  --athena-silver: #a6ada7;
+  --athena-glass: rgba(252,252,248,.92);
+  --athena-shadow: 0 16px 40px rgba(34,44,42,.09);
+  --athena-danger: #9b403f;
+  --athena-success: #3e6855;
+  --athena-focus: #3e6855;
+  --athena-font-ui: 'Segoe UI Variable', 'Microsoft YaHei UI', system-ui, sans-serif;
+  --athena-font-display: 'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', Georgia, serif;
+  --athena-font-code: 'Cascadia Code', Consolas, monospace;
+  --athena-radius-control: 10px;
+  --athena-radius-panel: 18px;
+  --athena-radius-composer: 24px;
+  --athena-motion-fast: 120ms;
+  --athena-motion-normal: 220ms;
+  --athena-motion-panel: 360ms;
+  --athena-ease: cubic-bezier(.2,.75,.2,1);
+  color-scheme: light;
+}
+:root[data-theme='night'] {
+  --athena-sunken: #121815;
+  --athena-bg: #18201d;
+  --athena-surface: #222d27;
+  --athena-surface-soft: #2d3a32;
+  --athena-text: #edf1ec;
+  --athena-muted: #b4c0b7;
+  --athena-accent: #b4cdbb;
+  --athena-on-accent: #18201d;
+  --athena-line: #56665a;
+  --athena-silver: #a6ada7;
+  --athena-glass: rgba(34,45,39,.94);
+  --athena-shadow: 0 16px 40px rgba(0,0,0,.22);
+  --athena-danger: #f0aaa5;
+  --athena-success: #b4cdbb;
+  --athena-focus: #b4cdbb;
+  color-scheme: dark;
+}
