@@ -167,6 +167,13 @@ async function route(request, services, config) {
     const body = await readJson(request, config.maxBodyBytes); exactKeys(body, ['code']);
     services.auth.confirmMfa(context, body.code); return { body: { enabled: true } };
   }
+  if (method === 'POST' && path === '/v1/auth/mfa/disable') {
+    const body = await readJson(request, config.maxBodyBytes); exactKeys(body, ['code']);
+    services.auth.disableMfa(context, body.code); return { body: { enabled: false } };
+  }
+  // Who this session belongs to. Clients otherwise only learn it at login and
+  // cannot tell, after a restart, whether MFA is on or the device still exists.
+  if (method === 'GET' && path === '/v1/account') return { body: services.auth.account(context) };
   if (method === 'GET' && path === '/v1/devices') return { body: { devices: services.auth.listDevices(context) } };
   const deviceMatch = path.match(/^\/v1\/devices\/(dev_[a-f0-9]{32})$/);
   if (method === 'DELETE' && deviceMatch) {

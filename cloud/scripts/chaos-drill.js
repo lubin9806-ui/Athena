@@ -48,7 +48,10 @@ async function main() {
     try { app.services.rate.consume('drill', 1, 0); }
     catch (error) { results.rateLimit = error.code === 'rate-limit'; }
 
-    if (Object.values(results).some((value) => value !== true)) throw new Error(`Drill failure: ${JSON.stringify(results)}`);
+    // Named up front: a check whose catch never ran leaves no key behind, and
+    // judging only the keys present would pass it silently.
+    const expected = ['keyRotation', 'providerOutage', 'restore', 'corruptBackupRejected', 'regionFailover', 'totalRegionLoss', 'rateLimit'];
+    if (expected.some((key) => results[key] !== true)) throw new Error(`Drill failure: ${JSON.stringify(results)}`);
     process.stdout.write(`ATHENA_CLOUD_DRILL_OK ${Object.entries(results).map(([key]) => `${key}=pass`).join(' ')}\n`);
   } finally {
     await app.close();

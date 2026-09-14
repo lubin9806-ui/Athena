@@ -29,6 +29,15 @@ function fixture(overrides = {}, adapters = {}) {
   return { root, config, app, services: app.services, async close() { await app.close(); fs.rmSync(root, { recursive: true, force: true }); } };
 }
 
+/** The whole on-disk database, WAL included, after a checkpoint. */
+function databaseBytes(fx) {
+  fx.services.store.db.pragma('wal_checkpoint(TRUNCATE)');
+  return [fx.config.dbPath, `${fx.config.dbPath}-wal`]
+    .filter((file) => fs.existsSync(file))
+    .map((file) => fs.readFileSync(file).toString('latin1'))
+    .join('');
+}
+
 function register(services, suffix = 'a') {
   return services.auth.registerTenant({
     tenantName: `Tenant ${suffix}`,
@@ -149,7 +158,11 @@ test('authentication, MFA recovery, sessions and device revocation are enforced'
     fx.services.auth.revokeDevice(context, account.device.id);
     assert.throws(() => fx.services.auth.authenticate(account.accessToken), (error) => error.code === 'session-expired');
     assert.equal(fx.services.auth.authenticate(mfaLogin.accessToken).userId, account.userId);
-    const databaseText = fs.readFileSync(fx.config.dbPath).toString('utf8');
+    const databaseText = databaseBytes(fx);
+    // WAL mode keeps new rows in -wal until a checkpoint; this scan read only the
+    // main file, a 4 KB header, and could not have found anything. The tenant id
+    // is stored in the clear on purpose, so finding it proves the scan sees rows.
+    assert.equal(databaseText.includes(account.tenantId), true, 'the plaintext scan is not reading stored rows');
     assert.equal(databaseText.includes(account.accessToken), false);
     assert.equal(databaseText.includes('owner-auth@example.test'), false);
   } finally { await fx.close(); }

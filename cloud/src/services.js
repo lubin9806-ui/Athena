@@ -4,9 +4,12 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const {
-  randomId, sha256, hmacSha256, constantEqual, encryptBytes, decryptBytes, hashPassword, verifyPassword,
+  randomId, sha256, hmacSha256, constantEqual, encryptBytes, decryptBytes, hashPassword, verifyPassword, validatePassword,
   generateTotpSecret, verifyTotp, generateRecoveryCodes,
 } = require('./crypto');
+
+const MAX_FAILED_LOGINS = 5;
+const LOCK_MS = 15 * 60 * 1000;
 const { CloudError, assert } = require('./errors');
 
 class AuthService {
@@ -20,6 +23,9 @@ class AuthService {
   registerTenant({ tenantName, email, password, deviceName = 'Initial device', platform = 'unknown' }) {
     validateEmail(email);
     assert(typeof tenantName === 'string' && tenantName.trim().length >= 2 && tenantName.length <= 100, 400, 'invalid-tenant', 'Tenant name is invalid.');
+    // Checked before the tenant row exists. Left to hashPassword, a short
+    // password surfaced as a plain Error, which the HTTP layer reports as a 500.
+    assertPasswordPolicy(password);
     const tenantId = this.store.createTenant(tenantName.trim());
     const userId = randomId('usr');
     const key = this.store.getTenantKey(tenantId);
@@ -50,19 +56,20 @@ class AuthService {
       tenantId, this.emailHash(tenantId, normalizedEmail),
     );
     if (!user || user.status !== 'active') throw new CloudError(401, 'invalid-credentials', 'Credentials are invalid.');
-    if (user.locked_until && Date.parse(user.locked_until) > Date.now()) throw new CloudError(429, 'account-locked', 'Account is temporarily locked.');
+    this.assertNotLocked(user);
     if (!verifyPassword(password, user.password_hash)) {
-      const failures = user.failed_logins + 1;
-      const lockedUntil = failures >= 5 ? new Date(Date.now() + 15 * 60 * 1000).toISOString() : null;
-      this.db.prepare('UPDATE users SET failed_logins=?, locked_until=? WHERE tenant_id=? AND id=?').run(failures, lockedUntil, tenantId, user.id);
-      this.store.appendAudit(tenantId, user.id, 'auth.login', user.id, 'failure', { reason: 'invalid-credentials' });
+      this.recordFailedProof(user, 'auth.login', 'invalid-credentials');
       throw new CloudError(401, 'invalid-credentials', 'Credentials are invalid.');
     }
     if (user.mfa_enabled) {
       const mfaValid = mfaCode ? this.verifyUserTotp(user, mfaCode) : false;
-      const recoveryValid = recoveryCode ? this.consumeRecoveryCode(user, recoveryCode) : false;
+      const recoveryValid = !mfaValid && recoveryCode ? this.consumeRecoveryCode(user, recoveryCode) : false;
       if (!mfaValid && !recoveryValid) {
-        this.store.appendAudit(tenantId, user.id, 'auth.login', user.id, 'failure', { reason: 'mfa-required' });
+        // A request without any code is a client finding out that MFA is on and
+        // costs nothing. A wrong code is a guess: once the password is known the
+        // six digits are the only barrier left, so guesses share the lockout.
+        if (mfaCode || recoveryCode) this.recordFailedProof(user, 'auth.login', 'invalid-mfa');
+        else this.store.appendAudit(tenantId, user.id, 'auth.login', user.id, 'failure', { reason: 'mfa-required' });
         throw new CloudError(401, 'mfa-required', 'A valid MFA or recovery code is required.');
       }
     }
@@ -125,6 +132,7 @@ class AuthService {
   completeRecovery({ tenantId, token, newPassword }) {
     validateId(tenantId, 'ten');
     assert(typeof token === 'string' && token.length >= 32, 400, 'invalid-recovery', 'Recovery token is invalid.');
+    assertPasswordPolicy(newPassword);
     const row = this.db.prepare('SELECT * FROM recovery_requests WHERE tenant_id=? AND token_hash=?').get(tenantId, sha256(token));
     assert(row && !row.consumed_at && Date.parse(row.expires_at) > Date.now(), 400, 'invalid-recovery', 'Recovery token is invalid or expired.');
     const now = this.store.now();
@@ -138,12 +146,43 @@ class AuthService {
     return { complete: true, sessionsRevoked: true };
   }
 
+  /**
+   * Signing out ends the device as well as the session.
+   *
+   * Every login and every pairing claim creates its own device, so a device has
+   * exactly one session. Revoking only the session left the device counted as
+   * active, and after maxDevicesPerUser sign-ins the account could not sign in
+   * anywhere until another device removed the leftovers.
+   */
   logout(context) {
-    this.db.prepare('UPDATE sessions SET revoked_at=? WHERE tenant_id=? AND id=?').run(this.store.now(), context.tenantId, context.sessionId);
-    this.store.appendAudit(context.tenantId, context.userId, 'auth.logout', context.sessionId, 'success');
+    const now = this.store.now();
+    this.db.transaction(() => {
+      this.db.prepare('UPDATE sessions SET revoked_at=? WHERE tenant_id=? AND id=? AND revoked_at IS NULL').run(now, context.tenantId, context.sessionId);
+      this.db.prepare("UPDATE devices SET status='revoked',revoked_at=? WHERE tenant_id=? AND id=? AND status='active'").run(now, context.tenantId, context.deviceId);
+    })();
+    this.store.appendAudit(context.tenantId, context.userId, 'auth.logout', context.sessionId, 'success', { deviceId: context.deviceId });
+  }
+
+  account(context) {
+    const user = this.requireUser(context);
+    const key = this.store.getTenantKey(context.tenantId, user.email_key_version).key;
+    const device = this.db.prepare('SELECT id,name,platform FROM devices WHERE tenant_id=? AND id=?').get(context.tenantId, context.deviceId);
+    return {
+      tenantId: context.tenantId,
+      userId: context.userId,
+      email: decryptBytes(user.email_enc, key, `user-email:${context.tenantId}:${user.id}`).toString('utf8'),
+      role: user.role,
+      mfaEnabled: Boolean(user.mfa_enabled),
+      device: device ? { id: device.id, name: device.name, platform: device.platform } : null,
+    };
   }
 
   beginMfa(context) {
+    // Enrolling replaces the secret and clears mfa_enabled until confirmed.
+    // Allowed on an account that already has MFA, that let any bearer session
+    // switch MFA off by starting an enrolment it never finished.
+    const current = this.requireUser(context);
+    assert(!current.mfa_enabled, 409, 'mfa-already-enabled', 'MFA is already enabled. Disable it with a current code before enrolling again.');
     const secret = generateTotpSecret();
     const recoveryCodes = generateRecoveryCodes();
     const key = this.store.getTenantKey(context.tenantId);
@@ -161,6 +200,33 @@ class AuthService {
     assert(user.mfa_secret_enc && this.verifyUserTotp(user, code), 400, 'invalid-mfa', 'MFA code is invalid.');
     this.db.prepare('UPDATE users SET mfa_enabled=1 WHERE tenant_id=? AND id=?').run(context.tenantId, context.userId);
     this.store.appendAudit(context.tenantId, context.userId, 'auth.mfa.enable', context.userId, 'success');
+  }
+
+  /** Turning MFA off takes a current code or a recovery code, never just a session. */
+  disableMfa(context, code) {
+    const user = this.requireUser(context);
+    assert(user.mfa_enabled, 409, 'mfa-not-enabled', 'MFA is not enabled.');
+    this.assertNotLocked(user);
+    const supplied = typeof code === 'string' ? code.trim() : '';
+    const valid = supplied !== '' && (this.verifyUserTotp(user, supplied) || this.consumeRecoveryCode(user, supplied));
+    if (!valid) {
+      this.recordFailedProof(user, 'auth.mfa.disable', 'invalid-mfa');
+      throw new CloudError(400, 'invalid-mfa', 'MFA code is invalid.');
+    }
+    this.db.prepare(`UPDATE users SET mfa_enabled=0,mfa_secret_enc=NULL,mfa_key_version=NULL,recovery_hashes_json='[]',
+      failed_logins=0,locked_until=NULL WHERE tenant_id=? AND id=?`).run(context.tenantId, context.userId);
+    this.store.appendAudit(context.tenantId, context.userId, 'auth.mfa.disable', context.userId, 'success');
+  }
+
+  assertNotLocked(user) {
+    if (user.locked_until && Date.parse(user.locked_until) > Date.now()) throw new CloudError(429, 'account-locked', 'Account is temporarily locked.');
+  }
+
+  recordFailedProof(user, action, reason) {
+    const failures = user.failed_logins + 1;
+    const lockedUntil = failures >= MAX_FAILED_LOGINS ? new Date(Date.now() + LOCK_MS).toISOString() : null;
+    this.db.prepare('UPDATE users SET failed_logins=?, locked_until=? WHERE tenant_id=? AND id=?').run(failures, lockedUntil, user.tenant_id, user.id);
+    this.store.appendAudit(user.tenant_id, user.id, action, user.id, 'failure', { reason });
   }
 
   listDevices(context) {
@@ -595,6 +661,13 @@ function decodeCursor(value) {
   } catch { throw new CloudError(400, 'invalid-cursor', 'Sync cursor is invalid.'); }
 }
 function estimateTokens(text) { return Math.max(1, Math.ceil(Buffer.byteLength(text, 'utf8') / 4)); }
+function assertPasswordPolicy(password) {
+  try {
+    validatePassword(password);
+  } catch (error) {
+    throw new CloudError(400, 'invalid-password', error.message);
+  }
+}
 function validateEmail(value) { assert(typeof value === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) && value.length <= 254, 400, 'invalid-email', 'Email is invalid.'); }
 function validateId(value, prefix) { assert(typeof value === 'string' && new RegExp(`^${prefix}_[a-f0-9]{32}$`).test(value), 400, 'invalid-id', 'Identifier is invalid.'); }
 function validateResourceId(value) { assert(typeof value === 'string' && /^[a-z0-9][a-z0-9._:-]{0,127}$/i.test(value), 400, 'invalid-resource-id', 'Resource ID is invalid.'); }

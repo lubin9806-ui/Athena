@@ -36,6 +36,7 @@ The marker says the local engineering boundary passed. It does not override [CLO
 
 - Local state is written only under ignored `cloud/data`, `cloud/backups`, and `cloud/exports` paths.
 - PII, sync payloads, MFA seeds, appeals, exports, and backups are encrypted with AES-256-GCM. Access, refresh, recovery, and idempotency secrets are not stored in plaintext.
+- Idempotency replay entries hold the response a client was given (a decrypted record, a model answer), so they are sealed with the tenant key as well and expire after 24 hours. Entries written by earlier builds in plaintext are deleted at startup. The database runs with `secure_delete` so purged rows do not stay readable in free pages.
 - Model prompts and voice are not retained. Usage records contain token counts and outcome metadata only.
 - The default billing adapter cannot create a charge, invoice, tax event, or refund. The default model provider is a local fixture. No real cloud resource is created.
 - Account deletion purges known backup files and writes an authenticated deletion ledger so an older staged restore cannot resurrect a deleted tenant.

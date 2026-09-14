@@ -13,8 +13,10 @@ Production transport is HTTPS only. The local fixture permits HTTP only on loopb
 | `POST /v1/auth/refresh` | Refresh token | Rotate access and refresh tokens |
 | `POST /v1/auth/recovery/request` | Public, enumeration-safe | Create a 15-minute recovery token |
 | `POST /v1/auth/recovery/complete` | One-time token | Change password and revoke all sessions |
-| `POST /v1/auth/logout` | Bearer | Revoke current session |
-| `POST /v1/auth/mfa/setup` / `confirm` | Bearer | Enroll and prove TOTP; returns recovery codes once |
+| `POST /v1/auth/logout` | Bearer | Revoke the current session and the device it belongs to (each login or pairing claim creates its own device, so signing out frees the slot) |
+| `POST /v1/auth/mfa/setup` / `confirm` | Bearer | Enroll and prove TOTP; returns recovery codes once. `setup` returns 409 `mfa-already-enabled` while MFA is on |
+| `POST /v1/auth/mfa/disable` | Bearer + current TOTP or recovery code | Turn MFA off; wrong codes count toward the login lockout |
+| `GET /v1/account` | Bearer | Who this session is: tenant, user, email, role, `mfaEnabled`, current device |
 | `GET /v1/devices` | Bearer | List own devices |
 | `DELETE /v1/devices/{deviceId}` | Bearer | Revoke device and all its sessions |
 | `GET /v1/sync/records/{resourceId}` | Bearer | Read one tenant/user-scoped record |
@@ -54,7 +56,7 @@ Rules:
 - The client sends the exact vector it last observed. The server increments the authenticated device component.
 - A stale or divergent vector returns HTTP 409 with `outcome=conflict` and the current server record. The server never silently selects a winner.
 - Deletion is a tombstone (`deleted=true`, `payload=null`) so other devices can observe it.
-- `Idempotency-Key` is required for writes and model calls. Reusing a key with different input returns 409; identical replay returns the original result.
+- `Idempotency-Key` is required for writes and model calls. Reusing a key with different input returns 409; identical replay returns the original result. The stored result is sealed with the tenant key (it contains the record or model answer), re-sealed on key rotation, and removed after 24 hours.
 - Unsupported schema versions return a typed error and list supported versions. v2 must use an additive compatibility period or a new media/version path.
 
 This protocol contains no Desktop SQLite schema, SQL statements, filesystem paths, tool calls or Electron objects.

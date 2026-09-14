@@ -10,12 +10,12 @@ The baseline maps to [OWASP API Security Top 10 2023](https://owasp.org/API-Secu
 
 | Area | Cases | Current evidence |
 |---|---|---|
-| Authentication | Wrong password, temporary lock, MFA required/proved, recovery-code replay, enumeration-safe account recovery, token expiry/revocation | `cloud/test/cloud.test.js` |
+| Authentication | Wrong password, temporary lock, MFA required/proved, recovery-code replay, enumeration-safe account recovery, token expiry/revocation; password policy as 400; wrong MFA codes share the lockout; MFA cannot be re-enrolled or disabled without a current code; logout frees the device slot | `cloud/test/cloud.test.js`, `cloud/test/account-hardening.test.js` |
 | Authorization | Foreign tenant object, user-owned devices, owner/admin routes, tenant-scoped SQL | Tests plus `verify-cloud.js` source boundary scan |
 | Session | Opaque random access/refresh, hash-only persistence, refresh rotation, device and password-recovery revocation | Tests |
 | Input/API | JSON-only, unknown-property rejection, bounded body/record/list, ID/enum validation, RFC 9457 errors | HTTP integration test |
 | Sync | Idempotency replay/mismatch, stale vector conflict, encrypted payload, tombstone | Tests |
-| Crypto | Database plaintext probes, contextual AEAD, tenant key rotation, audit chain verification, corrupt backup rejection | Tests and drill |
+| Crypto | Database plaintext probes (checkpointed, WAL file included, with a positive control proving the scan reads rows; before 2026-09-14 the probe read only the 4 KB main file and could not fail), sealed idempotency replay entries, contextual AEAD, tenant key rotation, audit chain verification, corrupt backup rejection | Tests and drill |
 | Abuse/cost | IP/tenant rate, model token quota, no-charge adapter, content block and appeal | Tests |
 | Privacy | No prompt in audit/storage, encrypted export, account deletion, backup purge and signed restore denylist | Tests |
 | Boundary | No Electron/Desktop SQLite/computer tools/terminal/arbitrary URL routes or imports | `verify-cloud.js` |
