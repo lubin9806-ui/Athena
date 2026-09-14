@@ -2173,10 +2173,11 @@ function init(): void {
     const button = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('.presence-action') : null;
     const prompt = button?.dataset.prompt?.trim();
     if (!prompt) return;
-    inputBox.value = prompt;
-    resizeInputBox();
-    inputBox.focus({ preventScroll: true });
-    inputBox.setSelectionRange(prompt.length, prompt.length);
+    if (button?.dataset.action === 'continue-previous') {
+      void continuePreviousTopic(prompt);
+      return;
+    }
+    stagePresencePrompt(prompt);
   });
 
   document.querySelectorAll<HTMLButtonElement>('.mode-btn').forEach((button) => {
@@ -3888,6 +3889,38 @@ async function switchChatWindow(id: number): Promise<void> {
   await refreshChatWindows();
   await refreshWindowMemoryPanel();
   inputBar.focus();
+}
+
+/**
+ * The empty-state shortcut means "return to the conversation", not "ask a new
+ * isolated window to guess what another window contained". Reopening the most
+ * recent non-empty sibling preserves the chat-window isolation contract while
+ * putting that window's raw turns, summary and working state back on the active
+ * model path before the user sends the staged prompt.
+ */
+async function continuePreviousTopic(prompt: string): Promise<void> {
+  if (isChatRequestBusy()) return;
+  const previous = chatWindows.find(windowRecord => (
+    windowRecord.id !== currentChatWindowId
+    && windowRecord.is_temporary !== true
+    && (windowRecord.messageCount ?? 0) > 0
+  ));
+  if (!previous) {
+    toasts.show('还没有可继续的上次对话', 'neutral');
+    return;
+  }
+
+  await switchChatWindow(previous.id);
+  if (currentChatWindowId !== previous.id) return;
+  stagePresencePrompt(prompt);
+  toasts.show(`已恢复“${previous.title}”的上下文`, 'success');
+}
+
+function stagePresencePrompt(prompt: string): void {
+  inputBox.value = prompt;
+  resizeInputBox();
+  inputBox.focus({ preventScroll: true });
+  inputBox.setSelectionRange(prompt.length, prompt.length);
 }
 
 async function createNewChatWindow(): Promise<void> {

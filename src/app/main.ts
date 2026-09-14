@@ -410,6 +410,7 @@ function createWindow(): void {
              const micButton = document.getElementById('voice-stt-btn');
              const appShell = document.getElementById('app-shell');
              const chatContainer = document.getElementById('chat-container');
+             const chatWindowBar = document.getElementById('chat-window-bar');
              const stage = document.getElementById('stage');
              const titlebar = document.getElementById('titlebar');
              const lifeCore = document.getElementById('life-core');
@@ -460,6 +461,7 @@ function createWindow(): void {
               const uiReady = Boolean(
                appShell &&
                chatContainer &&
+               chatWindowBar &&
                inputForm &&
                stage &&
                titlebar &&
@@ -967,6 +969,20 @@ function createWindow(): void {
              const composerMetaRect = composerMeta?.getBoundingClientRect();
              const composerMetaStyle = composerMeta ? window.getComputedStyle(composerMeta) : null;
              const inputFormRect = inputForm?.getBoundingClientRect();
+             const chatWindowBarRect = chatWindowBar?.getBoundingClientRect();
+             const spaceNavigationRect = spaceNavigation?.getBoundingClientRect();
+             const presenceTitleRect = document.querySelector('.presence-title')?.getBoundingClientRect();
+             const presenceActionsRect = document.getElementById('presence-actions')?.getBoundingClientRect();
+             const mainContentLeft = appShell.dataset.sidebar === 'open' && chatWindowBarRect
+               ? chatWindowBarRect.right
+               : 0;
+             const mainContentCenter = (mainContentLeft + window.innerWidth) / 2;
+             const layoutAligned = Boolean(inputFormRect && spaceNavigationRect)
+               && Math.abs((inputFormRect.left + inputFormRect.width / 2) - mainContentCenter) <= 2
+               && Math.abs((spaceNavigationRect.left + spaceNavigationRect.width / 2) - mainContentCenter) <= 2;
+             const presenceLayoutReadable = Boolean(presenceTitleRect && presenceActionsRect)
+               && presenceTitleRect.width >= 280
+               && presenceActionsRect.width >= 240;
              const composerInViewport = Boolean(inputFormRect
                && inputFormRect.top >= 0
                && inputFormRect.bottom <= window.innerHeight);
@@ -1027,10 +1043,13 @@ function createWindow(): void {
                } : null,
                metaVisible: composerMetaVisible,
                composerInViewport,
+               layoutAligned,
+               presenceLayoutReadable,
+               mainContentCenter,
                windowHeight: window.innerHeight,
                windowWidth: window.innerWidth,
              }));
-             if (!composerToolsVisible || !composerMetaVisible || !composerInViewport) return false;
+             if (!composerToolsVisible || !composerMetaVisible || !composerInViewport || !layoutAligned || !presenceLayoutReadable) return false;
              availableToolsButton.click();
              let toolCatalogReactive = false;
              for (let attempt = 0; attempt < 20; attempt += 1) {
@@ -1120,6 +1139,8 @@ function createWindow(): void {
                 toolCatalogReactive,
                 composerToolsVisible,
                 composerMetaVisible,
+                layoutAligned,
+                presenceLayoutReadable,
                 streamingScrollPolicyReady,
                 historyMotionSuppressed,
                 webSearchForceReactive,
@@ -1644,14 +1665,38 @@ function createWindow(): void {
         const layoutState = await mainWindow.webContents.executeJavaScript(`
           (() => {
             const shell = document.getElementById('app-shell');
-            const ids = ['titlebar', 'chat-window-bar', 'mode-switch', 'stage', 'input-form', 'memory-panel', 'settings-panel', 'tools-panel'];
+            const ids = ['titlebar', 'chat-window-bar', 'mode-switch', 'stage', 'presence-panel', 'presence-actions', 'input-form', 'memory-panel', 'settings-panel', 'tools-panel'];
             const rects = Object.fromEntries(ids.map(id => {
               const element = document.getElementById(id);
               if (!element) return [id, null];
               const rect = element.getBoundingClientRect();
               return [id, { x: Math.round(rect.x), y: Math.round(rect.y), width: Math.round(rect.width), height: Math.round(rect.height), display: getComputedStyle(element).display }];
             }));
-            return { sidebar: shell?.dataset.sidebar, mode: shell?.dataset.mode, rects };
+            const presencePanel = document.getElementById('presence-panel');
+            const presenceTitle = document.querySelector('.presence-title');
+            const presenceCopy = document.querySelector('.presence-copy');
+            const describe = element => {
+              if (!element) return null;
+              const rect = element.getBoundingClientRect();
+              const style = getComputedStyle(element);
+              return {
+                x: Math.round(rect.x), width: Math.round(rect.width), height: Math.round(rect.height),
+                cssWidth: style.width, minWidth: style.minWidth, maxWidth: style.maxWidth,
+                paddingInline: [style.paddingLeft, style.paddingRight],
+                gridTemplateColumns: style.gridTemplateColumns,
+                justifyItems: style.justifyItems,
+              };
+            };
+            return {
+              sidebar: shell?.dataset.sidebar,
+              mode: shell?.dataset.mode,
+              rects,
+              presence: {
+                panel: describe(presencePanel),
+                title: describe(presenceTitle),
+                copy: describe(presenceCopy),
+              },
+            };
           })()
         `);
         console.log('ATHENA_SMOKE_LAYOUT_STATE', JSON.stringify(layoutState));

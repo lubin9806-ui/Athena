@@ -10,6 +10,8 @@ process.env.ATHENA_CONFIG_DIR = path.join(tempDir, 'config');
 
 const root = path.resolve(__dirname, '..');
 const rendererSource = fs.readFileSync(path.join(root, 'src', 'renderer', 'app.ts'), 'utf8');
+const rendererHtml = fs.readFileSync(path.join(root, 'src', 'renderer', 'index.html'), 'utf8');
+const daylightCss = fs.readFileSync(path.join(root, 'src', 'renderer', 'themes', 'daylight.css'), 'utf8');
 const memory = require(path.join(root, 'dist/memory/index.js'));
 const { buildChatPrompt, buildChatPromptWithSnapshot } = require(path.join(root, 'dist/core/ai/PromptBuilder.js'));
 
@@ -22,6 +24,13 @@ try {
   assert.doesNotMatch(createNewChatSource, /window\.prompt/, 'new chat must not interrupt creation with a naming prompt');
   assert.match(createNewChatSource, /createChatWindow\(NEW_CHAT_TITLE/, 'new chat must immediately create a persistent sibling window');
   assert.match(rendererSource, /autoTitleCurrentChatWindow\(effectiveText\)/, 'the first message should title a newly created chat');
+  assert.match(rendererHtml, /data-action="continue-previous"/, 'the continue shortcut must use the context-restoring action');
+  assert.match(rendererSource, /async function continuePreviousTopic\(prompt: string\)/, 'renderer must implement the previous-topic restoration flow');
+  assert.match(rendererSource, /windowRecord\.id !== currentChatWindowId[\s\S]*windowRecord\.is_temporary !== true[\s\S]*windowRecord\.messageCount \?\? 0\) > 0/, 'previous-topic restoration must select a non-empty persistent sibling window');
+  assert.match(rendererSource, /await switchChatWindow\(previous\.id\)[\s\S]*stagePresencePrompt\(prompt\)/, 'the previous window must be active before its continuation prompt is staged');
+  assert.match(daylightCss, /\[data-space="companion"\]\[data-sidebar="open"\]\s*\{\s*grid-template-columns:\s*84px/, 'daylight companion content must align to the visible 84px rail');
+  assert.match(daylightCss, /\[data-space="work"\]\[data-sidebar="open"\]\s*\{\s*grid-template-columns:\s*272px/, 'daylight work content must align to the expanded work sidebar');
+  assert.match(daylightCss, /#app-shell\[data-interface-preset="daylight"\] #presence-panel\s*\{\s*text-align:\s*left;\s*align-items:\s*flex-start;\s*\}/, 'daylight base presence panel must remain full-width so its viewport-relative padding cannot collapse the content track');
 
   const first = memory.ensureDefaultChatWindow();
   assert.ok(first.id > 0, 'default chat window should be created');
