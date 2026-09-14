@@ -143,10 +143,17 @@ async function main() {
   const service = fs.readFileSync(path.join(root, 'src', 'core', 'cloud', 'CloudAccountService.ts'), 'utf8');
   const pushBody = service.slice(service.indexOf('async function pushLocalState'), service.indexOf('function ownsResource'));
   assert.match(pushBody, /conflicted\.push\(/, 'a conflicting conversation must be reported');
-  assert.match(pushBody, /conversation-conflict/, 'a sync that left a conflict must not report success');
+  assert.match(pushBody, /sync-conflict/, 'a sync that left a conflict must not report success');
+  assert.match(pushBody, /baseVector: vectors\[resourceId\] \|\| \{\}/, 'a repeated write must use the last server vector');
+  assert.match(pushBody, /rememberAcceptedVector\(vectors, resourceId/, 'accepted writes must advance the stored vector');
+  assert.match(pushBody, /resourceId\.startsWith\('conversation\.'\)/, 'memory ids must not be mistaken for adopted conversations');
+  const conversationConflictBody = pushBody.slice(
+    pushBody.indexOf("if (first.outcome === 'conflict')"),
+    pushBody.indexOf('// Reminders finished here'),
+  );
   assert.doesNotMatch(
-    pushBody,
-    /outcome === 'conflict'[\s\S]{0,400}?await client\.putRecord/,
+    conversationConflictBody,
+    /await client\.putRecord/,
     'the desktop is writing again after a conflict, which discards the other client turns',
   );
 
@@ -158,6 +165,11 @@ async function main() {
   const applyBody = service.slice(service.indexOf('const changes = await client.listChanges'), service.indexOf('writeSession({'));
   assert.match(applyBody, /adoptSyncedReminder\(/, 'a reminder written on another device must be applied here');
   assert.match(applyBody, /ownsReminderResource\(/, 'the desktop must not adopt back the reminders it wrote itself');
+  assert.match(applyBody, /desktopWindowIdFromResourceId\(resourceId\)/, 'phone turns added to a desktop conversation must return to that window');
+  assert.ok(
+    service.indexOf('const changes = await client.listChanges') < service.indexOf('await pushLocalState(client, imported, vectors)'),
+    'the desktop must pull current vectors and remote turns before it writes',
+  );
 
   assert.throws(() => CloudProtocol.assertBaseUrl(''), /基址为空/);
   assert.throws(() => CloudProtocol.assertBaseUrl('http://example.test', true), /HTTPS/);
