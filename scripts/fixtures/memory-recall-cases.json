@@ -1,0 +1,82 @@
+{
+  "schemaVersion": 1,
+  "thresholds": {
+    "minimumCases": 12,
+    "keywordAccuracy": 1,
+    "fallbackAccuracy": 1,
+    "maximumFalsePositiveTriggers": 0,
+    "semanticUpgradeTarget": 0.75
+  },
+  "topics": [
+    {
+      "id": "memory",
+      "title": "Long-term memory",
+      "messages": [
+        "长期记忆召回要保留用户偏好和已确认决定。",
+        "下一步为跨聊天摘要建立可解释的来源证据。"
+      ]
+    },
+    {
+      "id": "live2d",
+      "title": "Character animation",
+      "messages": [
+        "Live2D 口型同步需要音素时间轴和元音口型。",
+        "还要验证眨眼动作是否与嘴部参数冲突。"
+      ]
+    },
+    {
+      "id": "voice",
+      "title": "Offline transcription",
+      "messages": [
+        "Whisper 语音转文字应保持离线语音输入能力。",
+        "需要分别验证中文识别率和端到端延迟。"
+      ]
+    },
+    {
+      "id": "privacy",
+      "title": "Ephemeral session",
+      "messages": [
+        "Temporary Chat 的内容不写入长期存储。",
+        "关闭窗口时还要清理附件和上下文快照。"
+      ]
+    },
+    {
+      "id": "release",
+      "title": "Windows release",
+      "messages": [
+        "Windows 安装包需要 Authenticode 代码签名。",
+        "工程验证包与正式签名候选必须分开描述。"
+      ]
+    },
+    {
+      "id": "daylight",
+      "title": "Athenian Daylight",
+      "messages": [
+        "Athenian Daylight 侧边栏布局使用独立 rail。",
+        "陪伴空间和工作空间采用不同内容宽度。"
+      ]
+    }
+  ],
+  "cases": [
+    { "id": "keyword-memory", "category": "keyword", "query": "继续上次关于长期记忆召回的话题", "expectedTopic": "memory" },
+    { "id": "keyword-live2d", "category": "keyword", "query": "继续上次 Live2D 口型同步的话题", "expectedTopic": "live2d" },
+    { "id": "keyword-voice", "category": "keyword", "query": "接着上次 Whisper 语音转文字的讨论", "expectedTopic": "voice" },
+    { "id": "keyword-privacy", "category": "keyword", "query": "回到之前聊过的 Temporary Chat 长期存储", "expectedTopic": "privacy" },
+    { "id": "keyword-release", "category": "keyword", "query": "继续上次 Authenticode 代码签名方案", "expectedTopic": "release" },
+    { "id": "keyword-daylight", "category": "keyword", "query": "继续之前讨论的 Athenian Daylight 侧边栏布局", "expectedTopic": "daylight" },
+    { "id": "paraphrase-memory", "category": "paraphrase", "query": "接着以前讨论过的跨会话偏好记忆", "expectedTopic": "memory" },
+    { "id": "paraphrase-live2d", "category": "paraphrase", "query": "恢复上次音素驱动嘴部动作那部分", "expectedTopic": "live2d" },
+    { "id": "paraphrase-voice", "category": "paraphrase", "query": "继续上次的麦克风听写识别方案", "expectedTopic": "voice" },
+    { "id": "paraphrase-privacy", "category": "paraphrase", "query": "回到以前说过的无痕会话数据不落盘话题", "expectedTopic": "privacy" },
+    { "id": "fallback-continue", "category": "fallback", "query": "继续", "expectedTopic": "daylight" },
+    { "id": "fallback-unfinished", "category": "fallback", "query": "我们继续上次没有说完的话题", "expectedTopic": "daylight" }
+  ],
+  "negativeTriggers": [
+    "继续生成图片",
+    "执行之前先检查文件",
+    "继续运行测试",
+    "在发布之前检查签名",
+    "回到首页",
+    "接着电源"
+  ]
+}

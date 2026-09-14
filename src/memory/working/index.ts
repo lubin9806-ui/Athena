@@ -116,6 +116,31 @@ export function getChatWindow(id: number): ChatWindow | null {
   return row ? rowToChatWindow(row) : null;
 }
 
+export function getPreviousPersistentChatWindow(currentWindowId: number): ChatWindow | null {
+  return listPreviousPersistentChatWindows(currentWindowId, 1)[0] || null;
+}
+
+export function listPreviousPersistentChatWindows(currentWindowId: number, limit = 24): ChatWindow[] {
+  const current = getChatWindow(currentWindowId);
+  if (!current?.project_id || current.is_temporary) return [];
+  const safeLimit = Math.max(1, Math.min(100, Math.round(limit)));
+
+  const rows = getDatabase().prepare(`
+    SELECT ${chatWindowSelectFields()}
+    ${chatWindowSelectFrom()}
+    WHERE cw.id <> ?
+      AND cw.project_id = ?
+      AND cw.deleted_at IS NULL
+      AND cw.archived_at IS NULL
+      AND cw.is_temporary = 0
+    GROUP BY cw.id
+    HAVING SUM(CASE WHEN cm.ephemeral = 0 THEN 1 ELSE 0 END) > 0
+    ORDER BY cw.last_active_at DESC, cw.updated_at DESC, cw.id DESC
+    LIMIT ?
+  `).all(currentWindowId, current.project_id, safeLimit) as any[];
+  return rows.map(rowToChatWindow);
+}
+
 export function listChatWindows(includeArchived = false, includeTemporary = false, projectId?: number): ChatWindow[] {
   const db = getDatabase();
   const archivedClause = includeArchived ? '' : 'AND archived_at IS NULL';
@@ -156,6 +181,7 @@ export function renameChatWindow(id: number, title: string): ChatWindow | null {
     SET title = ?, updated_at = datetime('now', 'localtime')
     WHERE id = ? AND deleted_at IS NULL
   `).run(cleaned, id);
+  refreshChatWindowMemoryIndex(id);
   return getChatWindow(id);
 }
 
@@ -167,6 +193,7 @@ export function archiveChatWindow(id: number, archived = true): ChatWindow | nul
         updated_at = datetime('now', 'localtime')
     WHERE id = ? AND deleted_at IS NULL
   `).run(id);
+  refreshChatWindowMemoryIndex(id);
   return getChatWindow(id);
 }
 
@@ -178,6 +205,7 @@ export function deleteChatWindow(id: number): boolean {
       db.prepare('DELETE FROM context_snapshots WHERE window_id = ?').run(id);
       return db.prepare('DELETE FROM chat_windows WHERE id = ? AND is_temporary = 1').run(id);
     })();
+    deleteMemoryIndex('chat_windows', id);
     return result.changes > 0;
   }
   const result = db.prepare(`
@@ -186,6 +214,7 @@ export function deleteChatWindow(id: number): boolean {
         updated_at = datetime('now', 'localtime')
     WHERE id = ? AND deleted_at IS NULL
   `).run(id);
+  if (result.changes > 0) deleteMemoryIndex('chat_windows', id);
   return result.changes > 0;
 }
 
@@ -233,6 +262,7 @@ export function purgeEphemeralChatMessages(): number {
       state.messageCount = remaining;
       db.prepare('UPDATE chat_windows SET working_state = ? WHERE id = ?')
         .run(JSON.stringify(state), windowId);
+      refreshChatWindowMemoryIndex(windowId);
     }
     return deleted;
   })();
@@ -270,6 +300,7 @@ export function pruneChatMessagesBefore(cutoffIso: string): { deleted: number; w
       state.messageCount = remaining;
       db.prepare('UPDATE chat_windows SET summary = ?, working_state = ? WHERE id = ?')
         .run(dropSummaryLines(window.summary, removedIds), JSON.stringify(state), windowId);
+      refreshChatWindowMemoryIndex(windowId);
     }
     return { deleted, windowsTouched: windowIds.length };
   })();
@@ -383,6 +414,7 @@ export function saveChatMessage(
         updated_at = datetime('now', 'localtime')
     WHERE id = ? AND deleted_at IS NULL
   `).run(effectiveMode, summary, workingState, windowId);
+  if (!ephemeral) refreshChatWindowMemoryIndex(windowId);
   return {
     id,
     window_id: windowId,
@@ -876,6 +908,25 @@ function updateChatWindowWorkingState(windowId: number, state: Record<string, un
         updated_at = datetime('now', 'localtime')
     WHERE id = ? AND deleted_at IS NULL
   `).run(JSON.stringify(state), windowId);
+  refreshChatWindowMemoryIndex(windowId);
+}
+
+function refreshChatWindowMemoryIndex(windowId: number): void {
+  const window = getChatWindow(windowId);
+  const persistentMessageCount = window
+    ? (getDatabase().prepare('SELECT COUNT(*) AS c FROM chat_messages WHERE window_id = ? AND ephemeral = 0')
+      .get(windowId) as { c: number }).c
+    : 0;
+  if (!window || window.deleted_at || window.archived_at || window.is_temporary || persistentMessageCount === 0) {
+    deleteMemoryIndex('chat_windows', windowId);
+    return;
+  }
+  upsertMemoryIndex(
+    'chat_windows',
+    window.id,
+    `${window.title} ${window.summary || ''} ${window.working_state_json || window.working_state || ''}`,
+    window.project_id,
+  );
 }
 
 function createPinnedFactId(): string {

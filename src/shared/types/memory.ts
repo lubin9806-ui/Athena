@@ -100,7 +100,7 @@ export interface ProjectNote {
 export interface MemoryRetrievalEvidence {
   memoryTable: string;
   memoryId: number;
-  memoryKind: 'profile' | 'procedure' | 'fact' | 'event' | 'daily' | 'project' | 'message' | 'document';
+  memoryKind: 'profile' | 'procedure' | 'fact' | 'event' | 'daily' | 'project' | 'message' | 'window' | 'document';
   projectId?: number;
   sourceTable: string;
   sourceId?: number;
@@ -156,6 +156,20 @@ export interface ChatWindowContext {
   projectInstructionsSnapshot?: string;
 }
 
+export interface ChatWindowHandoffContext extends ChatWindowContext {
+  matchStrategy: 'topic' | 'semantic' | 'recent';
+  matchScore: number;
+  matchedTerms: string[];
+}
+
+export interface MemoryEmbeddingStatus {
+  enabled: boolean;
+  state: 'disabled' | 'ready' | 'ollama-unavailable' | 'model-missing' | 'blocked-endpoint' | 'error';
+  model: string;
+  endpoint: string;
+  message: string;
+}
+
 export interface RetrievedContext {
   profileFacts: ProfileEntry[];
   proceduralMemories: ProceduralMemory[];
@@ -166,6 +180,7 @@ export interface RetrievedContext {
   documentChunks: ProjectDocumentChunk[];
   recentMessages: Message[];
   chatWindow?: ChatWindowContext;
+  previousChatWindow?: ChatWindowHandoffContext;
   evidence: MemoryRetrievalEvidence[];
   relevanceScore: number;
 }

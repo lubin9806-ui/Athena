@@ -143,6 +143,7 @@ contextBridge.exposeInMainWorld('athenaAPI', {
   deleteMemory: (kind: string, id: number) => ipcRenderer.invoke('memory:delete', kind, id),
   updateMemory: (kind: string, id: number, patch: any) => ipcRenderer.invoke('memory:update', kind, id, patch),
   debugMemory: (query: string) => ipcRenderer.invoke('memory:debug', query),
+  getMemoryEmbeddingStatus: (value?: { enabled?: boolean; model?: string }) => ipcRenderer.invoke('memory:embeddingStatus', value),
   listMemoryReviewQueue: (status?: string, limit?: number) => ipcRenderer.invoke('memoryReview:list', status, limit),
   approveMemoryReview: (id: number) => ipcRenderer.invoke('memoryReview:approve', id),
   approveMemoryReviews: (ids: number[]) => ipcRenderer.invoke('memoryReview:approveMany', ids),

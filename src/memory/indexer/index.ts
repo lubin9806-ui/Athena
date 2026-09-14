@@ -1,6 +1,6 @@
 import { getDatabase } from '../database';
 
-export type IndexedMemoryTable = 'messages' | 'profile' | 'events' | 'daily_memory_summaries' | 'procedural_memories' | 'memory_facts' | 'project_notes' | 'project_document_chunks';
+export type IndexedMemoryTable = 'messages' | 'chat_windows' | 'profile' | 'events' | 'daily_memory_summaries' | 'procedural_memories' | 'memory_facts' | 'project_notes' | 'project_document_chunks';
 export type MemorySearchTerms = string | string[];
 
 export interface MemoryIndexScope {
@@ -10,6 +10,7 @@ export interface MemoryIndexScope {
 
 export interface MemoryIndexStats {
   messages: number;
+  chat_windows: number;
   profile: number;
   events: number;
   daily_memory_summaries: number;
@@ -137,6 +138,7 @@ export function rebuildMemoryIndex(): MemoryIndexStats {
 
     const stats: MemoryIndexStats = {
       messages: 0,
+      chat_windows: 0,
       profile: 0,
       events: 0,
       daily_memory_summaries: 0,
@@ -150,6 +152,22 @@ export function rebuildMemoryIndex(): MemoryIndexStats {
     for (const row of messages) {
       upsertMemoryIndex('messages', row.id, `${row.role} ${row.content} ${row.emotion || ''}`);
       stats.messages += 1;
+    }
+
+    const chatWindows = db.prepare(`
+      SELECT cw.id, cw.project_id, cw.title, cw.summary, cw.working_state
+      FROM chat_windows cw
+      WHERE cw.deleted_at IS NULL
+        AND cw.archived_at IS NULL
+        AND cw.is_temporary = 0
+        AND EXISTS (
+          SELECT 1 FROM chat_messages cm
+          WHERE cm.window_id = cw.id AND cm.ephemeral = 0
+        )
+    `).all() as any[];
+    for (const row of chatWindows) {
+      upsertMemoryIndex('chat_windows', row.id, `${row.title} ${row.summary || ''} ${row.working_state || ''}`, row.project_id);
+      stats.chat_windows += 1;
     }
 
     const profile = db.prepare('SELECT id, category, fact, source FROM profile').all() as any[];

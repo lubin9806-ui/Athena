@@ -39,7 +39,8 @@ import {
 import { Conversation } from '../ai/Conversation';
 import { EmotionEngine } from '../ai/Emotion';
 import { buildChatPrompt } from '../ai/PromptBuilder';
-import { getAppSettings, resolveToolSettingsForMode, shouldSaveHistory } from '../config/SettingsStore';
+import { getAppSettings, getModelSettings, resolveToolSettingsForMode, shouldSaveHistory } from '../config/SettingsStore';
+import { OllamaMemoryEmbeddingProvider } from '../ai/OllamaMemoryEmbeddingProvider';
 import { WebSearchService } from '../web/WebSearchService';
 import { WebResearchAgent } from '../web/WebResearchAgent';
 import { SearchApiClient } from '../web/SearchApiClient';
@@ -109,6 +110,7 @@ import {
   queueExtractedMemory,
   rebuildMemoryIndex,
   retrieveContext,
+  retrieveContextWithSemanticHandoff,
   saveChatMessage,
   saveMessage,
 } from '../../memory';
@@ -581,7 +583,7 @@ export class AthenaController {
       }
     }
 
-    const retrieved = buildRetrievedContext(
+    const retrieved = await buildRetrievedContext(
       userMessage,
       settings.memory,
       effectiveSaveHistory,
@@ -986,7 +988,7 @@ export class AthenaController {
     // A draft left by the old flow would otherwise sit in the window forever.
     if (staleDraft) this.agentStore.transitionTask(staleDraft.id, 'cancelled', staleDraft.revision);
     const task = this.startExecutionTask(projectId, chatWindow.id, goal);
-    const retrievedForExecution = buildRetrievedContext(
+    const retrievedForExecution = await buildRetrievedContext(
       task.spec.goal,
       settings.memory,
       settings.conversation.saveHistory,
@@ -1724,7 +1726,7 @@ export class AthenaController {
         logger.info(`Memory retention applied: daily_summaries=${memoryRetention.dailySummariesGenerated}, llm_refined=${memoryRetention.llmRefinedSummaries ?? 0}, raw_events_pruned=${memoryRetention.rawEventsPruned}`);
       }
       const indexStats = rebuildMemoryIndex();
-      logger.info(`Memory index ready: messages=${indexStats.messages}, profile=${indexStats.profile}, events=${indexStats.events}, daily_memory_summaries=${indexStats.daily_memory_summaries}, procedural_memories=${indexStats.procedural_memories}, memory_facts=${indexStats.memory_facts}, project_notes=${indexStats.project_notes}, project_document_chunks=${indexStats.project_document_chunks}`);
+      logger.info(`Memory index ready: messages=${indexStats.messages}, chat_windows=${indexStats.chat_windows}, profile=${indexStats.profile}, events=${indexStats.events}, daily_memory_summaries=${indexStats.daily_memory_summaries}, procedural_memories=${indexStats.procedural_memories}, memory_facts=${indexStats.memory_facts}, project_notes=${indexStats.project_notes}, project_document_chunks=${indexStats.project_document_chunks}`);
     } catch (error) {
       logger.warn(`Startup maintenance failed: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
@@ -1749,7 +1751,7 @@ export class AthenaController {
       const staleAttachmentsDeleted = this.attachments.cleanupStalePending();
       if (staleAttachmentsDeleted > 0) logger.info(`Scheduled attachment cleanup removed ${staleAttachmentsDeleted} stale pending files.`);
       const indexStats = rebuildMemoryIndex();
-      logger.info(`Scheduled memory index refreshed: messages=${indexStats.messages}, profile=${indexStats.profile}, events=${indexStats.events}, daily_memory_summaries=${indexStats.daily_memory_summaries}, procedural_memories=${indexStats.procedural_memories}, memory_facts=${indexStats.memory_facts}, project_notes=${indexStats.project_notes}`);
+      logger.info(`Scheduled memory index refreshed: messages=${indexStats.messages}, chat_windows=${indexStats.chat_windows}, profile=${indexStats.profile}, events=${indexStats.events}, daily_memory_summaries=${indexStats.daily_memory_summaries}, procedural_memories=${indexStats.procedural_memories}, memory_facts=${indexStats.memory_facts}, project_notes=${indexStats.project_notes}`);
     } catch (error) {
       logger.warn(`Scheduled memory maintenance failed: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
@@ -2041,7 +2043,7 @@ async function withOptionalTimeout<T>(promise: Promise<T>, timeoutMs: number | u
   ]);
 }
 
-function buildRetrievedContext(
+async function buildRetrievedContext(
   query: string,
   settings: MemorySettings,
   saveHistory: boolean,
@@ -2049,7 +2051,7 @@ function buildRetrievedContext(
   chatWindowId?: number,
   excludeChatMessageId?: number,
   temporaryChat = false,
-): RetrievedContext {
+): Promise<RetrievedContext> {
   const depth = settings.retrievalDepth;
   const recentMessageCount = Math.max(10, Math.min(20, depth > 0 ? depth * 2 : 10));
   if (!settings.enabled || temporaryChat) {
@@ -2058,7 +2060,7 @@ function buildRetrievedContext(
 
   let context: RetrievedContext;
   try {
-    context = retrieveContext({
+    const retrieveOptions = {
       query,
       maxProfileFacts: settings.retrieveProfile ? depth * 2 : 0,
       maxProceduralMemories: settings.retrieveProfile ? Math.max(4, Math.ceil(depth / 2)) : 0,
@@ -2070,7 +2072,16 @@ function buildRetrievedContext(
       recentMessageCount: chatWindowId ? recentMessageCount + 1 : (saveHistory ? recentMessageCount : 0),
       conversationMode: mode,
       chatWindowId,
-    });
+    };
+    if (settings.semanticRetrieval) {
+      const ollama = getModelSettings().ollama;
+      context = await retrieveContextWithSemanticHandoff(
+        retrieveOptions,
+        new OllamaMemoryEmbeddingProvider({ endpoint: ollama.baseUrl, model: settings.embeddingModel }),
+      );
+    } else {
+      context = retrieveContext(retrieveOptions);
+    }
   } catch (error) {
     logger.warn(`Memory retrieval failed; continuing with current-window context only: ${error instanceof Error ? error.message : String(error)}`);
     return buildWindowOnlyRetrievedContext(chatWindowId, recentMessageCount, excludeChatMessageId);

@@ -87,6 +87,8 @@ export interface MemorySettings {
   retrieveProfile: boolean;
   retrieveEvents: boolean;
   retrieveProjects: boolean;
+  semanticRetrieval: boolean;
+  embeddingModel: string;
   retrievalDepth: number;
   minImportanceForAutoExtract: number;
   importContentMode: MemoryImportContentMode;

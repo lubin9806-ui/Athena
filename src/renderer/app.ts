@@ -209,6 +209,7 @@ declare global {
       deleteMemory: (kind: MemoryKind, id: number) => Promise<boolean>;
       updateMemory: (kind: MemoryKind, id: number, patch: MemoryUpdatePatch) => Promise<boolean>;
       debugMemory: (query: string) => Promise<MemoryDebugResult>;
+      getMemoryEmbeddingStatus: (value?: { enabled?: boolean; model?: string }) => Promise<MemoryEmbeddingStatus | null>;
       listMemoryReviewQueue: (status?: MemoryReviewStatus | 'all', limit?: number) => Promise<MemoryReviewItem[]>;
       approveMemoryReview: (id: number) => Promise<MemoryReviewItem | null>;
       approveMemoryReviews: (ids: number[]) => Promise<MemoryReviewItem[]>;
@@ -789,9 +790,19 @@ interface MemorySettings {
   retrieveProfile: boolean;
   retrieveEvents: boolean;
   retrieveProjects: boolean;
+  semanticRetrieval: boolean;
+  embeddingModel: string;
   retrievalDepth: number;
   minImportanceForAutoExtract: number;
   importContentMode: MemoryImportContentMode;
+}
+
+interface MemoryEmbeddingStatus {
+  enabled: boolean;
+  state: 'disabled' | 'ready' | 'ollama-unavailable' | 'model-missing' | 'blocked-endpoint' | 'error';
+  model: string;
+  endpoint: string;
+  message: string;
 }
 
 interface VoiceSettings {
@@ -1483,6 +1494,11 @@ const settingMemoryAutoExtract = mustGet<HTMLInputElement>('setting-memory-auto-
 const settingMemoryProfile = mustGet<HTMLInputElement>('setting-memory-profile');
 const settingMemoryEvents = mustGet<HTMLInputElement>('setting-memory-events');
 const settingMemoryProjects = mustGet<HTMLInputElement>('setting-memory-projects');
+const settingMemorySemantic = mustGet<HTMLInputElement>('setting-memory-semantic');
+const settingMemoryEmbeddingModel = mustGet<HTMLInputElement>('setting-memory-embedding-model');
+const settingMemoryEmbeddingStatus = mustGet<HTMLElement>('setting-memory-embedding-status');
+const settingMemoryEmbeddingRefresh = mustGet<HTMLButtonElement>('setting-memory-embedding-refresh');
+const settingMemoryEmbeddingPull = mustGet<HTMLButtonElement>('setting-memory-embedding-pull');
 const settingMemoryDepth = mustGet<HTMLInputElement>('setting-memory-depth');
 const settingMemoryMinImportance = mustGet<HTMLInputElement>('setting-memory-min-importance');
 const settingOpenMemoryReview = mustGet<HTMLButtonElement>('setting-open-memory-review');
@@ -2250,6 +2266,9 @@ function init(): void {
   settingOpenMemoryManage.addEventListener('click', () => {
     void openMemoryPanelTab('manage');
   });
+  settingMemoryEmbeddingRefresh.addEventListener('click', () => void refreshMemoryEmbeddingStatus());
+  settingMemoryEmbeddingPull.addEventListener('click', () => void beginMemoryEmbeddingModelPull());
+  settingMemorySemantic.addEventListener('change', () => void refreshMemoryEmbeddingStatus());
   btnSettings.addEventListener('click', () => toggleSettingsPanel());
   modelStatusButton.addEventListener('click', () => void openModelSettings());
   btnSettingsClose.addEventListener('click', () => toggleSettingsPanel(false));
@@ -5810,9 +5829,12 @@ function populateSettingsForm(bundle: SettingsBundle): void {
   settingMemoryProfile.checked = memory.retrieveProfile;
   settingMemoryEvents.checked = memory.retrieveEvents;
   settingMemoryProjects.checked = memory.retrieveProjects;
+  settingMemorySemantic.checked = memory.semanticRetrieval;
+  settingMemoryEmbeddingModel.value = memory.embeddingModel || 'embeddinggemma';
   settingMemoryDepth.value = String(memory.retrievalDepth);
   settingMemoryMinImportance.value = String(memory.minImportanceForAutoExtract);
   settingMemoryImportMode.value = memory.importContentMode || 'normal';
+  void refreshMemoryEmbeddingStatus();
   settingSttEnabled.checked = voice.sttEnabled;
   settingTtsEnabled.checked = voice.ttsEnabled;
   settingAutoPlayAssistant.checked = voice.autoPlayAssistant;
@@ -6098,6 +6120,8 @@ async function saveSettingsForm(): Promise<void> {
           retrieveProfile: settingMemoryProfile.checked,
           retrieveEvents: settingMemoryEvents.checked,
           retrieveProjects: settingMemoryProjects.checked,
+          semanticRetrieval: settingMemorySemantic.checked,
+          embeddingModel: settingMemoryEmbeddingModel.value.trim(),
           retrievalDepth: Number(settingMemoryDepth.value),
           minImportanceForAutoExtract: Number(settingMemoryMinImportance.value),
           importContentMode: settingMemoryImportMode.value as MemoryImportContentMode,
@@ -6453,6 +6477,49 @@ async function refreshSettingsMemoryReviewSummary(): Promise<void> {
       : '暂无待确认记忆。自动抽取到的规则和时间事实会先进入这里。';
   } catch {
     settingMemoryReviewSummary.textContent = '暂时无法读取待确认记忆队列。';
+  }
+}
+
+async function refreshMemoryEmbeddingStatus(): Promise<void> {
+  settingMemoryEmbeddingRefresh.disabled = true;
+  settingMemoryEmbeddingStatus.textContent = settingMemorySemantic.checked
+    ? '正在检测本机 Ollama 与 Embedding 模型…'
+    : '本地语义记忆已关闭。关键词记忆仍然可用。';
+  try {
+    const status = await window.athenaAPI.getMemoryEmbeddingStatus({
+      enabled: settingMemorySemantic.checked,
+      model: settingMemoryEmbeddingModel.value.trim(),
+    });
+    settingMemoryEmbeddingStatus.textContent = status?.message || '无法读取本地语义记忆状态。';
+    settingMemoryEmbeddingStatus.dataset.state = status?.state || 'error';
+  } catch (error) {
+    settingMemoryEmbeddingStatus.textContent = `检测失败：${error instanceof Error ? error.message : String(error)}`;
+    settingMemoryEmbeddingStatus.dataset.state = 'error';
+  } finally {
+    settingMemoryEmbeddingRefresh.disabled = false;
+  }
+}
+
+async function beginMemoryEmbeddingModelPull(): Promise<void> {
+  const model = settingMemoryEmbeddingModel.value.trim();
+  if (!model) {
+    settingMemoryEmbeddingStatus.textContent = '请先填写要下载的 Embedding 模型名称。';
+    settingMemoryEmbeddingStatus.dataset.state = 'error';
+    settingMemoryEmbeddingModel.focus();
+    return;
+  }
+  settingMemoryEmbeddingPull.disabled = true;
+  try {
+    const result = await window.athenaAPI.pullOllamaModel(model);
+    settingMemoryEmbeddingStatus.textContent = result.started
+      ? `已启动 ${model} 的 Ollama 下载窗口。下载完成后请重新检测。`
+      : result.error || '已取消下载。';
+    settingMemoryEmbeddingStatus.dataset.state = result.started ? 'installing' : 'model-missing';
+  } catch (error) {
+    settingMemoryEmbeddingStatus.textContent = `无法启动下载：${error instanceof Error ? error.message : String(error)}`;
+    settingMemoryEmbeddingStatus.dataset.state = 'error';
+  } finally {
+    settingMemoryEmbeddingPull.disabled = false;
   }
 }
 

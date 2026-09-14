@@ -3,7 +3,8 @@
 import { ipcMain, BrowserWindow, clipboard, dialog, IpcMainEvent, IpcMainInvokeEvent, shell } from 'electron';
 import { AthenaController } from '../../core/controller/AthenaController';
 import { DiagnosticsService } from '../../core/diagnostics';
-import { getAppSettings, getSettingsBundle, saveSettingsBundle, saveAppearanceSettings } from '../../core/config/SettingsStore';
+import { getAppSettings, getModelSettings, getSettingsBundle, saveSettingsBundle, saveAppearanceSettings } from '../../core/config/SettingsStore';
+import { OllamaMemoryEmbeddingProvider } from '../../core/ai/OllamaMemoryEmbeddingProvider';
 import type { AppearanceSettings } from '../../shared/types/settings';
 import {
   applyDataRetention,
@@ -189,6 +190,7 @@ const INVOKE_CHANNELS = [
   'memory:delete',
   'memory:update',
   'memory:debug',
+  'memory:embeddingStatus',
   'memoryReview:list',
   'memoryReview:approve',
   'memoryReview:approveMany',
@@ -1126,6 +1128,16 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<vo
   ipcMain.handle('memory:debug', async (event, query: unknown) => {
     if (!isTrustedSender(event)) return emptyMemoryDebug();
     return debugRetrieveMemory(cleanString(query, 1_000));
+  });
+
+  ipcMain.handle('memory:embeddingStatus', async (event, value: unknown) => {
+    if (!isTrustedSender(event)) return null;
+    const saved = getAppSettings().memory;
+    const input = isRecord(value) ? value : {};
+    const enabled = typeof input.enabled === 'boolean' ? input.enabled : saved.semanticRetrieval;
+    const model = cleanString(input.model, 120) || saved.embeddingModel;
+    const ollama = getModelSettings().ollama;
+    return new OllamaMemoryEmbeddingProvider({ endpoint: ollama.baseUrl, model }).status(enabled);
   });
 
   ipcMain.handle('memoryReview:list', async (event, status: unknown, limit: unknown) => {

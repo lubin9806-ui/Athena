@@ -1128,6 +1128,19 @@
               <input id="setting-memory-projects" type="checkbox" />
               <span>检索项目记忆</span>
             </label>
+            <label class="settings-toggle settings-field-full">
+              <input id="setting-memory-semantic" type="checkbox" />
+              <span>使用本机 Ollama 理解近义话题</span>
+            </label>
+            <label class="settings-field settings-field-full">
+              <span>本地 Embedding 模型</span>
+              <input id="setting-memory-embedding-model" type="text" spellcheck="false" placeholder="embeddinggemma" />
+            </label>
+            <div id="setting-memory-embedding-status" class="settings-note settings-field-full" role="status">语义记忆默认关闭；关键词记忆不受影响。</div>
+            <div class="settings-field settings-field-full settings-memory-actions">
+              <button id="setting-memory-embedding-refresh" class="settings-panel-link" type="button">检测本地语义模型</button>
+              <button id="setting-memory-embedding-pull" class="settings-panel-link" type="button">下载此模型</button>
+            </div>
             <label class="settings-field">
               <span>每类检索条数</span>
               <input id="setting-memory-depth" type="number" min="0" max="20" step="1" />
