@@ -249,6 +249,7 @@ const approvalCardsExpression = `(() => {
     }));
     return {
       index,
+      codeLigatures: Array.from(item.querySelectorAll('.agent-approval-code')).map(element => getComputedStyle(element).fontVariantLigatures),
       kind: item.dataset.approvalKind,
       title: item.querySelector('.agent-approval-title')?.textContent || '',
       risk: item.querySelector('.agent-approval-risk')?.textContent || '',
@@ -309,6 +310,8 @@ async function runGoal(page, scenario, profile) {
       .filter(card => card.buttons.some(button => !button.disabled) && !card.buttons.some(button => decided.has(button.id)));
     if (cards.length > 0) {
       const card = cards[0];
+      // What is approved must render character for character (no `>=` drawn as ≥).
+      assert(card.codeLigatures.every(value => value === 'none'), `approval code fields render ligatures: ${card.codeLigatures.join(',')}`);
       const decision = await scenario.decide(card, { cards, profile, transcript });
       transcript.approvals.push({ ...card, decision: decision.decision, reason: decision.reason });
       log(scenario.name, `审批卡「${card.title}」${card.fields.map(field => `${field.label}=${field.value.replace(/\s+/g, ' ').slice(0, 120)}`).join(' | ')} → ${decision.decision}（${decision.reason}）`);

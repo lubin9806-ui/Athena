@@ -2074,7 +2074,15 @@ summary:focus-visible {
   border-radius: 6px;
   color: var(--text);
   background: color-mix(in srgb, var(--text) 7%, transparent);
-  font: 10.5px/1.5 ui-monospace, "Cascadia Code", Consolas, monospace;
+  /* Longhands, not the `font` shorthand: the minifier reorders declarations and the
+     shorthand would reset the ligature settings below. */
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  font-size: 10.5px;
+  line-height: 1.5;
+  /* Approved text must read character for character: Cascadia's ligatures drew
+     `>=` as ≥ and `<-` as ← on the card. */
+  font-variant-ligatures: none;
+  font-feature-settings: "liga" 0, "calt" 0;
   white-space: pre-wrap;
   word-break: break-word;
 }
