@@ -275,6 +275,12 @@ async function verifyService() {
     const desktopAlias = await service.execute('file_info', { path: '桌面' }, settings('read'));
     assert.equal(desktopAlias.status, 'completed');
     assert(desktopAlias.output.includes(knownDesktop));
+    // A directory's own size is always 0; reporting it let the agent call a full folder empty.
+    await fs.writeFile(path.join(knownDesktop, 'note.log'), 'evidence', 'utf8');
+    assert.match(desktopAlias.output, /entries: 0/);
+    const filledDirectory = await service.execute('file_info', { path: knownDesktop }, settings('read'));
+    assert.match(filledDirectory.output, /entries: 1 /, filledDirectory.output);
+    assert.doesNotMatch(filledDirectory.output, /^size:/m, 'a directory must not report a size that reads as "empty"');
   } finally {
     if (originalUserProfile === undefined) delete process.env.USERPROFILE;
     else process.env.USERPROFILE = originalUserProfile;

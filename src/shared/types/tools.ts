@@ -43,7 +43,7 @@ export interface ToolStatusEvent {
 export interface ToolConfirmationRequest {
   toolName: string;
   toolLabel: string;
-  risk: 'destructive-file' | 'command' | 'program' | 'external-network';
+  risk: 'destructive-file' | 'auto-executed-location' | 'command' | 'program' | 'external-network';
   explanation: string;
   inputPreview: string;
 }
