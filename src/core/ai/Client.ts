@@ -74,6 +74,8 @@ export class LLMClient {
   get modelName(): string { return this.model; }
   get endpoint(): string { return this.baseUrl; }
   get contextWindow(): number { return this.numCtx; }
+  /** The configured reply budget; execution raises its own above it when a call needs room. */
+  get maxOutputTokens(): number { return this.maxTokens; }
   get capabilities(): ModelAdapterCapabilities { return cloneCapabilities(this.adapter.capabilities); }
 
   async refreshCapabilities(): Promise<ModelAdapterCapabilities> {

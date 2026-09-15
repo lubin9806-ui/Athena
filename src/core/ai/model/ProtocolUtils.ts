@@ -1,6 +1,22 @@
 import { randomUUID } from 'crypto';
 import type { ModelFinishReason, ModelToolCall, ModelToolDefinition, ModelUsage } from './ModelTypes';
-import { ModelProtocolError } from './ModelTypes';
+import { ModelOutputTruncatedError, ModelProtocolError } from './ModelTypes';
+
+/**
+ * Tool calls that fail to parse because the provider stopped at its length limit are
+ * reported as truncated, not as malformed: "Unterminated string in JSON" from a
+ * response whose finish reason is `length` means the budget ran out mid-argument.
+ */
+export function parseToolCallsBeforeLimit<T>(finishReason: unknown, parse: () => T): T {
+  try {
+    return parse();
+  } catch (error) {
+    if (finishReason === 'length' && error instanceof ModelProtocolError) {
+      throw new ModelOutputTruncatedError(`Output limit reached before the tool call was complete: ${error.message}`);
+    }
+    throw error;
+  }
+}
 
 export const EMPTY_USAGE: ModelUsage = { inputTokens: null, outputTokens: null, totalTokens: null };
 

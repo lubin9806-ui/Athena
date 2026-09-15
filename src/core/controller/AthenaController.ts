@@ -55,6 +55,8 @@ import {
   type UpdateAgentWorkspaceInput,
 } from '../agent';
 import { ComputerAgentToolBridge } from '../tools/AgentComputerTools';
+import { describeAgentToolStep, describeAgentToolTarget, presentAgentApproval } from '../../shared/agentRunPresentation';
+import { summarizeAgentToolOutcome } from '../../shared/agentVerification';
 import { SkillAgentToolBridge, SkillLibrary } from '../skills';
 import { McpIntegrationHost, ResearchAgentToolBridge } from '../integrations';
 import {
@@ -1024,7 +1026,7 @@ export class AthenaController {
       resolveToolSettingsForMode(getAppSettings().tools, 'execute').permissionLevel,
     );
     onState?.(this.agentStore.getRunSnapshot(handle.run.id));
-    const result = this.materializeAgentResultArtifact(await handle.result);
+    const result = await handle.result;
     onState?.(result.snapshot);
     recordDataActivity('tool', 'durable-agent-run', {
       projectId,
@@ -1275,24 +1277,39 @@ export class AthenaController {
     return this.mcpIntegrations.remove(id, fingerprint);
   }
 
-  async resolveAgentApprovalGroup(
+  /**
+   * One click used to decide every pending item in the group at once, while the card
+   * showed only tool names (ATH-SEC-009). `item` decides exactly one approval and
+   * leaves the run paused until nothing in the group is pending; `group` remains for
+   * an explicit "approve all" on a card that lists every item in full.
+   */
+  async resolveAgentApproval(
     projectId: number,
     runId: string,
     approvalId: string,
     decision: 'approved' | 'denied',
+    scope: 'item' | 'group',
     onState?: (snapshot: AgentRunSnapshot) => void,
   ): Promise<AgentRunnerResult> {
     const snapshot = this.requireAgentRunProject(runId, projectId);
     const approval = snapshot.approvals.find(item => item.id === approvalId);
     if (!approval || approval.status !== 'pending') throw new Error('待审批项不存在或已处理。');
     if (approval.groupId !== snapshot.run.approvalGroupId) throw new Error('审批项不属于当前运行检查点。');
-    for (const item of snapshot.approvals.filter(candidate => (
-      candidate.groupId === approval.groupId && candidate.status === 'pending'
-    ))) {
+    const targets = scope === 'item'
+      ? [approval]
+      : snapshot.approvals.filter(candidate => candidate.groupId === approval.groupId && candidate.status === 'pending');
+    for (const item of targets) {
       this.agentStore.resolveApproval(item.id, decision, {
         actor: 'user',
-        scope: 'approval-group',
+        scope: scope === 'item' ? 'approval-item' : 'approval-group',
       }, item.revision);
+    }
+    const stillPending = this.agentStore.listApprovals(runId)
+      .some(item => item.groupId === approval.groupId && item.status === 'pending');
+    if (stillPending) {
+      const partial = this.agentRunner.inspect(runId);
+      onState?.(partial.snapshot);
+      return partial;
     }
     this.assertAgentRunMayContinue();
     this.agentComputerTools.refresh();
@@ -1300,7 +1317,7 @@ export class AthenaController {
     this.artifactTools.refresh();
     await this.mcpIntegrations.refreshEnabled();
     onState?.(this.agentStore.getRunSnapshot(runId));
-    const result = this.materializeAgentResultArtifact(await this.agentRunner.resume(runId));
+    const result = await this.agentRunner.resume(runId);
     onState?.(result.snapshot);
     this.persistTerminalAgentResponse(result);
     return result;
@@ -1323,7 +1340,7 @@ export class AthenaController {
     this.researchTools.refresh();
     this.artifactTools.refresh();
     await this.mcpIntegrations.refreshEnabled();
-    const result = this.materializeAgentResultArtifact(await this.agentRunner.resume(runId));
+    const result = await this.agentRunner.resume(runId);
     onState?.(result.snapshot);
     this.persistTerminalAgentResponse(result);
     return result;
@@ -1926,19 +1943,21 @@ export class AthenaController {
 
   private agentResultToChatResponse(result: AgentRunnerResult, persist: boolean): ChatResponse {
     let content = result.status === 'paused'
-      ? '任务已暂停，执行工作区中有一组操作等待你审批。'
+      ? describePausedAgentRun(result)
       : result.content.trim()
         || (result.status === 'cancelled'
           ? '任务已停止。'
           : result.status === 'failed'
-            ? `任务执行失败：${result.error ? classifyModelFailure(new Error(result.error)).message : '未返回具体错误'}`
-            : result.verification === 'unverified'
-              ? '任务已执行结束。'
-              : '任务已完成。');
+            ? `任务执行失败：${result.failure?.message || '未返回具体错误'}`
+            : result.verification === 'not_applicable' || result.verification === 'verified'
+              ? '任务已完成。'
+              : '任务已执行结束。');
     // Run termination is not acceptance: say so rather than letting the model's
     // own closing claim stand in for evidence.
     if (result.verification === 'unverified') {
       content += '\n\n注意：这次任务没有声明可核对的验收项，以上结果未经自动验证，请自行确认是否达到目标。';
+    } else if (result.verification === 'issues') {
+      content += `\n\n${describeUnresolvedAgentSteps(result)}`;
     }
     const outputGuardrail = evaluateSteamAiContent(content);
     if (!outputGuardrail.allowed) content = steamAiGuardrailRefusal();
@@ -1979,21 +1998,48 @@ export class AthenaController {
     return snapshot;
   }
 
-  private materializeAgentResultArtifact(result: AgentRunnerResult): AgentRunnerResult {
-    if (result.status !== 'completed' || !result.content.trim()) return result;
-    const exists = result.snapshot.artifacts.some(artifact => artifact.kind === 'final_response');
-    if (!exists) {
-      this.agentStore.addArtifact({
-        taskId: result.snapshot.task.id,
-        runId: result.runId,
-        kind: 'final_response',
-        name: `${result.snapshot.task.title} - final response`,
-        metadata: { content: result.content.slice(0, 20_000) },
-        validationStatus: 'not_applicable',
-      });
-    }
-    return { ...result, snapshot: this.agentStore.getRunSnapshot(result.runId) };
+}
+
+/** What the chat says while a run waits, naming what it waits on rather than "a group of operations". */
+function describePausedAgentRun(result: AgentRunnerResult): string {
+  const pending = result.snapshot.approvals.filter(item => (
+    item.status === 'pending' && item.groupId === result.snapshot.run.approvalGroupId
+  ));
+  const gate = pending.find(item => item.request.kind === 'model_retry' || item.request.kind === 'budget_extension');
+  if (gate) {
+    const view = presentAgentApproval(gate);
+    const progress = view.fields.find(field => field.label === '已保留的进度' || field.label === '已用');
+    return [
+      `任务已暂停：${view.explanation}`,
+      progress ? `${progress.label}：${progress.value}。` : '',
+      gate.request.kind === 'model_retry'
+        ? '已完成的步骤不会丢失。可以在执行中心点“从检查点重试”继续，或者结束任务。'
+        : '可以在执行中心选择“继续执行”，或者“停止并总结”。',
+    ].filter(Boolean).join('\n');
   }
+  if (pending.length === 0) return '任务已暂停。';
+  const lines = pending.slice(0, 5).map(item => {
+    const view = presentAgentApproval(item);
+    const target = describeAgentToolTarget(item.request.arguments);
+    return `- ${view.title}${target ? `：${target}` : ''}`;
+  });
+  if (pending.length > 5) lines.push(`- 另外还有 ${pending.length - 5} 项`);
+  return [`任务已暂停，有 ${pending.length} 项操作等你在执行中心逐项确认：`, ...lines].join('\n');
+}
+
+/** Names the steps behind an `issues` verdict so nobody has to open the log to find them. */
+function describeUnresolvedAgentSteps(result: AgentRunnerResult): string {
+  const outcome = summarizeAgentToolOutcome(result.snapshot.steps);
+  const describe = (step: (typeof outcome.failed)[number]) => {
+    const reason = (step.error || '').replace(/\s+/g, ' ').trim();
+    return `- ${describeAgentToolStep(step)}${reason ? `（${reason.length > 120 ? `${reason.slice(0, 119)}…` : reason}）` : ''}`;
+  };
+  const lines = ['注意：下面这些步骤没有成功，而且之后没有被重新成功执行。任务停止运行不代表目标已经达成，请确认它们是否影响结果：'];
+  lines.push(...outcome.failed.slice(0, 5).map(describe));
+  lines.push(...outcome.denied.slice(0, 5).map(describe));
+  const hidden = Math.max(0, outcome.failed.length - 5) + Math.max(0, outcome.denied.length - 5);
+  if (hidden > 0) lines.push(`- 另外还有 ${hidden} 步，详见执行中心`);
+  return lines.join('\n');
 }
 
 function capabilityAccess(capability: string): AgentCapabilityAccess {

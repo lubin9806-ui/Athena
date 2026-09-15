@@ -714,8 +714,10 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<vo
     const approvalId = cleanAgentId(value.approvalId);
     const projectId = cleanPositiveInteger(value.projectId);
     const decision = value.decision === 'approved' || value.decision === 'denied' ? value.decision : null;
+    // Anything other than an explicit "group" decides the single item that was clicked.
+    const scope = value.scope === 'group' ? 'group' : 'item';
     if (!projectId || !runId || !approvalId || !decision) return null;
-    return controller.resolveAgentApprovalGroup(projectId, runId, approvalId, decision, snapshot => {
+    return controller.resolveAgentApproval(projectId, runId, approvalId, decision, scope, snapshot => {
       notifyAgentWorkspaceChanged(mainWindow, snapshot.task.projectId, snapshot.task.id, snapshot.run.id);
     });
   });

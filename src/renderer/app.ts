@@ -28,6 +28,14 @@ import type { EmotionType } from '../shared/types/emotion';
 import type { ProactiveDelivery, ReminderDueEvent } from '../shared/types/message';
 import type { ChatErrorPayload } from '../shared/types/system';
 import { RELEASE_FEATURES } from '../shared/releaseFeatures';
+import { deriveAgentRunVerification, summarizeAgentToolOutcome } from '../shared/agentVerification';
+import {
+  agentModelFailureHeadline,
+  agentStepStatusLabel,
+  describeAgentToolStep,
+  presentAgentApproval,
+  readAgentRunFailure,
+} from '../shared/agentRunPresentation';
 
 interface DisabledLive2DPreferences {
   enabled: false;
@@ -147,7 +155,7 @@ declare global {
         roots?: string[];
         goals?: Array<{ id?: string; title: string; status: AgentWorkspaceGoal['status'] }>;
       }) => Promise<AgentWorkspaceMetadata | null>;
-      resolveAgentApproval: (projectId: number, runId: string, approvalId: string, decision: 'approved' | 'denied') => Promise<AgentRunnerResult | null>;
+      resolveAgentApproval: (projectId: number, runId: string, approvalId: string, decision: 'approved' | 'denied', scope?: 'item' | 'group') => Promise<AgentRunnerResult | null>;
       resumeAgentRun: (projectId: number, runId: string) => Promise<AgentRunnerResult | null>;
       cancelAgentRun: (projectId: number, runId: string) => Promise<AgentRunnerResult | null>;
       onAgentWorkspaceChanged: (callback: (event: { projectId: number; taskId?: string; runId?: string }) => void) => () => void;
@@ -552,7 +560,7 @@ interface ToolStatusEvent {
   callId?: string;
 }
 
-type ExecutionTaskState = 'planning' | 'running' | 'stopping' | 'completed' | 'failed' | 'cancelled' | 'not-run';
+type ExecutionTaskState = 'planning' | 'running' | 'stopping' | 'attention' | 'completed' | 'failed' | 'cancelled' | 'not-run';
 
 interface ExecutionTimelineEvent extends ToolStatusEvent {
   occurredAt: string;
@@ -598,6 +606,7 @@ interface AgentTaskRecord {
   spec: {
     goal: string;
     plan: Array<{ id: string; title: string; successCriteria: string[] }>;
+    validation: Array<{ id: string; description: string; required: boolean }>;
   };
   revision: number;
   activeRunId: string | null;
@@ -622,7 +631,7 @@ interface AgentRunRecord {
 interface AgentRunSnapshot {
   task: AgentTaskRecord;
   run: AgentRunRecord;
-  steps: Array<{ id: string; sequence: number; title: string; kind: string; status: string; error: string | null }>;
+  steps: Array<{ id: string; sequence: number; title: string; kind: string; status: string; input: Record<string, unknown>; error: string | null }>;
   approvals: Array<{
     id: string;
     groupId: string;
@@ -2249,8 +2258,9 @@ function init(): void {
   agentApprovalList.addEventListener('click', (event) => {
     const button = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('[data-agent-approval-id]') : null;
     const decision = button?.dataset.decision;
+    const scope = button?.dataset.scope === 'group' ? 'group' : 'item';
     if (button?.dataset.agentApprovalId && (decision === 'approved' || decision === 'denied')) {
-      void resolveAgentApproval(button.dataset.agentApprovalId, decision);
+      void resolveAgentApproval(button.dataset.agentApprovalId, decision, scope);
     }
   });
   executionSettingsForm.addEventListener('submit', (event) => {
@@ -3072,7 +3082,9 @@ function renderAgentTaskBoard(workspace: AgentProjectWorkspaceSnapshot): void {
   const columns: Array<{ label: string; statuses: AgentTaskStatus[] }> = [
     { label: '待执行', statuses: ['draft', 'ready'] },
     { label: '进行中', statuses: ['active', 'blocked'] },
-    { label: '已完成', statuses: ['completed'] },
+    // A task reaches `completed` when its run stops calling tools, which is not the
+    // same as its goal being met (ATH-AGENT-001); the column says only what is known.
+    { label: '已结束', statuses: ['completed'] },
     { label: '需处理', statuses: ['failed', 'cancelled'] },
   ];
   if (workspace.tasks.filter(task => task.status !== 'archived').length === 0) {
@@ -3103,6 +3115,11 @@ function renderAgentTaskBoard(workspace: AgentProjectWorkspaceSnapshot): void {
   }));
 }
 
+/**
+ * Every pending item is shown in full - the exact command, directory, path or
+ * address - and decided on its own. The card used to print "2 项 · run_command" and
+ * approve the whole group with one click (ATH-SEC-009).
+ */
 function renderAgentApprovals(snapshot: AgentRunSnapshot | null): void {
   const activeGroup = snapshot?.run.approvalGroupId;
   const approvals = snapshot?.approvals.filter(item => item.status === 'pending' && item.groupId === activeGroup) || [];
@@ -3111,25 +3128,77 @@ function renderAgentApprovals(snapshot: AgentRunSnapshot | null): void {
     agentApprovalList.replaceChildren();
     return;
   }
-  const representative = approvals[0];
-  const item = document.createElement('div');
-  item.className = 'agent-approval-item';
-  const content = document.createElement('div');
-  const tools = approvals.map(approval => String(approval.request.toolName || approval.capability)).join('、');
-  const explanation = approvals.map(approval => String(approval.request.explanation || '')).filter(Boolean).join('；');
-  content.textContent = `${approvals.length} 项 · ${tools}${explanation ? `\n${explanation}` : ''}`;
-  const actions = document.createElement('div');
-  actions.className = 'agent-approval-actions';
-  for (const decision of ['denied', 'approved'] as const) {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.dataset.agentApprovalId = representative.id;
-    button.dataset.decision = decision;
-    button.textContent = decision === 'approved' ? '批准并继续' : '拒绝';
-    actions.appendChild(button);
+  const items: HTMLElement[] = approvals.map((approval, index) => {
+    const view = presentAgentApproval(approval);
+    const item = document.createElement('article');
+    item.className = 'agent-approval-item';
+    item.dataset.approvalKind = view.kind;
+    item.dataset.riskLevel = view.riskLevel;
+
+    const head = document.createElement('div');
+    head.className = 'agent-approval-head';
+    const title = document.createElement('div');
+    title.className = 'agent-approval-title';
+    title.textContent = approvals.length > 1 ? `${index + 1}. ${view.title}` : view.title;
+    head.appendChild(title);
+    if (view.riskLabel) {
+      const risk = document.createElement('span');
+      risk.className = 'agent-approval-risk';
+      risk.dataset.riskLevel = view.riskLevel;
+      risk.textContent = view.riskLabel;
+      head.appendChild(risk);
+    }
+
+    const body = document.createElement('div');
+    body.className = 'agent-approval-body';
+    if (view.explanation) {
+      const explanation = document.createElement('p');
+      explanation.className = 'agent-approval-explanation';
+      explanation.textContent = view.explanation;
+      body.appendChild(explanation);
+    }
+    if (view.fields.length > 0) {
+      const fields = document.createElement('dl');
+      fields.className = 'agent-approval-fields';
+      for (const field of view.fields) {
+        const label = document.createElement('dt');
+        label.textContent = field.label;
+        const value = document.createElement(field.code ? 'pre' : 'dd');
+        value.className = field.code ? 'agent-approval-code' : 'agent-approval-value';
+        value.textContent = field.value;
+        fields.append(label, value);
+      }
+      body.appendChild(fields);
+    }
+
+    const actions = document.createElement('div');
+    actions.className = 'agent-approval-actions';
+    for (const decision of ['denied', 'approved'] as const) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.dataset.agentApprovalId = approval.id;
+      button.dataset.decision = decision;
+      button.dataset.scope = 'item';
+      button.textContent = decision === 'approved' ? view.approveLabel : view.denyLabel;
+      actions.appendChild(button);
+    }
+    item.append(head, body, actions);
+    return item;
+  });
+  const toolCalls = approvals.filter(approval => approval.request.kind === 'tool_call');
+  if (toolCalls.length > 1 && toolCalls.length === approvals.length) {
+    const groupActions = document.createElement('div');
+    groupActions.className = 'agent-approval-actions agent-approval-group-actions';
+    const approveAll = document.createElement('button');
+    approveAll.type = 'button';
+    approveAll.dataset.agentApprovalId = approvals[0].id;
+    approveAll.dataset.decision = 'approved';
+    approveAll.dataset.scope = 'group';
+    approveAll.textContent = `以上 ${approvals.length} 项全部批准`;
+    groupActions.appendChild(approveAll);
+    items.push(groupActions);
   }
-  item.append(content, actions);
-  agentApprovalList.replaceChildren(item);
+  agentApprovalList.replaceChildren(...items);
 }
 
 /** Matches the single hardcoded step in ProjectWorkspaceService.createTask. */
@@ -3144,15 +3213,30 @@ function renderAgentPlan(task: AgentTaskRecord | null, snapshot: AgentRunSnapsho
     if (step.id === PLACEHOLDER_PLAN_STEP_ID) continue;
     items.push(createAgentDetailItem(step.title, step.successCriteria.join(' · ')));
   }
-  for (const step of snapshot?.steps || []) {
-    items.push(createAgentDetailItem(`${step.sequence}. ${step.title}`, `${step.status}${step.error ? ` · ${step.error}` : ''}`));
+  const steps = snapshot?.steps || [];
+  const toolOutcome = summarizeAgentToolOutcome(steps);
+  const unresolved = new Set([...toolOutcome.failed, ...toolOutcome.denied].map(step => step.id));
+  for (const step of steps) {
+    const title = step.kind === 'tool'
+      ? `${step.sequence}. ${describeAgentToolStep(step)}`
+      : step.kind === 'model'
+        ? `${step.sequence}. 第 ${Number(step.input.round) || step.sequence} 轮模型调用${step.input.closing === true ? '（收尾总结）' : ''}`
+        : `${step.sequence}. ${step.title}`;
+    const redone = step.kind === 'tool' && (step.status === 'failed' || step.status === 'skipped') && !unresolved.has(step.id);
+    const meta = `${agentStepStatusLabel(step.status)}${redone ? '，之后重新执行成功' : ''}${step.error ? ` · ${step.error}` : ''}`;
+    const item = createAgentDetailItem(title, meta);
+    item.dataset.stepStatus = unresolved.has(step.id) ? 'unresolved' : step.status;
+    items.push(item);
   }
   if (items.length === 0) renderAgentEmpty(agentPlanList, '选择任务后查看计划与运行步骤');
   else agentPlanList.replaceChildren(...items.slice(-30));
 }
 
 function renderAgentArtifacts(snapshot: AgentRunSnapshot | null): void {
-  const artifacts = snapshot?.artifacts || [];
+  // A model's closing text already appears in the result panel. Older builds
+  // also registered it as a `final_response` artifact, which made a failed or
+  // unverified answer look like a delivered file. Keep real artifacts only.
+  const artifacts = (snapshot?.artifacts || []).filter(artifact => artifact.kind !== 'final_response');
   if (artifacts.length === 0) {
     renderAgentEmpty(agentArtifactList, '还没有登记交付产物');
     return;
@@ -3249,13 +3333,13 @@ async function updateAgentWorkspaceMetadata(patch: {
   }
 }
 
-async function resolveAgentApproval(approvalId: string, decision: 'approved' | 'denied'): Promise<void> {
+async function resolveAgentApproval(approvalId: string, decision: 'approved' | 'denied', scope: 'item' | 'group'): Promise<void> {
   const runId = agentWorkspace?.selectedRun?.run.id;
   if (!runId || !currentProjectId) return;
   agentApprovalList.querySelectorAll<HTMLButtonElement>('button').forEach(button => { button.disabled = true; });
-  setStatus(decision === 'approved' ? '正在继续已批准的任务' : '正在记录拒绝并继续', 'working');
+  setStatus(decision === 'approved' ? '已记录批准' : '已记录拒绝', 'working');
   try {
-    await window.athenaAPI.resolveAgentApproval(currentProjectId, runId, approvalId, decision);
+    await window.athenaAPI.resolveAgentApproval(currentProjectId, runId, approvalId, decision, scope);
     await refreshAgentWorkspace(selectedAgentTaskId);
   } catch (error) {
     setStatus(`审批处理失败：${error instanceof Error ? error.message : String(error)}`, 'error');
@@ -3295,7 +3379,7 @@ function agentGoalStatusLabel(status: AgentWorkspaceGoal['status']): string {
 function agentTaskStatusLabel(status: AgentTaskStatus): string {
   const labels: Record<AgentTaskStatus, string> = {
     draft: '草稿', ready: '待执行', active: '执行中', blocked: '等待确认',
-    completed: '已完成', failed: '失败', cancelled: '已停止', archived: '已归档',
+    completed: '已结束', failed: '失败', cancelled: '已停止', archived: '已归档',
   };
   return labels[status];
 }
@@ -3505,29 +3589,36 @@ function renderDurableExecutionCenter(workspace: AgentProjectWorkspaceSnapshot):
     renderExecutionHistory();
     return;
   }
-  const state = durableExecutionState(task, run);
+  const state = durableExecutionState(task, snapshot);
   executionCurrentCard.dataset.state = state;
   executionStateLabel.dataset.state = state;
-  executionStateLabel.textContent = run ? agentRunPhaseLabel(run) : agentTaskStatusLabel(task.status);
+  executionStateLabel.textContent = snapshot ? agentRunPhaseLabel(snapshot) : agentTaskStatusLabel(task.status);
   executionCurrentGoal.textContent = task.spec.goal;
   const runMeta = run
     ? `${run.phase} · ${run.status} · ${formatExecutionTime(run.startedAt || run.createdAt)}`
     : `任务已创建 · ${formatExecutionTime(task.createdAt)}`;
   executionCurrentMeta.textContent = `${workspace.project.title} · ${runMeta}`;
-  const timeline = (snapshot?.events || []).slice(-16).map(event => {
-    const item = document.createElement('li');
-    item.className = 'execution-live-step';
-    item.dataset.phase = event.type;
-    item.textContent = `${formatExecutionTime(event.createdAt)} · ${agentEventLabel(event.type, event.payload)}`;
-    return item;
-  });
+  const timeline = (snapshot?.events || [])
+    .filter(event => !QUIET_AGENT_EVENTS.has(event.type))
+    .slice(-16)
+    .map(event => {
+      const item = document.createElement('li');
+      item.className = 'execution-live-step';
+      item.dataset.phase = event.type;
+      item.textContent = `${formatExecutionTime(event.createdAt)} · ${agentEventLabel(event.type, event.payload)}`;
+      return item;
+    });
   executionLiveLog.replaceChildren(...timeline);
   const finalContent = run ? readAgentFinalContent(run.state) : '';
-  const result = finalContent || run?.error || '';
+  const failure = snapshot && run?.status === 'failed' ? readAgentRunFailure(snapshot.events) : null;
+  const result = finalContent || failure?.message || run?.error || '';
   executionCurrentResult.textContent = result;
   executionCurrentResult.dataset.visible = String(Boolean(result));
   renderExecutionHistory();
 }
+
+/** Bookkeeping that says nothing to a person watching the run. */
+const QUIET_AGENT_EVENTS = new Set(['run.checkpointed', 'step.created', 'step.status_changed']);
 
 function renderExecutionHistory(): void {
   if (agentWorkspace) {
@@ -3563,38 +3654,91 @@ function renderDurableExecutionHistory(workspace: AgentProjectWorkspaceSnapshot)
   }));
 }
 
-function durableExecutionState(task: AgentTaskRecord, run?: AgentRunRecord): ExecutionTaskState {
+function durableExecutionState(task: AgentTaskRecord, snapshot?: AgentRunSnapshot | null): ExecutionTaskState {
+  const run = snapshot?.run;
   if (!run) return task.status === 'failed' ? 'failed' : task.status === 'cancelled' ? 'cancelled' : 'planning';
-  if (run.status === 'completed') return 'completed';
+  if (run.status === 'completed') {
+    return deriveAgentRunVerification(snapshot.task, run, snapshot.steps) === 'issues' ? 'attention' : 'completed';
+  }
   if (run.status === 'failed') return 'failed';
   if (run.status === 'cancelled') return 'cancelled';
+  if (run.status === 'paused') return 'attention';
   return 'running';
 }
 
-function agentRunPhaseLabel(run: AgentRunRecord): string {
-  if (run.phase === 'awaiting_approval') return '等待审批';
+function agentRunPhaseLabel(snapshot: AgentRunSnapshot): string {
+  const run = snapshot.run;
+  if (run.phase === 'awaiting_approval') {
+    const pending = snapshot.approvals.filter(item => item.status === 'pending' && item.groupId === run.approvalGroupId);
+    const modelRetry = pending.find(item => item.request.kind === 'model_retry');
+    if (modelRetry) {
+      const failure = modelRetry.request.failure as { kind?: unknown } | undefined;
+      return `已暂停 · ${agentModelFailureHeadline(failure?.kind)}`;
+    }
+    if (pending.some(item => item.request.kind === 'budget_extension')) return '已暂停 · 预算用完';
+    return pending.length > 1 ? `等待审批 · ${pending.length} 项` : '等待审批';
+  }
   if (run.phase === 'planning') return '正在规划';
   if (run.phase === 'executing') return '正在执行';
   if (run.phase === 'verifying') return '正在验证';
-  if (run.phase === 'completed') return '已完成';
+  if (run.phase === 'completed') {
+    const verification = deriveAgentRunVerification(snapshot.task, run, snapshot.steps);
+    if (verification === 'verified') return '已完成 · 已验证';
+    if (verification === 'issues') {
+      const outcome = summarizeAgentToolOutcome(snapshot.steps);
+      const parts = [
+        outcome.failed.length ? `${outcome.failed.length} 步失败未重做` : '',
+        outcome.denied.length ? `${outcome.denied.length} 步未执行` : '',
+      ].filter(Boolean);
+      return `已结束 · ${parts.join('、')}`;
+    }
+    if (verification === 'unverified') return '已结束 · 未验证';
+    return '已回答';
+  }
   if (run.phase === 'failed') return '执行失败';
   if (run.phase === 'cancelled') return '已停止';
   return '准备中';
 }
 
+const AGENT_PHASE_LABELS: Record<string, string> = {
+  understanding: '理解目标',
+  researching: '查资料',
+  planning: '规划',
+  awaiting_approval: '等待确认',
+  executing: '执行',
+  verifying: '核对结果',
+  completed: '结束',
+  failed: '失败',
+  cancelled: '已停止',
+};
+
 function agentEventLabel(type: string, payload: Record<string, unknown>): string {
-  const labels: Record<string, string> = {
-    'run.created': '已创建持久化运行',
-    'run.started': '运行已开始',
-    'run.phase_changed': `阶段变更为 ${String(payload.to || '')}`,
-    'run.checkpointed': '已保存恢复检查点',
-    'approval.requested': `请求审批 ${String(payload.capability || '')}`,
-    'approval.resolved': `审批已${payload.status === 'approved' ? '批准' : '拒绝'}`,
-    'runner.model_requested': '模型正在规划下一步',
-    'runner.tool_attempt_started': '工具调用已开始',
-    'artifact.created': '已登记交付产物',
-  };
-  return labels[type] || type;
+  const tool = typeof payload.toolName === 'string' ? payload.toolName : '';
+  switch (type) {
+    case 'run.created': return '已创建持久化运行';
+    case 'run.started': return '运行已开始';
+    case 'run.phase_changed':
+      if (payload.to === 'completed') return '运行结束';
+      if (payload.to === 'failed') return '运行失败';
+      if (payload.to === 'cancelled') return '运行已停止';
+      return `进入${AGENT_PHASE_LABELS[String(payload.to || '')] || String(payload.to || '')}阶段`;
+    case 'approval.requested': return '等待你确认一项操作';
+    case 'approval.resolved': return payload.status === 'approved' ? '已批准' : payload.status === 'denied' ? '已拒绝' : '审批已取消';
+    case 'runner.model_requested': return `第 ${Number(payload.round) || '?'} 轮：模型正在决定下一步`;
+    case 'runner.model_completed': return Number(payload.toolCallCount) > 0 ? `模型提出了 ${Number(payload.toolCallCount)} 个工具调用` : '模型给出了回答';
+    case 'runner.model_retry_scheduled': return `${agentModelFailureHeadline(payload.failureKind)}，${Math.round(Number(payload.delayMs) / 100) / 10 || 0} 秒后自动重试`;
+    case 'runner.gate_opened': return payload.kind === 'model_retry' ? `${agentModelFailureHeadline(payload.failureKind)}，等待你决定是否重试` : '执行预算用完，等待你决定是否继续';
+    case 'runner.model_output_budget_raised': return `模型输出没写完就到了长度上限，已把上限从 ${Number(payload.from)} 提到 ${Number(payload.to)} 重试`;
+    case 'runner.model_output_budget_lowered': return `服务不接受更高的输出上限，改回 ${Number(payload.to)}`;
+    case 'runner.gate_resolved': return payload.decision === 'approved' ? '已同意继续' : '已选择停止';
+    case 'runner.tool_attempt_started': return `开始执行 ${tool}`;
+    case 'runner.tool_retry_scheduled': return `${tool} 失败，准备重试`;
+    case 'runner.tool_completed': return `${tool} ${payload.status === 'completed' ? '完成' : payload.status === 'denied' ? '未执行' : '失败'}`;
+    case 'runner.tool_interrupted': return `${tool} 执行时被中断`;
+    case 'runner.failed': return `运行失败：${String(payload.message || payload.error || '')}`;
+    case 'artifact.created': return '已登记交付产物';
+    default: return type;
+  }
 }
 
 function readAgentFinalContent(state: Record<string, unknown>): string {
@@ -3679,6 +3823,7 @@ function executionStateText(state: ExecutionTaskState): string {
   if (state === 'planning') return '正在规划';
   if (state === 'running') return '正在执行';
   if (state === 'stopping') return '正在停止';
+  if (state === 'attention') return '需要你处理';
   if (state === 'completed') return '已完成';
   if (state === 'failed') return '有失败项';
   if (state === 'cancelled') return '已停止';

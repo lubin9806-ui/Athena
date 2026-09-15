@@ -121,6 +121,19 @@ export class ModelProtocolError extends Error {
   }
 }
 
+/**
+ * The response stopped at the output-token limit before the call it was writing
+ * was complete. Still a protocol error for every caller that treats it as one, but
+ * its cure is a larger budget, not a different model: a reasoning model can spend
+ * most of a small budget thinking before it writes a single argument.
+ */
+export class ModelOutputTruncatedError extends ModelProtocolError {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ModelOutputTruncatedError';
+  }
+}
+
 export class ModelCapabilityError extends Error {
   constructor(message: string) {
     super(message);

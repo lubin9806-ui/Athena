@@ -143,7 +143,11 @@ try {
   assert.match(htmlSource, /id="agent-task-board"/);
   assert.match(htmlSource, /id="agent-approval-section"/);
   assert.match(htmlSource, /id="agent-run-resume"/);
-  assert.match(ipcSource, /resolveAgentApprovalGroup\(projectId, runId/);
+  // ATH-SEC-009: a click decides the item it was on; deciding the whole group has to
+  // be asked for explicitly.
+  assert.match(ipcSource, /resolveAgentApproval\(projectId, runId, approvalId, decision, scope/);
+  assert.match(ipcSource, /value\.scope === 'group' \? 'group' : 'item'/, 'the IPC default must be a single item');
+  assert.match(rendererSource, /dataset\.scope = 'item'/, 'each approval card button must decide only its own item');
 
   // ATH-CHAT-007: execute mode no longer asks first. The card it used to show was
   // a gate that asked about nothing - the goal was echoed back word for word and

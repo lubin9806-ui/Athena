@@ -28,7 +28,7 @@ export class AgentPolicyEngine {
       return {
         ...policy,
         kind: 'deny',
-        explanation: `Capability ${policy.capability} is not declared by the durable task specification`,
+        explanation: `这项操作需要的能力 ${policy.capability} 不在这个任务的授权范围内，没有执行`,
       };
     }
     const allowed = new Set(context.allowedCapabilities.map(item => item.trim()).filter(Boolean));
@@ -36,18 +36,16 @@ export class AgentPolicyEngine {
       return {
         ...policy,
         kind: 'deny',
-        explanation: `Capability ${policy.capability} is not granted to this run`,
+        explanation: `这次运行没有获得 ${policy.capability} 能力，没有执行`,
       };
     }
     const requiresApproval = context.approvalMode === 'always'
       || policy.approval === 'always'
       || (policy.approval === 'risk_based' && RISK_RANK[policy.riskLevel] >= RISK_RANK.high);
     if (requiresApproval) {
-      return {
-        ...policy,
-        kind: 'approval',
-        explanation: `${policy.reason}; explicit approval is required for ${policy.riskLevel}-risk access`,
-      };
+      // The explanation is what the approval card shows. It used to append an English
+      // clause to a Chinese reason; the risk level has its own label on the card.
+      return { ...policy, kind: 'approval', explanation: policy.reason };
     }
     return { ...policy, kind: 'allow', explanation: policy.reason };
   }

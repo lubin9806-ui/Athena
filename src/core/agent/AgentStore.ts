@@ -475,8 +475,11 @@ export class AgentStore {
   }
 
   listApprovals(runId: string): AgentApprovalRecord[] {
+    // `created_at` only has one-second resolution, and a batch's approvals are written
+    // within the same second; ordering the tie by the random id put a batch on the
+    // approval card in random order. Insertion order is the order the calls run in.
     return (this.database.prepare(`
-      SELECT * FROM agent_approvals WHERE run_id = ? ORDER BY created_at ASC, id ASC
+      SELECT * FROM agent_approvals WHERE run_id = ? ORDER BY created_at ASC, rowid ASC
     `).all(runId) as unknown[]).map(rowToApproval);
   }
 

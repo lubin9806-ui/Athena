@@ -58,6 +58,47 @@ const server = http.createServer(async (request, response) => {
     response.on('close', () => clearInterval(timer));
     return;
   }
+  // Transport failures the way providers and proxies actually produce them.
+  if (request.url.startsWith('/drop/')) {
+    request.socket.destroy();
+    return;
+  }
+  if (request.url.startsWith('/truncate/')) {
+    response.writeHead(200, { 'Content-Type': 'application/json' });
+    response.write('{"id":"resp-truncated","choices":[{"message":{"role":"assistant","content":"par');
+    setTimeout(() => request.socket.destroy(), 30);
+    return;
+  }
+  if (request.url.startsWith('/overloaded/')) {
+    response.writeHead(503, { 'Content-Type': 'application/json' });
+    response.end(JSON.stringify({ error: { message: 'Server overloaded, please retry later' } }));
+    return;
+  }
+  // A reasoning model that spent its output budget thinking: the tool call stops mid-argument.
+  if (request.url.startsWith('/truncated-tool/') || request.url.startsWith('/malformed-tool/')) {
+    const truncated = request.url.startsWith('/truncated-tool/');
+    if (body.stream) {
+      response.writeHead(200, { 'Content-Type': 'text/event-stream' });
+      response.write('data: {"id":"resp-cut","choices":[{"delta":{"tool_calls":[{"index":0,"id":"call-cut","function":{"name":"get_weather","arguments":"{\\"city\\":\\"Shang"}}]}}]}\n\n');
+      response.write(`data: {"id":"resp-cut","choices":[{"delta":{},"finish_reason":"${truncated ? 'length' : 'tool_calls'}"}]}\n\n`);
+      response.end('data: [DONE]\n\n');
+      return;
+    }
+    sendJson(response, {
+      id: 'resp-cut',
+      model: 'fixture-openai-model',
+      choices: [{
+        message: { role: 'assistant', content: null, tool_calls: [{ id: 'call-cut', type: 'function', function: { name: 'get_weather', arguments: '{"city":"Shang' } }] },
+        finish_reason: truncated ? 'length' : 'tool_calls',
+      }],
+    });
+    return;
+  }
+  if (request.url.startsWith('/missing-model/')) {
+    response.writeHead(404, { 'Content-Type': 'application/json' });
+    response.end(JSON.stringify({ error: { message: 'Model Not Exist', type: 'invalid_request_error' } }));
+    return;
+  }
   // A model that starts talking and then genuinely goes dead.
   if (request.url.startsWith('/stalled/')) {
     response.writeHead(200, { 'Content-Type': 'text/event-stream' });
@@ -516,12 +557,116 @@ async function main() {
     assert(!/sk-0123456789abcdef0123|abcdefghijklmnop/.test(secret), 'credentials must be redacted from diagnostics');
     assert.match(secret, /\[REDACTED\]/);
 
-    console.log(`ATHENA_MODEL_ADAPTERS_OK openaiCalls=${requests.filter(item => item.url === '/v1/chat/completions').length} ollamaCalls=${requests.filter(item => item.url === '/api/chat').length}`);
+    const transport = await verifyTransportFailures(host, LLMClient, classifyModelFailure);
+
+    console.log(`ATHENA_MODEL_ADAPTERS_OK openaiCalls=${requests.filter(item => item.url === '/v1/chat/completions').length} ollamaCalls=${requests.filter(item => item.url === '/api/chat').length} transport=${transport}`);
     fs.rmSync(imagePath, { force: true });
   } finally {
     for (const stalled of stalledResponses) stalled.destroy();
     await new Promise(resolve => server.close(resolve));
   }
+}
+
+/**
+ * `fetch` reports every transport failure as "fetch failed" - or "terminated" once
+ * the body is being read - and keeps what happened on `cause`. The 2026-09-14
+ * outage left only "fetch failed" in the run log. Each error below is thrown by a
+ * real request, never written by hand: a hand-written message only contains the
+ * words its author thought of.
+ */
+async function verifyTransportFailures(host, LLMClient, classifyModelFailure) {
+  const net = require('node:net');
+  const capture = async run => {
+    try {
+      await run();
+    } catch (error) {
+      return error;
+    }
+    throw new Error('expected the request to fail');
+  };
+  const client = prefix => new LLMClient({
+    provider: 'openai',
+    remote: { openai: { baseUrl: `${host}/${prefix}/v1`, model: 'fixture-openai-model', temperature: 0.2, maxTokens: 512, numCtx: 8192 } },
+    fallback: { timeoutMs: 5_000 },
+  }, () => 'sk-fixture');
+  const ask = prefix => capture(() => client(prefix).chatWithTools([{ role: 'user', content: 'hello' }], [weatherTool]));
+  const checked = [];
+  const expect = (label, error, expected) => {
+    const failure = classifyModelFailure(error);
+    assert.equal(failure.code, expected.code, `${label}: ${failure.code} (${failure.detail})`);
+    assert.equal(failure.kind, expected.kind, label);
+    assert.equal(failure.retryable, expected.retryable, label);
+    assert.match(failure.detail, expected.detail, `${label}: the cause must reach the log (${failure.detail})`);
+    assert.match(failure.message, expected.message, `${label}: ${failure.message}`);
+    assert.doesNotMatch(failure.message, /fetch failed|terminated|UND_ERR|\{"/, `${label}: the message is written for a person`);
+    checked.push(label);
+  };
+
+  const dropped = await ask('drop');
+  assert.equal(dropped.message, 'fetch failed', 'fixture must reproduce the opaque top-level message');
+  expect('socket-closed', dropped, { code: 'model.connection.reset', kind: 'connection', retryable: true, detail: /UND_ERR_SOCKET/, message: /连接在请求途中被断开/ });
+
+  // The body read fails with "terminated", which no text rule used to recognise:
+  // it was passed straight to the chat and, as unclassified, never retried.
+  const truncated = await ask('truncate');
+  assert.equal(truncated.message, 'terminated', 'fixture must reproduce the mid-body wording');
+  expect('closed-mid-body', truncated, { code: 'model.connection.reset', kind: 'connection', retryable: true, detail: /terminated.*UND_ERR_SOCKET/, message: /连接在请求途中被断开/ });
+
+  const port = await new Promise(resolve => {
+    const probe = net.createServer();
+    probe.listen(0, '127.0.0.1', () => {
+      const { port: free } = probe.address();
+      probe.close(() => resolve(free));
+    });
+  });
+  const refused = await capture(() => fetch(`http://127.0.0.1:${port}/v1/chat/completions`, { method: 'POST', body: '{}' }));
+  expect('refused', refused, { code: 'model.connection.refused', kind: 'connection', retryable: true, detail: /ECONNREFUSED/, message: new RegExp(`127\\.0\\.0\\.1:${port}.*拒绝了连接`) });
+
+  const reset = await new Promise(resolve => {
+    const resetting = net.createServer(socket => socket.on('data', () => socket.resetAndDestroy()));
+    resetting.listen(0, '127.0.0.1', async () => {
+      const error = await capture(() => fetch(`http://127.0.0.1:${resetting.address().port}/v1/chat/completions`, { method: 'POST', body: '{}' }));
+      resetting.close(() => resolve(error));
+    });
+  });
+  expect('tcp-reset', reset, { code: 'model.connection.reset', kind: 'connection', retryable: true, detail: /ECONNRESET/, message: /连接在请求途中被断开/ });
+
+  const plainPort = new URL(host).port;
+  const tls = await capture(() => fetch(`https://127.0.0.1:${plainPort}/v1/models`));
+  expect('tls-to-plain-http', tls, { code: 'model.connection.tls', kind: 'connection', retryable: false, detail: /ERR_SSL_/, message: /加密连接失败/ });
+
+  const dns = await capture(() => fetch('https://athena-model-probe.invalid/v1/models', { signal: AbortSignal.timeout(20_000) }));
+  assert.notEqual(dns.name, 'TimeoutError', 'the resolver must answer for .invalid; this environment cannot produce a real DNS failure');
+  expect('dns', dns, { code: 'model.connection.dns', kind: 'connection', retryable: true, detail: /ENOTFOUND/, message: /athena-model-probe\.invalid/ });
+
+  expect('http-503', await ask('overloaded'), { code: 'model.server_error', kind: 'connection', retryable: true, detail: /503/, message: /HTTP 503/ });
+  const missing = classifyModelFailure(await ask('missing-model'));
+  assert.equal(missing.code, 'model.request_rejected');
+  assert.equal(missing.retryable, false);
+  assert.match(missing.message, /HTTP 404.*Model Not Exist/, 'the provider\'s own reason is the useful part of a rejection');
+  checked.push('http-404');
+
+  // Arguments cut off at the length limit are a budget problem, told apart from a
+  // model that simply wrote bad JSON - in both the plain and the streaming path.
+  for (const stream of [false, true]) {
+    const cut = await capture(() => client('truncated-tool').chatWithTools([{ role: 'user', content: 'weather' }], [weatherTool], { stream, onEvent: () => {} }));
+    assert.equal(cut.name, 'ModelOutputTruncatedError', `stream=${stream}: ${cut.name} ${cut.message}`);
+    const cutFailure = classifyModelFailure(cut);
+    assert.equal(cutFailure.code, 'model.output_truncated');
+    assert.match(cutFailure.message, /长度上限/);
+    const malformed = await capture(() => client('malformed-tool').chatWithTools([{ role: 'user', content: 'weather' }], [weatherTool], { stream, onEvent: () => {} }));
+    assert.equal(malformed.name, 'ModelProtocolError', `stream=${stream}: bad JSON without a length stop is not truncation`);
+    assert.equal(classifyModelFailure(malformed).code, 'model.protocol');
+  }
+  checked.push('output-truncated');
+
+  // A detail line persisted earlier and read back keeps its meaning: undici's
+  // "Connect Timeout Error" is a network problem, not a slow model.
+  const persistedConnectTimeout = classifyModelFailure(new Error('fetch failed <- Connect Timeout Error (attempted address: api.deepseek.com:443, timeout: 10000ms) code=UND_ERR_CONNECT_TIMEOUT'));
+  assert.equal(persistedConnectTimeout.code, 'model.connection.timeout');
+  assert.doesNotMatch(persistedConnectTimeout.message, /更快的模型/);
+  checked.push('persisted-connect-timeout');
+  return checked.join(',');
 }
 
 function sendJson(response, value) {

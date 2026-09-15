@@ -1,4 +1,6 @@
 import type { AgentRunRecord, AgentRunSnapshot } from '../../shared/types';
+import type { AgentRunVerification } from '../../shared/agentVerification';
+export type { AgentRunVerification } from '../../shared/agentVerification';
 import type {
   ModelAdapterCapabilities,
   ModelMessage,
@@ -12,6 +14,8 @@ export interface AgentModelClient {
   readonly providerName: string;
   readonly modelName: string;
   readonly capabilities: ModelAdapterCapabilities;
+  /** The configured reply budget, when the client has one. */
+  readonly maxOutputTokens?: number;
   chatWithTools(
     messages: ModelMessage[],
     tools: ModelToolDefinition[],
@@ -20,6 +24,7 @@ export interface AgentModelClient {
       mode?: 'create' | 'companion' | 'reason' | 'execute';
       stream?: boolean;
       signal?: AbortSignal;
+      overrides?: { maxTokens?: number };
     },
   ): Promise<ModelResponse>;
 }
@@ -33,6 +38,27 @@ export interface PendingAgentToolBatch {
   calls: PendingAgentToolCall[];
   cursor: number;
 }
+
+/** Why a run stopped, written once for a person and once for the log. */
+export interface AgentRunFailureRecord {
+  kind: string;
+  code: string;
+  message: string;
+  detail: string;
+}
+
+export interface AgentRunBudget {
+  modelRounds: number;
+  toolCalls: number;
+}
+
+/**
+ * A decision the runner waits on that is not about a tool call. Each one is held
+ * as an ordinary approval so it survives a restart and shows on the same card.
+ */
+export type AgentRunnerGate =
+  | { id: string; kind: 'model_retry'; failure: AgentRunFailureRecord; attempts: number }
+  | { id: string; kind: 'budget_extension'; reason: 'model_rounds' | 'tool_calls' };
 
 export interface AgentRunnerCheckpointV1 {
   version: 1;
@@ -48,6 +74,13 @@ export interface AgentRunnerCheckpointV1 {
     stepId: string;
   }>;
   finalContent: string | null;
+  /** Limits for this stretch of work. Checkpoints written before budgets could grow have none. */
+  budget?: AgentRunBudget;
+  gate?: AgentRunnerGate | null;
+  /** The person declined more budget: one last model call, without tools, to report back. */
+  closing?: boolean;
+  /** The output-token budget that last worked for this run, so later rounds start there. */
+  outputTokens?: number;
 }
 
 export interface CreateAgentExecutionInput {
@@ -59,17 +92,14 @@ export interface CreateAgentExecutionInput {
   strategy?: string;
 }
 
-// Whether a terminated run carries evidence that the goal was actually met.
-// `verified` means the task declared required validations and they passed;
-// `unverified` means the run acted but declared nothing to check against.
-export type AgentRunVerification = 'verified' | 'unverified' | 'not_applicable';
-
 export interface AgentRunnerResult {
   runId: string;
   status: 'completed' | 'paused' | 'failed' | 'cancelled';
   content: string;
   error: string | null;
   verification: AgentRunVerification;
+  /** Why a failed run failed, or what a run paused on a model outage is waiting out. */
+  failure: AgentRunFailureRecord | null;
   snapshot: AgentRunSnapshot;
 }
 

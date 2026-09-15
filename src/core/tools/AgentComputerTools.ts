@@ -1,8 +1,13 @@
 import type { AgentCapabilityAccess, AgentRiskLevel, ToolPermissionLevel, ToolSettings } from '../../shared/types';
-import { ToolRegistry, type AgentToolPolicyDescriptor, type AgentToolRegistration } from '../agent/ToolRegistry';
-import { buildToolConfirmation } from './ToolRuntime';
+import {
+  ToolRegistry,
+  type AgentToolArgumentPreview,
+  type AgentToolPolicyDescriptor,
+  type AgentToolRegistration,
+} from '../agent/ToolRegistry';
+import { buildToolConfirmation, redactInlineSecrets } from './ToolRuntime';
 import { ComputerToolService } from './ComputerTools';
-import type { ComputerToolDefinition } from './ComputerToolCatalog';
+import { permissionLabel, type ComputerToolDefinition } from './ComputerToolCatalog';
 
 export interface ComputerAgentToolBridgeOptions {
   registry: ToolRegistry;
@@ -88,6 +93,7 @@ export class ComputerAgentToolBridge {
       retry: { maxAttempts: 1 },
       policy: argumentsValue => policyForTool(definition, argumentsValue),
       redactArguments: redactComputerArguments,
+      previewArguments: previewComputerArguments,
       execute: async (argumentsValue, context) => {
         if (context.signal.aborted) throw context.signal.reason || new Error('Tool execution cancelled');
         // Resolved per call and per run: a permission the user revoked mid-run must
@@ -131,7 +137,7 @@ function policyForTool(
     access: base.access,
     riskLevel,
     approval: confirmation ? 'always' : 'risk_based',
-    reason: confirmation?.explanation || `${definition.label} uses the active ${definition.minimumLevel} computer permission tier`,
+    reason: confirmation?.explanation || `${definition.label}，在“${permissionLabel(definition.minimumLevel)}”权限档内执行`,
   };
 }
 
@@ -202,10 +208,26 @@ function capExecutionArguments(
   return output;
 }
 
+const PAYLOAD_ARGUMENTS = ['content', 'body', 'old_text', 'new_text'] as const;
+const PREVIEW_CHARS = 1_200;
+
+/**
+ * What a step and an approval keep of a call. File and request payloads are
+ * reduced to their size. Everything a person has to see to approve the call stays
+ * readable - the command, the terminal input, the path, the address - with only
+ * secrets masked (ATH-SEC-009). Terminal input used to be hidden with the payloads,
+ * which meant approving a terminal_write without seeing the command it typed.
+ */
 function redactComputerArguments(argumentsValue: Record<string, unknown>): Record<string, unknown> {
   const output = structuredClone(argumentsValue);
-  for (const key of ['content', 'body', 'old_text', 'new_text', 'input']) {
-    if (typeof output[key] === 'string') output[key] = `[CONTENT_REDACTED chars=${String(output[key]).length}]`;
+  for (const [key, value] of Object.entries(output)) {
+    if ((PAYLOAD_ARGUMENTS as readonly string[]).includes(key) && typeof value === 'string') {
+      output[key] = `[CONTENT_REDACTED chars=${value.length}]`;
+    } else if (typeof value === 'string') {
+      output[key] = redactInlineSecrets(value);
+    } else if (Array.isArray(value)) {
+      output[key] = value.map(item => (typeof item === 'string' ? redactInlineSecrets(item) : item));
+    }
   }
   if (output.headers && typeof output.headers === 'object' && !Array.isArray(output.headers)) {
     output.headers = Object.fromEntries(Object.entries(output.headers as Record<string, unknown>).map(([key, value]) => [
@@ -214,4 +236,18 @@ function redactComputerArguments(argumentsValue: Record<string, unknown>): Recor
     ]));
   }
   return output;
+}
+
+function previewComputerArguments(argumentsValue: Record<string, unknown>): Record<string, AgentToolArgumentPreview> {
+  const preview: Record<string, AgentToolArgumentPreview> = {};
+  for (const key of PAYLOAD_ARGUMENTS) {
+    const value = argumentsValue[key];
+    if (typeof value !== 'string') continue;
+    if (key === 'content' && argumentsValue.encoding === 'base64') {
+      preview[key] = { text: `（base64 编码的二进制内容，${value.length} 字符）`, totalChars: value.length };
+      continue;
+    }
+    preview[key] = { text: redactInlineSecrets(value.slice(0, PREVIEW_CHARS)), totalChars: value.length };
+  }
+  return preview;
 }
