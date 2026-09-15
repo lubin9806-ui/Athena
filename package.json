@@ -95,6 +95,8 @@
     "test:agent-foundation": "tsc && electron scripts/verify-agent-foundation.js",
     "test:agent-runtime": "tsc && electron scripts/verify-agent-runtime.js",
     "test:project-workspace": "tsc && electron scripts/verify-project-workspace.js",
+    "test:execute:e2e": "vite build --config vite.config.mts && tsc && node scripts/verify-execute-mode-e2e.js",
+    "test:execute:live": "vite build --config vite.config.mts && tsc && node scripts/verify-execute-mode-e2e.js --live",
     "test:skill-library": "tsc && node scripts/verify-skill-library.js",
     "test:mcp-integrations": "tsc && node scripts/verify-mcp-integrations.js",
     "test:research-tools": "tsc && node scripts/verify-research-tools.js",
