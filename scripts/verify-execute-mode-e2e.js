@@ -327,6 +327,10 @@ async function runGoal(page, scenario, profile) {
   const started = Date.now();
   const deadline = started + scenario.timeoutMs;
   const decided = new Set();
+  const followUps = [...(scenario.followUps || [])];
+  // One window is one session: a follow-up is the person answering the turn that
+  // just stopped, not a new task, so the run it belongs to has to be a new one.
+  let answeredRunId = null;
   let sawRun = false;
   while (Date.now() < deadline) {
     await sleep(700);
@@ -359,9 +363,24 @@ async function runGoal(page, scenario, profile) {
       continue;
     }
     const observed = await readRun(page);
-    if (observed) sawRun = true;
+    if (observed && observed.snapshot.run.id !== answeredRunId) sawRun = true;
     const status = observed?.snapshot.run.status;
-    if (sawRun && ['completed', 'failed', 'cancelled'].includes(status) && screen.busy !== 'true') {
+    const settled = sawRun
+      && observed?.snapshot.run.id !== answeredRunId
+      && ['completed', 'failed', 'cancelled'].includes(status)
+      && screen.busy !== 'true';
+    if (settled && followUps.length > 0) {
+      const followUp = followUps.shift();
+      answeredRunId = observed.snapshot.run.id;
+      sawRun = false;
+      log(scenario.name, `接着说：${followUp}`);
+      await page.type('#input-box', followUp);
+      await sleep(300);
+      await page.click('#send-btn');
+      await sleep(1_200);
+      continue;
+    }
+    if (settled) {
       await sleep(1_500);
       return { transcript, observed: await readRun(page), screen: await readScreen(page), elapsedMs: Date.now() - started };
     }
@@ -607,6 +626,79 @@ const scenarios = [
       // Nothing was asked, and the turn still reports what it can stand behind:
       // this fixture declares no check, so it ends "未验证" rather than "已完成".
       assert.equal(result.screen.stateLabel, '已结束 · 未验证');
+    },
+  },
+  {
+    // ATH-EXEC-006: the reply that carries the answer must continue the task that
+    // asked for it. The user's report was an API key; a port number tests the same
+    // path without putting a real secret through a fixture.
+    name: 'fixture-continuity',
+    live: false,
+    timeoutMs: 120_000,
+    async setup(profile) {
+      const target = path.join(profile.workspace, 'config.json');
+      const seen = { secondRound: null };
+      const provider = await startFixtureProvider(request => {
+        const userTurns = request.messages.filter(message => message.role === 'user');
+        if (userTurns.length <= 1) return { role: 'assistant', content: '端口号是多少？你告诉我我就写进去。' };
+        if (!seen.secondRound) seen.secondRound = request.messages;
+        if (!request.messages.some(message => message.role === 'tool')) {
+          return toolCallReply([{ name: 'write_file', arguments: { path: target, content: '{"port": 8129}' } }]);
+        }
+        return { role: 'assistant', content: 'config.json 写好了，port 是 8129。' };
+      });
+      return {
+        provider,
+        target,
+        seen,
+        goal: `在 ${profile.workspace} 写一个 config.json，里面只放一个 port 字段。端口号我马上告诉你，先别猜。`,
+      };
+    },
+    followUps: ['8129'],
+    async decide(card) {
+      assert.match(field(card, '路径') || '', /config\.json$/);
+      return { decision: 'approved', reason: '这个文件可以写' };
+    },
+    async verify({ result, context }) {
+      assert.equal(JSON.parse(fs.readFileSync(context.target, 'utf8')).port, 8129);
+      const messages = context.seen.secondRound || [];
+      assert(
+        messages.some(message => message.role === 'assistant' && String(message.content).includes('端口号是多少')),
+        'the next turn must carry the question it is answering',
+      );
+      assert(
+        messages.some(message => message.role === 'user' && String(message.content).includes('config.json')),
+        'the next turn must carry the request that started the session',
+      );
+      const lastUserTurn = messages.filter(message => message.role === 'user').at(-1);
+      assert.equal(String(lastUserTurn.content).trim(), '8129', 'the answer is the newest turn');
+      const session = result.observed.snapshot.run.state.session;
+      assert.ok(session && session.ownStart > 1, `the run must know where its own turn starts: ${JSON.stringify(session)}`);
+      assert(result.screen.said.some(text => text.trim() === '8129'), `both messages belong to one conversation: ${result.screen.said.join(' | ')}`);
+    },
+  },
+  {
+    name: 'live-session-continuity',
+    live: true,
+    timeoutMs: 10 * 60_000,
+    async setup(profile) {
+      return {
+        target: path.join(profile.workspace, 'config.json'),
+        goal: `在 ${profile.workspace} 这个文件夹里建一个 config.json，里面只写一个 port 字段。端口号我马上告诉你，先不要猜，也不要先把文件写出来。`,
+      };
+    },
+    followUps: ['8129'],
+    async decide(card) {
+      const target = field(card, '路径') || field(card, '命令') || '';
+      if (/config\.json/.test(target)) return { decision: 'approved', reason: '这个文件可以写' };
+      return { decision: 'denied', reason: '只写 config.json' };
+    },
+    async verify({ result, context }) {
+      assert.ok(fs.existsSync(context.target), 'config.json must exist once the port was given');
+      const parsed = JSON.parse(fs.readFileSync(context.target, 'utf8'));
+      assert.equal(Number(parsed.port), 8129, `the port must be the one given afterwards: ${JSON.stringify(parsed)}`);
+      assert(result.screen.narration.length > 0, 'each step must be explained before it happens');
+      return { narration: result.screen.narration.slice(0, 4) };
     },
   },
   {
