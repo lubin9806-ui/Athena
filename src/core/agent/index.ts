@@ -4,4 +4,5 @@ export * from './AgentRuntimeTypes';
 export * from './ToolRegistry';
 export * from './AgentPolicyEngine';
 export * from './AgentRunner';
+export * from './ExecutionSession';
 export * from './ProjectWorkspaceService';

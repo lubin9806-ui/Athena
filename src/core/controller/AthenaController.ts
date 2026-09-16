@@ -51,10 +51,12 @@ import {
   AgentStore,
   ProjectWorkspaceService,
   ToolRegistry,
+  onAgentStoreActivity,
   type AgentRunnerResult,
   type UpdateAgentWorkspaceInput,
 } from '../agent';
 import { ComputerAgentToolBridge } from '../tools/AgentComputerTools';
+import { buildExecuteSession, type ExecuteSessionSnapshot } from '../../shared/executeTimeline';
 import { describeAgentToolStep, describeAgentToolTarget, presentAgentApproval } from '../../shared/agentRunPresentation';
 import { summarizeAgentToolOutcome } from '../../shared/agentVerification';
 import { SkillAgentToolBridge, SkillLibrary } from '../skills';
@@ -245,6 +247,8 @@ export class AthenaController {
   private readonly documents: ProjectDocumentService;
   private messageRouter: AgentMessageRouter;
   private agentRunner: AgentRunner;
+  /** run id → the chat window it belongs to, so live activity can name its session. */
+  private readonly runWindowIds = new Map<string, number | null>();
   private initialized = false;
   private initializePromise: Promise<void> | null = null;
   private memoryMaintenanceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -897,6 +901,44 @@ export class AthenaController {
     return this.projectWorkspace.getSnapshot(projectId, selectedTaskId);
   }
 
+  /** One chat window read as one execute conversation: what was said, done, decided. */
+  getExecuteSession(chatWindowId: number, runLimit = 8): ExecuteSessionSnapshot {
+    const chatWindow = getChatWindow(chatWindowId);
+    if (!chatWindow) throw new Error(`Chat window not found: ${chatWindowId}`);
+    const runs = this.agentStore.listWindowRuns(chatWindowId, runLimit)
+      .slice()
+      .reverse()
+      .map(run => this.agentStore.getRunSnapshot(run.id));
+    return buildExecuteSession({
+      chatWindowId,
+      projectId: chatWindow.project_id ?? null,
+      title: chatWindow.title,
+      runs,
+    });
+  }
+
+  /**
+   * Tells the caller which window changed whenever a run records anything, so a
+   * running session can be watched instead of only reported when it ends.
+   */
+  watchExecuteActivity(listener: (change: { chatWindowId: number; runId: string; type: string }) => void): () => void {
+    return onAgentStoreActivity(({ runId, type }) => {
+      const chatWindowId = this.chatWindowForRun(runId);
+      if (chatWindowId) listener({ chatWindowId, runId, type });
+    });
+  }
+
+  private chatWindowForRun(runId: string): number | null {
+    const cached = this.runWindowIds.get(runId);
+    if (cached !== undefined) return cached;
+    const run = this.agentStore.getRun(runId);
+    const task = run ? this.agentStore.getTask(run.taskId) : null;
+    const chatWindowId = task?.chatWindowId ?? null;
+    if (this.runWindowIds.size > 200) this.runWindowIds.clear();
+    this.runWindowIds.set(runId, chatWindowId);
+    return chatWindowId;
+  }
+
   updateAgentWorkspace(
     projectId: number,
     input: UpdateAgentWorkspaceInput,
@@ -989,6 +1031,20 @@ export class AthenaController {
     const staleDraft = this.projectWorkspace.findPendingDraftTask(chatWindow.id);
     // A draft left by the old flow would otherwise sit in the window forever.
     if (staleDraft) this.agentStore.transitionTask(staleDraft.id, 'cancelled', staleDraft.revision);
+    // One window is one session: while a run of this window is still open, this
+    // message belongs to it. Replying to a run that had stopped to ask for an API
+    // key used to start a second task that knew nothing about the first, so the
+    // key arrived as a brand-new request (ATH-EXEC-006).
+    const openRun = this.agentStore.listWindowRuns(chatWindow.id, 1)[0] || null;
+    if (openRun && !['completed', 'failed', 'cancelled'].includes(openRun.status)) {
+      const continued = await this.continueOpenSessionRun(openRun.id, {
+        content: attachmentText.length > 0 ? withChatAttachmentContext(goal, attachmentText) : goal,
+        chatMessageId: savedUser.chatMessageId ?? null,
+        images: modelImages,
+        onState,
+      });
+      if (continued) return continued;
+    }
     const task = this.startExecutionTask(projectId, chatWindow.id, goal);
     const retrievedForExecution = await buildRetrievedContext(
       task.spec.goal,
@@ -1005,7 +1061,9 @@ export class AthenaController {
       retrievedContext: { ...retrievedForExecution, recentMessages: [] },
       mode: 'execute',
     }).find(message => message.role === 'system')?.content || '';
-    const executionMessages = this.projectWorkspace.buildExecutionMessages(task.id, executionRuntimePrompt);
+    const executionMessages = this.projectWorkspace.buildExecutionMessages(task.id, executionRuntimePrompt, {
+      currentChatMessageId: savedUser.chatMessageId ?? null,
+    });
     const current = executionMessages[executionMessages.length - 1];
     if (attachmentText.length > 0) current.content = withChatAttachmentContext(current.content, attachmentText);
     if (modelImages.length > 0) {
@@ -1019,6 +1077,7 @@ export class AthenaController {
       approvalMode: 'risk_based',
       scene: 'project-workspace',
       strategy: 'native-tools',
+      session: { chatWindowId: chatWindow.id, lastChatMessageId: savedUser.chatMessageId ?? null },
     });
     // The ceiling is the permission the run was granted at the moment it started.
     this.agentStore.initializeRunPermissionCeiling(
@@ -1026,8 +1085,12 @@ export class AthenaController {
       resolveToolSettingsForMode(getAppSettings().tools, 'execute').permissionLevel,
     );
     onState?.(this.agentStore.getRunSnapshot(handle.run.id));
-    const result = await handle.result;
+    let result = await handle.result;
     onState?.(result.snapshot);
+    // A message can land in the gap between the run's last inbox check and its
+    // final answer. It still belongs to this window, so it starts the next turn
+    // here rather than waiting for the person to send it again.
+    result = await this.followUpOnUnreadSessionMessages(result, projectId, chatWindow.id, executionRuntimePrompt, onState);
     recordDataActivity('tool', 'durable-agent-run', {
       projectId,
       taskId: result.snapshot.task.id,
@@ -1036,7 +1099,87 @@ export class AthenaController {
       stepCount: result.snapshot.steps.length,
       artifactCount: result.snapshot.artifacts.length,
     });
-    return this.agentResultToChatResponse(result, true);
+    // A paused run is still waiting: its card says what it waits on, so writing
+    // that sentence into the window as Athena's reply would be a second, stale
+    // copy of it once the run continues.
+    return this.agentResultToChatResponse(result, result.status !== 'paused');
+  }
+
+  /**
+   * Hands a message to the window's open run instead of starting a parallel one.
+   *
+   * Returns null when the run finished between the lookup and the handover, so
+   * the caller starts the next turn normally.
+   */
+  private async continueOpenSessionRun(
+    runId: string,
+    input: {
+      content: string;
+      chatMessageId: number | null;
+      images: ModelImageInput[];
+      onState?: (snapshot: AgentRunSnapshot) => void;
+    },
+  ): Promise<ChatResponse | null> {
+    this.assertAgentRunMayContinue();
+    const submitted = this.agentRunner.submitUserMessage(runId, {
+      content: input.content,
+      chatMessageId: input.chatMessageId,
+      ...(input.images.length > 0 ? { images: input.images.map(image => ({ ...image })) } : {}),
+    });
+    if (submitted.outcome === 'terminal') return null;
+    const snapshot = this.agentStore.getRunSnapshot(runId);
+    input.onState?.(snapshot);
+    if (submitted.outcome === 'queued') {
+      // The run is mid-round in this process; it reads the message before its next
+      // model call, and the turn that is already awaiting its result reports back.
+      return {
+        content: '',
+        emotion: this.emotion.analyzeResponse(''),
+        agentExecution: { taskId: snapshot.task.id, runId, status: 'running' },
+      };
+    }
+    const result = await submitted.result;
+    input.onState?.(result.snapshot);
+    this.persistTerminalAgentResponse(result);
+    return this.agentResultToChatResponse(result, false);
+  }
+
+  /** Starts the next turn for messages a finished run never got to read. */
+  private async followUpOnUnreadSessionMessages(
+    result: AgentRunnerResult,
+    projectId: number,
+    chatWindowId: number,
+    runtimeSystemContext: string,
+    onState?: (snapshot: AgentRunSnapshot) => void,
+  ): Promise<AgentRunnerResult> {
+    let current = result;
+    for (let guard = 0; guard < 3; guard += 1) {
+      if (current.status === 'paused') return current;
+      const unread = this.agentRunner.unreadSessionMessages(current.runId);
+      if (unread.length === 0) return current;
+      const task = this.startExecutionTask(projectId, chatWindowId, unread[0].content);
+      const messages = this.projectWorkspace.buildExecutionMessages(task.id, runtimeSystemContext, {
+        currentChatMessageId: unread[0].chatMessageId ?? null,
+      });
+      const handle = this.agentRunner.start({
+        taskId: task.id,
+        messages,
+        allowedCapabilities: task.spec.requiredCapabilities.map(item => item.id),
+        approvalMode: 'risk_based',
+        scene: 'project-workspace',
+        strategy: 'native-tools',
+        session: { chatWindowId, lastChatMessageId: unread[0].chatMessageId ?? null },
+      });
+      this.agentStore.initializeRunPermissionCeiling(
+        handle.run.id,
+        resolveToolSettingsForMode(getAppSettings().tools, 'execute').permissionLevel,
+      );
+      for (const extra of unread.slice(1)) this.agentRunner.submitUserMessage(handle.run.id, extra);
+      onState?.(this.agentStore.getRunSnapshot(handle.run.id));
+      current = await handle.result;
+      onState?.(current.snapshot);
+    }
+    return current;
   }
 
   getSkillLibrary(): AgentSkillLibrarySnapshot {

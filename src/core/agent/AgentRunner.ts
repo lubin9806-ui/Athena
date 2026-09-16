@@ -18,18 +18,21 @@ import {
 import { classifyModelFailure } from '../ai/ModelFailure';
 import { AgentPolicyEngine, type AgentPolicyContext, type AgentPolicyDecision } from './AgentPolicyEngine';
 import { AgentStore } from './AgentStore';
-import type {
-  AgentModelClient,
-  AgentRunBudget,
-  AgentRunFailureRecord,
-  AgentRunHandle,
-  AgentRunnerCheckpointV1,
-  AgentRunnerGate,
-  AgentRunnerOptions,
-  AgentRunnerResult,
-  CreateAgentExecutionInput,
-  PendingAgentToolBatch,
-  PendingAgentToolCall,
+import {
+  SESSION_USER_MESSAGE_EVENT,
+  type AgentModelClient,
+  type AgentRunBudget,
+  type AgentRunFailureRecord,
+  type AgentRunHandle,
+  type AgentRunnerCheckpointV1,
+  type AgentRunnerGate,
+  type AgentRunnerOptions,
+  type AgentRunnerResult,
+  type AgentSessionUserMessage,
+  type AgentSubmitUserMessageOutcome,
+  type CreateAgentExecutionInput,
+  type PendingAgentToolBatch,
+  type PendingAgentToolCall,
 } from './AgentRuntimeTypes';
 import {
   AgentToolArgumentsError,
@@ -63,6 +66,11 @@ const CLOSING_INSTRUCTION = [
   '不要再调用任何工具。请根据上面真实的工具结果，如实说明：已经完成了什么、还没有完成什么、哪些步骤失败或没有执行。',
   '没有工具结果支持的内容不要说成已经完成。',
 ].join('\n');
+
+const MAX_SESSION_MESSAGE_CHARS = 20_000;
+/** Decision scopes written when the person answers a waiting run by writing to it instead. */
+export const SUPERSEDED_BY_MESSAGE_SCOPE = 'superseded-by-message';
+export const CONTINUED_BY_MESSAGE_SCOPE = 'continued-by-message';
 
 interface ActiveRun {
   controller: AbortController;
@@ -175,6 +183,53 @@ export class AgentRunner {
     return this.store.listRecoverableRuns(limit);
   }
 
+  /**
+   * A message written to a run that has not finished belongs to that run.
+   *
+   * Replying while a run waited used to start a second, parallel task that knew
+   * nothing of the first. A driving run now picks the message up before its
+   * next model round. A waiting run treats the message as the person's answer:
+   * pending tool calls are declined and reported to the model as "the user wrote
+   * instead", a paused retry or budget question counts as "go on", and the run
+   * continues with the message in its transcript.
+   */
+  submitUserMessage(runId: string, message: AgentSessionUserMessage): AgentSubmitUserMessageOutcome {
+    const run = this.store.getRun(runId);
+    if (!run || isTerminalStatus(run.status)) return { outcome: 'terminal', runId };
+    const content = message.content.trim().slice(0, MAX_SESSION_MESSAGE_CHARS);
+    if (!content) throw new Error('A session message needs text');
+    this.store.appendEvent(runId, SESSION_USER_MESSAGE_EVENT, {
+      content,
+      chatMessageId: positiveIntegerOrNull(message.chatMessageId),
+      ...(message.images?.length ? { images: structuredClone(message.images) } : {}),
+    });
+    if (this.activeRuns.has(runId)) return { outcome: 'queued', runId };
+    for (const approval of this.store.listApprovals(runId)) {
+      if (approval.status !== 'pending') continue;
+      const continues = approval.request.kind === 'model_retry' || approval.request.kind === 'budget_extension';
+      this.store.resolveApproval(
+        approval.id,
+        continues ? 'approved' : 'denied',
+        { actor: 'user', scope: continues ? CONTINUED_BY_MESSAGE_SCOPE : SUPERSEDED_BY_MESSAGE_SCOPE },
+        approval.revision,
+      );
+    }
+    return { outcome: 'resumed', runId, result: this.run(runId) };
+  }
+
+  /** Messages that reached a run after it had stopped reading them, oldest first. */
+  unreadSessionMessages(runId: string): AgentSessionUserMessage[] {
+    const run = this.store.getRun(runId);
+    if (!run) return [];
+    let inboxSequence = 0;
+    try {
+      inboxSequence = parseCheckpoint(run.state).session?.inboxSequence ?? 0;
+    } catch {
+      inboxSequence = 0;
+    }
+    return this.readInbox(runId, inboxSequence).map(item => item.message);
+  }
+
   private async drive(runId: string, signal: AbortSignal): Promise<AgentRunnerResult> {
     try {
       let run = requireRun(this.store, runId);
@@ -205,6 +260,9 @@ export class AgentRunner {
         if (run.phase !== 'planning') {
           run = this.store.transitionRun(run.id, 'planning', run.revision);
         }
+        if (this.drainInbox(run.id, state)) {
+          run = this.store.checkpointRun(run.id, state as unknown as Record<string, unknown>, requireRun(this.store, run.id).revision);
+        }
         if (state.closing) {
           const summary = await this.requestModel(run, state, signal, { closing: true });
           state.messages.push({ role: 'assistant', content: summary.content });
@@ -227,6 +285,9 @@ export class AgentRunner {
         run = this.store.checkpointRun(run.id, state as unknown as Record<string, unknown>, requireRun(this.store, run.id).revision);
 
         if (response.toolCalls.length === 0) {
+          // Something the person wrote while this answer was being produced has not
+          // been read yet: answer it before calling the turn finished.
+          if (this.readInbox(run.id, state.session?.inboxSequence ?? 0).length > 0) continue;
           return this.completeRun(run, state, response.content);
         }
         state.pendingBatch = {
@@ -270,6 +331,50 @@ export class AgentRunner {
 
   private budgetOf(state: AgentRunnerCheckpointV1): AgentRunBudget {
     return state.budget ?? { modelRounds: this.maxModelRounds, toolCalls: this.maxToolCalls };
+  }
+
+  /** Adds messages the person wrote since the last model round, in the order they were sent. */
+  private drainInbox(runId: string, state: AgentRunnerCheckpointV1): boolean {
+    const unread = this.readInbox(runId, state.session?.inboxSequence ?? 0);
+    if (unread.length === 0) return false;
+    const session = state.session ?? {
+      chatWindowId: null,
+      ownStart: Math.max(0, state.messages.map(message => message.role).lastIndexOf('user')),
+      inboxSequence: 0,
+      lastChatMessageId: null,
+    };
+    for (const item of unread) {
+      state.messages.push({
+        role: 'user',
+        content: item.message.content,
+        ...(item.message.images?.length ? { images: item.message.images } : {}),
+      });
+      session.inboxSequence = item.sequence;
+      if (item.message.chatMessageId && (session.lastChatMessageId ?? 0) < item.message.chatMessageId) {
+        session.lastChatMessageId = item.message.chatMessageId;
+      }
+    }
+    state.session = session;
+    this.store.appendEvent(runId, 'session.messages_read', { count: unread.length, inboxSequence: session.inboxSequence });
+    return true;
+  }
+
+  private readInbox(runId: string, afterSequence: number): Array<{ sequence: number; message: AgentSessionUserMessage }> {
+    return this.store.listEvents(runId, 10_000)
+      .filter(event => event.type === SESSION_USER_MESSAGE_EVENT && event.sequence > afterSequence)
+      .flatMap(event => {
+        const content = typeof event.payload.content === 'string' ? event.payload.content.trim() : '';
+        if (!content) return [];
+        const images = Array.isArray(event.payload.images) ? event.payload.images as AgentSessionUserMessage['images'] : undefined;
+        return [{
+          sequence: event.sequence,
+          message: {
+            content,
+            chatMessageId: positiveIntegerOrNull(event.payload.chatMessageId),
+            ...(images?.length ? { images } : {}),
+          },
+        }];
+      });
   }
 
   private openGate(initialRun: AgentRunRecord, state: AgentRunnerCheckpointV1, gate: AgentRunnerGate): void {
@@ -584,11 +689,18 @@ export class AgentRunner {
         if ((item.decision.kind === 'approval' && approval?.status !== 'approved')
           || (replayApproval && replayApproval.status !== 'approved')) {
           const deniedByUser = approval?.status === 'denied' || replayApproval?.status === 'denied';
-          result = {
-            status: 'denied',
-            summary: deniedByUser ? '你拒绝了这项操作，没有执行' : '这项操作没有获得批准，没有执行',
-            content: deniedByUser ? '用户拒绝了这项操作。' : '这项操作的审批没有通过。',
-          };
+          const superseded = [approval, replayApproval].some(item => item?.decision.scope === SUPERSEDED_BY_MESSAGE_SCOPE);
+          result = superseded
+            ? {
+                status: 'denied',
+                summary: '用户没有批准，而是发来了新消息，这一步没有执行',
+                content: '用户没有回答这次审批，而是发来了一条新消息（在后面）。这一步没有执行。先按新消息回应；如果这一步仍然需要，就重新提出，会重新征求批准。',
+              }
+            : {
+                status: 'denied',
+                summary: deniedByUser ? '你拒绝了这项操作，没有执行' : '这项操作没有获得批准，没有执行',
+                content: deniedByUser ? '用户拒绝了这项操作。' : '这项操作的审批没有通过。',
+              };
           skipStepWithResult(this.store, currentStep, result);
         } else {
           result = await this.executePreparedCall(run, currentStep, item.pending.call, item.resolved, signal);
@@ -943,6 +1055,18 @@ function createCheckpoint(input: CreateAgentExecutionInput, budget: AgentRunBudg
     finalContent: null,
     budget,
     gate: null,
+    ...(input.session
+      ? {
+          session: {
+            chatWindowId: positiveIntegerOrNull(input.session.chatWindowId),
+            // Everything before the last message was carried in from earlier turns
+            // of this window; the UI and the next turn both need that line.
+            ownStart: Math.max(0, input.messages.length - 1),
+            inboxSequence: 0,
+            lastChatMessageId: positiveIntegerOrNull(input.session.lastChatMessageId),
+          },
+        }
+      : {}),
   };
   assertCheckpoint(checkpoint);
   return checkpoint;
@@ -1014,6 +1138,16 @@ function assertCheckpoint(value: AgentRunnerCheckpointV1): void {
     }
   }
   if (value.gate !== undefined && value.gate !== null) assertGate(value.gate);
+  if (value.session !== undefined && value.session !== null) {
+    const session = value.session as unknown;
+    if (!isRecord(session)
+      || (session.chatWindowId !== null && (!Number.isInteger(session.chatWindowId) || Number(session.chatWindowId) <= 0))
+      || !Number.isInteger(session.ownStart) || Number(session.ownStart) < 0 || Number(session.ownStart) > value.messages.length
+      || !Number.isInteger(session.inboxSequence) || Number(session.inboxSequence) < 0
+      || (session.lastChatMessageId !== null && (!Number.isInteger(session.lastChatMessageId) || Number(session.lastChatMessageId) <= 0))) {
+      throw new Error('Invalid agent checkpoint session state');
+    }
+  }
   if (value.closing !== undefined && typeof value.closing !== 'boolean') throw new Error('Invalid agent checkpoint closing flag');
   if (value.outputTokens !== undefined
     && (!Number.isInteger(value.outputTokens) || value.outputTokens < 128 || value.outputTokens > MAX_AGENT_OUTPUT_TOKENS)) {

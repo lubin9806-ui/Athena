@@ -81,7 +81,36 @@ export interface AgentRunnerCheckpointV1 {
   closing?: boolean;
   /** The output-token budget that last worked for this run, so later rounds start there. */
   outputTokens?: number;
+  /** Where this run sits in its chat window's execute session. Runs from before sessions have none. */
+  session?: AgentRunSessionState;
 }
+
+export interface AgentRunSessionState {
+  chatWindowId: number | null;
+  /** Index of this run's own first message; everything before it was carried in from earlier turns. */
+  ownStart: number;
+  /** The last `session.user_message` event already added to `messages`. */
+  inboxSequence: number;
+  /** The newest chat message this run has read, so the next turn knows what came after it. */
+  lastChatMessageId: number | null;
+}
+
+/** Recorded on a run when the person writes to it while it is running or waiting. */
+export const SESSION_USER_MESSAGE_EVENT = 'session.user_message';
+
+export interface AgentSessionUserMessage {
+  content: string;
+  chatMessageId?: number | null;
+  images?: ModelMessage['images'];
+}
+
+export type AgentSubmitUserMessageOutcome =
+  /** The run was driving in this process; the message joins before its next model round. */
+  | { outcome: 'queued'; runId: string }
+  /** The run was waiting; what it waited on was answered by the message and the run continues. */
+  | { outcome: 'resumed'; runId: string; result: Promise<AgentRunnerResult> }
+  /** The run had already finished; the caller starts the next turn instead. */
+  | { outcome: 'terminal'; runId: string };
 
 export interface CreateAgentExecutionInput {
   taskId: string;
@@ -90,6 +119,7 @@ export interface CreateAgentExecutionInput {
   approvalMode?: 'risk_based' | 'always';
   scene?: string;
   strategy?: string;
+  session?: { chatWindowId: number | null; lastChatMessageId?: number | null };
 }
 
 export interface AgentRunnerResult {

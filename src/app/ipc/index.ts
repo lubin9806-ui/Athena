@@ -100,6 +100,8 @@ const MAX_RECORDING_BYTES = 12 * 1024 * 1024;
 const MAX_TEXT_TO_SPEAK_CHARS = 8_000;
 const MAX_PATH_CHARS = 2_048;
 const CONTROLLER_WARMUP_DELAY_MS = 1_500;
+/** Live session updates are coalesced: a busy run records several events per second. */
+const EXECUTE_SESSION_NOTIFY_MS = 160;
 
 const INVOKE_CHANNELS = [
   'chat:route',
@@ -135,6 +137,7 @@ const INVOKE_CHANNELS = [
   'chatWindow:contextSnapshots',
   'execution:cancel',
   'agentWorkspace:get',
+  'executeSession:get',
   'agentArtifact:open',
   'agentWorkspace:update',
   'agentRun:resolveApproval',
@@ -683,6 +686,12 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<vo
     return projectId ? controller.getAgentWorkspace(projectId, taskId || undefined) : null;
   });
 
+  ipcMain.handle('executeSession:get', async (event, value: unknown) => {
+    if (!isTrustedSender(event)) return null;
+    const chatWindowId = cleanPositiveInteger(value);
+    return chatWindowId ? controller.getExecuteSession(chatWindowId) : null;
+  });
+
   ipcMain.handle('agentArtifact:open', async (event, value: unknown) => {
     if (!isTrustedSender(event)) return false;
     if (!isRecord(value)) return false;
@@ -742,6 +751,22 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<vo
     return controller.cancelAgentRun(projectId, runId, snapshot => {
       notifyAgentWorkspaceChanged(mainWindow, snapshot.task.projectId, snapshot.task.id, snapshot.run.id);
     });
+  });
+
+  // A run records every narration line, tool step and approval as it happens.
+  // Without this the window only heard from a run when it started and when it
+  // stopped, so watching it work was watching a spinner.
+  const sessionNotifyTimers = new Map<number, NodeJS.Timeout>();
+  controller.watchExecuteActivity(({ chatWindowId, runId }) => {
+    if (mainWindow.isDestroyed() || sessionNotifyTimers.has(chatWindowId)) return;
+    const timer = setTimeout(() => {
+      sessionNotifyTimers.delete(chatWindowId);
+      if (mainWindow.isDestroyed()) return;
+      mainWindow.webContents.send('execute:session-changed', { chatWindowId, runId });
+    }, EXECUTE_SESSION_NOTIFY_MS);
+    const handle = timer as unknown as { unref?: () => void };
+    handle.unref?.();
+    sessionNotifyTimers.set(chatWindowId, timer);
   });
 
   ipcMain.handle('skill:list', async (event) => {

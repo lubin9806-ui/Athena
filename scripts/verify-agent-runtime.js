@@ -683,6 +683,7 @@ async function main() {
   const outage = await verifyModelOutageCheckpoint(store);
   const budget = await verifyBudgetGates(store);
   const approvalItems = await verifyApprovalItems(store, bridgeSettings);
+  const session = await verifySessionContinuity(store);
 
   console.log([
     'ATHENA_AGENT_RUNTIME_OK',
@@ -695,7 +696,134 @@ async function main() {
     `outage=${outage}`,
     `budget=${budget}`,
     `approvalItems=${approvalItems}`,
+    `session=${session}`,
   ].join(' '));
+}
+
+/**
+ * ATH-EXEC-006: one chat window is one session.
+ *
+ * Writing to a run that is waiting used to start a second task with none of the
+ * first one's context, so the API key Athena had just asked for arrived as a
+ * brand-new request. A message now joins the run it was written to: a driving
+ * run reads it before its next model round, and a waiting run treats it as the
+ * answer to what it was waiting on.
+ */
+async function verifySessionContinuity(store) {
+  const registry = new ToolRegistry();
+  let downloads = 0;
+  registerTool(registry, {
+    name: 'download_model',
+    parameters: { type: 'object', properties: { url: { type: 'string' } }, required: ['url'], additionalProperties: false },
+    idempotent: false,
+    capability: 'workspace.write',
+    access: 'write',
+    riskLevel: 'high',
+    approval: 'always',
+    execute: async () => {
+      downloads += 1;
+      return { status: 'completed', summary: 'Downloaded', content: '6.46 GB' };
+    },
+  });
+
+  const waitingTask = createReadyTask(store, 'Answer a waiting run by writing to it', [{ id: 'workspace.write', access: 'write' }]);
+  let afterMessage = null;
+  const waitingModel = new FixtureModel([
+    modelResponse('这个模型要 6.46 GB，我开始下。', [toolCall('call-download', 'download_model', { url: 'https://example.com/model' })]),
+    messages => {
+      afterMessage = structuredClone(messages);
+      return modelResponse('好，那就先不下，我去看文件夹。');
+    },
+  ]);
+  const waitingRunner = new AgentRunner(waitingModel, registry, undefined, store, { modelRetryDelayMs: 1 });
+  const paused = await waitingRunner.start({
+    taskId: waitingTask.id,
+    messages: [{ role: 'user', content: '把模型下到 ComfyUI。' }],
+    allowedCapabilities: ['workspace.write'],
+    session: { chatWindowId: 7, lastChatMessageId: 41 },
+  }).result;
+  assert.equal(paused.status, 'paused');
+  assert.equal(paused.snapshot.run.state.session.ownStart, 0, 'the run must record where its own messages start');
+  const pendingApproval = paused.snapshot.approvals.find(item => item.status === 'pending');
+  assert.ok(pendingApproval);
+
+  const submitted = waitingRunner.submitUserMessage(paused.runId, {
+    content: '等一下，先别下，看看文件夹里有没有。',
+    chatMessageId: 42,
+  });
+  assert.equal(submitted.outcome, 'resumed', 'a waiting run continues rather than spawning a second task');
+  const continued = await submitted.result;
+  assert.equal(continued.runId, paused.runId, 'the reply stays in the same run');
+  assert.equal(continued.status, 'completed');
+  assert.equal(downloads, 0, 'writing instead of approving must not run the waiting call');
+  const decided = store.getApproval(pendingApproval.id);
+  assert.equal(decided.status, 'denied');
+  assert.equal(decided.decision.scope, 'superseded-by-message');
+  const supersededResult = afterMessage.find(message => message.role === 'tool' && message.toolCallId === 'call-download');
+  assert.match(supersededResult.content, /发来了新消息/, 'the model must be told why the call did not run');
+  assert.equal(afterMessage.at(-1).role, 'user');
+  assert.equal(afterMessage.at(-1).content, '等一下，先别下，看看文件夹里有没有。');
+  assert.equal(
+    store.getRun(continued.runId).state.session.lastChatMessageId,
+    42,
+    'the run must remember the newest chat message it has read',
+  );
+
+  // A message written while the run is mid-round joins before the next model call.
+  const queuedRegistry = new ToolRegistry();
+  let queuedRunner = null;
+  let queuedRunId = null;
+  let queuedOutcome = null;
+  registerTool(queuedRegistry, {
+    name: 'slow_read',
+    parameters: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'], additionalProperties: false },
+    idempotent: true,
+    capability: 'workspace.read',
+    access: 'read',
+    riskLevel: 'low',
+    approval: 'never',
+    execute: async () => {
+      queuedOutcome = queuedRunner.submitUserMessage(queuedRunId, { content: '顺便把结果存成 txt。', chatMessageId: 43 });
+      return { status: 'completed', summary: 'Read', content: 'two files' };
+    },
+  });
+  let secondRound = null;
+  const queuedModel = new FixtureModel([
+    modelResponse('我先看看文件夹。', [toolCall('call-read', 'slow_read', { query: 'checkpoints' })]),
+    messages => {
+      secondRound = structuredClone(messages);
+      return modelResponse('看完了，也按你说的存了。');
+    },
+  ]);
+  queuedRunner = new AgentRunner(queuedModel, queuedRegistry, undefined, store, { modelRetryDelayMs: 1 });
+  const queuedHandle = queuedRunner.start({
+    taskId: createReadyTask(store, 'Read a message written mid-run', [{ id: 'workspace.read', access: 'read' }]).id,
+    messages: [{ role: 'user', content: '看看 checkpoints 文件夹。' }],
+    allowedCapabilities: ['workspace.read'],
+    session: { chatWindowId: 7, lastChatMessageId: 42 },
+  });
+  queuedRunId = queuedHandle.run.id;
+  const queued = await queuedHandle.result;
+  assert.equal(queuedOutcome.outcome, 'queued', 'a driving run takes the message without being restarted');
+  assert.equal(queued.status, 'completed');
+  assert.equal(secondRound.at(-1).content, '顺便把结果存成 txt。', 'the queued message must reach the next model round');
+  assert.equal(queuedRunner.unreadSessionMessages(queued.runId).length, 0, 'a message the run read must not be repeated as a new turn');
+  assert.equal(
+    queuedRunner.submitUserMessage(queued.runId, { content: '再来一条。' }).outcome,
+    'terminal',
+    'a finished run hands the next message back to the caller',
+  );
+  assert.equal(queuedRunner.unreadSessionMessages(queued.runId).length, 0, 'a message a finished run refused must not be recorded against it');
+
+  // The narrow race: the message lands after the last inbox check but before the
+  // run ends. It is still the window's message, so the next turn starts with it.
+  store.appendEvent(queued.runId, 'session.user_message', { content: '刚才那个存哪了？', chatMessageId: 44 });
+  assert.deepEqual(
+    queuedRunner.unreadSessionMessages(queued.runId).map(item => item.content),
+    ['刚才那个存哪了？'],
+    'a message that arrived as the run ended must be handed to the next turn',
+  );
+  return 'waiting-resumes,mid-run-queues,finished-hands-back';
 }
 
 /**

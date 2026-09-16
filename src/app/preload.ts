@@ -43,6 +43,12 @@ contextBridge.exposeInMainWorld('athenaAPI', {
   cancelExecution: () => ipcRenderer.invoke('execution:cancel'),
   cancelChat: () => ipcRenderer.invoke('chat:cancel'),
   getAgentWorkspace: (projectId: number, taskId?: string) => ipcRenderer.invoke('agentWorkspace:get', projectId, taskId),
+  getExecuteSession: (chatWindowId: number) => ipcRenderer.invoke('executeSession:get', chatWindowId),
+  onExecuteSessionChanged: (callback: (event: { chatWindowId: number; runId: string }) => void) => {
+    const handler = (_: any, event: { chatWindowId: number; runId: string }) => callback(event);
+    ipcRenderer.on('execute:session-changed', handler);
+    return () => ipcRenderer.removeListener('execute:session-changed', handler);
+  },
   openAgentArtifact: (projectId: number, artifactId: string) => ipcRenderer.invoke('agentArtifact:open', { projectId, artifactId }),
   updateAgentWorkspace: (projectId: number, value: unknown) => ipcRenderer.invoke('agentWorkspace:update', projectId, value),
   resolveAgentApproval: (projectId: number, runId: string, approvalId: string, decision: 'approved' | 'denied', scope: 'item' | 'group' = 'item') => ipcRenderer.invoke('agentRun:resolveApproval', { projectId, runId, approvalId, decision, scope }),

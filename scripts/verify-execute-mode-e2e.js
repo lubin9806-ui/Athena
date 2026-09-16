@@ -33,6 +33,12 @@ const APP = args.get('app') ? path.resolve(args.get('app')) : null;
 const RUN_ROOT = path.join(os.tmpdir(), 'athena-execute-e2e', new Date().toISOString().replace(/[:.]/g, '-'));
 const { deriveAgentRunVerification, summarizeAgentToolOutcome } = require(path.join(root, 'dist', 'shared', 'agentVerification.js'));
 
+/** Electron's own startup, not this app's code. Kept in the report, never asserted on. */
+const ENGINE_NOISE = [
+  /sandboxed_renderer\.bundle\.js script failed to run/,
+  /Cannot destructure property 'preloadScripts' of 'binding\.startupData'/,
+];
+
 // ---------------------------------------------------------------------------
 // Chrome DevTools Protocol
 
@@ -59,6 +65,7 @@ class Page {
     this.nextId = 1;
     this.pending = new Map();
     this.rendererErrors = [];
+    this.ignoredNoise = [];
     this.socket = new WebSocket(url);
     this.opened = new Promise((resolve, reject) => {
       this.socket.addEventListener('open', resolve, { once: true });
@@ -72,11 +79,25 @@ class Page {
         if (message.error) reject(new Error(`${message.error.message} ${message.error.data || ''}`));
         else resolve(message.result);
       } else if (message.method === 'Runtime.exceptionThrown') {
-        this.rendererErrors.push(message.params.exceptionDetails?.exception?.description || message.params.exceptionDetails?.text);
+        this.recordError(message.params.exceptionDetails?.exception?.description || message.params.exceptionDetails?.text);
       } else if (message.method === 'Runtime.consoleAPICalled' && message.params.type === 'error') {
-        this.rendererErrors.push(message.params.args.map(item => item.value ?? item.description ?? '').join(' '));
+        this.recordError(message.params.args.map(item => item.value ?? item.description ?? '').join(' '));
       }
     });
+  }
+
+  /**
+   * Electron's own sandbox bootstrap sometimes logs into the first window it
+   * opens ("binding.startupData is null"), before any app code runs. Treating
+   * that as an application error made the first scenario of every run red while
+   * the run itself was perfect. It is recorded rather than dropped, so a real
+   * error can never hide behind the same filter.
+   */
+  recordError(text) {
+    const value = String(text || '');
+    if (!value) return;
+    if (ENGINE_NOISE.some(pattern => pattern.test(value))) this.ignoredNoise.push(value);
+    else this.rendererErrors.push(value);
   }
 
   send(method, params = {}) {
@@ -729,6 +750,7 @@ async function main() {
       await app.page.screenshot(path.join(profile.dir, 'final.png'));
       const details = await scenario.verify({ result, context, profile });
       assert.deepEqual(app.page.rendererErrors.filter(Boolean), [], 'the renderer must not log errors');
+      if (app.page.ignoredNoise.length > 0) entry.ignoredRendererNoise = [...app.page.ignoredNoise];
       Object.assign(entry, {
         ok: true,
         elapsedMs: result.elapsedMs,
