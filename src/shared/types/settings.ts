@@ -79,7 +79,14 @@ export interface ConversationSettings {
    * Off by default: measured at several seconds per message, ahead of the reply.
    */
   semanticRouting: boolean;
+  /**
+   * How execute mode explains itself before each action: everyday words, or the
+   * exact terms (paths, commands, status codes). Plain by default.
+   */
+  executeNarration: ExecuteNarrationStyle;
 }
+
+export type ExecuteNarrationStyle = 'plain' | 'professional';
 
 export interface MemorySettings {
   enabled: boolean;

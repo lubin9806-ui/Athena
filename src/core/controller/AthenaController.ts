@@ -340,7 +340,9 @@ export class AthenaController {
         return this.attachments.resolveModelImages(task.chatWindowId, attachmentIds);
       },
     });
-    this.agentRunner = new AgentRunner(this.llm, this.agentTools, undefined, this.agentStore);
+    this.agentRunner = new AgentRunner(this.llm, this.agentTools, undefined, this.agentStore, {
+      isAutoApproveEnabled: () => getAppSettings().tools.autoApprove === true,
+    });
   }
 
   async initialize(): Promise<void> {
@@ -848,7 +850,9 @@ export class AthenaController {
     this.conversation.shutdown();
     this.llm = new LLMClient();
     this.conversation = new Conversation(this.llm);
-    this.agentRunner = new AgentRunner(this.llm, this.agentTools, undefined, this.agentStore);
+    this.agentRunner = new AgentRunner(this.llm, this.agentTools, undefined, this.agentStore, {
+      isAutoApproveEnabled: () => getAppSettings().tools.autoApprove === true,
+    });
     this.messageRouter = this.createMessageRouter();
     // The initiative engine holds a model client, so it has to be rebuilt too or it
     // would keep calling the provider the user just switched away from.
@@ -1063,6 +1067,7 @@ export class AthenaController {
     }).find(message => message.role === 'system')?.content || '';
     const executionMessages = this.projectWorkspace.buildExecutionMessages(task.id, executionRuntimePrompt, {
       currentChatMessageId: savedUser.chatMessageId ?? null,
+      narration: settings.conversation.executeNarration,
     });
     const current = executionMessages[executionMessages.length - 1];
     if (attachmentText.length > 0) current.content = withChatAttachmentContext(current.content, attachmentText);
@@ -1160,6 +1165,7 @@ export class AthenaController {
       const task = this.startExecutionTask(projectId, chatWindowId, unread[0].content);
       const messages = this.projectWorkspace.buildExecutionMessages(task.id, runtimeSystemContext, {
         currentChatMessageId: unread[0].chatMessageId ?? null,
+        narration: getAppSettings().conversation.executeNarration,
       });
       const handle = this.agentRunner.start({
         taskId: task.id,

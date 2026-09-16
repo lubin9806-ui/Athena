@@ -11,6 +11,15 @@ export interface AgentToolPolicyDescriptor {
   riskLevel: AgentRiskLevel;
   approval: AgentToolApprovalMode;
   reason: string;
+  /**
+   * Asked for every time, even when the person has turned approvals off.
+   *
+   * Reserved for calls whose whole point is that code runs later without anyone
+   * watching - a startup folder, a shell profile, a scheduled task. That is how
+   * malware persists, and a page Athena reads could be the thing that suggested
+   * it, so this one keeps its question (ATH-SEC-010).
+   */
+  alwaysAsk?: boolean;
 }
 
 export interface AgentToolRetryPolicy {
@@ -270,6 +279,7 @@ function resolvePolicy(
     riskLevel: resolved.riskLevel,
     approval: resolved.approval,
     reason: String(resolved.reason || '').trim(),
+    ...(resolved.alwaysAsk === true ? { alwaysAsk: true } : {}),
   };
 }
 

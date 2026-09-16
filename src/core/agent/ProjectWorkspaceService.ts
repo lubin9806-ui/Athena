@@ -10,6 +10,7 @@ import type {
   AgentCapabilityAccess,
   AgentProjectWorkspaceSnapshot,
   AgentRunRecord,
+  ExecuteNarrationStyle,
   AgentTaskRecord,
   AgentTaskSpec,
   AgentTaskStatus,
@@ -236,6 +237,7 @@ export class ProjectWorkspaceService {
         'Use only explicit outcomes: proceed for declared adult fiction; ask once when adult status is undeclared; refuse only the sexual-minor portion when the text explicitly identifies a minor; or report the exact tool, permission, or upstream provider error. Do not invent an additional content-policy category.',
         'Use native tools when needed. Do not claim an action succeeded unless tool evidence supports it.',
         'Stop for scoped approval when the runtime requires it, then continue from the checkpoint.',
+        narrationInstruction(options.narration || 'plain'),
         `Project: ${project.title}`,
         project.instructions ? `Project instructions: ${project.instructions}` : '',
         workspace.roots.length > 0 ? `Workspace roots: ${workspace.roots.join(', ')}` : '',
@@ -253,6 +255,27 @@ export class ProjectWorkspaceService {
 export interface BuildExecutionMessagesOptions {
   /** The chat message this turn was just saved as, so it is not quoted back as history. */
   currentChatMessageId?: number | null;
+  /** How each action is explained before it happens. */
+  narration?: ExecuteNarrationStyle;
+}
+
+/**
+ * Execute mode used to work in silence: the model's own words between tool calls
+ * were stored in the checkpoint and shown to nobody, so the person watched a
+ * spinner and a list of tool names ("我需要它像 claude 或者 codex 一样，每一次执行，
+ * 可以解释他在干嘛"). Now it says what it is about to do, in the voice the person
+ * picked, and the stream shows that line above the action it belongs to.
+ */
+function narrationInstruction(style: ExecuteNarrationStyle): string {
+  const shared = [
+    'Before each tool call, write one or two short sentences in Chinese saying what you are about to do and why. Stay in the current role card\'s voice.',
+    'The sentence is the person\'s only view into the step, so write it for them: never leave a tool call unexplained, never narrate instead of acting, and never describe a result the tool has not returned yet.',
+    'After a tool answers, speak again only when the result changes the plan, needs a decision, or is the answer itself. Do not repeat the result the card already shows.',
+  ];
+  const voice = style === 'professional'
+    ? 'Explain in precise technical terms: name the exact path, command, status code, size or count you are acting on, and the check you expect it to satisfy.'
+    : 'Explain in everyday words, the way you would to someone who does not read code: what you are looking at or changing, and what it is for. Avoid tool names, parameter names and jargon unless the person used them first.';
+  return [...shared, voice].join('\n');
 }
 
 /** What the model is told about the turn that came before this one in the same window. */

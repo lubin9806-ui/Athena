@@ -17,6 +17,13 @@ export interface ToolSettings {
   maxToolRounds: number;
   commandTimeoutSeconds: number;
   allowExternalNetwork?: boolean;
+  /**
+   * Execute mode stops asking before each write, delete, command and download,
+   * and does them under the permission tier already granted. It still asks for
+   * an API key or password, still asks before writing where code would run by
+   * itself later, and still records every call it let through.
+   */
+  autoApprove?: boolean;
 }
 
 export interface ToolExecutionRecord {

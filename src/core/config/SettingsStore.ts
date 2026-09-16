@@ -70,6 +70,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     showTimestamps: false,
     saveHistory: true,
     semanticRouting: false,
+    executeNarration: 'plain',
   },
   tools: {
     permissionLevel: 'off',
@@ -81,6 +82,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     },
     maxToolRounds: 4,
     commandTimeoutSeconds: 60,
+    autoApprove: false,
   },
   webSearch: {
     enabled: true,
@@ -552,6 +554,9 @@ function sanitizeConversation(value: unknown): ConversationSettings {
     showTimestamps: cleanBoolean(source.showTimestamps, DEFAULT_SETTINGS.conversation.showTimestamps),
     saveHistory: cleanBoolean(source.saveHistory, DEFAULT_SETTINGS.conversation.saveHistory),
     semanticRouting: cleanBoolean(source.semanticRouting, DEFAULT_SETTINGS.conversation.semanticRouting),
+    executeNarration: source.executeNarration === 'professional' || source.executeNarration === 'plain'
+      ? source.executeNarration
+      : DEFAULT_SETTINGS.conversation.executeNarration,
   };
 }
 
@@ -564,6 +569,7 @@ export function normalizeToolSettings(value: unknown): ToolSettings {
     maxToolRounds: clampInteger(source.maxToolRounds, 1, 8, DEFAULT_SETTINGS.tools.maxToolRounds),
     commandTimeoutSeconds: clampInteger(source.commandTimeoutSeconds, 5, 300, DEFAULT_SETTINGS.tools.commandTimeoutSeconds),
     allowExternalNetwork: cleanBoolean(source.allowExternalNetwork, false),
+    autoApprove: cleanBoolean(source.autoApprove, DEFAULT_SETTINGS.tools.autoApprove === true),
   };
 }
 

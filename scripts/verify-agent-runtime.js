@@ -684,6 +684,7 @@ async function main() {
   const budget = await verifyBudgetGates(store);
   const approvalItems = await verifyApprovalItems(store, bridgeSettings);
   const session = await verifySessionContinuity(store);
+  const autoApprove = await verifyAutoApprove(store, bridgeSettings);
 
   console.log([
     'ATHENA_AGENT_RUNTIME_OK',
@@ -697,7 +698,94 @@ async function main() {
     `budget=${budget}`,
     `approvalItems=${approvalItems}`,
     `session=${session}`,
+    `autoApprove=${autoApprove}`,
   ].join(' '));
+}
+
+/**
+ * 免审批 stops the questions, not the record - and not every question.
+ *
+ * A write that arranges for code to run later (a startup folder, a shell
+ * profile) still asks, whatever the switch says: that is how malware persists,
+ * and the thing that proposed it may be a web page Athena just read
+ * (ATH-SEC-010).
+ */
+async function verifyAutoApprove(store, bridgeSettings) {
+  const registry = new ToolRegistry();
+  const bridge = new ComputerAgentToolBridge({
+    registry,
+    getSettings: () => ({ ...bridgeSettings, permissionLevel: 'full', allowExternalNetwork: false }),
+  });
+  bridge.refresh();
+  const target = path.join(scratch, 'auto-approved.txt');
+  const startupTarget = '%APPDATA%\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\athena-fixture.cmd';
+  const startupResolved = path.join(process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming'), 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Startup', 'athena-fixture.cmd');
+  const capabilities = [{ id: 'computer.files', access: 'write' }];
+
+  let autoApprove = false;
+  const runner = new AgentRunner(
+    new FixtureModel([
+      modelResponse('我把结果写下来。', [toolCall('auto-write', 'write_file', { path: target, content: 'written without asking' })]),
+      modelResponse('写好了。'),
+    ]),
+    registry,
+    undefined,
+    store,
+    { isAutoApproveEnabled: () => autoApprove },
+  );
+  const asked = await runner.start({
+    taskId: createReadyTask(store, 'Ask before writing when approvals are on', capabilities).id,
+    messages: [{ role: 'user', content: '把结果写进文件。' }],
+    allowedCapabilities: ['computer.files'],
+  }).result;
+  assert.equal(asked.status, 'paused', 'with approvals on, a write still stops for the person');
+  assert.equal(fs.existsSync(target), false, 'nothing may run while the question is open');
+  await runner.cancel(asked.runId);
+
+  autoApprove = true;
+  const proceeded = await new AgentRunner(
+    new FixtureModel([
+      modelResponse('我把结果写下来。', [toolCall('auto-write-2', 'write_file', { path: target, content: 'written without asking' })]),
+      modelResponse('写好了。'),
+    ]),
+    registry,
+    undefined,
+    store,
+    { isAutoApproveEnabled: () => autoApprove },
+  ).start({
+    taskId: createReadyTask(store, 'Write without asking when 免审批 is on', capabilities).id,
+    messages: [{ role: 'user', content: '把结果写进文件。' }],
+    allowedCapabilities: ['computer.files'],
+  }).result;
+  assert.equal(proceeded.status, 'completed', '免审批 must not stop for a write it already covers');
+  assert.equal(fs.readFileSync(target, 'utf8'), 'written without asking');
+  const granted = proceeded.snapshot.approvals.filter(item => item.request.kind === 'tool_call');
+  assert.equal(granted.length, 1, 'the call is still recorded as an approval, so the session can show it');
+  assert.equal(granted[0].status, 'approved');
+  assert.equal(granted[0].decision.actor, 'auto-approve', 'the record must say who let it through');
+
+  const autorun = await new AgentRunner(
+    new FixtureModel([
+      modelResponse('我把启动脚本放进去。', [toolCall('auto-startup', 'write_file', { path: startupTarget, content: 'calc.exe' })]),
+      modelResponse('放好了。'),
+    ]),
+    registry,
+    undefined,
+    store,
+    { isAutoApproveEnabled: () => autoApprove },
+  ).start({
+    taskId: createReadyTask(store, 'Keep asking before code that runs later', capabilities).id,
+    messages: [{ role: 'user', content: '开机的时候自动跑一下。' }],
+    allowedCapabilities: ['computer.files'],
+  }).result;
+  assert.equal(autorun.status, 'paused', '免审批 must not cover a write that schedules code to run later');
+  const pending = autorun.snapshot.approvals.find(item => item.status === 'pending');
+  assert.ok(pending, 'the startup write must still have a question waiting');
+  assert.match(String(pending.request.explanation || ''), /启动文件夹/);
+  assert.equal(fs.existsSync(startupResolved), false, 'the startup write must not have happened');
+  await new AgentRunner(new FixtureModel([]), registry, undefined, store).cancel(autorun.runId);
+  bridge.shutdown();
+  return 'asks-when-off,writes-when-on,records-who-allowed,autorun-still-asks';
 }
 
 /**

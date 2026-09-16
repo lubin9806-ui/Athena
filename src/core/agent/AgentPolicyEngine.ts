@@ -7,11 +7,15 @@ export interface AgentPolicyContext {
   taskSpec: AgentTaskSpec;
   allowedCapabilities: readonly string[];
   approvalMode?: 'risk_based' | 'always';
+  /** The person turned per-call approvals off; the runtime still records each one. */
+  autoApprove?: boolean;
 }
 
 export interface AgentPolicyDecision extends AgentToolPolicyDescriptor {
   kind: AgentPolicyDecisionKind;
   explanation: string;
+  /** True when this call would have stopped for a person and 免审批 let it through. */
+  autoApproved?: boolean;
 }
 
 const RISK_RANK: Record<AgentRiskLevel, number> = {
@@ -43,9 +47,13 @@ export class AgentPolicyEngine {
       || policy.approval === 'always'
       || (policy.approval === 'risk_based' && RISK_RANK[policy.riskLevel] >= RISK_RANK.high);
     if (requiresApproval) {
+      // 免审批 skips the question, not the record: the runtime still writes an
+      // approval for every such call so the session shows what was let through.
+      // Writes that schedule code to run later keep their question regardless.
+      const autoApproved = context.autoApprove === true && policy.alwaysAsk !== true;
       // The explanation is what the approval card shows. It used to append an English
       // clause to a Chinese reason; the risk level has its own label on the card.
-      return { ...policy, kind: 'approval', explanation: policy.reason };
+      return { ...policy, kind: 'approval', explanation: policy.reason, ...(autoApproved ? { autoApproved: true } : {}) };
     }
     return { ...policy, kind: 'allow', explanation: policy.reason };
   }

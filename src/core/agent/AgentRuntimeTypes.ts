@@ -139,6 +139,12 @@ export interface AgentRunnerOptions {
   modelMaxAttempts?: number;
   modelRetryDelayMs?: number;
   maxPersistedToolOutputChars?: number;
+  /**
+   * Read at each batch, not captured when the run started: turning 免审批 on or
+   * off applies to the work already under way, which is when a person reaches
+   * for it.
+   */
+  isAutoApproveEnabled?: () => boolean;
 }
 
 export interface AgentRunHandle {

@@ -747,6 +747,7 @@ interface ConversationSettings {
   showTimestamps: boolean;
   saveHistory: boolean;
   semanticRouting: boolean;
+  executeNarration: 'plain' | 'professional';
 }
 
 interface ToolModePermissions {
@@ -761,6 +762,8 @@ interface ToolSettings {
   modePermissions: ToolModePermissions;
   maxToolRounds: number;
   commandTimeoutSeconds: number;
+  /** Execute mode stops asking before each call; secrets and autorun locations still do. */
+  autoApprove?: boolean;
 }
 
 interface WebSearchSettings {
@@ -1282,6 +1285,12 @@ const executeChipFolder = mustGet<HTMLButtonElement>('execute-chip-folder');
 const executeChipFolderLabel = mustGet<HTMLElement>('execute-chip-folder-label');
 const executeChipPermission = mustGet<HTMLButtonElement>('execute-chip-permission');
 const executeChipPermissionLabel = mustGet<HTMLElement>('execute-chip-permission-label');
+const executeChipApproval = mustGet<HTMLButtonElement>('execute-chip-approval');
+const executeChipApprovalLabel = mustGet<HTMLElement>('execute-chip-approval-label');
+const settingToolAutoApprove = mustGet<HTMLInputElement>('setting-tool-auto-approve');
+const executeChipNarration = mustGet<HTMLButtonElement>('execute-chip-narration');
+const executeChipNarrationLabel = mustGet<HTMLElement>('execute-chip-narration-label');
+const executeNarrationChoice = mustGet<HTMLElement>('execute-narration-choice');
 const executeChipSettings = mustGet<HTMLButtonElement>('execute-chip-settings');
 const executionSettingsForm = mustGet<HTMLFormElement>('execution-settings-form');
 const executionSettingsFeedback = mustGet<HTMLElement>('execution-settings-feedback');
@@ -2197,6 +2206,21 @@ function init(): void {
     void toggleExecutionPanel(true);
     executionSettingsForm.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   });
+  executeChipApproval.addEventListener('click', () => {
+    void setExecuteAutoApprove(currentSettingsBundle?.settings.tools.autoApprove !== true);
+  });
+  settingToolAutoApprove.addEventListener('change', () => {
+    void setExecuteAutoApprove(settingToolAutoApprove.checked);
+  });
+  executeChipNarration.addEventListener('click', () => {
+    const current = currentSettingsBundle?.settings.conversation.executeNarration ?? 'plain';
+    void setExecuteNarration(current === 'plain' ? 'professional' : 'plain');
+  });
+  executeNarrationChoice.addEventListener('click', (event) => {
+    const button = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('[data-narration]') : null;
+    const style = button?.dataset.narration;
+    if (style === 'plain' || style === 'professional') void setExecuteNarration(style);
+  });
   skillInstall.addEventListener('click', () => void installSkillFromDirectory());
   skillLibraryList.addEventListener('click', (event) => {
     const button = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('[data-skill-action]') : null;
@@ -3075,7 +3099,77 @@ function syncExecuteModeIndicator(): void {
   modeExecuteButton.dataset.hasRecords = String((executeSession?.runCount ?? 0) > 0);
 }
 
+/**
+ * Switching the voice changes what Athena says from here on. What she already
+ * said stays as she said it - rewriting it would be inventing her words.
+ */
+async function setExecuteNarration(style: 'plain' | 'professional'): Promise<void> {
+  if (!currentSettingsBundle || currentSettingsBundle.settings.conversation.executeNarration === style) return;
+  currentSettingsBundle.settings.conversation.executeNarration = style;
+  renderExecuteChips();
+  try {
+    const bundle = await window.athenaAPI.saveSettings({ settings: { conversation: { executeNarration: style } } });
+    if (bundle) currentSettingsBundle = bundle;
+  } catch (error) {
+    setStatus(`讲解风格没保存上：${error instanceof Error ? error.message : String(error)}`, 'error');
+  } finally {
+    renderExecuteChips();
+  }
+}
+
+/**
+ * 免审批 is a standing decision, so it is taken deliberately: the first time it
+ * goes on, the dialog says plainly what stops being asked and what still is.
+ */
+async function setExecuteAutoApprove(enabled: boolean): Promise<void> {
+  if (!currentSettingsBundle || (currentSettingsBundle.settings.tools.autoApprove === true) === enabled) return;
+  if (enabled) {
+    const confirmed = await dialogs.confirm({
+      title: '打开免审批？',
+      message: [
+        '不再问你：这档权限之内的写文件、删文件、运行命令、下载，Athena 直接做。',
+        '仍然会问：需要 API Key、密码、Token 这类信息的时候；写到开机自启动、计划任务这种以后会自动运行的位置。',
+        '每一步照常讲解，也照常留在对话里，随时可以按停止。',
+      ].join('\n'),
+      confirmLabel: '打开免审批',
+      cancelLabel: '保持逐项审批',
+      tone: 'danger',
+    });
+    if (!confirmed) {
+      renderExecuteChips();
+      return;
+    }
+  }
+  currentSettingsBundle.settings.tools.autoApprove = enabled;
+  renderExecuteChips();
+  try {
+    const bundle = await window.athenaAPI.saveSettings({ settings: { tools: { autoApprove: enabled } } });
+    if (bundle) currentSettingsBundle = bundle;
+    setExecutionSettingsFeedback(enabled ? '已打开免审批。' : '已改回逐项审批。', 'success');
+  } catch (error) {
+    setStatus(`审批方式没保存上：${error instanceof Error ? error.message : String(error)}`, 'error');
+  } finally {
+    renderExecuteChips();
+  }
+}
+
 function renderExecuteChips(): void {
+  const autoApprove = currentSettingsBundle?.settings.tools.autoApprove === true;
+  executeChipApproval.dataset.auto = String(autoApprove);
+  executeChipApprovalLabel.textContent = autoApprove ? '免审批' : '逐项审批';
+  executeChipApproval.title = autoApprove
+    ? '现在不逐项问你，只在需要 API Key 这类信息时才停；点一下改回逐项审批'
+    : '现在每次写入、删除、运行命令前都会问你；点一下改成免审批';
+  settingToolAutoApprove.checked = autoApprove;
+  const narration = currentSettingsBundle?.settings.conversation.executeNarration ?? 'plain';
+  executeChipNarration.dataset.style = narration;
+  executeChipNarrationLabel.textContent = `讲解 · ${narration === 'professional' ? '专业' : '通俗'}`;
+  executeChipNarration.title = narration === 'professional'
+    ? '现在用准确的术语讲解，点一下换成通俗说法'
+    : '现在用通俗说法讲解，点一下换成准确术语';
+  executeNarrationChoice.querySelectorAll<HTMLButtonElement>('[data-narration]').forEach(button => {
+    button.setAttribute('aria-checked', String(button.dataset.narration === narration));
+  });
   const roots = agentWorkspace?.metadata.roots ?? [];
   executeChipFolderLabel.textContent = roots.length === 0
     ? '选择工作文件夹'

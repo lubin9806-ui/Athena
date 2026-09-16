@@ -71,6 +71,8 @@ const MAX_SESSION_MESSAGE_CHARS = 20_000;
 /** Decision scopes written when the person answers a waiting run by writing to it instead. */
 export const SUPERSEDED_BY_MESSAGE_SCOPE = 'superseded-by-message';
 export const CONTINUED_BY_MESSAGE_SCOPE = 'continued-by-message';
+/** Written on approvals the person's standing "免审批" decision granted. */
+export const AUTO_APPROVE_SCOPE = 'auto-approve';
 
 interface ActiveRun {
   controller: AbortController;
@@ -116,6 +118,7 @@ export class AgentRunner {
   private readonly modelMaxAttempts: number;
   private readonly modelRetryDelayMs: number;
   private readonly maxPersistedToolOutputChars: number;
+  private readonly isAutoApproveEnabled: () => boolean;
 
   constructor(
     private readonly model: AgentModelClient,
@@ -129,6 +132,7 @@ export class AgentRunner {
     this.modelMaxAttempts = clampInteger(options.modelMaxAttempts, 1, 5, DEFAULT_MODEL_ATTEMPTS);
     this.modelRetryDelayMs = clampInteger(options.modelRetryDelayMs, 0, 30_000, DEFAULT_MODEL_RETRY_DELAY_MS);
     this.maxPersistedToolOutputChars = clampInteger(options.maxPersistedToolOutputChars, 1_000, 200_000, 20_000);
+    this.isAutoApproveEnabled = options.isAutoApproveEnabled || (() => false);
   }
 
   create(input: CreateAgentExecutionInput): AgentRunRecord {
@@ -762,6 +766,7 @@ export class AgentRunner {
       taskSpec: task.spec,
       allowedCapabilities: state.allowedCapabilities,
       approvalMode: state.approvalMode,
+      autoApprove: this.isAutoApproveEnabled() === true,
     };
     return batch.calls.map((pending) => {
       const step = requireStep(this.store, String(pending.stepId));
@@ -853,7 +858,7 @@ export class AgentRunner {
       )) continue;
       if (step.status === 'pending') step = this.store.transitionStep(step.id, 'waiting', step.revision);
       run = requireRun(this.store, run.id);
-      this.store.requestApproval({
+      const approval = this.store.requestApproval({
         runId: run.id,
         stepId: step.id,
         capability: item.decision.capability,
@@ -870,8 +875,14 @@ export class AgentRunner {
           explanation: item.decision.explanation,
         },
       }, run.revision);
+      // With 免审批 on, the same record is written and immediately granted, so the
+      // session still shows every call that was let through and on whose say-so.
+      if (item.decision.autoApproved) {
+        this.store.resolveApproval(approval.id, 'approved', { actor: 'auto-approve', scope: AUTO_APPROVE_SCOPE }, approval.revision);
+      } else {
+        requested = true;
+      }
       approvals = this.store.listApprovals(run.id);
-      requested = true;
     }
     if (requested) return true;
     const pendingStepIds = new Set(prepared

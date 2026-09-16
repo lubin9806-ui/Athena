@@ -304,6 +304,7 @@ async function readScreen(page) {
         [item.dataset.status, item.querySelector('.exec-step-label')?.textContent, item.querySelector('.exec-step-target')?.textContent, item.querySelector('.exec-step-status')?.textContent].filter(Boolean).join(' · ')
       )),
       narration: Array.from(document.querySelectorAll('#execute-stream .exec-narr')).map(item => item.textContent),
+      receipts: Array.from(document.querySelectorAll('#execute-stream .exec-receipt')).map(item => item.textContent),
       said: Array.from(document.querySelectorAll('#execute-stream .exec-user')).map(item => item.textContent),
       busy: document.getElementById('send-btn')?.dataset.busy,
       feedback: document.getElementById('agent-execution-feedback')?.hidden ? '' : (document.getElementById('agent-execution-feedback')?.textContent || ''),
@@ -319,6 +320,7 @@ async function runGoal(page, scenario, profile) {
   await sleep(400);
   await page.click('.mode-btn[data-mode="execute"]');
   await page.waitFor(`document.getElementById('app-shell').dataset.mode === 'execute'`, { label: 'execute mode' });
+  if (scenario.prepare) await scenario.prepare(page);
   await page.type('#input-box', scenario.goal);
   await sleep(300);
   await page.click('#send-btn');
@@ -558,6 +560,56 @@ const scenarios = [
     },
   },
   {
+    // 免审批 is the switch the user asked for: "打开后不再弹审批，只有申请类似
+    // apikay 时弹". Driven through the real chip and its confirmation dialog.
+    name: 'fixture-auto-approve',
+    live: false,
+    timeoutMs: 120_000,
+    async setup(profile) {
+      const first = path.join(profile.workspace, 'notes.txt');
+      const second = path.join(profile.workspace, 'summary.txt');
+      const provider = await startFixtureProvider(request => {
+        if (!request.messages.some(message => message.role === 'tool')) {
+          return toolCallReply([
+            { name: 'write_file', arguments: { path: first, content: 'first without asking' } },
+            { name: 'write_file', arguments: { path: second, content: 'second without asking' } },
+          ]);
+        }
+        return { role: 'assistant', content: '两个文件都写好了，没打断你。' };
+      });
+      return { provider, first, second, goal: `在 ${profile.workspace} 写 notes.txt 和 summary.txt` };
+    },
+    async prepare(page) {
+      await page.click('#execute-chip-approval');
+      await page.waitFor(`document.getElementById('ui-dialog')?.open === true`, { label: 'the 免审批 confirmation' });
+      const message = await page.evaluate(`document.getElementById('ui-dialog-message')?.textContent || ''`);
+      assert.match(message, /仍然会问/, 'the dialog must say what still stops for a person');
+      assert.match(message, /开机自启动/, 'the dialog must name the writes that keep their question');
+      await page.click('#ui-dialog-confirm');
+      await page.waitFor(`document.getElementById('execute-chip-approval')?.dataset.auto === 'true'`, { label: '免审批 on' });
+    },
+    async decide(card) {
+      throw new Error(`免审批 must not raise an approval card: ${card.title}`);
+    },
+    async verify({ result, context }) {
+      const { snapshot } = result.observed;
+      assert.equal(snapshot.run.status, 'completed');
+      assert.equal(result.transcript.approvals.length, 0, 'no card may have been shown');
+      assert.equal(fs.readFileSync(context.first, 'utf8'), 'first without asking');
+      assert.equal(fs.readFileSync(context.second, 'utf8'), 'second without asking');
+      const granted = snapshot.approvals.filter(item => item.request.kind === 'tool_call');
+      assert.equal(granted.length, 2, 'every call it let through is still recorded');
+      assert(granted.every(item => item.status === 'approved' && item.decision.actor === 'auto-approve'), JSON.stringify(granted.map(item => item.decision)));
+      assert(
+        result.screen.receipts.filter(text => text.includes('免审批')).length === 2,
+        `the stream must say what was allowed without asking: ${result.screen.receipts.join(' | ')}`,
+      );
+      // Nothing was asked, and the turn still reports what it can stand behind:
+      // this fixture declares no check, so it ends "未验证" rather than "已完成".
+      assert.equal(result.screen.stateLabel, '已结束 · 未验证');
+    },
+  },
+  {
     name: 'live-fix-failing-tests',
     live: true,
     timeoutMs: 15 * 60_000,
@@ -752,7 +804,12 @@ async function main() {
       if (context.provider) prepareProfileModel(profile, context.provider.model);
       app = await launchApp(profile);
       log(scenario.name, `开始：${context.goal}`);
-      const result = await runGoal(app.page, { ...scenario, goal: context.goal, decide: (card, extra) => scenario.decide(card, { ...extra, context }) }, profile);
+      const result = await runGoal(app.page, {
+        ...scenario,
+        goal: context.goal,
+        decide: (card, extra) => scenario.decide(card, { ...extra, context }),
+        prepare: scenario.prepare ? (page) => scenario.prepare(page, { context, profile }) : null,
+      }, profile);
       result.page = app.page;
       await app.page.screenshot(path.join(profile.dir, 'final.png'));
       const details = await scenario.verify({ result, context, profile });

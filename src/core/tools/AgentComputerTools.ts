@@ -138,6 +138,8 @@ function policyForTool(
     riskLevel,
     approval: confirmation ? 'always' : 'risk_based',
     reason: confirmation?.explanation || `${definition.label}，在“${permissionLabel(definition.minimumLevel)}”权限档内执行`,
+    // Writing where code runs by itself later is the one thing 免审批 does not cover.
+    alwaysAsk: confirmation?.risk === 'auto-executed-location',
   };
 }
 

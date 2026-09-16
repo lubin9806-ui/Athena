@@ -363,6 +363,26 @@
         <section class="execution-card">
           <div class="execution-card-head">
             <div>
+              <div class="execution-section-label">讲解风格</div>
+              <div class="execution-card-title">动手前怎么跟你说</div>
+            </div>
+          </div>
+          <div id="execute-narration-choice" class="execute-narration-choice" role="radiogroup" aria-label="讲解风格">
+            <button type="button" class="execute-narration-option" data-narration="plain" role="radio" aria-checked="true">
+              <b>通俗</b>
+              <small>说人话：「我先看看模型文件夹里有什么，免得重复下载。」</small>
+            </button>
+            <button type="button" class="execute-narration-option" data-narration="professional" role="radio" aria-checked="false">
+              <b>专业</b>
+              <small>用准确的术语：「先枚举 models\checkpoints，确认没有同名文件。」</small>
+            </button>
+          </div>
+          <div class="settings-note">只影响之后说的话，已经说过的不会改写。</div>
+        </section>
+
+        <section class="execution-card">
+          <div class="execution-card-head">
+            <div>
               <div class="execution-section-label">SKILL LIBRARY</div>
               <div class="execution-card-title">Agent Skills</div>
             </div>
@@ -471,6 +491,13 @@
             <div id="execution-settings-feedback" role="status" aria-live="polite"></div>
             <button id="execution-settings-save" class="execution-primary-button" type="submit">保存执行权限</button>
           </form>
+          <div class="execution-auto-approve">
+            <label class="settings-toggle">
+              <input id="setting-tool-auto-approve" type="checkbox" />
+              <span>免审批：不再逐项问我</span>
+            </label>
+            <div class="settings-note">打开后，上面这档权限之内的写入、删除、运行命令、下载都直接做，不再一项项问你。需要 API Key、密码这类信息时仍然会停下来问；写到开机自启动、计划任务这种「以后会自动运行」的位置，也仍然会问一次。每一步都记在对话里。</div>
+          </div>
         </section>
       </div>
     </aside>
@@ -1315,6 +1342,14 @@
         <button id="execute-chip-permission" class="execute-chip" type="button" title="工具权限" data-level="off">
           <svg class="icon"><use href="#icon-tools"></use></svg>
           <span id="execute-chip-permission-label">权限 · 关闭</span>
+        </button>
+        <button id="execute-chip-narration" class="execute-chip" type="button" title="切换讲解风格" data-style="plain">
+          <svg class="icon"><use href="#icon-chat"></use></svg>
+          <span id="execute-chip-narration-label">讲解 · 通俗</span>
+        </button>
+        <button id="execute-chip-approval" class="execute-chip" type="button" title="逐项审批或免审批" data-auto="false">
+          <svg class="icon"><use href="#icon-check"></use></svg>
+          <span id="execute-chip-approval-label">逐项审批</span>
         </button>
         <button id="execute-chip-settings" class="execute-chip" type="button" title="执行设置" aria-expanded="false">
           <svg class="icon"><use href="#icon-sliders"></use></svg>
