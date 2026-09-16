@@ -44,6 +44,7 @@ contextBridge.exposeInMainWorld('athenaAPI', {
   cancelChat: () => ipcRenderer.invoke('chat:cancel'),
   getAgentWorkspace: (projectId: number, taskId?: string) => ipcRenderer.invoke('agentWorkspace:get', projectId, taskId),
   getExecuteSession: (chatWindowId: number) => ipcRenderer.invoke('executeSession:get', chatWindowId),
+  chooseWorkspaceFolder: () => ipcRenderer.invoke('agentWorkspace:chooseFolder'),
   onExecuteSessionChanged: (callback: (event: { chatWindowId: number; runId: string }) => void) => {
     const handler = (_: any, event: { chatWindowId: number; runId: string }) => callback(event);
     ipcRenderer.on('execute:session-changed', handler);

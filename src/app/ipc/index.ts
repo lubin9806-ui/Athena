@@ -138,6 +138,7 @@ const INVOKE_CHANNELS = [
   'execution:cancel',
   'agentWorkspace:get',
   'executeSession:get',
+  'agentWorkspace:chooseFolder',
   'agentArtifact:open',
   'agentWorkspace:update',
   'agentRun:resolveApproval',
@@ -690,6 +691,17 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<vo
     if (!isTrustedSender(event)) return null;
     const chatWindowId = cleanPositiveInteger(value);
     return chatWindowId ? controller.getExecuteSession(chatWindowId) : null;
+  });
+
+  // Typing a path into a box did nothing when the box was empty, which is how a
+  // work folder ends up feeling like it "点不动". This is the system picker.
+  ipcMain.handle('agentWorkspace:chooseFolder', async (event) => {
+    if (!isTrustedSender(event)) return null;
+    const selection = await dialog.showOpenDialog(mainWindow, {
+      title: '选择工作文件夹',
+      properties: ['openDirectory', 'createDirectory'],
+    });
+    return selection.canceled ? null : selection.filePaths[0] || null;
   });
 
   ipcMain.handle('agentArtifact:open', async (event, value: unknown) => {

@@ -16,6 +16,7 @@ import type {
   AgentStepRecord,
 } from './types';
 import {
+  agentModelFailureHeadline,
   agentStepStatusLabel,
   agentToolLabel,
   describeAgentToolTarget,
@@ -24,7 +25,7 @@ import {
   type AgentApprovalField,
   type AgentApprovalView,
 } from './agentRunPresentation';
-import { deriveAgentRunVerification, type AgentRunVerification } from './agentVerification';
+import { deriveAgentRunVerification, summarizeAgentToolOutcome, type AgentRunVerification } from './agentVerification';
 
 export type ExecuteToolStatus = 'pending' | 'waiting' | 'running' | 'completed' | 'failed' | 'denied' | 'cancelled';
 
@@ -113,6 +114,8 @@ export interface ExecuteSessionSnapshot {
   title: string;
   items: ExecuteTimelineItem[];
   state: ExecuteSessionState;
+  /** What the session is doing, in the words the person reads: never "completed" alone. */
+  stateLabel: string;
   waitingOn: ExecuteSessionWait;
   activeRunId: string | null;
   pendingApprovalCount: number;
@@ -176,6 +179,7 @@ export function buildExecuteSession(input: {
     title: input.title,
     items: buildExecuteTimeline(runs),
     state,
+    stateLabel: describeSessionState(latest, state, pending),
     waitingOn,
     activeRunId: latest && (status === 'running' || status === 'paused' || status === 'queued') ? latest.run.id : null,
     pendingApprovalCount: pending.length,
@@ -187,6 +191,52 @@ export function buildExecuteSession(input: {
     )).length, 0),
     durationMs: Number.isFinite(startedMs) ? Math.max(0, endedMs - startedMs) : 0,
   };
+}
+
+/**
+ * A finished run is not the same as a job done: a turn that ran nothing, left a
+ * step unexecuted, or has nothing to check says so here rather than closing on
+ * "已完成" (ATH-EXEC-004).
+ */
+function describeSessionState(
+  latest: AgentRunSnapshot | null,
+  state: ExecuteSessionState,
+  pending: readonly AgentApprovalRecord[],
+): string {
+  if (!latest) return '待命';
+  if (state === 'waiting') {
+    const retry = pending.find(item => item.request.kind === 'model_retry');
+    if (retry) {
+      const failure = isRecord(retry.request.failure) ? retry.request.failure : {};
+      return `已暂停 · ${agentModelFailureHeadline(failure.kind)}`;
+    }
+    if (pending.some(item => item.request.kind === 'budget_extension')) return '已暂停 · 预算用完';
+    if (pending.some(item => item.request.kind === 'uncertain_replay')) return '等待确认 · 上次中断的一步';
+    return pending.length > 1 ? `等待审批 · ${pending.length} 项` : '等待审批';
+  }
+  if (state === 'running') {
+    if (latest.run.phase === 'executing') return '正在执行';
+    if (latest.run.phase === 'verifying') return '正在核对结果';
+    if (latest.run.phase === 'researching') return '正在查资料';
+    return '正在规划';
+  }
+  if (state === 'failed') return '执行失败';
+  if (state === 'stopped') return '已停止';
+  if (state === 'done') {
+    const verification = deriveAgentRunVerification(latest.task, latest.run, latest.steps);
+    if (verification === 'verified') return '已完成 · 已验证';
+    if (verification === 'unverified') return '已结束 · 未验证';
+    if (verification === 'issues') {
+      const outcome = summarizeAgentToolOutcome(latest.steps);
+      const parts = [
+        outcome.failed.length > 0 ? `${outcome.failed.length} 步失败未重做` : '',
+        outcome.denied.length > 0 ? `${outcome.denied.length} 步未执行` : '',
+      ].filter(Boolean);
+      return parts.length > 0 ? `已结束 · ${parts.join('、')}` : '已结束';
+    }
+    return '已回答';
+  }
+  return '待命';
 }
 
 function buildRunItems(snapshot: AgentRunSnapshot): ExecuteTimelineItem[] {

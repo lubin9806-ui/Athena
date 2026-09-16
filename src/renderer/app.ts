@@ -7,6 +7,7 @@ import { installApprovedBrand } from './ui/ApprovedBrand';
 import { InterfacePresetController } from './ui/InterfacePresetController';
 import type { InterfacePreset } from '../shared/types/settings';
 import { ChatPanel, type ChatAttachmentSnapshot, type ChatMessageSnapshot, type ChatSource, type ChatToolExecution } from './ui/ChatPanel';
+import { ExecutePanel } from './ui/ExecutePanel';
 import { DropZone, shouldStoreTextAsAttachment } from './ui/DropZone';
 import { InputBar } from './ui/InputBar';
 import { LiveGlass } from './ui/LiveGlass';
@@ -28,14 +29,7 @@ import type { EmotionType } from '../shared/types/emotion';
 import type { ProactiveDelivery, ReminderDueEvent } from '../shared/types/message';
 import type { ChatErrorPayload } from '../shared/types/system';
 import { RELEASE_FEATURES } from '../shared/releaseFeatures';
-import { deriveAgentRunVerification, summarizeAgentToolOutcome } from '../shared/agentVerification';
-import {
-  agentModelFailureHeadline,
-  agentStepStatusLabel,
-  describeAgentToolStep,
-  presentAgentApproval,
-  readAgentRunFailure,
-} from '../shared/agentRunPresentation';
+import type { ExecuteSessionSnapshot } from '../shared/executeTimeline';
 
 interface DisabledLive2DPreferences {
   enabled: false;
@@ -149,6 +143,9 @@ declare global {
       cancelExecution: () => Promise<boolean>;
       cancelChat: () => Promise<boolean>;
       getAgentWorkspace: (projectId: number, taskId?: string) => Promise<AgentProjectWorkspaceSnapshot | null>;
+      getExecuteSession: (chatWindowId: number) => Promise<ExecuteSessionSnapshot | null>;
+      onExecuteSessionChanged: (callback: (event: { chatWindowId: number; runId: string }) => void) => () => void;
+      chooseWorkspaceFolder: () => Promise<string | null>;
       openAgentArtifact: (projectId: number, artifactId: string) => Promise<boolean>;
       updateAgentWorkspace: (projectId: number, value: {
         revision: number;
@@ -558,24 +555,6 @@ interface ToolStatusEvent {
   toolName?: string;
   toolLabel?: string;
   callId?: string;
-}
-
-type ExecutionTaskState = 'planning' | 'running' | 'stopping' | 'attention' | 'completed' | 'failed' | 'cancelled' | 'not-run';
-
-interface ExecutionTimelineEvent extends ToolStatusEvent {
-  occurredAt: string;
-}
-
-interface ExecutionTask {
-  id: string;
-  goal: string;
-  mode: AthenaMode;
-  state: ExecutionTaskState;
-  startedAt: string;
-  completedAt?: string;
-  events: ExecutionTimelineEvent[];
-  executions: ChatToolExecution[];
-  finalResponse?: string;
 }
 
 type AgentTaskStatus = 'draft' | 'ready' | 'active' | 'blocked' | 'completed' | 'failed' | 'cancelled' | 'archived';
@@ -1243,6 +1222,16 @@ const chatPanel = new ChatPanel(
   mustGet<HTMLElement>('chat-container'),
   attachment => window.athenaAPI.getChatAttachmentPreview(attachment.window_id, attachment.id),
 );
+const executePanel = new ExecutePanel(mustGet<HTMLElement>('execute-stream'), {
+  onApproval: (approvalId, decision, scope) => void resolveExecuteApproval(approvalId, decision, scope),
+  onStop: () => void stopExecuteSession(),
+  onResume: () => void resumeExecuteSession(),
+  onExample: (text) => {
+    inputBox.value = text;
+    resizeInputBox();
+    inputBar.focus();
+  },
+});
 const live2dCompanion = new DisabledLive2DCompanion({
   root: mustGet<HTMLElement>('live2d-companion'),
   canvas: mustGet<HTMLCanvasElement>('live2d-companion-canvas'),
@@ -1285,34 +1274,20 @@ const toolsPanelSummary = mustGet<HTMLElement>('tools-panel-summary');
 const toolsPanelFilter = mustGet<HTMLElement>('tools-panel-filter');
 const toolsPanelList = mustGet<HTMLElement>('tools-panel-list');
 const executionPanel = mustGet<HTMLElement>('execution-panel');
+const btnExecutionClose = mustGet<HTMLButtonElement>('btn-execution-close');
 const agentExecutionFeedback = mustGet<HTMLElement>('agent-execution-feedback');
-const executionCurrentCard = mustGet<HTMLElement>('execution-current-card');
-const executionStateLabel = mustGet<HTMLElement>('execution-state-label');
-const executionCurrentGoal = mustGet<HTMLElement>('execution-current-goal');
-const executionCurrentMeta = mustGet<HTMLElement>('execution-current-meta');
-const executionCurrentResult = mustGet<HTMLElement>('execution-current-result');
-const executionLiveLog = mustGet<HTMLOListElement>('execution-live-log');
-const executionHistory = mustGet<HTMLElement>('execution-history');
-const executionStop = mustGet<HTMLButtonElement>('execution-stop');
-const agentRunResume = mustGet<HTMLButtonElement>('agent-run-resume');
-const executionClear = mustGet<HTMLButtonElement>('execution-clear');
+const executeStream = mustGet<HTMLElement>('execute-stream');
+const executeChips = mustGet<HTMLElement>('execute-chips');
+const executeChipFolder = mustGet<HTMLButtonElement>('execute-chip-folder');
+const executeChipFolderLabel = mustGet<HTMLElement>('execute-chip-folder-label');
+const executeChipPermission = mustGet<HTMLButtonElement>('execute-chip-permission');
+const executeChipPermissionLabel = mustGet<HTMLElement>('execute-chip-permission-label');
+const executeChipSettings = mustGet<HTMLButtonElement>('execute-chip-settings');
 const executionSettingsForm = mustGet<HTMLFormElement>('execution-settings-form');
 const executionSettingsFeedback = mustGet<HTMLElement>('execution-settings-feedback');
 const executionCurrentPermission = mustGet<HTMLElement>('execution-current-permission');
-const agentProjectTitle = mustGet<HTMLElement>('agent-project-title');
-const agentWorkspaceRevision = mustGet<HTMLElement>('agent-workspace-revision');
 const agentRootList = mustGet<HTMLElement>('agent-root-list');
-const agentRootForm = mustGet<HTMLFormElement>('agent-root-form');
-const agentRootInput = mustGet<HTMLInputElement>('agent-root-input');
-const agentGoalList = mustGet<HTMLElement>('agent-goal-list');
-const agentGoalForm = mustGet<HTMLFormElement>('agent-goal-form');
-const agentGoalInput = mustGet<HTMLInputElement>('agent-goal-input');
-const agentWorkspaceRefresh = mustGet<HTMLButtonElement>('agent-workspace-refresh');
-const agentTaskBoard = mustGet<HTMLElement>('agent-task-board');
-const agentApprovalSection = mustGet<HTMLElement>('agent-approval-section');
-const agentApprovalList = mustGet<HTMLElement>('agent-approval-list');
-const agentPlanList = mustGet<HTMLElement>('agent-plan-list');
-const agentArtifactList = mustGet<HTMLElement>('agent-artifact-list');
+const agentRootPick = mustGet<HTMLButtonElement>('agent-root-pick');
 const skillInstall = mustGet<HTMLButtonElement>('skill-install');
 const skillLibrarySummary = mustGet<HTMLElement>('skill-library-summary');
 const skillLibraryList = mustGet<HTMLElement>('skill-library-list');
@@ -1599,14 +1574,10 @@ let currentChatWindowId: number | null = null;
 let currentChatWindowMessages: ChatMessageSnapshot[] = [];
 const pendingChatAttachments = new Map<number, ChatAttachmentSnapshot[]>();
 let activeRequestMode: AthenaMode | null = null;
-let pendingExecutionGoal = '';
-let pendingExecutionMode: AthenaMode = 'companion';
-let currentExecutionTask: ExecutionTask | null = null;
-let executionTasks: ExecutionTask[] = [];
-let executionTaskSequence = 0;
 let agentWorkspace: AgentProjectWorkspaceSnapshot | null = null;
 let selectedAgentTaskId: string | undefined;
 let agentWorkspaceLoading = false;
+let executeSession: ExecuteSessionSnapshot | null = null;
 let skillLibrarySnapshot: AgentSkillLibrarySnapshot | null = null;
 let mcpIntegrationSnapshot: McpIntegrationSnapshot | null = null;
 let currentAudio: HTMLAudioElement | null = null;
@@ -1686,8 +1657,10 @@ function setMode(mode: AthenaMode): void {
   appShell.dataset.mode = mode;
   appShell.dataset.space = nextSpace;
   chatPanel.setActiveMode(mode);
-  stage.setAttribute('aria-hidden', String(mode === 'execute'));
-  executionPanel.setAttribute('aria-hidden', String(mode !== 'execute'));
+  // Execute mode is a conversation of its own in the same stage: the chat
+  // transcript steps aside, the session stream takes its place.
+  executeStream.hidden = mode !== 'execute';
+  executeChips.hidden = mode !== 'execute';
   modeHint.textContent = modeHintText(mode);
   inputBox.placeholder = modePlaceholder(mode);
   document.querySelectorAll<HTMLButtonElement>('.mode-btn').forEach((button) => {
@@ -1707,8 +1680,9 @@ function setMode(mode: AthenaMode): void {
   if (toolsPanel.dataset.open === 'true') void loadToolCatalog();
   if (mode === 'execute') {
     void refreshAgentWorkspace();
-    void refreshSkillLibrary();
-    void refreshMcpIntegrations();
+    void refreshExecuteSession();
+  } else {
+    void toggleExecutionPanel(false);
   }
 }
 
@@ -1945,7 +1919,14 @@ function flushPendingProactiveDeliveries(): void {
 async function sendMessage(text: string): Promise<void> {
   const queuedAttachments = currentPendingAttachments();
   const effectiveText = text.trim() || (queuedAttachments.length > 0 ? '请查看并理解这些附件。' : '');
-  if (!effectiveText || isChatRequestBusy() || isVoiceInputBusy()) return;
+  if (!effectiveText || isVoiceInputBusy()) return;
+  // Talking to a task that is already working is not a second request: the
+  // message joins the run, which reads it before its next step.
+  if (currentMode === 'execute' && activeRequestMode === 'execute' && isChatRequestBusy()) {
+    await interjectExecuteMessage(effectiveText);
+    return;
+  }
+  if (isChatRequestBusy()) return;
   if (!currentChatWindowId) await initializeChatWindows();
   const requestChatWindowId = currentChatWindowId;
   isRequestPending = true;
@@ -1980,7 +1961,9 @@ async function sendMessage(text: string): Promise<void> {
   activeRequestMode = requestMode;
   if (requestMode === 'execute' && !directImageGeneration) {
     setAgentExecutionFeedback('');
-    beginExecutionRequest(effectiveText);
+    // The message shows up in the session stream as soon as the run records it;
+    // until then the stream keeps what is already there.
+    void refreshExecuteSession();
   }
   else {
     const userMessage = chatPanel.addMessage(effectiveText, 'user', undefined, requestMode, undefined, true, queuedAttachments);
@@ -1997,8 +1980,6 @@ async function sendMessage(text: string): Promise<void> {
   syncWebSearchControl();
   currentContent = '';
   streamingReadTurn = false;
-  pendingExecutionGoal = effectiveText;
-  pendingExecutionMode = requestMode;
   if (requestChatWindowId) {
     pendingChatAttachments.delete(requestChatWindowId);
     renderComposerAttachments();
@@ -2020,8 +2001,7 @@ async function sendMessage(text: string): Promise<void> {
     if (requestMode === 'execute' && !directImageGeneration) {
       if (response?.agentExecution?.taskId) selectedAgentTaskId = response.agentExecution.taskId;
       setAgentExecutionFeedback(response?.agentExecution ? '' : response?.content || '任务未能启动。');
-      finishExecutionTask(response?.toolExecutions ?? [], response?.content || currentContent);
-      await refreshAgentWorkspace(selectedAgentTaskId);
+      await refreshExecuteSession();
     } else {
       if (directImageGeneration && response?.content) {
         chatPanel.addMessage(response.content, 'assistant', response.emotion?.label, requestMode, undefined, true, response.attachments ?? []);
@@ -2058,7 +2038,7 @@ async function sendMessage(text: string): Promise<void> {
     const message = err instanceof Error ? err.message : '未知错误';
     if (requestMode === 'execute' && !directImageGeneration) {
       setAgentExecutionFeedback(`任务未启动：${message}`);
-      failActiveExecutionTask(message);
+      await refreshExecuteSession();
     }
     else {
       chatPanel.addMessage(`出错了：${message}`, 'assistant', '需要检查');
@@ -2072,7 +2052,6 @@ async function sendMessage(text: string): Promise<void> {
     // Reading a half-finished answer out loud is the opposite of what stopping
     // asked for, so a stopped turn skips the auto-play below.
     const stopped = chatStopRequested;
-    pendingExecutionGoal = '';
     activeRequestMode = null;
     isStreaming = false;
     isRequestPending = false;
@@ -2136,7 +2115,7 @@ function init(): void {
   themeController.apply('system');
   selectControls.enhance();
   setMode('companion');
-  renderExecutionCenter();
+  renderExecuteChips();
   appShell.dataset.sidebar = window.innerWidth <= 860 ? 'closed' : 'open';
   inputForm.dataset.voiceState = 'idle';
   voiceFeedback.dataset.visible = 'false';
@@ -2208,14 +2187,16 @@ function init(): void {
   modeSwitch.addEventListener('keydown', handleModeSwitchKeydown);
   workModeSwitch.addEventListener('keydown', handleWorkModeSwitchKeydown);
 
-  executionStop.addEventListener('click', cancelActiveExecution);
-  agentRunResume.addEventListener('click', () => void resumeSelectedAgentRun());
-  executionClear.addEventListener('click', () => void refreshAgentWorkspace(selectedAgentTaskId));
-  executionHistory.addEventListener('click', (event) => {
-    const button = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('[data-agent-task-id]') : null;
-    if (button?.dataset.agentTaskId) void refreshAgentWorkspace(button.dataset.agentTaskId);
+  executeChipSettings.addEventListener('click', () => void toggleExecutionPanel());
+  btnExecutionClose.addEventListener('click', () => void toggleExecutionPanel(false));
+  executeChipFolder.addEventListener('click', () => {
+    void toggleExecutionPanel(true);
+    agentRootPick.focus();
   });
-  agentWorkspaceRefresh.addEventListener('click', () => void refreshAgentWorkspace(selectedAgentTaskId));
+  executeChipPermission.addEventListener('click', () => {
+    void toggleExecutionPanel(true);
+    executionSettingsForm.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  });
   skillInstall.addEventListener('click', () => void installSkillFromDirectory());
   skillLibraryList.addEventListener('click', (event) => {
     const button = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('[data-skill-action]') : null;
@@ -2235,33 +2216,10 @@ function init(): void {
     const id = button?.dataset.mcpId;
     if (button && id) void handleMcpAction(button.dataset.mcpAction || '', id, button.dataset.mcpFingerprint || '');
   });
-  agentRootForm.addEventListener('submit', (event) => {
-    event.preventDefault();
-    void addAgentWorkspaceRoot();
-  });
-  agentGoalForm.addEventListener('submit', (event) => {
-    event.preventDefault();
-    void addAgentWorkspaceGoal();
-  });
+  agentRootPick.addEventListener('click', () => void pickAgentWorkspaceRoot());
   agentRootList.addEventListener('click', (event) => {
     const button = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('[data-agent-root-index]') : null;
     if (button) void removeAgentWorkspaceRoot(Number(button.dataset.agentRootIndex));
-  });
-  agentGoalList.addEventListener('click', (event) => {
-    const button = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('[data-agent-goal-id]') : null;
-    if (button?.dataset.agentGoalId) void cycleAgentWorkspaceGoal(button.dataset.agentGoalId);
-  });
-  agentTaskBoard.addEventListener('click', (event) => {
-    const button = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('[data-agent-task-id]') : null;
-    if (button?.dataset.agentTaskId) void refreshAgentWorkspace(button.dataset.agentTaskId);
-  });
-  agentApprovalList.addEventListener('click', (event) => {
-    const button = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('[data-agent-approval-id]') : null;
-    const decision = button?.dataset.decision;
-    const scope = button?.dataset.scope === 'group' ? 'group' : 'item';
-    if (button?.dataset.agentApprovalId && (decision === 'approved' || decision === 'denied')) {
-      void resolveAgentApproval(button.dataset.agentApprovalId, decision, scope);
-    }
   });
   executionSettingsForm.addEventListener('submit', (event) => {
     event.preventDefault();
@@ -2287,6 +2245,7 @@ function init(): void {
     void toggleMemoryPanel(false);
     void toggleSettingsPanel(false);
     void toggleToolsPanel(false);
+    void toggleExecutionPanel(false);
   });
   btnSidebar.addEventListener('click', () => toggleSidebar());
   availableToolsBtn.addEventListener('click', () => void toggleToolsPanel(true));
@@ -2531,11 +2490,9 @@ function init(): void {
     }
 
     currentContent += data.content;
-    if (activeRequestMode === 'execute') {
-      if (currentExecutionTask) currentExecutionTask.finalResponse = currentContent;
-      executionCurrentResult.textContent = currentContent;
-      executionCurrentResult.dataset.visible = 'true';
-    } else {
+    // Execute mode has no streamed draft to show: what it is doing arrives as
+    // narration, tool steps and decisions in its own stream.
+    if (activeRequestMode !== 'execute') {
       if (!live2dStreamingStarted) {
         live2dStreamingStarted = true;
         void dispatchLive2dEvent({ type: 'chat.streaming.start' });
@@ -2555,7 +2512,7 @@ function init(): void {
     if (kind === 'cancelled') {
       // Stopping the answer stops the reading of it too.
       stopCurrentAudio();
-      if (activeRequestMode === 'execute') failActiveExecutionTask(message);
+      if (activeRequestMode === 'execute') void refreshExecuteSession();
       else if (currentContent) chatPanel.finalizeStreaming();
       else chatPanel.addMessage('好，这条先停在这儿。', 'assistant', '已停止');
       void dispatchLive2dEvent({ type: 'app.ready' });
@@ -2574,7 +2531,7 @@ function init(): void {
       void refreshDeferredStartupModelStatus();
     }
     void dispatchLive2dEvent({ type: 'chat.error', message });
-    if (activeRequestMode === 'execute') failActiveExecutionTask(message);
+    if (activeRequestMode === 'execute') void refreshExecuteSession();
     else chatPanel.addMessage(message, 'assistant', chatErrorBadge(kind));
   });
 
@@ -2600,7 +2557,6 @@ function init(): void {
   });
 
   window.athenaAPI.onToolStatus((status) => {
-    handleExecutionStatus(status);
     if (status.phase === 'planning') {
       setStatus('正在规划电脑操作', 'working');
       return;
@@ -2643,11 +2599,12 @@ function init(): void {
     void refreshAgentWorkspace(selectedAgentTaskId);
   });
 
-  window.setInterval(() => {
-    if (currentMode !== 'execute' || !agentWorkspace?.selectedRun) return;
-    const status = agentWorkspace.selectedRun.run.status;
-    if (status === 'queued' || status === 'running') void refreshAgentWorkspace(selectedAgentTaskId);
-  }, 1_200);
+  // Every narration line, tool step and approval the run records reaches the
+  // stream as it happens, instead of only when the turn ends.
+  window.athenaAPI.onExecuteSessionChanged((event) => {
+    if (currentMode !== 'execute' || event.chatWindowId !== currentChatWindowId) return;
+    void refreshExecuteSession();
+  });
 
   inputBar.focus();
   resizeInputBox();
@@ -2986,6 +2943,8 @@ function mcpStatusLabel(status: McpServerSnapshot['status']): string {
 }
 
 async function refreshAgentWorkspace(taskId = selectedAgentTaskId): Promise<void> {
+  // The drawer still shows the Project's work folders; everything else a run
+  // does now reads in the session stream next to the message that asked for it.
   if (!currentProjectId || agentWorkspaceLoading) return;
   const requestedProjectId = currentProjectId;
   agentWorkspaceLoading = true;
@@ -2994,51 +2953,18 @@ async function refreshAgentWorkspace(taskId = selectedAgentTaskId): Promise<void
     if (currentProjectId !== requestedProjectId || !snapshot) return;
     agentWorkspace = snapshot;
     selectedAgentTaskId = snapshot.selectedTask?.id;
-    renderAgentWorkspace();
-    renderExecutionCenter();
+    renderAgentRoots(snapshot.metadata.roots);
+    renderExecuteChips();
   } catch (error) {
     console.error('Failed to refresh agent workspace', error);
-    if (taskId) {
-      selectedAgentTaskId = undefined;
-      try {
-        agentWorkspace = await window.athenaAPI.getAgentWorkspace(requestedProjectId);
-        renderAgentWorkspace();
-        renderExecutionCenter();
-      } catch (fallbackError) {
-        console.error('Failed to load default agent workspace selection', fallbackError);
-      }
-    }
   } finally {
     agentWorkspaceLoading = false;
   }
 }
 
-function renderAgentWorkspace(): void {
-  const workspace = agentWorkspace;
-  if (!workspace) {
-    agentProjectTitle.textContent = '当前 Project';
-    agentWorkspaceRevision.textContent = 'rev 0';
-    renderAgentEmpty(agentRootList, '尚未设置工作目录');
-    renderAgentEmpty(agentGoalList, '尚未设置项目目标');
-    renderAgentEmpty(agentTaskBoard, '当前 Project 还没有任务');
-    renderAgentEmpty(agentPlanList, '选择任务后查看计划');
-    renderAgentEmpty(agentArtifactList, '还没有交付产物');
-    agentApprovalSection.hidden = true;
-    return;
-  }
-  agentProjectTitle.textContent = workspace.project.title;
-  agentWorkspaceRevision.textContent = `rev ${workspace.metadata.revision}`;
-  renderAgentRoots(workspace.metadata.roots);
-  renderAgentGoals(workspace.metadata.goals);
-  renderAgentTaskBoard(workspace);
-  renderAgentApprovals(workspace.selectedRun);
-  renderAgentPlan(workspace.selectedTask, workspace.selectedRun);
-  renderAgentArtifacts(workspace.selectedRun);
-}
-
 function renderAgentRoots(roots: string[]): void {
   if (roots.length === 0) {
-    renderAgentEmpty(agentRootList, '尚未设置工作目录');
+    renderAgentEmpty(agentRootList, '还没有选工作文件夹');
     return;
   }
   agentRootList.replaceChildren(...roots.map((root, index) => {
@@ -3049,232 +2975,12 @@ function renderAgentRoots(roots: string[]): void {
     const remove = document.createElement('button');
     remove.type = 'button';
     remove.dataset.agentRootIndex = String(index);
-    remove.title = '移除工作目录';
-    remove.setAttribute('aria-label', `移除工作目录 ${root}`);
+    remove.title = '移除工作文件夹';
+    remove.setAttribute('aria-label', `移除工作文件夹 ${root}`);
     remove.innerHTML = '<svg class="icon"><use href="#icon-close"></use></svg>';
     item.append(text, remove);
     return item;
   }));
-}
-
-function renderAgentGoals(goals: AgentWorkspaceGoal[]): void {
-  if (goals.length === 0) {
-    renderAgentEmpty(agentGoalList, '尚未设置项目目标');
-    return;
-  }
-  agentGoalList.replaceChildren(...goals.map(goal => {
-    const item = document.createElement('div');
-    item.className = 'agent-goal';
-    item.dataset.status = goal.status;
-    const text = document.createElement('span');
-    text.textContent = `${agentGoalStatusLabel(goal.status)} · ${goal.title}`;
-    const toggle = document.createElement('button');
-    toggle.type = 'button';
-    toggle.dataset.agentGoalId = goal.id;
-    toggle.title = '切换目标状态';
-    toggle.textContent = '切换';
-    item.append(text, toggle);
-    return item;
-  }));
-}
-
-function renderAgentTaskBoard(workspace: AgentProjectWorkspaceSnapshot): void {
-  const columns: Array<{ label: string; statuses: AgentTaskStatus[] }> = [
-    { label: '待执行', statuses: ['draft', 'ready'] },
-    { label: '进行中', statuses: ['active', 'blocked'] },
-    // A task reaches `completed` when its run stops calling tools, which is not the
-    // same as its goal being met (ATH-AGENT-001); the column says only what is known.
-    { label: '已结束', statuses: ['completed'] },
-    { label: '需处理', statuses: ['failed', 'cancelled'] },
-  ];
-  if (workspace.tasks.filter(task => task.status !== 'archived').length === 0) {
-    renderAgentEmpty(agentTaskBoard, '在执行模式发送目标后，任务会出现在这里');
-    return;
-  }
-  agentTaskBoard.replaceChildren(...columns.map(column => {
-    const container = document.createElement('div');
-    container.className = 'agent-task-column';
-    const title = document.createElement('div');
-    title.className = 'agent-task-column-title';
-    const tasks = column.statuses.flatMap(status => workspace.board[status]);
-    title.textContent = `${column.label} · ${tasks.length}`;
-    container.appendChild(title);
-    for (const task of tasks.slice(0, 20)) {
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.className = 'agent-task-button';
-      button.dataset.agentTaskId = task.id;
-      button.dataset.selected = String(task.id === workspace.selectedTask?.id);
-      button.textContent = task.title;
-      const meta = document.createElement('span');
-      meta.textContent = `${agentTaskStatusLabel(task.status)} · ${formatExecutionTime(task.updatedAt)}`;
-      button.appendChild(meta);
-      container.appendChild(button);
-    }
-    return container;
-  }));
-}
-
-/**
- * Every pending item is shown in full - the exact command, directory, path or
- * address - and decided on its own. The card used to print "2 项 · run_command" and
- * approve the whole group with one click (ATH-SEC-009).
- */
-function renderAgentApprovals(snapshot: AgentRunSnapshot | null): void {
-  const activeGroup = snapshot?.run.approvalGroupId;
-  const approvals = snapshot?.approvals.filter(item => item.status === 'pending' && item.groupId === activeGroup) || [];
-  agentApprovalSection.hidden = approvals.length === 0;
-  if (approvals.length === 0) {
-    agentApprovalList.replaceChildren();
-    return;
-  }
-  const items: HTMLElement[] = approvals.map((approval, index) => {
-    const view = presentAgentApproval(approval);
-    const item = document.createElement('article');
-    item.className = 'agent-approval-item';
-    item.dataset.approvalKind = view.kind;
-    item.dataset.riskLevel = view.riskLevel;
-
-    const head = document.createElement('div');
-    head.className = 'agent-approval-head';
-    const title = document.createElement('div');
-    title.className = 'agent-approval-title';
-    title.textContent = approvals.length > 1 ? `${index + 1}. ${view.title}` : view.title;
-    head.appendChild(title);
-    if (view.riskLabel) {
-      const risk = document.createElement('span');
-      risk.className = 'agent-approval-risk';
-      risk.dataset.riskLevel = view.riskLevel;
-      risk.textContent = view.riskLabel;
-      head.appendChild(risk);
-    }
-
-    const body = document.createElement('div');
-    body.className = 'agent-approval-body';
-    if (view.explanation) {
-      const explanation = document.createElement('p');
-      explanation.className = 'agent-approval-explanation';
-      explanation.textContent = view.explanation;
-      body.appendChild(explanation);
-    }
-    if (view.fields.length > 0) {
-      const fields = document.createElement('dl');
-      fields.className = 'agent-approval-fields';
-      for (const field of view.fields) {
-        const label = document.createElement('dt');
-        label.textContent = field.label;
-        const value = document.createElement(field.code ? 'pre' : 'dd');
-        value.className = field.code ? 'agent-approval-code' : 'agent-approval-value';
-        value.textContent = field.value;
-        fields.append(label, value);
-      }
-      body.appendChild(fields);
-    }
-
-    const actions = document.createElement('div');
-    actions.className = 'agent-approval-actions';
-    for (const decision of ['denied', 'approved'] as const) {
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.dataset.agentApprovalId = approval.id;
-      button.dataset.decision = decision;
-      button.dataset.scope = 'item';
-      button.textContent = decision === 'approved' ? view.approveLabel : view.denyLabel;
-      actions.appendChild(button);
-    }
-    item.append(head, body, actions);
-    return item;
-  });
-  const toolCalls = approvals.filter(approval => approval.request.kind === 'tool_call');
-  if (toolCalls.length > 1 && toolCalls.length === approvals.length) {
-    const groupActions = document.createElement('div');
-    groupActions.className = 'agent-approval-actions agent-approval-group-actions';
-    const approveAll = document.createElement('button');
-    approveAll.type = 'button';
-    approveAll.dataset.agentApprovalId = approvals[0].id;
-    approveAll.dataset.decision = 'approved';
-    approveAll.dataset.scope = 'group';
-    approveAll.textContent = `以上 ${approvals.length} 项全部批准`;
-    groupActions.appendChild(approveAll);
-    items.push(groupActions);
-  }
-  agentApprovalList.replaceChildren(...items);
-}
-
-/** Matches the single hardcoded step in ProjectWorkspaceService.createTask. */
-const PLACEHOLDER_PLAN_STEP_ID = 'execute-agreed-goal';
-
-function renderAgentPlan(task: AgentTaskRecord | null, snapshot: AgentRunSnapshot | null): void {
-  const items: HTMLElement[] = [];
-  for (const step of task?.spec.plan || []) {
-    // Every task carries the same placeholder step - no planning runs before the
-    // agent starts - so showing it puts one line of English in front of the real
-    // steps and says nothing (ATH-CHAT-007).
-    if (step.id === PLACEHOLDER_PLAN_STEP_ID) continue;
-    items.push(createAgentDetailItem(step.title, step.successCriteria.join(' · ')));
-  }
-  const steps = snapshot?.steps || [];
-  const toolOutcome = summarizeAgentToolOutcome(steps);
-  const unresolved = new Set([...toolOutcome.failed, ...toolOutcome.denied].map(step => step.id));
-  for (const step of steps) {
-    const title = step.kind === 'tool'
-      ? `${step.sequence}. ${describeAgentToolStep(step)}`
-      : step.kind === 'model'
-        ? `${step.sequence}. 第 ${Number(step.input.round) || step.sequence} 轮模型调用${step.input.closing === true ? '（收尾总结）' : ''}`
-        : `${step.sequence}. ${step.title}`;
-    const redone = step.kind === 'tool' && (step.status === 'failed' || step.status === 'skipped') && !unresolved.has(step.id);
-    const meta = `${agentStepStatusLabel(step.status)}${redone ? '，之后重新执行成功' : ''}${step.error ? ` · ${step.error}` : ''}`;
-    const item = createAgentDetailItem(title, meta);
-    item.dataset.stepStatus = unresolved.has(step.id) ? 'unresolved' : step.status;
-    items.push(item);
-  }
-  if (items.length === 0) renderAgentEmpty(agentPlanList, '选择任务后查看计划与运行步骤');
-  else agentPlanList.replaceChildren(...items.slice(-30));
-}
-
-function renderAgentArtifacts(snapshot: AgentRunSnapshot | null): void {
-  // A model's closing text already appears in the result panel. Older builds
-  // also registered it as a `final_response` artifact, which made a failed or
-  // unverified answer look like a delivered file. Keep real artifacts only.
-  const artifacts = (snapshot?.artifacts || []).filter(artifact => artifact.kind !== 'final_response');
-  if (artifacts.length === 0) {
-    renderAgentEmpty(agentArtifactList, '还没有登记交付产物');
-    return;
-  }
-  agentArtifactList.replaceChildren(...artifacts.map(artifact => {
-    const item = createAgentDetailItem(artifact.name, `${artifact.kind} · ${artifact.validationStatus}${artifact.uri ? ` · ${artifact.uri}` : ''}`);
-    if (!artifact.uri) return item;
-    const button = document.createElement('button');
-    button.className = 'agent-artifact-open icon-button';
-    button.type = 'button';
-    button.title = '打开产物';
-    button.setAttribute('aria-label', `打开 ${artifact.name}`);
-    button.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#icon-file"></use></svg>';
-    button.addEventListener('click', async () => {
-      if (!currentProjectId) return;
-      button.disabled = true;
-      try {
-        await window.athenaAPI.openAgentArtifact(currentProjectId, artifact.id);
-      } catch (error) {
-        setStatus(`打开产物失败：${error instanceof Error ? error.message : String(error)}`, 'error');
-      } finally {
-        button.disabled = false;
-      }
-    });
-    item.append(button);
-    return item;
-  }));
-}
-
-function createAgentDetailItem(title: string, meta: string): HTMLElement {
-  const item = document.createElement('div');
-  item.className = 'agent-detail-item';
-  const text = document.createElement('span');
-  text.textContent = title;
-  const status = document.createElement('span');
-  status.textContent = meta;
-  item.append(text, status);
-  return item;
 }
 
 function renderAgentEmpty(container: HTMLElement, text: string): void {
@@ -3284,11 +2990,22 @@ function renderAgentEmpty(container: HTMLElement, text: string): void {
   container.replaceChildren(empty);
 }
 
-async function addAgentWorkspaceRoot(): Promise<void> {
-  const root = agentRootInput.value.trim();
-  if (!root || !agentWorkspace || !currentProjectId) return;
-  await updateAgentWorkspaceMetadata({ roots: [...agentWorkspace.metadata.roots, root] });
-  agentRootInput.value = '';
+/**
+ * The folder is chosen in the system picker now. It used to be a text box whose
+ * "+" did nothing at all when the box was empty, which is exactly how a person
+ * finds out that "工作目录根本点不动".
+ */
+async function pickAgentWorkspaceRoot(): Promise<void> {
+  if (!currentProjectId) return;
+  try {
+    const picked = await window.athenaAPI.chooseWorkspaceFolder();
+    if (!picked) return;
+    const roots = agentWorkspace?.metadata.roots ?? [];
+    if (roots.some(root => root.toLowerCase() === picked.toLowerCase())) return;
+    await updateAgentWorkspaceMetadata({ roots: [...roots, picked] });
+  } catch (error) {
+    setStatus(`选择文件夹失败：${error instanceof Error ? error.message : String(error)}`, 'error');
+  }
 }
 
 async function removeAgentWorkspaceRoot(index: number): Promise<void> {
@@ -3296,539 +3013,132 @@ async function removeAgentWorkspaceRoot(index: number): Promise<void> {
   await updateAgentWorkspaceMetadata({ roots: agentWorkspace.metadata.roots.filter((_, itemIndex) => itemIndex !== index) });
 }
 
-async function addAgentWorkspaceGoal(): Promise<void> {
-  const title = agentGoalInput.value.trim();
-  if (!title || !agentWorkspace || !currentProjectId) return;
-  await updateAgentWorkspaceMetadata({
-    goals: [...agentWorkspace.metadata.goals, {
-      title,
-      status: 'active',
-    }],
-  });
-  agentGoalInput.value = '';
-}
-
-async function cycleAgentWorkspaceGoal(goalId: string): Promise<void> {
-  if (!agentWorkspace || !currentProjectId) return;
-  const goals = agentWorkspace.metadata.goals.map(goal => goal.id === goalId
-    ? { ...goal, status: nextAgentGoalStatus(goal.status) }
-    : goal);
-  await updateAgentWorkspaceMetadata({ goals });
-}
-
-async function updateAgentWorkspaceMetadata(patch: {
-  roots?: string[];
-  goals?: Array<{ id?: string; title: string; status: AgentWorkspaceGoal['status'] }>;
-}): Promise<void> {
+async function updateAgentWorkspaceMetadata(patch: { roots?: string[] }): Promise<void> {
   if (!agentWorkspace || !currentProjectId) return;
   try {
     await window.athenaAPI.updateAgentWorkspace(currentProjectId, {
       revision: agentWorkspace.metadata.revision,
       ...patch,
     });
-    await refreshAgentWorkspace(selectedAgentTaskId);
   } catch (error) {
-    setStatus(`项目工作区更新失败：${error instanceof Error ? error.message : String(error)}`, 'error');
+    setStatus(`工作文件夹更新失败：${error instanceof Error ? error.message : String(error)}`, 'error');
+  } finally {
     await refreshAgentWorkspace(selectedAgentTaskId);
   }
 }
 
-async function resolveAgentApproval(approvalId: string, decision: 'approved' | 'denied', scope: 'item' | 'group'): Promise<void> {
-  const runId = agentWorkspace?.selectedRun?.run.id;
+// ---------------------------------------------------------------------------
+// The execute conversation: one chat window, one session.
+
+/**
+ * A message written while the session is still working. The run takes it the
+ * same way it takes the first one, so this turn does not touch the busy state
+ * the running request owns.
+ */
+async function interjectExecuteMessage(text: string): Promise<void> {
+  const windowId = currentChatWindowId;
+  if (!windowId) return;
+  inputBox.value = '';
+  resizeInputBox();
+  setAgentExecutionFeedback('');
+  try {
+    await window.athenaAPI.sendMessage(text, 'execute', false, windowId, []);
+  } catch (error) {
+    setAgentExecutionFeedback(`没能把这句话交给当前任务：${error instanceof Error ? error.message : String(error)}`);
+  } finally {
+    await refreshExecuteSession();
+  }
+}
+
+async function refreshExecuteSession(): Promise<void> {
+  const windowId = currentChatWindowId;
+  if (!windowId) {
+    executeSession = null;
+    executePanel.render(null);
+    return;
+  }
+  try {
+    const session = await window.athenaAPI.getExecuteSession(windowId);
+    if (currentChatWindowId !== windowId) return;
+    executeSession = session;
+    executePanel.render(session);
+    renderExecuteChips();
+    syncExecuteModeIndicator();
+  } catch (error) {
+    console.error('Failed to load the execute session', error);
+  }
+}
+
+function syncExecuteModeIndicator(): void {
+  const state = executeSession?.state;
+  modeExecuteButton.dataset.active = String(state === 'running' || state === 'waiting');
+  modeExecuteButton.dataset.hasRecords = String((executeSession?.runCount ?? 0) > 0);
+}
+
+function renderExecuteChips(): void {
+  const roots = agentWorkspace?.metadata.roots ?? [];
+  executeChipFolderLabel.textContent = roots.length === 0
+    ? '选择工作文件夹'
+    : roots.length === 1
+      ? roots[0]
+      : `${roots[0]} +${roots.length - 1}`;
+  executeChipFolder.title = roots.length === 0 ? '选择工作文件夹' : roots.join('\n');
+  const tools = currentSettingsBundle?.settings.tools;
+  const level = tools?.modePermissions.execute ?? tools?.permissionLevel ?? 'off';
+  executeChipPermission.dataset.level = level;
+  executeChipPermissionLabel.textContent = `权限 · ${toolPermissionShortLabel(level)}`;
+}
+
+async function resolveExecuteApproval(
+  approvalId: string,
+  decision: 'approved' | 'denied',
+  scope: 'item' | 'group',
+): Promise<void> {
+  const runId = executeSession?.activeRunId;
   if (!runId || !currentProjectId) return;
-  agentApprovalList.querySelectorAll<HTMLButtonElement>('button').forEach(button => { button.disabled = true; });
+  executeStream.querySelectorAll<HTMLButtonElement>('[data-agent-approval-id]').forEach(button => { button.disabled = true; });
   setStatus(decision === 'approved' ? '已记录批准' : '已记录拒绝', 'working');
   try {
     await window.athenaAPI.resolveAgentApproval(currentProjectId, runId, approvalId, decision, scope);
-    await refreshAgentWorkspace(selectedAgentTaskId);
   } catch (error) {
     setStatus(`审批处理失败：${error instanceof Error ? error.message : String(error)}`, 'error');
-    await refreshAgentWorkspace(selectedAgentTaskId);
   } finally {
+    await refreshExecuteSession();
     restoreIdleStatus();
   }
 }
 
-async function resumeSelectedAgentRun(): Promise<void> {
-  const runId = agentWorkspace?.selectedRun?.run.id;
+async function stopExecuteSession(): Promise<void> {
+  const runId = executeSession?.activeRunId;
+  if (!runId || !currentProjectId) {
+    await window.athenaAPI.cancelExecution();
+    return;
+  }
+  setStatus('正在停止这次执行', 'working');
+  try {
+    await window.athenaAPI.cancelAgentRun(currentProjectId, runId);
+  } catch (error) {
+    setStatus(`停止失败：${error instanceof Error ? error.message : String(error)}`, 'error');
+  } finally {
+    await refreshExecuteSession();
+    restoreIdleStatus();
+  }
+}
+
+async function resumeExecuteSession(): Promise<void> {
+  const runId = executeSession?.activeRunId;
   if (!runId || !currentProjectId) return;
-  agentRunResume.disabled = true;
-  setStatus('正在从检查点继续任务', 'working');
+  setStatus('正在从检查点继续', 'working');
   try {
     await window.athenaAPI.resumeAgentRun(currentProjectId, runId);
-    await refreshAgentWorkspace(selectedAgentTaskId);
   } catch (error) {
-    setStatus(`继续任务失败：${error instanceof Error ? error.message : String(error)}`, 'error');
+    setStatus(`继续失败：${error instanceof Error ? error.message : String(error)}`, 'error');
   } finally {
+    await refreshExecuteSession();
     restoreIdleStatus();
   }
 }
 
-function nextAgentGoalStatus(status: AgentWorkspaceGoal['status']): AgentWorkspaceGoal['status'] {
-  if (status === 'active') return 'achieved';
-  if (status === 'achieved') return 'paused';
-  return 'active';
-}
-
-function agentGoalStatusLabel(status: AgentWorkspaceGoal['status']): string {
-  if (status === 'achieved') return '已达成';
-  if (status === 'paused') return '已暂停';
-  return '进行中';
-}
-
-function agentTaskStatusLabel(status: AgentTaskStatus): string {
-  const labels: Record<AgentTaskStatus, string> = {
-    draft: '草稿', ready: '待执行', active: '执行中', blocked: '等待确认',
-    completed: '已结束', failed: '失败', cancelled: '已停止', archived: '已归档',
-  };
-  return labels[status];
-}
-
-function beginExecutionRequest(goal: string): void {
-  executionTaskSequence += 1;
-  const now = new Date().toISOString();
-  currentExecutionTask = {
-    id: `execution-${Date.now().toString(36)}-${executionTaskSequence.toString(36)}`,
-    goal,
-    mode: 'execute',
-    state: 'planning',
-    startedAt: now,
-    events: [{ phase: 'planning', message: '已收到目标，正在准备工具规划', occurredAt: now }],
-    executions: [],
-  };
-  renderExecutionCenter();
-}
-
-function handleExecutionStatus(status: ToolStatusEvent): void {
-  const task = ensureExecutionTask();
-  task.events.push({ ...status, occurredAt: new Date().toISOString() });
-
-  if (status.phase === 'planning') task.state = 'planning';
-  else if (status.phase === 'cancelled') {
-    task.state = 'cancelled';
-    task.completedAt = new Date().toISOString();
-  } else if (status.phase === 'done') {
-    if (task.state !== 'cancelled') task.state = 'running';
-  } else {
-    task.state = 'running';
-  }
-
-  modeExecuteButton.dataset.active = String(isExecutionTaskActive(task));
-  renderExecutionCenter();
-}
-
-function ensureExecutionTask(): ExecutionTask {
-  if (currentExecutionTask && isExecutionTaskActive(currentExecutionTask)) return currentExecutionTask;
-  executionTaskSequence += 1;
-  currentExecutionTask = {
-    id: `execution-${Date.now().toString(36)}-${executionTaskSequence.toString(36)}`,
-    goal: pendingExecutionGoal || '未命名电脑任务',
-    mode: pendingExecutionMode,
-    state: 'planning',
-    startedAt: new Date().toISOString(),
-    events: [],
-    executions: [],
-  };
-  return currentExecutionTask;
-}
-
-function finishExecutionTask(executions: ChatToolExecution[], finalResponse = ''): void {
-  if (!currentExecutionTask && executions.length === 0) return;
-  const task = currentExecutionTask ?? ensureExecutionTask();
-  task.executions = executions.map(item => ({ ...item }));
-  task.finalResponse = finalResponse.trim() || task.finalResponse;
-  if (task.state !== 'cancelled' && task.state !== 'failed') {
-    task.state = executions.some(item => item.status !== 'completed')
-      ? 'failed'
-      : executions.length > 0
-        ? 'completed'
-        : 'not-run';
-  }
-  task.completedAt = task.completedAt ?? new Date().toISOString();
-  rememberExecutionTask(task);
-  modeExecuteButton.dataset.active = 'false';
-  modeExecuteButton.dataset.hasRecords = 'true';
-  renderExecutionCenter();
-}
-
-function failActiveExecutionTask(message: string): void {
-  const task = currentExecutionTask;
-  if (!task || !isExecutionTaskActive(task)) return;
-  task.state = 'failed';
-  task.finalResponse = `执行失败：${message}`;
-  task.completedAt = new Date().toISOString();
-  task.events.push({ phase: 'failed', message, occurredAt: task.completedAt });
-  rememberExecutionTask(task);
-  modeExecuteButton.dataset.active = 'false';
-  modeExecuteButton.dataset.hasRecords = 'true';
-  renderExecutionCenter();
-}
-
-function rememberExecutionTask(task: ExecutionTask): void {
-  executionTasks = [
-    {
-      ...task,
-      events: task.events.map(item => ({ ...item })),
-      executions: task.executions.map(item => ({ ...item })),
-    },
-    ...executionTasks.filter(item => item.id !== task.id),
-  ].slice(0, 20);
-}
-
-function clearExecutionHistory(): void {
-  executionTasks = [];
-  if (!currentExecutionTask || !isExecutionTaskActive(currentExecutionTask)) currentExecutionTask = null;
-  modeExecuteButton.dataset.hasRecords = 'false';
-  renderExecutionCenter();
-}
-
-async function cancelActiveExecution(): Promise<void> {
-  const durableRun = agentWorkspace?.selectedRun?.run;
-  if (durableRun && !['completed', 'failed', 'cancelled'].includes(durableRun.status)) {
-    executionStop.disabled = true;
-    setStatus('正在停止持久化任务', 'working');
-    try {
-      if (!currentProjectId) return;
-      await window.athenaAPI.cancelAgentRun(currentProjectId, durableRun.id);
-      await refreshAgentWorkspace(selectedAgentTaskId);
-    } catch (error) {
-      setStatus(`停止请求失败：${error instanceof Error ? error.message : String(error)}`, 'error');
-    } finally {
-      restoreIdleStatus();
-    }
-    return;
-  }
-  const task = currentExecutionTask;
-  if (!task || !isExecutionTaskActive(task) || task.state === 'stopping') return;
-  const previousState = task.state;
-  task.state = 'stopping';
-  task.events.push({ phase: 'running', message: '正在请求停止后续步骤', occurredAt: new Date().toISOString() });
-  renderExecutionCenter();
-  try {
-    const accepted = await window.athenaAPI.cancelExecution();
-    if (accepted) return;
-    task.state = previousState;
-    task.events.push({ phase: 'failed', message: '当前没有可停止的执行任务', occurredAt: new Date().toISOString() });
-  } catch (error) {
-    task.state = previousState;
-    task.events.push({
-      phase: 'failed',
-      message: `停止请求失败：${error instanceof Error ? error.message : String(error)}`,
-      occurredAt: new Date().toISOString(),
-    });
-  }
-  renderExecutionCenter();
-}
-
-function renderExecutionCenter(): void {
-  if (agentWorkspace) {
-    renderDurableExecutionCenter(agentWorkspace);
-    return;
-  }
-  const task = currentExecutionTask;
-  const active = Boolean(task && isExecutionTaskActive(task));
-  modeExecuteButton.dataset.active = String(active);
-  modeExecuteButton.dataset.hasRecords = String(executionTasks.length > 0 || Boolean(task && !active));
-  executionStop.disabled = !active || task?.state === 'stopping';
-  agentRunResume.disabled = true;
-
-  if (!task) {
-    executionCurrentCard.dataset.state = 'idle';
-    executionStateLabel.dataset.state = 'idle';
-    executionStateLabel.textContent = '待命';
-    executionCurrentGoal.textContent = '还没有正在执行的电脑任务。';
-    executionCurrentMeta.textContent = '只有真实触发工具后，这里才会出现操作记录。';
-    executionLiveLog.replaceChildren();
-    executionCurrentResult.textContent = '';
-    executionCurrentResult.dataset.visible = 'false';
-  } else {
-    executionCurrentCard.dataset.state = task.state;
-    executionStateLabel.dataset.state = task.state;
-    executionStateLabel.textContent = executionStateText(task.state);
-    executionCurrentGoal.textContent = task.goal;
-    const level = currentSettingsBundle?.settings.tools.modePermissions[task.mode]
-      ?? currentSettingsBundle?.settings.tools.permissionLevel
-      ?? 'off';
-    const completed = task.executions.filter(item => item.status === 'completed').length;
-    const resultMeta = task.executions.length > 0 ? ` · ${completed}/${task.executions.length} 项完成` : '';
-    executionCurrentMeta.textContent = `${modeLabel(task.mode)}模式 · ${toolPermissionShortLabel(level)} · ${formatExecutionTime(task.startedAt)}${resultMeta}`;
-    const timeline = task.events.slice(-14).map(event => {
-      const item = document.createElement('li');
-      item.className = 'execution-live-step';
-      item.dataset.phase = event.phase;
-      item.textContent = `${formatExecutionTime(event.occurredAt)} · ${event.message}`;
-      return item;
-    });
-    executionLiveLog.replaceChildren(...timeline);
-    executionCurrentResult.textContent = task.finalResponse || '';
-    executionCurrentResult.dataset.visible = String(Boolean(task.finalResponse));
-  }
-
-  renderExecutionHistory();
-}
-
-function renderDurableExecutionCenter(workspace: AgentProjectWorkspaceSnapshot): void {
-  const task = workspace.selectedTask;
-  const snapshot = workspace.selectedRun;
-  const run = snapshot?.run;
-  const active = Boolean(run && !['completed', 'failed', 'cancelled'].includes(run.status));
-  modeExecuteButton.dataset.active = String(active);
-  modeExecuteButton.dataset.hasRecords = String(workspace.tasks.length > 0);
-  executionStop.disabled = !active;
-  const pendingApproval = snapshot?.approvals.some(item => item.status === 'pending') === true;
-  agentRunResume.disabled = !run || !workspace.recoverableRunIds.includes(run.id) || pendingApproval;
-  if (!task) {
-    executionCurrentCard.dataset.state = 'idle';
-    executionStateLabel.dataset.state = 'idle';
-    executionStateLabel.textContent = '待命';
-    executionCurrentGoal.textContent = '当前 Project 还没有执行任务。';
-    executionCurrentMeta.textContent = '在输入框描述目标，或切回聊天完善方案后再切到执行。';
-    executionLiveLog.replaceChildren();
-    executionCurrentResult.textContent = '';
-    executionCurrentResult.dataset.visible = 'false';
-    renderExecutionHistory();
-    return;
-  }
-  const state = durableExecutionState(task, snapshot);
-  executionCurrentCard.dataset.state = state;
-  executionStateLabel.dataset.state = state;
-  executionStateLabel.textContent = snapshot ? agentRunPhaseLabel(snapshot) : agentTaskStatusLabel(task.status);
-  executionCurrentGoal.textContent = task.spec.goal;
-  const runMeta = run
-    ? `${run.phase} · ${run.status} · ${formatExecutionTime(run.startedAt || run.createdAt)}`
-    : `任务已创建 · ${formatExecutionTime(task.createdAt)}`;
-  executionCurrentMeta.textContent = `${workspace.project.title} · ${runMeta}`;
-  const timeline = (snapshot?.events || [])
-    .filter(event => !QUIET_AGENT_EVENTS.has(event.type))
-    .slice(-16)
-    .map(event => {
-      const item = document.createElement('li');
-      item.className = 'execution-live-step';
-      item.dataset.phase = event.type;
-      item.textContent = `${formatExecutionTime(event.createdAt)} · ${agentEventLabel(event.type, event.payload)}`;
-      return item;
-    });
-  executionLiveLog.replaceChildren(...timeline);
-  const finalContent = run ? readAgentFinalContent(run.state) : '';
-  const failure = snapshot && run?.status === 'failed' ? readAgentRunFailure(snapshot.events) : null;
-  const result = finalContent || failure?.message || run?.error || '';
-  executionCurrentResult.textContent = result;
-  executionCurrentResult.dataset.visible = String(Boolean(result));
-  renderExecutionHistory();
-}
-
-/** Bookkeeping that says nothing to a person watching the run. */
-const QUIET_AGENT_EVENTS = new Set(['run.checkpointed', 'step.created', 'step.status_changed']);
-
-function renderExecutionHistory(): void {
-  if (agentWorkspace) {
-    renderDurableExecutionHistory(agentWorkspace);
-    return;
-  }
-  if (executionTasks.length === 0) {
-    const empty = document.createElement('div');
-    empty.className = 'execution-empty';
-    empty.textContent = '真实执行完成后，会在这里保留参数、结果与耗时。';
-    executionHistory.replaceChildren(empty);
-    return;
-  }
-  executionHistory.replaceChildren(...executionTasks.map(createExecutionTaskNode));
-}
-
-function renderDurableExecutionHistory(workspace: AgentProjectWorkspaceSnapshot): void {
-  if (workspace.tasks.length === 0) {
-    renderAgentEmpty(executionHistory, '当前 Project 还没有持久化执行记录。');
-    return;
-  }
-  executionHistory.replaceChildren(...workspace.tasks.slice(0, 50).map(task => {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'agent-task-button';
-    button.dataset.agentTaskId = task.id;
-    button.dataset.selected = String(task.id === workspace.selectedTask?.id);
-    button.textContent = task.title;
-    const meta = document.createElement('span');
-    meta.textContent = `${agentTaskStatusLabel(task.status)} · ${formatExecutionTime(task.updatedAt)}`;
-    button.appendChild(meta);
-    return button;
-  }));
-}
-
-function durableExecutionState(task: AgentTaskRecord, snapshot?: AgentRunSnapshot | null): ExecutionTaskState {
-  const run = snapshot?.run;
-  if (!run) return task.status === 'failed' ? 'failed' : task.status === 'cancelled' ? 'cancelled' : 'planning';
-  if (run.status === 'completed') {
-    return deriveAgentRunVerification(snapshot.task, run, snapshot.steps) === 'issues' ? 'attention' : 'completed';
-  }
-  if (run.status === 'failed') return 'failed';
-  if (run.status === 'cancelled') return 'cancelled';
-  if (run.status === 'paused') return 'attention';
-  return 'running';
-}
-
-function agentRunPhaseLabel(snapshot: AgentRunSnapshot): string {
-  const run = snapshot.run;
-  if (run.phase === 'awaiting_approval') {
-    const pending = snapshot.approvals.filter(item => item.status === 'pending' && item.groupId === run.approvalGroupId);
-    const modelRetry = pending.find(item => item.request.kind === 'model_retry');
-    if (modelRetry) {
-      const failure = modelRetry.request.failure as { kind?: unknown } | undefined;
-      return `已暂停 · ${agentModelFailureHeadline(failure?.kind)}`;
-    }
-    if (pending.some(item => item.request.kind === 'budget_extension')) return '已暂停 · 预算用完';
-    return pending.length > 1 ? `等待审批 · ${pending.length} 项` : '等待审批';
-  }
-  if (run.phase === 'planning') return '正在规划';
-  if (run.phase === 'executing') return '正在执行';
-  if (run.phase === 'verifying') return '正在验证';
-  if (run.phase === 'completed') {
-    const verification = deriveAgentRunVerification(snapshot.task, run, snapshot.steps);
-    if (verification === 'verified') return '已完成 · 已验证';
-    if (verification === 'issues') {
-      const outcome = summarizeAgentToolOutcome(snapshot.steps);
-      const parts = [
-        outcome.failed.length ? `${outcome.failed.length} 步失败未重做` : '',
-        outcome.denied.length ? `${outcome.denied.length} 步未执行` : '',
-      ].filter(Boolean);
-      return `已结束 · ${parts.join('、')}`;
-    }
-    if (verification === 'unverified') return '已结束 · 未验证';
-    return '已回答';
-  }
-  if (run.phase === 'failed') return '执行失败';
-  if (run.phase === 'cancelled') return '已停止';
-  return '准备中';
-}
-
-const AGENT_PHASE_LABELS: Record<string, string> = {
-  understanding: '理解目标',
-  researching: '查资料',
-  planning: '规划',
-  awaiting_approval: '等待确认',
-  executing: '执行',
-  verifying: '核对结果',
-  completed: '结束',
-  failed: '失败',
-  cancelled: '已停止',
-};
-
-function agentEventLabel(type: string, payload: Record<string, unknown>): string {
-  const tool = typeof payload.toolName === 'string' ? payload.toolName : '';
-  switch (type) {
-    case 'run.created': return '已创建持久化运行';
-    case 'run.started': return '运行已开始';
-    case 'run.phase_changed':
-      if (payload.to === 'completed') return '运行结束';
-      if (payload.to === 'failed') return '运行失败';
-      if (payload.to === 'cancelled') return '运行已停止';
-      return `进入${AGENT_PHASE_LABELS[String(payload.to || '')] || String(payload.to || '')}阶段`;
-    case 'approval.requested': return '等待你确认一项操作';
-    case 'approval.resolved': return payload.status === 'approved' ? '已批准' : payload.status === 'denied' ? '已拒绝' : '审批已取消';
-    case 'runner.model_requested': return `第 ${Number(payload.round) || '?'} 轮：模型正在决定下一步`;
-    case 'runner.model_completed': return Number(payload.toolCallCount) > 0 ? `模型提出了 ${Number(payload.toolCallCount)} 个工具调用` : '模型给出了回答';
-    case 'runner.model_retry_scheduled': return `${agentModelFailureHeadline(payload.failureKind)}，${Math.round(Number(payload.delayMs) / 100) / 10 || 0} 秒后自动重试`;
-    case 'runner.gate_opened': return payload.kind === 'model_retry' ? `${agentModelFailureHeadline(payload.failureKind)}，等待你决定是否重试` : '执行预算用完，等待你决定是否继续';
-    case 'runner.model_output_budget_raised': return `模型输出没写完就到了长度上限，已把上限从 ${Number(payload.from)} 提到 ${Number(payload.to)} 重试`;
-    case 'runner.model_output_budget_lowered': return `服务不接受更高的输出上限，改回 ${Number(payload.to)}`;
-    case 'runner.gate_resolved': return payload.decision === 'approved' ? '已同意继续' : '已选择停止';
-    case 'runner.tool_attempt_started': return `开始执行 ${tool}`;
-    case 'runner.tool_retry_scheduled': return `${tool} 失败，准备重试`;
-    case 'runner.tool_completed': return `${tool} ${payload.status === 'completed' ? '完成' : payload.status === 'denied' ? '未执行' : '失败'}`;
-    case 'runner.tool_interrupted': return `${tool} 执行时被中断`;
-    case 'runner.failed': return `运行失败：${String(payload.message || payload.error || '')}`;
-    case 'artifact.created': return '已登记交付产物';
-    default: return type;
-  }
-}
-
-function readAgentFinalContent(state: Record<string, unknown>): string {
-  return typeof state.finalContent === 'string' ? state.finalContent : '';
-}
-
-function createExecutionTaskNode(task: ExecutionTask): HTMLElement {
-  const details = document.createElement('details');
-  details.className = 'execution-task';
-  details.dataset.state = task.state;
-
-  const summary = document.createElement('summary');
-  const goal = document.createElement('span');
-  goal.className = 'execution-task-goal';
-  goal.textContent = task.goal;
-  const meta = document.createElement('span');
-  meta.className = 'execution-task-meta';
-  const completed = task.executions.filter(item => item.status === 'completed').length;
-  meta.textContent = `${executionStateText(task.state)} · ${completed}/${task.executions.length} 项完成 · ${formatExecutionTime(task.startedAt)}`;
-  summary.append(goal, meta);
-
-  const body = document.createElement('div');
-  body.className = 'execution-task-body';
-  if (task.finalResponse) {
-    const finalResponse = document.createElement('div');
-    finalResponse.className = 'execution-task-response';
-    finalResponse.textContent = task.finalResponse;
-    body.appendChild(finalResponse);
-  }
-  if (task.executions.length === 0) {
-    const empty = document.createElement('div');
-    empty.className = 'execution-empty';
-    empty.textContent = task.state === 'cancelled'
-      ? '任务在完成工具步骤前被停止。'
-      : '本轮没有产生真实工具调用，也没有改动电脑内容。';
-    body.appendChild(empty);
-  } else {
-    body.append(...task.executions.map(createExecutionRecordCard));
-  }
-  details.append(summary, body);
-  return details;
-}
-
-function createExecutionRecordCard(execution: ChatToolExecution): HTMLElement {
-  const card = document.createElement('details');
-  card.className = 'message-tool-card';
-  card.dataset.status = execution.status;
-
-  const title = document.createElement('summary');
-  title.className = 'message-tool-title';
-  const status = execution.status === 'completed' ? '完成' : execution.status === 'denied' ? '已拒绝' : execution.status === 'cancelled' ? '已取消' : '失败';
-  const duration = execution.durationMs >= 1000 ? `${(execution.durationMs / 1000).toFixed(1)}s` : `${execution.durationMs}ms`;
-  title.textContent = `${execution.label} · ${status} · ${duration}`;
-
-  const body = document.createElement('div');
-  body.className = 'message-tool-body';
-  const summary = document.createElement('div');
-  summary.className = 'message-tool-summary';
-  summary.textContent = execution.summary;
-  body.appendChild(summary);
-  appendExecutionPreview(body, '调用参数', execution.inputPreview);
-  appendExecutionPreview(body, '执行结果', execution.outputPreview);
-  card.append(title, body);
-  return card;
-}
-
-function appendExecutionPreview(container: HTMLElement, label: string, value: string): void {
-  if (!value) return;
-  const heading = document.createElement('div');
-  heading.className = 'message-tool-meta-label';
-  heading.textContent = label;
-  const preview = document.createElement('pre');
-  preview.textContent = value;
-  container.append(heading, preview);
-}
-
-function isExecutionTaskActive(task: ExecutionTask): boolean {
-  return task.state === 'planning' || task.state === 'running' || task.state === 'stopping';
-}
-
-function executionStateText(state: ExecutionTaskState): string {
-  if (state === 'planning') return '正在规划';
-  if (state === 'running') return '正在执行';
-  if (state === 'stopping') return '正在停止';
-  if (state === 'attention') return '需要你处理';
-  if (state === 'completed') return '已完成';
-  if (state === 'failed') return '有失败项';
-  if (state === 'cancelled') return '已停止';
-  return '未执行';
-}
 
 function formatExecutionTime(value: string): string {
   const date = new Date(value);
@@ -3984,6 +3294,8 @@ async function loadCurrentChatWindowMessages(): Promise<void> {
   if (!currentChatWindowId) {
     currentChatWindowMessages = [];
     chatPanel.clear();
+    executeSession = null;
+    executePanel.render(null);
     renderComposerAttachments();
     await refreshWindowMemoryPanel();
     return;
@@ -3992,6 +3304,8 @@ async function loadCurrentChatWindowMessages(): Promise<void> {
   currentChatWindowMessages = messages;
   chatPanel.renderMessages(messages);
   renderComposerAttachments();
+  // Switching windows switches sessions: each one keeps its own place in its task.
+  await refreshExecuteSession();
 }
 
 async function switchProject(id: number): Promise<void> {
@@ -4796,6 +4110,24 @@ async function toggleSettingsPanel(force?: boolean): Promise<void> {
   if (!next) syncPanelState();
 }
 
+/** Skills, MCP, permissions and the work folder, one button away from the composer. */
+async function toggleExecutionPanel(force?: boolean): Promise<void> {
+  const next = force ?? executionPanel.dataset.open !== 'true';
+  executionPanel.dataset.open = String(next);
+  executionPanel.setAttribute('aria-hidden', String(!next));
+  executeChipSettings.setAttribute('aria-expanded', String(next));
+  if (next) {
+    memoryPanel.dataset.open = 'false';
+    settingsPanel.dataset.open = 'false';
+    toolsPanel.dataset.open = 'false';
+    toggleComposerTools(false);
+    await refreshAgentWorkspace(selectedAgentTaskId);
+    await refreshSkillLibrary();
+    await refreshMcpIntegrations();
+  }
+  syncPanelState();
+}
+
 async function toggleToolsPanel(force?: boolean): Promise<void> {
   const next = force ?? toolsPanel.dataset.open !== 'true';
   toolsPanel.dataset.open = String(next);
@@ -4869,7 +4201,8 @@ function syncPanelState(): void {
   const memoryOpen = memoryPanel.dataset.open === 'true';
   const settingsOpen = settingsPanel.dataset.open === 'true';
   const toolsOpen = toolsPanel.dataset.open === 'true';
-  const anyOpen = memoryOpen || settingsOpen || toolsOpen;
+  const executionOpen = executionPanel.dataset.open === 'true';
+  const anyOpen = memoryOpen || settingsOpen || toolsOpen || executionOpen;
   panelScrim.dataset.visible = String(anyOpen);
   panelScrim.setAttribute('aria-hidden', String(!anyOpen));
   memoryPanel.setAttribute('aria-hidden', String(!memoryOpen));

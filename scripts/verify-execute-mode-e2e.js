@@ -259,9 +259,9 @@ async function launchApp(profile) {
 // Acting as the user
 
 const approvalCardsExpression = `(() => {
-  const section = document.getElementById('agent-approval-section');
-  if (!section || section.hidden) return [];
-  return Array.from(section.querySelectorAll('.agent-approval-item')).map((item, index) => {
+  const stream = document.getElementById('execute-stream');
+  if (!stream || stream.hidden) return [];
+  return Array.from(stream.querySelectorAll('.agent-approval-item')).map((item, index) => {
     const fields = [];
     const labels = item.querySelectorAll('.agent-approval-fields > dt');
     for (const label of labels) fields.push({ label: label.textContent, value: label.nextElementSibling ? label.nextElementSibling.textContent : '' });
@@ -293,15 +293,22 @@ async function readRun(page) {
 }
 
 async function readScreen(page) {
-  return page.evaluate(`(() => ({
-    stateLabel: document.getElementById('execution-state-label')?.textContent || '',
-    state: document.getElementById('execution-state-label')?.dataset.state || '',
-    result: document.getElementById('execution-current-result')?.textContent || '',
-    steps: Array.from(document.querySelectorAll('#agent-plan-list .agent-detail-item')).map(item => item.textContent),
-    log: Array.from(document.querySelectorAll('#execution-live-log li')).map(item => item.textContent),
-    busy: document.getElementById('send-btn')?.dataset.busy,
-    feedback: document.getElementById('agent-execution-feedback')?.hidden ? '' : (document.getElementById('agent-execution-feedback')?.textContent || ''),
-  }))()`);
+  return page.evaluate(`(() => {
+    const live = document.querySelector('#execute-stream .exec-live');
+    const finals = Array.from(document.querySelectorAll('#execute-stream .exec-final'));
+    return {
+      stateLabel: live?.querySelector('.exec-live-text')?.textContent || '',
+      state: live?.dataset.state || '',
+      result: finals.at(-1)?.textContent || '',
+      steps: Array.from(document.querySelectorAll('#execute-stream .exec-step')).map(item => (
+        [item.dataset.status, item.querySelector('.exec-step-label')?.textContent, item.querySelector('.exec-step-target')?.textContent, item.querySelector('.exec-step-status')?.textContent].filter(Boolean).join(' · ')
+      )),
+      narration: Array.from(document.querySelectorAll('#execute-stream .exec-narr')).map(item => item.textContent),
+      said: Array.from(document.querySelectorAll('#execute-stream .exec-user')).map(item => item.textContent),
+      busy: document.getElementById('send-btn')?.dataset.busy,
+      feedback: document.getElementById('agent-execution-feedback')?.hidden ? '' : (document.getElementById('agent-execution-feedback')?.textContent || ''),
+    };
+  })()`);
 }
 
 async function runGoal(page, scenario, profile) {
@@ -339,11 +346,11 @@ async function runGoal(page, scenario, profile) {
       const button = card.buttons.find(item => item.decision === decision.decision && item.scope === (decision.scope || 'item'))
         || card.buttons.find(item => item.decision === decision.decision);
       assert(button, `card has no ${decision.decision} button`);
-      await page.evaluate(`document.getElementById('agent-approval-section')?.scrollIntoView({ block: 'start', behavior: 'instant' })`);
+      await page.evaluate(`document.querySelector('#execute-stream .exec-ask')?.scrollIntoView({ block: 'start', behavior: 'instant' })`);
       await page.screenshot(path.join(profile.dir, `card-${transcript.approvals.length}.png`)).catch(() => {});
       decided.add(button.id);
-      await page.click(`#agent-approval-list button[data-agent-approval-id="${button.id}"][data-decision="${button.decision}"][data-scope="${button.scope}"]`);
-      await page.waitFor(`!document.querySelector('#agent-approval-list button[data-agent-approval-id="${button.id}"]')`, {
+      await page.click(`#execute-stream button[data-agent-approval-id="${button.id}"][data-decision="${button.decision}"][data-scope="${button.scope}"]`);
+      await page.waitFor(`!document.querySelector('#execute-stream button[data-agent-approval-id="${button.id}"]')`, {
         timeoutMs: 60_000,
         label: 'the decided card to leave the list',
       });

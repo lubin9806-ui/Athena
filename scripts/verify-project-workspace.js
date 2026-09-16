@@ -320,21 +320,37 @@ try {
   const preloadSource = fs.readFileSync(path.join(root, 'src', 'app', 'preload.ts'), 'utf8');
   const rendererSource = fs.readFileSync(path.join(root, 'src', 'renderer', 'app.ts'), 'utf8');
   const htmlSource = fs.readFileSync(path.join(root, 'src', 'renderer', 'index.html'), 'utf8');
-  for (const channel of ['agentWorkspace:get', 'agentWorkspace:update', 'agentRun:resolveApproval', 'agentRun:resume', 'agentRun:cancel']) {
+  const executePanelSource = fs.readFileSync(path.join(root, 'src', 'renderer', 'ui', 'ExecutePanel.ts'), 'utf8');
+  for (const channel of [
+    'agentWorkspace:get',
+    'agentWorkspace:update',
+    'agentWorkspace:chooseFolder',
+    'executeSession:get',
+    'agentRun:resolveApproval',
+    'agentRun:resume',
+    'agentRun:cancel',
+  ]) {
     assert.ok(ipcSource.includes(`'${channel}'`), `${channel} must be in the IPC allowlist`);
   }
   assert.match(ipcSource, /if \(!isTrustedSender\(event\)\)/);
   assert.match(preloadSource, /onAgentWorkspaceChanged/);
+  assert.match(preloadSource, /onExecuteSessionChanged/, 'the window must be able to watch its session as it runs');
   assert.match(rendererSource, /resolveAgentApproval/);
   assert.match(rendererSource, /refreshAgentWorkspace/);
-  assert.match(htmlSource, /id="agent-task-board"/);
-  assert.match(htmlSource, /id="agent-approval-section"/);
-  assert.match(htmlSource, /id="agent-run-resume"/);
+  assert.match(rendererSource, /refreshExecuteSession/);
+  // The execution centre is one conversation now: the panels that used to stand
+  // beside it are gone, and its switches sit under the composer.
+  assert.match(htmlSource, /id="execute-stream"/);
+  assert.match(htmlSource, /id="execute-chips"/);
+  assert.match(htmlSource, /id="agent-root-pick"/, 'the work folder is chosen in the system picker');
+  for (const removed of ['id="agent-task-board"', 'id="agent-approval-section"', 'id="agent-goal-input"', 'id="agent-root-input"', 'id="execution-history"']) {
+    assert.ok(!htmlSource.includes(removed), `${removed} belongs to the old execution centre and must be gone`);
+  }
   // ATH-SEC-009: a click decides the item it was on; deciding the whole group has to
   // be asked for explicitly.
   assert.match(ipcSource, /resolveAgentApproval\(projectId, runId, approvalId, decision, scope/);
   assert.match(ipcSource, /value\.scope === 'group' \? 'group' : 'item'/, 'the IPC default must be a single item');
-  assert.match(rendererSource, /dataset\.scope = 'item'/, 'each approval card button must decide only its own item');
+  assert.match(executePanelSource, /dataset\.scope = 'item'/, 'each approval card button must decide only its own item');
 
   // ATH-CHAT-007: execute mode no longer asks first. The card it used to show was
   // a gate that asked about nothing - the goal was echoed back word for word and

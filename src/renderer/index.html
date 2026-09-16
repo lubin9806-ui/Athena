@@ -169,6 +169,9 @@
         <canvas id="live2d-companion-canvas" width="420" height="680" aria-hidden="true" hidden></canvas>
       </div>
       <section id="chat-container" aria-label="聊天记录"></section>
+      <!-- Execute mode is a conversation of its own: one chat window is one
+           session, and everything it does reads in this stream. -->
+      <section id="execute-stream" aria-label="执行对话" hidden></section>
       <!-- Sits under #live2d-companion (z-index 2) on purpose: the companion
            stays visible above it, so a call has someone on the other end. -->
       <div id="voice-session" data-voice-session="idle" aria-hidden="true" hidden>
@@ -331,13 +334,16 @@
       <div id="tools-panel-list"></div>
     </aside>
 
-    <section id="execution-panel" class="execution-workspace" aria-label="执行工作区">
-      <div class="execution-workspace-head">
+    <aside id="execution-panel" class="side-panel" aria-label="执行设置" aria-hidden="true" data-open="false">
+      <div class="side-panel-head">
         <div>
           <div class="panel-eyebrow">EXECUTION</div>
-          <div id="execution-panel-title">执行</div>
-          <div id="execution-panel-subtitle">直接描述目标，当前角色会调用工具并把真实过程留在这里</div>
+          <div id="execution-panel-title">执行设置</div>
+          <div id="execution-panel-subtitle">这台电脑上能做什么、在哪里做</div>
         </div>
+        <button id="btn-execution-close" class="icon-button" type="button" title="关闭" aria-label="关闭">
+          <svg class="icon"><use href="#icon-close"></use></svg>
+        </button>
       </div>
       <div id="agent-execution-feedback" class="agent-execution-feedback" role="status" aria-live="polite" hidden></div>
 
@@ -345,33 +351,13 @@
         <section class="execution-card execution-project-card">
           <div class="execution-card-head">
             <div>
-              <div class="execution-section-label">PROJECT WORKSPACE</div>
-              <div id="agent-project-title" class="execution-card-title">当前 Project</div>
+              <div class="execution-section-label">工作文件夹</div>
+              <div class="execution-card-title">命令默认在这里运行</div>
             </div>
-            <div id="agent-workspace-revision" class="execution-current-meta">rev 0</div>
+            <button id="agent-root-pick" class="execution-secondary-button" type="button">选择文件夹…</button>
           </div>
-          <div class="agent-workspace-grid">
-            <div class="agent-workspace-column">
-              <div class="execution-section-label">工作目录</div>
-              <div id="agent-root-list" class="agent-chip-list"></div>
-              <form id="agent-root-form" class="agent-inline-form">
-                <input id="agent-root-input" type="text" maxlength="2048" placeholder="例如 G:\\Athena" aria-label="添加工作目录" />
-                <button class="icon-button" type="submit" title="添加工作目录" aria-label="添加工作目录">
-                  <svg class="icon"><use href="#icon-plus"></use></svg>
-                </button>
-              </form>
-            </div>
-            <div class="agent-workspace-column">
-              <div class="execution-section-label">项目目标</div>
-              <div id="agent-goal-list" class="agent-goal-list"></div>
-              <form id="agent-goal-form" class="agent-inline-form">
-                <input id="agent-goal-input" type="text" maxlength="500" placeholder="添加项目目标" aria-label="添加项目目标" />
-                <button class="icon-button" type="submit" title="添加项目目标" aria-label="添加项目目标">
-                  <svg class="icon"><use href="#icon-plus"></use></svg>
-                </button>
-              </form>
-            </div>
-          </div>
+          <div id="agent-root-list" class="agent-chip-list"></div>
+          <div class="settings-note">相对路径以这里为准。在这些文件夹之外写入或删除，会先停下来问你。</div>
         </section>
 
         <section class="execution-card">
@@ -452,72 +438,6 @@
           <div id="mcp-integration-list" class="mcp-integration-list"></div>
         </section>
 
-        <section class="execution-card">
-          <div class="execution-card-head">
-            <div>
-              <div class="execution-section-label">任务板</div>
-              <div class="execution-card-title">从讨论到交付</div>
-            </div>
-            <button id="agent-workspace-refresh" class="icon-button" type="button" title="刷新任务板" aria-label="刷新任务板">
-              <svg class="icon"><use href="#icon-refresh"></use></svg>
-            </button>
-          </div>
-          <div id="agent-task-board" class="agent-task-board"></div>
-        </section>
-
-        <section id="execution-current-card" class="execution-card" data-state="idle">
-          <div class="execution-card-head">
-            <div>
-              <div class="execution-section-label">当前任务</div>
-              <div id="execution-state-label" class="execution-state-badge" data-state="idle">待命</div>
-            </div>
-            <div class="execution-run-actions">
-              <button id="agent-run-resume" class="execution-secondary-button" type="button" disabled>继续任务</button>
-              <button id="execution-stop" class="execution-secondary-button" type="button" disabled>停止后续步骤</button>
-            </div>
-          </div>
-          <div id="execution-current-goal" class="execution-current-goal">还没有正在执行的电脑任务。</div>
-          <div id="execution-current-meta" class="execution-current-meta">只有真实触发工具后，这里才会出现操作记录。</div>
-          <ol id="execution-live-log" class="execution-live-log" aria-live="polite"></ol>
-          <div id="execution-current-result" class="execution-current-result" data-visible="false"></div>
-        </section>
-
-        <section id="agent-approval-section" class="execution-card agent-approval-section" hidden>
-          <div class="execution-card-head">
-            <div>
-              <div class="execution-section-label">需要确认</div>
-              <div class="execution-card-title">本次操作审批</div>
-            </div>
-          </div>
-          <div id="agent-approval-list" class="agent-approval-list"></div>
-        </section>
-
-        <section class="execution-card agent-details-card">
-          <div class="agent-details-grid">
-            <div>
-              <div class="execution-section-label">计划与步骤</div>
-              <div id="agent-plan-list" class="agent-detail-list"></div>
-            </div>
-            <div>
-              <div class="execution-section-label">交付产物</div>
-              <div id="agent-artifact-list" class="agent-detail-list"></div>
-            </div>
-          </div>
-        </section>
-
-        <section class="execution-card">
-          <div class="execution-card-head">
-            <div>
-              <div class="execution-section-label">PROJECT HISTORY</div>
-              <div class="execution-card-title">持久化执行记录</div>
-            </div>
-            <button id="execution-clear" class="execution-secondary-button" type="button">刷新记录</button>
-          </div>
-          <div id="execution-history" class="execution-history">
-            <div class="execution-empty">当前 Project 还没有持久化执行记录。</div>
-          </div>
-        </section>
-
         <section class="execution-card execution-permissions-card">
           <div class="execution-card-head">
             <div>
@@ -553,7 +473,7 @@
           </form>
         </section>
       </div>
-    </section>
+    </aside>
 
     <aside id="settings-panel" class="side-panel" aria-label="设置与个性化" aria-hidden="true" data-open="false">
       <div id="settings-panel-head" class="side-panel-head">
@@ -1382,6 +1302,23 @@
         <button id="send-btn" type="submit" title="发送" aria-label="发送" data-busy="false">
           <svg class="icon send-glyph"><use href="#icon-send"></use></svg>
           <svg class="icon stop-glyph"><use href="#icon-stop"></use></svg>
+        </button>
+      </div>
+      <!-- Execute mode keeps its switches where the typing happens, instead of
+           in a panel beside it: the folder work runs in, the permission tier,
+           and everything else behind one settings button. -->
+      <div id="execute-chips" hidden>
+        <button id="execute-chip-folder" class="execute-chip" type="button" title="工作文件夹">
+          <svg class="icon"><use href="#icon-folder"></use></svg>
+          <span id="execute-chip-folder-label">选择工作文件夹</span>
+        </button>
+        <button id="execute-chip-permission" class="execute-chip" type="button" title="工具权限" data-level="off">
+          <svg class="icon"><use href="#icon-tools"></use></svg>
+          <span id="execute-chip-permission-label">权限 · 关闭</span>
+        </button>
+        <button id="execute-chip-settings" class="execute-chip" type="button" title="执行设置" aria-expanded="false">
+          <svg class="icon"><use href="#icon-sliders"></use></svg>
+          <span>执行设置</span>
         </button>
       </div>
       <div id="composer-meta">
