@@ -153,6 +153,7 @@ declare global {
         goals?: Array<{ id?: string; title: string; status: AgentWorkspaceGoal['status'] }>;
       }) => Promise<AgentWorkspaceMetadata | null>;
       resolveAgentApproval: (projectId: number, runId: string, approvalId: string, decision: 'approved' | 'denied', scope?: 'item' | 'group') => Promise<AgentRunnerResult | null>;
+      provideAgentSecret: (projectId: number, runId: string, approvalId: string, value: string, persist: boolean) => Promise<AgentRunnerResult | null>;
       resumeAgentRun: (projectId: number, runId: string) => Promise<AgentRunnerResult | null>;
       cancelAgentRun: (projectId: number, runId: string) => Promise<AgentRunnerResult | null>;
       onAgentWorkspaceChanged: (callback: (event: { projectId: number; taskId?: string; runId?: string }) => void) => () => void;
@@ -762,7 +763,7 @@ interface ToolSettings {
   modePermissions: ToolModePermissions;
   maxToolRounds: number;
   commandTimeoutSeconds: number;
-  /** Execute mode stops asking before each call; secrets and autorun locations still do. */
+  /** Execute mode stops asking before ordinary calls; dedicated secret requests still stop. */
   autoApprove?: boolean;
 }
 
@@ -1227,6 +1228,7 @@ const chatPanel = new ChatPanel(
 );
 const executePanel = new ExecutePanel(mustGet<HTMLElement>('execute-stream'), {
   onApproval: (approvalId, decision, scope) => void resolveExecuteApproval(approvalId, decision, scope),
+  onSecret: (approvalId, value, persist) => void provideExecuteSecret(approvalId, value, persist),
   onStop: () => void stopExecuteSession(),
   onResume: () => void resumeExecuteSession(),
   onExample: (text) => {
@@ -1280,6 +1282,13 @@ const executionPanel = mustGet<HTMLElement>('execution-panel');
 const btnExecutionClose = mustGet<HTMLButtonElement>('btn-execution-close');
 const agentExecutionFeedback = mustGet<HTMLElement>('agent-execution-feedback');
 const executeStream = mustGet<HTMLElement>('execute-stream');
+const executeContextBar = mustGet<HTMLElement>('execute-context-bar');
+const executeContextGoal = mustGet<HTMLElement>('execute-context-goal');
+const executeContextEditGoal = mustGet<HTMLButtonElement>('execute-context-edit-goal');
+const executeContextFolder = mustGet<HTMLElement>('execute-context-folder');
+const executeContextPermission = mustGet<HTMLElement>('execute-context-permission');
+const executeContextApproval = mustGet<HTMLElement>('execute-context-approval');
+const executeContextState = mustGet<HTMLElement>('execute-context-state');
 const executeChips = mustGet<HTMLElement>('execute-chips');
 const executeChipFolder = mustGet<HTMLButtonElement>('execute-chip-folder');
 const executeChipFolderLabel = mustGet<HTMLElement>('execute-chip-folder-label');
@@ -1929,6 +1938,27 @@ async function sendMessage(text: string): Promise<void> {
   const queuedAttachments = currentPendingAttachments();
   const effectiveText = text.trim() || (queuedAttachments.length > 0 ? '请查看并理解这些附件。' : '');
   if (!effectiveText || isVoiceInputBusy()) return;
+  if (currentMode === 'execute' && looksLikeSensitiveCredential(effectiveText)) {
+    const provideButton = executeStream.querySelector<HTMLButtonElement>('[data-provide-secret="true"][data-agent-approval-id]');
+    const approved = await dialogs.confirm({
+      eyebrow: '敏感信息保护',
+      title: provideButton ? '通过安全输入提供这段凭据？' : '这段内容看起来像 API Key 或 Token',
+      message: provideButton
+        ? 'Athena 不会把它写入聊天记录，也不会把明文发给模型。它只保存在本机内存中，供当前执行使用。'
+        : '这段内容已被拦下，没有进入聊天记录。先让 Athena 打开安全输入框，再在那里粘贴一次。',
+      confirmLabel: provideButton ? '安全提供并继续' : '让 Athena 打开安全输入',
+      cancelLabel: '取消',
+      tone: 'danger',
+    });
+    if (!approved) return;
+    if (provideButton?.dataset.agentApprovalId) {
+      await provideExecuteSecret(provideButton.dataset.agentApprovalId, effectiveText, false);
+      toasts.show('凭据已通过安全通道提供，没有进入对话', 'success');
+      return;
+    }
+    await sendMessage('我已经准备好所需凭据，请打开安全输入框；不要让我把凭据发在聊天里。');
+    return;
+  }
   // Talking to a task that is already working is not a second request: the
   // message joins the run, which reads it before its next step.
   if (currentMode === 'execute' && activeRequestMode === 'execute' && isChatRequestBusy()) {
@@ -2198,6 +2228,12 @@ function init(): void {
 
   executeChipSettings.addEventListener('click', () => void toggleExecutionPanel());
   btnExecutionClose.addEventListener('click', () => void toggleExecutionPanel(false));
+  executeContextEditGoal.addEventListener('click', () => {
+    inputBox.value = '调整当前目标：';
+    inputBox.dispatchEvent(new Event('input', { bubbles: true }));
+    inputBox.focus();
+    inputBox.setSelectionRange(inputBox.value.length, inputBox.value.length);
+  });
   executeChipFolder.addEventListener('click', () => {
     void toggleExecutionPanel(true);
     agentRootPick.focus();
@@ -3087,6 +3123,7 @@ async function refreshExecuteSession(): Promise<void> {
     executeSession = session;
     executePanel.render(session);
     renderExecuteChips();
+    renderExecuteContext();
     syncExecuteModeIndicator();
   } catch (error) {
     console.error('Failed to load the execute session', error);
@@ -3128,7 +3165,7 @@ async function setExecuteAutoApprove(enabled: boolean): Promise<void> {
       title: '打开免审批？',
       message: [
         '不再问你：这档权限之内的写文件、删文件、运行命令、下载，Athena 直接做。',
-        '仍然会问：需要 API Key、密码、Token 这类信息的时候；写到开机自启动、计划任务这种以后会自动运行的位置。',
+        '之后只在需要 API Key、密码、Token 这类敏感信息时弹出安全输入；普通工具操作不再逐项审批。',
         '每一步照常讲解，也照常留在对话里，随时可以按停止。',
       ].join('\n'),
       confirmLabel: '打开免审批',
@@ -3145,7 +3182,7 @@ async function setExecuteAutoApprove(enabled: boolean): Promise<void> {
   try {
     const bundle = await window.athenaAPI.saveSettings({ settings: { tools: { autoApprove: enabled } } });
     if (bundle) currentSettingsBundle = bundle;
-    setExecutionSettingsFeedback(enabled ? '已打开免审批。' : '已改回逐项审批。', 'success');
+    setExecutionSettingsFeedback(enabled ? '连续执行已开启。' : '已改回逐项审批。', 'success');
   } catch (error) {
     setStatus(`审批方式没保存上：${error instanceof Error ? error.message : String(error)}`, 'error');
   } finally {
@@ -3156,7 +3193,7 @@ async function setExecuteAutoApprove(enabled: boolean): Promise<void> {
 function renderExecuteChips(): void {
   const autoApprove = currentSettingsBundle?.settings.tools.autoApprove === true;
   executeChipApproval.dataset.auto = String(autoApprove);
-  executeChipApprovalLabel.textContent = autoApprove ? '免审批' : '逐项审批';
+  executeChipApprovalLabel.textContent = autoApprove ? '连续执行' : '逐项审批';
   executeChipApproval.title = autoApprove
     ? '现在不逐项问你，只在需要 API Key 这类信息时才停；点一下改回逐项审批'
     : '现在每次写入、删除、运行命令前都会问你；点一下改成免审批';
@@ -3181,6 +3218,34 @@ function renderExecuteChips(): void {
   const level = tools?.modePermissions.execute ?? tools?.permissionLevel ?? 'off';
   executeChipPermission.dataset.level = level;
   executeChipPermissionLabel.textContent = `权限 · ${toolPermissionShortLabel(level)}`;
+  renderExecuteContext();
+}
+
+/** Conservative execute-mode guard: catches common labelled keys and long token-like single values. */
+function looksLikeSensitiveCredential(value: string): boolean {
+  const text = value.trim();
+  if (/(?:api[ _-]?key|access[ _-]?token|auth(?:orization)?[ _-]?token|密码|口令|令牌)\s*[:=：]\s*\S{6,}/iu.test(text)) return true;
+  if (/^(?:sk-|key-|token-|pat_|ghp_|hf_|civitai[_-])?[A-Za-z0-9_./+=-]{20,}$/u.test(text)) return true;
+  return false;
+}
+
+function renderExecuteContext(): void {
+  executeContextBar.hidden = currentMode !== 'execute';
+  const task = agentWorkspace?.selectedTask;
+  // The selected task changes when a clarification starts a follow-up run. The
+  // session goal stays on the first objective, so "8129" must not replace
+  // "write config.json" in the current-task bar.
+  executeContextGoal.textContent = executeSession?.goal?.trim() || task?.spec.goal?.trim() || '告诉 Athena 要完成什么';
+  const roots = agentWorkspace?.metadata.roots ?? [];
+  executeContextFolder.textContent = roots.length > 0 ? `目录 · ${roots[0]}${roots.length > 1 ? ` +${roots.length - 1}` : ''}` : '目录 · 未选择';
+  executeContextFolder.title = roots.join('\n');
+  const tools = currentSettingsBundle?.settings.tools;
+  const level = tools?.modePermissions.execute ?? tools?.permissionLevel ?? 'off';
+  executeContextPermission.textContent = `权限 · ${toolPermissionShortLabel(level)}`;
+  executeContextApproval.textContent = tools?.autoApprove === true ? '连续执行' : '逐项审批';
+  executeContextApproval.dataset.active = String(tools?.autoApprove === true);
+  executeContextState.textContent = executeSession?.stateLabel || '待命';
+  executeContextState.dataset.state = executeSession?.state || 'idle';
 }
 
 async function resolveExecuteApproval(
@@ -3196,6 +3261,21 @@ async function resolveExecuteApproval(
     await window.athenaAPI.resolveAgentApproval(currentProjectId, runId, approvalId, decision, scope);
   } catch (error) {
     setStatus(`审批处理失败：${error instanceof Error ? error.message : String(error)}`, 'error');
+  } finally {
+    await refreshExecuteSession();
+    restoreIdleStatus();
+  }
+}
+
+async function provideExecuteSecret(approvalId: string, value: string, persist: boolean): Promise<void> {
+  const runId = executeSession?.activeRunId;
+  if (!runId || !currentProjectId) return;
+  executeStream.querySelectorAll<HTMLButtonElement>('[data-agent-approval-id]').forEach(button => { button.disabled = true; });
+  setStatus('正在安全保存凭据', 'working');
+  try {
+    await window.athenaAPI.provideAgentSecret(currentProjectId, runId, approvalId, value, persist);
+  } catch (error) {
+    setStatus(`凭据没有保存：${error instanceof Error ? error.message : String(error)}`, 'error');
   } finally {
     await refreshExecuteSession();
     restoreIdleStatus();
@@ -7411,7 +7491,7 @@ function reviewStatusLabel(status: MemoryReviewStatus | 'all'): string {
 
 function toolPermissionShortLabel(level: ToolPermissionLevel): string {
   if (level === 'read') return '全盘只读';
-  if (level === 'files') return '文件读写';
+  if (level === 'files') return '工作区读写';
   if (level === 'full') return '完全访问';
   return '关闭';
 }

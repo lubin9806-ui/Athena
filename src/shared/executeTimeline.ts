@@ -112,6 +112,8 @@ export interface ExecuteSessionSnapshot {
   chatWindowId: number;
   projectId: number | null;
   title: string;
+  /** First task objective in the visible session, stable across clarification runs. */
+  goal: string;
   items: ExecuteTimelineItem[];
   state: ExecuteSessionState;
   /** What the session is doing, in the words the person reads: never "completed" alone. */
@@ -177,6 +179,7 @@ export function buildExecuteSession(input: {
     chatWindowId: input.chatWindowId,
     projectId: input.projectId,
     title: input.title,
+    goal: runs[0]?.task.spec.goal || input.title,
     items: buildExecuteTimeline(runs),
     state,
     stateLabel: describeSessionState(latest, state, pending),

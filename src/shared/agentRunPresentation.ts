@@ -39,6 +39,7 @@ export type AgentApprovalViewKind = 'tool_call' | 'uncertain_replay' | 'model_re
 export interface AgentApprovalView {
   id: string;
   kind: AgentApprovalViewKind;
+  toolName: string;
   title: string;
   riskLevel: string;
   riskLabel: string;
@@ -187,6 +188,7 @@ export function presentAgentApproval(approval: PresentableApproval): AgentApprov
     return {
       id: approval.id,
       kind: 'uncertain_replay',
+      toolName,
       title: `上次中断时正在执行：${label}`,
       riskLevel: approval.riskLevel,
       riskLabel: agentRiskLabel(approval.riskLevel),
@@ -199,6 +201,7 @@ export function presentAgentApproval(approval: PresentableApproval): AgentApprov
   return {
     id: approval.id,
     kind: 'tool_call',
+    toolName,
     title: label,
     riskLevel: approval.riskLevel,
     riskLabel: agentRiskLabel(approval.riskLevel),
@@ -250,6 +253,7 @@ function presentModelRetry(id: string, request: Record<string, unknown>): AgentA
   return {
     id,
     kind: 'model_retry',
+    toolName: '',
     title: `${agentModelFailureHeadline(failure.kind)}，任务已暂停`,
     riskLevel: 'low',
     riskLabel: '',
@@ -274,6 +278,7 @@ function presentBudgetExtension(id: string, request: Record<string, unknown>): A
   return {
     id,
     kind: 'budget_extension',
+    toolName: '',
     title: '这一轮的执行预算用完了',
     riskLevel: 'low',
     riskLabel: '',

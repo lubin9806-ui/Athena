@@ -10,6 +10,7 @@ const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'athena-agent-runtime-'));
 process.env.ATHENA_DB_DIR = path.join(scratch, 'database');
 process.env.ATHENA_DB_FILENAME = 'agent-runtime.db';
 process.env.ATHENA_CONFIG_DIR = path.join(scratch, 'config');
+process.env.ATHENA_CREDENTIALS_DIR = path.join(scratch, 'credentials');
 
 const memory = require(path.join(root, 'dist', 'memory', 'index.js'));
 const {
@@ -17,12 +18,14 @@ const {
   AgentRunBusyError,
   AgentRunner,
   AgentStore,
+  SecretAgentToolBridge,
   AgentToolRegistrationError,
   AgentToolRetryableError,
   ToolRegistry,
 } = require(path.join(root, 'dist', 'core', 'agent', 'index.js'));
 const { ComputerAgentToolBridge } = require(path.join(root, 'dist', 'core', 'tools', 'AgentComputerTools.js'));
 const { LLMClient } = require(path.join(root, 'dist', 'core', 'ai', 'Client.js'));
+const { resolveExecutionCredential, setExecutionCredential } = require(path.join(root, 'dist', 'core', 'ai', 'CredentialStore.js'));
 const { summarizeAgentToolOutcome } = require(path.join(root, 'dist', 'shared', 'agentVerification.js'));
 const { describeAgentToolStep, presentAgentApproval } = require(path.join(root, 'dist', 'shared', 'agentRunPresentation.js'));
 
@@ -685,6 +688,8 @@ async function main() {
   const approvalItems = await verifyApprovalItems(store, bridgeSettings);
   const session = await verifySessionContinuity(store);
   const autoApprove = await verifyAutoApprove(store, bridgeSettings);
+  const secretGate = await verifySecretGate(store);
+  const workspaceContext = await verifyWorkspaceExecutionContext();
 
   console.log([
     'ATHENA_AGENT_RUNTIME_OK',
@@ -699,17 +704,106 @@ async function main() {
     `approvalItems=${approvalItems}`,
     `session=${session}`,
     `autoApprove=${autoApprove}`,
+    `secretGate=${secretGate}`,
+    `workspaceContext=${workspaceContext}`,
   ].join(' '));
 }
 
-/**
- * 免审批 stops the questions, not the record - and not every question.
- *
- * A write that arranges for code to run later (a startup folder, a shell
- * profile) still asks, whatever the switch says: that is how malware persists,
- * and the thing that proposed it may be a web page Athena just read
- * (ATH-SEC-010).
- */
+async function verifyWorkspaceExecutionContext() {
+  const workspace = path.join(scratch, 'selected-workspace');
+  fs.mkdirSync(workspace, { recursive: true });
+  let level = 'files';
+  const registry = new ToolRegistry();
+  const bridge = new ComputerAgentToolBridge({
+    registry,
+    getSettings: () => ({
+      permissionLevel: level,
+      modePermissions: { create: 'off', companion: 'off', reason: 'off', execute: level },
+      maxToolRounds: 4,
+      commandTimeoutSeconds: 10,
+      allowExternalNetwork: false,
+    }),
+    resolveWorkspaceRoots: () => [workspace],
+  });
+  bridge.refresh();
+  const context = call => ({
+    runId: 'workspace-context-run',
+    stepId: `step-${call.id}`,
+    callId: call.id,
+    attempt: 1,
+    idempotencyKey: `workspace-context:${call.id}`,
+    signal: new AbortController().signal,
+  });
+  const relativeWrite = toolCall('workspace-relative', 'write_file', { path: 'nested/result.txt', content: 'workspace-bound' });
+  const relativeResult = await registry.executeResolved(relativeWrite, registry.resolve(relativeWrite), context(relativeWrite));
+  assert.equal(relativeResult.status, 'completed');
+  assert.equal(fs.readFileSync(path.join(workspace, 'nested', 'result.txt'), 'utf8'), 'workspace-bound');
+
+  const outsidePath = path.join(scratch, 'outside-workspace.txt');
+  const outsideWrite = toolCall('workspace-outside', 'write_file', { path: outsidePath, content: 'must-not-write' });
+  const outsideResult = await registry.executeResolved(outsideWrite, registry.resolve(outsideWrite), context(outsideWrite));
+  assert.equal(outsideResult.status, 'denied');
+  assert.equal(fs.existsSync(outsidePath), false);
+
+  level = 'full';
+  bridge.refresh();
+  const cwdCall = toolCall('workspace-cwd', 'run_command', { command: '(Get-Location).Path' });
+  const cwdResult = await registry.executeResolved(cwdCall, registry.resolve(cwdCall), context(cwdCall));
+  assert.equal(cwdResult.status, 'completed');
+  assert.match(cwdResult.content.toLowerCase(), new RegExp(workspace.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').toLowerCase()));
+  bridge.shutdown();
+  return 'relative-path,write-boundary,default-cwd';
+}
+
+async function verifySecretGate(store) {
+  const registry = new ToolRegistry();
+  const bridge = new SecretAgentToolBridge(registry);
+  bridge.refresh();
+  const secretValue = ' fixture-secret-must-never-be-persisted ';
+  let secondRound = null;
+  const runner = new AgentRunner(
+    new FixtureModel([
+      modelResponse('下载需要凭据，我打开安全输入。', [toolCall('request-secret', 'request_secret', {
+        service: 'civitai-fixture',
+        label: 'Civitai API Key',
+        reason: '下载用户指定的模型文件',
+      })]),
+      messages => {
+        secondRound = structuredClone(messages);
+        return modelResponse('凭据已经安全接入，可以继续下载。');
+      },
+    ]),
+    registry,
+    undefined,
+    store,
+    { isAutoApproveEnabled: () => true },
+  );
+  const task = createReadyTask(store, 'Ask for a secret through the secure gate', [{ id: 'credential.request', access: 'read' }]);
+  const paused = await runner.start({
+    taskId: task.id,
+    messages: [{ role: 'user', content: '下载这个需要登录的模型。' }],
+    allowedCapabilities: ['credential.request'],
+  }).result;
+  assert.equal(paused.status, 'paused', 'continuous execution must still stop for a dedicated secret request');
+  const approval = paused.snapshot.approvals.find(item => item.status === 'pending');
+  assert.ok(approval);
+  const view = presentAgentApproval(approval);
+  assert.equal(view.toolName, 'request_secret');
+  assert.equal(view.title, '安全提供凭据');
+  assert.doesNotMatch(JSON.stringify(paused.snapshot), new RegExp(secretValue));
+  setExecutionCredential('civitai-fixture', secretValue, false);
+  assert.equal(resolveExecutionCredential('credential://civitai-fixture'), secretValue, 'password whitespace must be preserved');
+  store.resolveApproval(approval.id, 'approved', { actor: 'user', scope: 'secret-session' }, approval.revision);
+  const resumed = await runner.resume(paused.runId);
+  assert.equal(resumed.status, 'completed');
+  const toolResult = secondRound.find(message => message.role === 'tool');
+  assert.match(toolResult.content, /credential:\/\/civitai-fixture/);
+  assert.doesNotMatch(JSON.stringify(secondRound), new RegExp(secretValue));
+  bridge.shutdown();
+  return 'continuous-pauses,reference-only,no-secret-in-checkpoint,whitespace-preserved';
+}
+
+/** Continuous execution stops every ordinary tool question, but keeps records. */
 async function verifyAutoApprove(store, bridgeSettings) {
   const registry = new ToolRegistry();
   const bridge = new ComputerAgentToolBridge({
@@ -718,8 +812,6 @@ async function verifyAutoApprove(store, bridgeSettings) {
   });
   bridge.refresh();
   const target = path.join(scratch, 'auto-approved.txt');
-  const startupTarget = '%APPDATA%\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\athena-fixture.cmd';
-  const startupResolved = path.join(process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming'), 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Startup', 'athena-fixture.cmd');
   const capabilities = [{ id: 'computer.files', access: 'write' }];
 
   let autoApprove = false;
@@ -764,9 +856,23 @@ async function verifyAutoApprove(store, bridgeSettings) {
   assert.equal(granted[0].status, 'approved');
   assert.equal(granted[0].decision.actor, 'auto-approve', 'the record must say who let it through');
 
+  let persisted = 0;
+  registerTool(registry, {
+    name: 'install_autorun_fixture',
+    parameters: { type: 'object', properties: {}, additionalProperties: false },
+    idempotent: false,
+    capability: 'computer.files',
+    access: 'write',
+    riskLevel: 'critical',
+    approval: 'always',
+    execute: async () => {
+      persisted += 1;
+      return { status: 'completed', summary: 'Fixture persistence installed', content: 'fixture only' };
+    },
+  });
   const autorun = await new AgentRunner(
     new FixtureModel([
-      modelResponse('我把启动脚本放进去。', [toolCall('auto-startup', 'write_file', { path: startupTarget, content: 'calc.exe' })]),
+      modelResponse('我执行持久化配置。', [toolCall('auto-startup', 'install_autorun_fixture', {})]),
       modelResponse('放好了。'),
     ]),
     registry,
@@ -774,18 +880,17 @@ async function verifyAutoApprove(store, bridgeSettings) {
     store,
     { isAutoApproveEnabled: () => autoApprove },
   ).start({
-    taskId: createReadyTask(store, 'Keep asking before code that runs later', capabilities).id,
+    taskId: createReadyTask(store, 'Continuous execution covers ordinary persistence', capabilities).id,
     messages: [{ role: 'user', content: '开机的时候自动跑一下。' }],
     allowedCapabilities: ['computer.files'],
   }).result;
-  assert.equal(autorun.status, 'paused', '免审批 must not cover a write that schedules code to run later');
-  const pending = autorun.snapshot.approvals.find(item => item.status === 'pending');
-  assert.ok(pending, 'the startup write must still have a question waiting');
-  assert.match(String(pending.request.explanation || ''), /启动文件夹/);
-  assert.equal(fs.existsSync(startupResolved), false, 'the startup write must not have happened');
-  await new AgentRunner(new FixtureModel([]), registry, undefined, store).cancel(autorun.runId);
+  assert.equal(autorun.status, 'completed', '连续执行 must cover ordinary persistence tools');
+  assert.equal(persisted, 1);
+  const autorunRecord = autorun.snapshot.approvals.find(item => item.request.kind === 'tool_call');
+  assert.equal(autorunRecord.status, 'approved');
+  assert.equal(autorunRecord.decision.actor, 'auto-approve');
   bridge.shutdown();
-  return 'asks-when-off,writes-when-on,records-who-allowed,autorun-still-asks';
+  return 'asks-when-off,writes-when-on,records-who-allowed,persistence-auto-runs';
 }
 
 /**

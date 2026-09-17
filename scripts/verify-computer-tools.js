@@ -76,15 +76,20 @@ async function verifyExecutionCenterUi() {
   const permissionControl = html.indexOf('id="setting-tool-permission-execute"');
   assert(executionPanelStart >= 0 && settingsPanelStart > executionPanelStart);
   assert(permissionControl > executionPanelStart && permissionControl < settingsPanelStart, 'tool permissions must live inside the execution center');
-  assert(html.includes('id="execution-history"'));
-  assert(html.includes('id="execution-stop"'));
+  assert(html.includes('id="execute-context-bar"'));
+  assert(html.includes('id="execute-context-edit-goal"'));
+  assert(html.includes('id="execute-stream"'));
+  assert(html.includes('id="execute-chip-folder"'));
+  assert(html.includes('id="execute-chip-permission"'));
+  assert(html.includes('id="execute-chip-approval"'));
+  assert(!html.includes('id="execution-history"'), 'obsolete duplicate execution history must stay removed');
   assert(html.includes('id="mode-execute-button"'));
   assert(html.includes('id="settings-open-execution"'));
-  assert(renderer.includes('handleExecutionStatus(status)'));
-  assert(renderer.includes('finishExecutionTask(response?.toolExecutions ?? [], response?.content || currentContent)'));
+  assert(renderer.includes('renderExecuteContext()'));
+  assert(renderer.includes("inputBox.value = '调整当前目标：'"));
   assert(!renderer.includes('chatPanel.setLastAssistantTools('), 'detailed tool cards must not remain inside chat');
-  assert(styles.includes('#execution-panel-body'));
-  assert(styles.includes('grid-template-columns: repeat(4, 1fr)'));
+  assert(styles.includes('#execute-context-bar'));
+  assert(styles.includes('#execute-stream'));
   assert(preload.includes("cancelExecution: () => ipcRenderer.invoke('execution:cancel')"));
   console.log('ATHENA_EXECUTION_CENTER_UI_OK');
 }

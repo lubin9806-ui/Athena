@@ -53,6 +53,7 @@ contextBridge.exposeInMainWorld('athenaAPI', {
   openAgentArtifact: (projectId: number, artifactId: string) => ipcRenderer.invoke('agentArtifact:open', { projectId, artifactId }),
   updateAgentWorkspace: (projectId: number, value: unknown) => ipcRenderer.invoke('agentWorkspace:update', projectId, value),
   resolveAgentApproval: (projectId: number, runId: string, approvalId: string, decision: 'approved' | 'denied', scope: 'item' | 'group' = 'item') => ipcRenderer.invoke('agentRun:resolveApproval', { projectId, runId, approvalId, decision, scope }),
+  provideAgentSecret: (projectId: number, runId: string, approvalId: string, value: string, persist: boolean) => ipcRenderer.invoke('agentRun:provideSecret', { projectId, runId, approvalId, value, persist }),
   resumeAgentRun: (projectId: number, runId: string) => ipcRenderer.invoke('agentRun:resume', { projectId, runId }),
   cancelAgentRun: (projectId: number, runId: string) => ipcRenderer.invoke('agentRun:cancel', { projectId, runId }),
   onAgentWorkspaceChanged: (callback: (event: { projectId: number; taskId?: string; runId?: string }) => void) => {

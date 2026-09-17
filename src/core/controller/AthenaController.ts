@@ -50,11 +50,13 @@ import {
   AgentRunner,
   AgentStore,
   ProjectWorkspaceService,
+  SecretAgentToolBridge,
   ToolRegistry,
   onAgentStoreActivity,
   type AgentRunnerResult,
   type UpdateAgentWorkspaceInput,
 } from '../agent';
+import { resolveExecutionCredential, setExecutionCredential } from '../ai/CredentialStore';
 import { ComputerAgentToolBridge } from '../tools/AgentComputerTools';
 import { buildExecuteSession, type ExecuteSessionSnapshot } from '../../shared/executeTimeline';
 import { describeAgentToolStep, describeAgentToolTarget, presentAgentApproval } from '../../shared/agentRunPresentation';
@@ -234,6 +236,7 @@ export class AthenaController {
   private readonly agentStore: AgentStore;
   private readonly agentTools: ToolRegistry;
   private readonly agentComputerTools: ComputerAgentToolBridge;
+  private readonly secretTools: SecretAgentToolBridge;
   private readonly projectWorkspace: ProjectWorkspaceService;
   private readonly skillLibrary: SkillLibrary;
   private readonly skillTools: SkillAgentToolBridge;
@@ -289,7 +292,11 @@ export class AthenaController {
     this.agentComputerTools = new ComputerAgentToolBridge({
       registry: this.agentTools,
       getSettings: runId => this.resolveAgentToolSettings(runId),
+      resolveWorkspaceRoots: runId => this.resolveProjectRootsForRun(runId),
+      resolveCredential: reference => resolveExecutionCredential(reference),
     });
+    this.secretTools = new SecretAgentToolBridge(this.agentTools);
+    this.secretTools.refresh();
     this.projectWorkspace = new ProjectWorkspaceService(this.agentStore);
     this.skillLibrary = new SkillLibrary();
     this.skillTools = new SkillAgentToolBridge(this.agentTools, this.skillLibrary);
@@ -1465,6 +1472,46 @@ export class AthenaController {
     this.researchTools.refresh();
     this.artifactTools.refresh();
     await this.mcpIntegrations.refreshEnabled();
+    onState?.(this.agentStore.getRunSnapshot(runId));
+    const result = await this.agentRunner.resume(runId);
+    onState?.(result.snapshot);
+    this.persistTerminalAgentResponse(result);
+    return result;
+  }
+
+  async provideAgentSecret(
+    projectId: number,
+    runId: string,
+    approvalId: string,
+    value: string,
+    persist: boolean,
+    onState?: (snapshot: AgentRunSnapshot) => void,
+  ): Promise<AgentRunnerResult> {
+    const snapshot = this.requireAgentRunProject(runId, projectId);
+    const approval = snapshot.approvals.find(item => item.id === approvalId);
+    if (!approval || approval.status !== 'pending') throw new Error('安全凭据请求不存在或已处理。');
+    if (approval.groupId !== snapshot.run.approvalGroupId) throw new Error('安全凭据请求不属于当前运行检查点。');
+    if (approval.request.kind !== 'tool_call' || approval.request.toolName !== 'request_secret') {
+      throw new Error('该审批项不是安全凭据请求。');
+    }
+    const args = approval.request.arguments;
+    const service = args && typeof args === 'object' && !Array.isArray(args)
+      && typeof (args as Record<string, unknown>).service === 'string'
+      ? String((args as Record<string, unknown>).service)
+      : '';
+    setExecutionCredential(service, value, persist);
+    this.agentStore.resolveApproval(approval.id, 'approved', {
+      actor: 'user',
+      scope: persist ? 'secret-saved' : 'secret-session',
+    }, approval.revision);
+    const stillPending = this.agentStore.listApprovals(runId)
+      .some(item => item.groupId === approval.groupId && item.status === 'pending');
+    if (stillPending) {
+      const partial = this.agentRunner.inspect(runId);
+      onState?.(partial.snapshot);
+      return partial;
+    }
+    this.assertAgentRunMayContinue();
     onState?.(this.agentStore.getRunSnapshot(runId));
     const result = await this.agentRunner.resume(runId);
     onState?.(result.snapshot);

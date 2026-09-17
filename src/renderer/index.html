@@ -110,7 +110,7 @@
     <div id="space-navigation">
       <div id="mode-switch" role="tablist" aria-label="空间">
         <button class="space-btn active" type="button" data-space="companion" role="tab" aria-selected="true" title="进入长期陪伴空间">陪伴</button>
-        <button class="space-btn" type="button" data-space="work" role="tab" aria-selected="false" title="进入工作创作空间">创作</button>
+        <button class="space-btn" type="button" data-space="work" role="tab" aria-selected="false" title="进入工作台：创作、推理与执行">工作台</button>
       </div>
 
       <div id="work-mode-switch" role="tablist" aria-label="创作方式" aria-hidden="true">
@@ -169,6 +169,21 @@
         <canvas id="live2d-companion-canvas" width="420" height="680" aria-hidden="true" hidden></canvas>
       </div>
       <section id="chat-container" aria-label="聊天记录"></section>
+      <section id="execute-context-bar" aria-label="当前执行任务" hidden>
+        <div class="execute-context-main">
+          <span class="execute-context-kicker">当前任务</span>
+          <div class="execute-context-goal-row">
+            <strong id="execute-context-goal">告诉 Athena 要完成什么</strong>
+            <button id="execute-context-edit-goal" type="button" title="在当前执行对话中调整目标">调整目标</button>
+          </div>
+        </div>
+        <div class="execute-context-meta">
+          <span id="execute-context-folder">未选择工作文件夹</span>
+          <span id="execute-context-permission">权限关闭</span>
+          <span id="execute-context-approval">逐项审批</span>
+          <span id="execute-context-state">待命</span>
+        </div>
+      </section>
       <!-- Execute mode is a conversation of its own: one chat window is one
            session, and everything it does reads in this stream. -->
       <section id="execute-stream" aria-label="执行对话" hidden></section>
@@ -472,7 +487,7 @@
               <select id="setting-tool-permission-execute">
                 <option value="off">关闭 · 不使用电脑工具</option>
                 <option value="read">全盘只读 · 读取、列出和搜索文件</option>
-                <option value="files">全盘文件读写 · 创建、修改、移动和删除</option>
+                <option value="files">工作区文件读写 · 仅在所选工作文件夹内修改</option>
                 <option value="full">完全访问 · 文件、终端、程序与端口</option>
               </select>
             </label>
@@ -494,9 +509,9 @@
           <div class="execution-auto-approve">
             <label class="settings-toggle">
               <input id="setting-tool-auto-approve" type="checkbox" />
-              <span>免审批：不再逐项问我</span>
+              <span>连续执行：不再逐项审批</span>
             </label>
-            <div class="settings-note">打开后，上面这档权限之内的写入、删除、运行命令、下载都直接做，不再一项项问你。需要 API Key、密码这类信息时仍然会停下来问；写到开机自启动、计划任务这种「以后会自动运行」的位置，也仍然会问一次。每一步都记在对话里。</div>
+            <div class="settings-note">打开后，上面这档权限之内的写入、删除、运行命令、下载和持久化操作都会直接执行。只有需要 API Key、密码、Token 等敏感信息时才弹出安全输入。每一步仍会记录在执行对话中。</div>
           </div>
         </section>
       </div>
@@ -1347,7 +1362,7 @@
           <svg class="icon"><use href="#icon-chat"></use></svg>
           <span id="execute-chip-narration-label">讲解 · 通俗</span>
         </button>
-        <button id="execute-chip-approval" class="execute-chip" type="button" title="逐项审批或免审批" data-auto="false">
+        <button id="execute-chip-approval" class="execute-chip" type="button" title="逐项审批或连续执行" data-auto="false">
           <svg class="icon"><use href="#icon-check"></use></svg>
           <span id="execute-chip-approval-label">逐项审批</span>
         </button>

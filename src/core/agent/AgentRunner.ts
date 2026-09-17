@@ -193,9 +193,9 @@ export class AgentRunner {
    * Replying while a run waited used to start a second, parallel task that knew
    * nothing of the first. A driving run now picks the message up before its
    * next model round. A waiting run treats the message as the person's answer:
-   * pending tool calls are declined and reported to the model as "the user wrote
-   * instead", a paused retry or budget question counts as "go on", and the run
-   * continues with the message in its transcript.
+   * an ordinary reply is retained without silently deciding pending tool calls;
+   * only explicit stop/change wording supersedes those calls. A paused retry or
+   * budget question counts as "go on", and the same run receives the message.
    */
   submitUserMessage(runId: string, message: AgentSessionUserMessage): AgentSubmitUserMessageOutcome {
     const run = this.store.getRun(runId);
@@ -208,9 +208,20 @@ export class AgentRunner {
       ...(message.images?.length ? { images: structuredClone(message.images) } : {}),
     });
     if (this.activeRuns.has(runId)) return { outcome: 'queued', runId };
+    let waitingOnToolApproval = false;
+    const supersedesPendingCalls = messageSupersedesPendingCalls(content);
     for (const approval of this.store.listApprovals(runId)) {
       if (approval.status !== 'pending') continue;
       const continues = approval.request.kind === 'model_retry' || approval.request.kind === 'budget_extension';
+      if (!continues) {
+        if (!supersedesPendingCalls) {
+          // An answer or extra detail is not a rejection. Keep the pending
+          // operation waiting for an explicit button decision; the inbox is
+          // drained when the run resumes, so the model receives this message.
+          waitingOnToolApproval = true;
+          continue;
+        }
+      }
       this.store.resolveApproval(
         approval.id,
         continues ? 'approved' : 'denied',
@@ -218,6 +229,7 @@ export class AgentRunner {
         approval.revision,
       );
     }
+    if (waitingOnToolApproval) return { outcome: 'queued', runId };
     return { outcome: 'resumed', runId, result: this.run(runId) };
   }
 
@@ -1048,6 +1060,17 @@ export class AgentRunner {
       }
     }
   }
+}
+
+/**
+ * Only explicit change/stop language supersedes a waiting tool call. A token,
+ * path, port number or ordinary clarification must never be treated as a hidden
+ * click on “拒绝”. This deliberately stays narrow; the visible buttons remain
+ * the unambiguous approval channel.
+ */
+function messageSupersedesPendingCalls(content: string): boolean {
+  const normalized = content.trim().toLowerCase();
+  return /(?:先别|不要|别再|取消|停一下|暂停|改成|改用|换成|更正|纠正|不是.{0,80}(?:而是|是)|instead\b|\b(?:stop|cancel|pause)\b|\bdo not\b|\bdon't\b)/iu.test(normalized);
 }
 
 function createCheckpoint(input: CreateAgentExecutionInput, budget: AgentRunBudget): AgentRunnerCheckpointV1 {

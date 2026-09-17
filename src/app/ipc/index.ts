@@ -142,6 +142,7 @@ const INVOKE_CHANNELS = [
   'agentArtifact:open',
   'agentWorkspace:update',
   'agentRun:resolveApproval',
+  'agentRun:provideSecret',
   'agentRun:resume',
   'agentRun:cancel',
   'skill:list',
@@ -739,6 +740,20 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<vo
     const scope = value.scope === 'group' ? 'group' : 'item';
     if (!projectId || !runId || !approvalId || !decision) return null;
     return controller.resolveAgentApproval(projectId, runId, approvalId, decision, scope, snapshot => {
+      notifyAgentWorkspaceChanged(mainWindow, snapshot.task.projectId, snapshot.task.id, snapshot.run.id);
+    });
+  });
+
+  ipcMain.handle('agentRun:provideSecret', async (event, value: unknown) => {
+    if (!isTrustedSender(event)) return null;
+    if (!isRecord(value)) return null;
+    const runId = cleanAgentId(value.runId);
+    const approvalId = cleanAgentId(value.approvalId);
+    const projectId = cleanPositiveInteger(value.projectId);
+    const secret = typeof value.value === 'string' ? value.value.slice(0, 10_000) : '';
+    const persist = value.persist === true;
+    if (!projectId || !runId || !approvalId || !secret.trim()) return null;
+    return controller.provideAgentSecret(projectId, runId, approvalId, secret, persist, snapshot => {
       notifyAgentWorkspaceChanged(mainWindow, snapshot.task.projectId, snapshot.task.id, snapshot.run.id);
     });
   });

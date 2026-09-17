@@ -15,6 +15,7 @@ import type {
 
 export interface ExecutePanelCallbacks {
   onApproval(approvalId: string, decision: 'approved' | 'denied', scope: 'item' | 'group'): void;
+  onSecret(approvalId: string, value: string, persist: boolean): void;
   onStop(): void;
   onResume(): void;
   onExample(text: string): void;
@@ -50,6 +51,8 @@ export class ExecutePanel {
   private renderTimeline(items: readonly ExecuteTimelineItem[]): HTMLElement[] {
     const nodes: HTMLElement[] = [];
     let turn: HTMLElement | null = null;
+    let lastNarration: HTMLElement | null = null;
+    const repeatedTools = new Map<string, { node: HTMLElement; count: number; item: ExecuteTimelineTool }>();
     const openTurn = (): HTMLElement => {
       if (turn) return turn;
       turn = document.createElement('div');
@@ -67,13 +70,41 @@ export class ExecutePanel {
     for (const item of items) {
       if (item.kind === 'user') {
         turn = null;
+        lastNarration = null;
+        repeatedTools.clear();
         const bubble = document.createElement('div');
         bubble.className = 'exec-user';
         bubble.textContent = item.text;
         nodes.push(bubble);
         continue;
       }
-      openTurn().appendChild(this.renderItem(item));
+      const activeTurn = openTurn();
+      if (item.kind === 'narration') {
+        lastNarration = this.renderItem(item);
+        activeTurn.appendChild(lastNarration);
+        continue;
+      }
+      if (item.kind === 'tool') {
+        const signature = `${item.label}\u0000${item.target}`;
+        const existing = repeatedTools.get(signature);
+        if (existing) {
+          existing.count += 1;
+          const replacement = this.renderTool(item, existing.count);
+          existing.node.replaceWith(replacement);
+          existing.node = replacement;
+          existing.item = item;
+          if (lastNarration?.parentElement === activeTurn) lastNarration.remove();
+          lastNarration = null;
+          continue;
+        }
+        const node = this.renderTool(item);
+        repeatedTools.set(signature, { node, count: 1, item });
+        activeTurn.appendChild(node);
+        lastNarration = null;
+        continue;
+      }
+      activeTurn.appendChild(this.renderItem(item));
+      lastNarration = null;
     }
     return nodes;
   }
@@ -118,7 +149,7 @@ export class ExecutePanel {
     return this.renderAsk(item);
   }
 
-  private renderTool(item: ExecuteTimelineTool): HTMLElement {
+  private renderTool(item: ExecuteTimelineTool, repeatCount = 1): HTMLElement {
     const card = document.createElement('div');
     card.className = 'exec-step';
     card.dataset.status = item.status;
@@ -132,7 +163,7 @@ export class ExecutePanel {
     head.setAttribute('aria-expanded', String(this.openSteps.has(item.id)));
     const label = document.createElement('span');
     label.className = 'exec-step-label';
-    label.textContent = item.label;
+    label.textContent = repeatCount > 1 ? `${item.label} ×${repeatCount}` : item.label;
     const target = document.createElement('span');
     target.className = 'exec-step-target';
     target.textContent = item.target;
@@ -218,6 +249,25 @@ export class ExecutePanel {
       body.appendChild(fields);
     }
 
+    if (view.toolName === 'request_secret') {
+      card.dataset.secretRequest = 'true';
+      const secret = document.createElement('input');
+      secret.type = 'password';
+      secret.className = 'exec-secret-input';
+      secret.placeholder = '输入后只交给本机安全凭据存储';
+      secret.autocomplete = 'off';
+      secret.spellcheck = false;
+      secret.setAttribute('aria-label', view.title);
+      const remember = document.createElement('label');
+      remember.className = 'exec-secret-remember';
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      const rememberText = document.createElement('span');
+      rememberText.textContent = '使用 Windows 加密存储，下次继续使用';
+      remember.append(checkbox, rememberText);
+      body.append(secret, remember);
+    }
+
     const actions = document.createElement('div');
     actions.className = 'agent-approval-actions';
     for (const decision of ['denied', 'approved'] as const) {
@@ -226,7 +276,10 @@ export class ExecutePanel {
       button.dataset.agentApprovalId = item.approvalId;
       button.dataset.decision = decision;
       button.dataset.scope = 'item';
-      button.textContent = decision === 'approved' ? view.approveLabel : view.denyLabel;
+      if (view.toolName === 'request_secret' && decision === 'approved') button.dataset.provideSecret = 'true';
+      button.textContent = view.toolName === 'request_secret'
+        ? decision === 'approved' ? '安全提供并继续' : '暂不提供'
+        : decision === 'approved' ? view.approveLabel : view.denyLabel;
       actions.appendChild(button);
     }
     card.append(head, body, actions);
@@ -277,6 +330,20 @@ export class ExecutePanel {
     if (!target) return;
     const approval = target.closest<HTMLElement>('[data-agent-approval-id]');
     if (approval) {
+      if (approval.dataset.provideSecret === 'true') {
+        const card = approval.closest<HTMLElement>('[data-secret-request="true"]');
+        const input = card?.querySelector<HTMLInputElement>('.exec-secret-input');
+        const remember = card?.querySelector<HTMLInputElement>('.exec-secret-remember input');
+        const value = input?.value || '';
+        if (!value.trim()) {
+          input?.focus();
+          input?.setAttribute('aria-invalid', 'true');
+          return;
+        }
+        this.callbacks.onSecret(String(approval.dataset.agentApprovalId), value, remember?.checked === true);
+        if (input) input.value = '';
+        return;
+      }
       const decision = approval.dataset.decision === 'approved' ? 'approved' : 'denied';
       const scope = approval.dataset.scope === 'group' ? 'group' : 'item';
       this.callbacks.onApproval(String(approval.dataset.agentApprovalId), decision, scope);

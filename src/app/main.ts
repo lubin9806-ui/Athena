@@ -423,6 +423,8 @@ function createWindow(): void {
              const memoryPanel = document.getElementById('memory-panel');
              const executionButton = document.getElementById('mode-execute-button');
              const executionPanel = document.getElementById('execution-panel');
+             const executeContextBar = document.getElementById('execute-context-bar');
+             const executeStream = document.getElementById('execute-stream');
              const chatWindowNew = document.getElementById('chat-window-new');
              const chatWindowTemporary = document.getElementById('chat-window-temporary');
              const chatWindowBadge = document.getElementById('temporary-chat-badge');
@@ -476,6 +478,8 @@ function createWindow(): void {
                memoryPanel &&
                executionButton &&
                executionPanel &&
+               executeContextBar &&
+               executeStream &&
                chatWindowNew instanceof HTMLButtonElement &&
                chatWindowTemporary instanceof HTMLButtonElement &&
                chatWindowBadge &&
@@ -1071,8 +1075,10 @@ function createWindow(): void {
              executionButton.click();
              await new Promise(resolve => setTimeout(resolve, 90));
              const executionModeReactive = appShell.dataset.mode === 'execute';
-             const executionWorkspaceReactive = getComputedStyle(executionPanel).display !== 'none'
-               && executionPanel.getAttribute('aria-hidden') === 'false';
+             const executionWorkspaceReactive = executeContextBar.hidden === false
+               && getComputedStyle(executeContextBar).display !== 'none'
+               && getComputedStyle(executeStream).display !== 'none'
+               && executionPanel.getAttribute('aria-hidden') === 'true';
              const executionPermissionReactive = toolAccessHint.dataset.level === originalSettings.settings.tools.modePermissions.execute;
              originalButton.click();
              await new Promise(resolve => setTimeout(resolve, 90));

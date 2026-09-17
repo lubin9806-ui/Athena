@@ -275,6 +275,7 @@ const approvalCardsExpression = `(() => {
       title: item.querySelector('.agent-approval-title')?.textContent || '',
       risk: item.querySelector('.agent-approval-risk')?.textContent || '',
       explanation: item.querySelector('.agent-approval-explanation')?.textContent || '',
+      secretRequest: item.dataset.secretRequest === 'true',
       fields,
       buttons,
     };
@@ -306,6 +307,7 @@ async function readScreen(page) {
       narration: Array.from(document.querySelectorAll('#execute-stream .exec-narr')).map(item => item.textContent),
       receipts: Array.from(document.querySelectorAll('#execute-stream .exec-receipt')).map(item => item.textContent),
       said: Array.from(document.querySelectorAll('#execute-stream .exec-user')).map(item => item.textContent),
+      currentGoal: document.getElementById('execute-context-goal')?.textContent || '',
       busy: document.getElementById('send-btn')?.dataset.busy,
       feedback: document.getElementById('agent-execution-feedback')?.hidden ? '' : (document.getElementById('agent-execution-feedback')?.textContent || ''),
     };
@@ -314,7 +316,7 @@ async function readScreen(page) {
 
 async function runGoal(page, scenario, profile) {
   const transcript = { approvals: [], labels: [] };
-  // 执行 sits inside the 创作 space, the way a person finds it.
+  // 执行 sits inside the 工作台, the way a person finds it.
   await page.click('.space-btn[data-space="work"]');
   await page.waitFor(`document.getElementById('work-mode-switch')?.getAttribute('aria-hidden') === 'false'`, { label: 'work space' });
   await sleep(400);
@@ -355,6 +357,25 @@ async function runGoal(page, scenario, profile) {
       await page.evaluate(`document.querySelector('#execute-stream .exec-ask')?.scrollIntoView({ block: 'start', behavior: 'instant' })`);
       await page.screenshot(path.join(profile.dir, `card-${transcript.approvals.length}.png`)).catch(() => {});
       decided.add(button.id);
+      if (card.secretRequest && scenario.secretViaComposer) {
+        assert.equal(typeof decision.secret, 'string', 'a secret request needs fixture secret input');
+        await page.type('#input-box', decision.secret);
+        await page.click('#send-btn');
+        await page.waitFor(`document.getElementById('ui-dialog')?.open === true`, { label: 'pasted-secret interception warning' });
+        const dialogText = await page.evaluate(`document.getElementById('ui-dialog')?.textContent || ''`);
+        assert(!dialogText.includes(decision.secret), 'the warning must not echo the pasted secret');
+        await page.click('#ui-dialog-confirm');
+        await page.waitFor(`!document.querySelector('#execute-stream button[data-agent-approval-id="${button.id}"]')`, {
+          timeoutMs: 60_000,
+          label: 'the safely provided secret card to leave the list',
+        });
+        continue;
+      }
+      if (card.secretRequest) {
+        assert.equal(typeof decision.secret, 'string', 'a secret request needs fixture secret input');
+        await page.type('#execute-stream .exec-secret-input', decision.secret);
+        if (decision.persist) await page.click('#execute-stream .exec-secret-remember input');
+      }
       await page.click(`#execute-stream button[data-agent-approval-id="${button.id}"][data-decision="${button.decision}"][data-scope="${button.scope}"]`);
       await page.waitFor(`!document.querySelector('#execute-stream button[data-agent-approval-id="${button.id}"]')`, {
         timeoutMs: 60_000,
@@ -602,8 +623,7 @@ const scenarios = [
       await page.click('#execute-chip-approval');
       await page.waitFor(`document.getElementById('ui-dialog')?.open === true`, { label: 'the 免审批 confirmation' });
       const message = await page.evaluate(`document.getElementById('ui-dialog-message')?.textContent || ''`);
-      assert.match(message, /仍然会问/, 'the dialog must say what still stops for a person');
-      assert.match(message, /开机自启动/, 'the dialog must name the writes that keep their question');
+      assert.match(message, /只在需要 API Key、密码、Token/, 'the dialog must name the only interactive exception');
       await page.click('#ui-dialog-confirm');
       await page.waitFor(`document.getElementById('execute-chip-approval')?.dataset.auto === 'true'`, { label: '免审批 on' });
     },
@@ -626,6 +646,49 @@ const scenarios = [
       // Nothing was asked, and the turn still reports what it can stand behind:
       // this fixture declares no check, so it ends "未验证" rather than "已完成".
       assert.equal(result.screen.stateLabel, '已结束 · 未验证');
+    },
+  },
+  {
+    name: 'fixture-secure-secret',
+    live: false,
+    secretViaComposer: true,
+    timeoutMs: 120_000,
+    async setup(profile) {
+      const seen = { secondRound: null };
+      const provider = await startFixtureProvider(request => {
+        if (!request.messages.some(message => message.role === 'tool')) {
+          return toolCallReply([{ name: 'request_secret', arguments: {
+            service: 'civitai-e2e',
+            label: 'Civitai API Key',
+            reason: '下载用户指定的模型',
+          } }], '下载前需要 Civitai 的访问凭据。');
+        }
+        seen.secondRound = request.messages;
+        return { role: 'assistant', content: '凭据已通过安全输入接入，没有写进聊天记录。' };
+      });
+      return { provider, seen, goal: `从 Civitai 下载模型到 ${profile.workspace}，需要凭据时使用安全输入。` };
+    },
+    async prepare(page) {
+      // Turn on continuous execution: a secret request must remain the one
+      // interactive exception even though ordinary tools auto-run.
+      await page.click('#execute-chip-approval');
+      await page.waitFor(`document.getElementById('ui-dialog')?.open === true`, { label: 'continuous execution warning' });
+      await page.click('#ui-dialog-confirm');
+      await page.waitFor(`document.getElementById('execute-chip-approval')?.dataset.auto === 'true'`, { label: 'continuous execution on' });
+    },
+    async decide(card) {
+      assert.equal(card.secretRequest, true);
+      assert.equal(card.title, '安全提供凭据');
+      assert.match(card.explanation, /不会进入聊天记录/);
+      return { decision: 'approved', reason: '通过安全输入提供', secret: 'e2e-secret-never-log', persist: false };
+    },
+    async verify({ result, context }) {
+      assert.equal(result.observed.snapshot.run.status, 'completed');
+      assert.equal(result.transcript.approvals.length, 1, 'only the secret request may interrupt continuous execution');
+      const serialized = JSON.stringify({ snapshot: result.observed.snapshot, requests: context.provider.requests });
+      assert.doesNotMatch(serialized, /e2e-secret-never-log/, 'secret must not enter the run or model request');
+      const toolMessage = context.seen.secondRound.find(message => message.role === 'tool');
+      assert.match(String(toolMessage.content), /credential:\/\/civitai-e2e/);
     },
   },
   {
@@ -675,6 +738,8 @@ const scenarios = [
       const session = result.observed.snapshot.run.state.session;
       assert.ok(session && session.ownStart > 1, `the run must know where its own turn starts: ${JSON.stringify(session)}`);
       assert(result.screen.said.some(text => text.trim() === '8129'), `both messages belong to one conversation: ${result.screen.said.join(' | ')}`);
+      assert.match(result.screen.currentGoal, /config\.json/, 'the visible current goal must stay on the session objective');
+      assert.notEqual(result.screen.currentGoal.trim(), '8129', 'a clarification must not replace the visible session objective');
     },
   },
   {

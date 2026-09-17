@@ -49,7 +49,9 @@ export class AgentPolicyEngine {
     if (requiresApproval) {
       // 免审批 skips the question, not the record: the runtime still writes an
       // approval for every such call so the session shows what was let through.
-      // Writes that schedule code to run later keep their question regardless.
+      // Continuous execution covers every ordinary tool approval. A tool that
+      // requests a secret marks itself alwaysAsk and is the only interactive
+      // exception; computer tools never use that flag.
       const autoApproved = context.autoApprove === true && policy.alwaysAsk !== true;
       // The explanation is what the approval card shows. It used to append an English
       // clause to a Chinese reason; the risk level has its own label on the card.
