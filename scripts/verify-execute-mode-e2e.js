@@ -322,7 +322,7 @@ async function runGoal(page, scenario, profile) {
   await sleep(400);
   await page.click('.mode-btn[data-mode="execute"]');
   await page.waitFor(`document.getElementById('app-shell').dataset.mode === 'execute'`, { label: 'execute mode' });
-  if (scenario.prepare) await scenario.prepare(page);
+  if (scenario.prepare) await scenario.prepare(page, profile);
   await page.type('#input-box', scenario.goal);
   await sleep(300);
   await page.click('#send-btn');
@@ -482,6 +482,53 @@ function field(card, label) {
 // Scenarios
 
 const scenarios = [
+  {
+    name: 'fixture-settings-ui',
+    live: false,
+    timeoutMs: 120_000,
+    async setup(profile) {
+      const provider = await startFixtureProvider(() => ({ role: 'assistant', content: '设置界面检查完成。' }));
+      return { provider, goal: `确认 ${profile.workspace} 的执行设置界面可用。` };
+    },
+    async prepare(page, profile) {
+      await page.click('#execute-chip-settings');
+      await page.waitFor(`document.getElementById('execution-panel')?.dataset.open === 'true'`, { label: 'execute settings rail' });
+      await sleep(500);
+      const audit = await page.evaluate(`(() => {
+        const panel = document.getElementById('execution-panel');
+        const scrim = document.getElementById('panel-scrim');
+        const extension = document.querySelector('.execution-extensions');
+        const style = getComputedStyle(panel);
+        const scrimStyle = getComputedStyle(scrim);
+        return {
+          width: panel.getBoundingClientRect().width,
+          panelBlur: style.backdropFilter,
+          scrimBlur: scrimStyle.backdropFilter,
+          owner: scrim.dataset.owner,
+          extensionOpen: extension?.open === true,
+          visibleCards: Array.from(panel.querySelectorAll('.execution-card')).filter(item => getComputedStyle(item).display !== 'none').length,
+          text: panel.innerText,
+        };
+      })()`);
+      assert(audit.width <= 380, `execution settings rail is too wide: ${audit.width}`);
+      assert(['none', ''].includes(audit.panelBlur), `execution settings rail still blurs: ${audit.panelBlur}`);
+      assert(['none', ''].includes(audit.scrimBlur), `execution settings scrim still blurs: ${audit.scrimBlur}`);
+      assert.equal(audit.owner, 'execution');
+      assert.equal(audit.extensionOpen, false, 'Skills and MCP must be collapsed by default');
+      assert.equal(audit.visibleCards, 3, 'only workspace, permission, and narration belong in the primary settings hierarchy');
+      assert(!/SKILL LIBRARY|INTEGRATIONS/.test(audit.text), 'internal English section labels must not be visible');
+      await page.screenshot(path.join(profile.dir, 'settings-ui.png'));
+      await page.click('#btn-execution-close');
+      await page.waitFor(`document.getElementById('execution-panel')?.dataset.open === 'false'`, { label: 'execute settings rail close' });
+    },
+    async decide() {
+      throw new Error('settings UI fixture must not ask for approval');
+    },
+    async verify({ result }) {
+      assert.equal(result.observed.snapshot.run.status, 'completed');
+      assert.equal(result.transcript.approvals.length, 0);
+    },
+  },
   {
     name: 'fixture-outage-retry',
     live: false,
@@ -965,7 +1012,7 @@ async function main() {
         ...scenario,
         goal: context.goal,
         decide: (card, extra) => scenario.decide(card, { ...extra, context }),
-        prepare: scenario.prepare ? (page) => scenario.prepare(page, { context, profile }) : null,
+        prepare: scenario.prepare ? (page) => scenario.prepare(page, profile, context) : null,
       }, profile);
       result.page = app.page;
       await app.page.screenshot(path.join(profile.dir, 'final.png'));

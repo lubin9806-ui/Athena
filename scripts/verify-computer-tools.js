@@ -82,14 +82,20 @@ async function verifyExecutionCenterUi() {
   assert(html.includes('id="execute-chip-folder"'));
   assert(html.includes('id="execute-chip-permission"'));
   assert(html.includes('id="execute-chip-approval"'));
+  assert(html.includes('class="execution-extensions"'));
+  assert(!html.includes('SKILL LIBRARY'), 'execute settings must not expose internal English section labels');
+  assert(!html.includes('INTEGRATIONS'), 'execute settings must use one collapsed extensions section');
   assert(!html.includes('id="execution-history"'), 'obsolete duplicate execution history must stay removed');
   assert(html.includes('id="mode-execute-button"'));
   assert(html.includes('id="settings-open-execution"'));
   assert(renderer.includes('renderExecuteContext()'));
+  assert(renderer.includes("panelScrim.dataset.owner = executionOpen ? 'execution'"));
   assert(renderer.includes("inputBox.value = '调整当前目标：'"));
   assert(!renderer.includes('chatPanel.setLastAssistantTools('), 'detailed tool cards must not remain inside chat');
   assert(styles.includes('#execute-context-bar'));
   assert(styles.includes('#execute-stream'));
+  assert(styles.includes('#panel-scrim[data-owner="execution"]'));
+  assert(styles.includes('width: min(372px, calc(100vw - 64px))'));
   assert(preload.includes("cancelExecution: () => ipcRenderer.invoke('execution:cancel')"));
   console.log('ATHENA_EXECUTION_CENTER_UI_OK');
 }

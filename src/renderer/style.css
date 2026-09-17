@@ -7837,6 +7837,316 @@ html[data-theme="night"] body {
   }
 }
 
+/* --------------------------------------------------------------------------
+ * Execute settings rail
+ *
+ * The execution rail is intentionally opaque, narrow, and structurally flat
+ * so opening settings does not erase the task behind it. A short cascade lock
+ * at the end protects the shell-level geometry from older theme overrides.
+ * ----------------------------------------------------------------------- */
+#app-shell #panel-scrim[data-owner="execution"] {
+  background: rgba(8, 12, 10, 0.16);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+#execution-panel,
+#app-shell:is([data-theme="day"], [data-theme="night"]) #execution-panel {
+  top: 48px;
+  right: 0;
+  bottom: 0;
+  left: auto;
+  width: min(372px, calc(100vw - 64px));
+  margin: 0;
+  border: 0;
+  border-left: 1px solid var(--border-strong);
+  border-radius: 0;
+  background: var(--panel-bg);
+  background-image: linear-gradient(180deg, color-mix(in srgb, var(--accent) 3%, transparent), transparent 160px);
+  box-shadow: -12px 0 34px rgba(4, 10, 7, 0.22);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+#execution-panel .side-panel-head {
+  min-height: 72px;
+  align-items: center;
+  padding: 15px 16px 13px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+#execution-panel-title {
+  font-size: 17px;
+  font-weight: 660;
+  letter-spacing: -0.015em;
+}
+
+#execution-panel-subtitle {
+  margin-top: 3px;
+  font-size: 10.5px;
+}
+
+#execution-panel-body {
+  display: block;
+  padding: 0 18px 20px;
+  scrollbar-width: thin;
+}
+
+#execution-panel .execution-card {
+  padding: 14px 0 15px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+#execution-panel .execution-card-head {
+  align-items: center;
+}
+
+#execution-panel .execution-card-title {
+  font-size: 13px;
+  font-weight: 640;
+}
+
+#execution-panel .execution-card-copy {
+  margin-top: 3px;
+  color: var(--text-dim);
+  font-size: 10.5px;
+  line-height: 1.45;
+}
+
+#execution-panel .settings-note {
+  margin-top: 8px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 10px;
+  line-height: 1.55;
+}
+
+#execution-panel .agent-chip-list {
+  gap: 5px;
+  margin-top: 8px;
+}
+
+#execution-panel #agent-root-list .execution-empty {
+  padding: 7px 9px;
+  border-style: solid;
+  border-radius: 7px;
+  background: var(--control-bg);
+  text-align: left;
+}
+
+#execution-panel .agent-chip {
+  padding: 7px 9px;
+  border-radius: 7px;
+  background: var(--control-bg);
+  font-size: 10.5px;
+}
+
+#execution-panel .execution-permission-pill {
+  border: 0;
+  border-radius: 5px;
+  color: var(--text-muted);
+  background: color-mix(in srgb, var(--accent) 10%, var(--control-bg));
+  font-size: 9.5px;
+}
+
+#execution-panel .execution-settings-form {
+  gap: 6px;
+  margin-top: 9px;
+}
+
+#execution-panel .settings-field > span {
+  margin-bottom: 5px;
+  color: var(--text-dim);
+  font-size: 10px;
+}
+
+#execution-panel .execution-permissions-card .settings-field input,
+#execution-panel .execution-permissions-card .settings-field select {
+  min-height: 34px;
+  padding: 6px 9px;
+  border-radius: 8px;
+  background: var(--control-bg);
+  font-size: 11px;
+}
+
+#execution-panel .execution-primary-button,
+#execution-panel .execution-secondary-button {
+  min-height: 30px;
+  border-radius: 7px;
+}
+
+#execution-panel .execution-primary-button {
+  width: fit-content;
+  min-height: 32px;
+  margin-top: 9px;
+  padding-inline: 13px;
+  justify-self: end;
+  font-size: 10.5px;
+}
+
+#execution-panel #execution-settings-feedback:empty {
+  display: none;
+}
+
+#execution-panel .execution-auto-approve {
+  margin-top: 10px;
+  padding: 10px 0 0;
+}
+
+#execution-panel .execution-auto-approve .settings-toggle {
+  min-height: 32px;
+  align-items: center;
+}
+
+#execution-panel .execution-auto-approve .settings-toggle > span {
+  display: grid;
+  gap: 2px;
+}
+
+#execution-panel .execution-auto-approve b {
+  color: var(--text);
+  font-size: 11.5px;
+  font-weight: 620;
+}
+
+#execution-panel .execution-auto-approve small {
+  color: var(--text-dim);
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 1.35;
+}
+
+#execution-panel .execution-advanced {
+  border: 0;
+}
+
+#execution-panel .execution-advanced > summary {
+  width: fit-content;
+  color: var(--text-dim);
+  font-size: 10px;
+  cursor: pointer;
+}
+
+#execution-panel .execution-advanced[open] > summary {
+  margin-bottom: 7px;
+}
+
+#execution-panel .execute-narration-choice {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+  margin-top: 9px;
+}
+
+#execution-panel .execute-narration-option {
+  min-height: 48px;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: 8px;
+}
+
+#execution-panel .execute-narration-option b {
+  font-size: 11.5px;
+}
+
+#execution-panel .execute-narration-option small {
+  font-size: 9.5px;
+  line-height: 1.35;
+}
+
+#execution-panel .execution-extensions {
+  padding: 11px 0 0;
+}
+
+#execution-panel .execution-extensions > summary {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 38px;
+  color: var(--text);
+  cursor: pointer;
+  list-style: none;
+}
+
+#execution-panel .execution-extensions > summary::-webkit-details-marker {
+  display: none;
+}
+
+#execution-panel .execution-extensions > summary::after {
+  content: "+";
+  margin-left: auto;
+  color: var(--text-dim);
+  font-size: 16px;
+  font-weight: 300;
+}
+
+#execution-panel .execution-extensions[open] > summary::after {
+  content: "−";
+}
+
+#execution-panel .execution-extensions > summary > span {
+  display: grid;
+  gap: 3px;
+}
+
+#execution-panel .execution-extensions > summary b {
+  font-size: 12px;
+  font-weight: 620;
+}
+
+#execution-panel .execution-extensions > summary small {
+  color: var(--text-dim);
+  font-size: 10px;
+  font-weight: 400;
+}
+
+#execution-panel .execution-extensions-body {
+  padding: 3px 0 8px;
+}
+
+#execution-panel .execution-extension-section {
+  padding: 15px 0;
+  border-top: 1px solid var(--border);
+}
+
+#execution-panel .skill-library-list,
+#execution-panel .mcp-integration-list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+  margin-top: 8px;
+}
+
+#execution-panel .skill-library-item,
+#execution-panel .mcp-integration-item {
+  padding: 9px;
+  border-radius: 7px;
+  background: var(--control-bg);
+}
+
+#execution-panel .skill-library-description,
+#execution-panel .mcp-launch-command,
+#execution-panel .mcp-diagnostics {
+  display: none;
+}
+
+#execution-panel .mcp-server-form,
+#execution-panel .mcp-transport-fields {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (max-width: 720px) {
+  #execution-panel,
+  #app-shell:is([data-theme="day"], [data-theme="night"]) #execution-panel {
+    width: min(348px, calc(100vw - 44px));
+  }
+}
+
 /* App-native dialogs replace Windows confirm/prompt surfaces. */
 #ui-dialog {
   width: min(500px, calc(100vw - 32px));
@@ -9557,5 +9867,38 @@ html[data-theme="night"] body {
 @media (max-width: 720px) {
   .presence-title {
     font-size: 24px;
+  }
+}
+
+/* Cascade lock: execution settings must remain a solid, narrow rail even when
+   legacy glass themes redefine every generic `.side-panel` above. */
+#app-shell #panel-scrim[data-owner="execution"] {
+  background: rgba(8, 12, 10, 0.16);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+#execution-panel,
+#app-shell:is([data-theme="day"], [data-theme="night"]) #execution-panel {
+  top: 48px;
+  right: 0;
+  bottom: 0;
+  left: auto;
+  width: min(372px, calc(100vw - 64px));
+  margin: 0;
+  border: 0;
+  border-left: 1px solid var(--border-strong);
+  border-radius: 0;
+  background: var(--panel-bg);
+  background-image: linear-gradient(180deg, color-mix(in srgb, var(--accent) 3%, transparent), transparent 160px);
+  box-shadow: -12px 0 34px rgba(4, 10, 7, 0.22);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+@media (max-width: 720px) {
+  #execution-panel,
+  #app-shell:is([data-theme="day"], [data-theme="night"]) #execution-panel {
+    width: min(348px, calc(100vw - 44px));
   }
 }

@@ -2285,6 +2285,7 @@ function init(): void {
     event.preventDefault();
     void saveExecutionSettings();
   });
+  settingToolPermissionExecute.addEventListener('change', () => void saveExecutionSettings());
   settingsOpenExecution.addEventListener('click', () => {
     void toggleSettingsPanel(false);
     void selectMode('execute');
@@ -4378,6 +4379,7 @@ function syncPanelState(): void {
   const executionOpen = executionPanel.dataset.open === 'true';
   const anyOpen = memoryOpen || settingsOpen || toolsOpen || executionOpen;
   panelScrim.dataset.visible = String(anyOpen);
+  panelScrim.dataset.owner = executionOpen ? 'execution' : memoryOpen ? 'memory' : settingsOpen ? 'settings' : toolsOpen ? 'tools' : 'none';
   panelScrim.setAttribute('aria-hidden', String(!anyOpen));
   memoryPanel.setAttribute('aria-hidden', String(!memoryOpen));
   settingsPanel.setAttribute('aria-hidden', String(!settingsOpen));
@@ -5416,7 +5418,7 @@ async function saveExecutionSettings(): Promise<void> {
     const approved = await dialogs.confirm({
       eyebrow: '工具权限',
       title: `将权限提升为“${toolPermissionShortLabel(next)}”？`,
-      message: `${toolPermissionShortLabel(next)}会扩大 Athena 对本机的访问范围。高危文件、命令、程序和外网操作仍会逐次确认。`,
+      message: `${toolPermissionShortLabel(next)}会扩大 Athena 对本机的访问范围。是否逐项询问由“连续执行”开关决定；敏感凭据始终单独询问。`,
       confirmLabel: '确认升权',
       tone: 'danger',
     });
@@ -5730,7 +5732,7 @@ async function saveSettingsForm(): Promise<void> {
     const approved = await dialogs.confirm({
       eyebrow: '工具权限',
       title: `将权限提升为“${toolPermissionShortLabel(nextPermission)}”？`,
-      message: `${toolPermissionShortLabel(nextPermission)}会扩大 Athena 对本机的访问范围。高危操作仍会逐次确认。`,
+      message: `${toolPermissionShortLabel(nextPermission)}会扩大 Athena 对本机的访问范围。是否逐项询问由“连续执行”开关决定；敏感凭据始终单独询问。`,
       confirmLabel: '确认升权',
       tone: 'danger',
     });
@@ -5886,7 +5888,7 @@ function syncToolAccessHint(): void {
   toolAccessHint.title = currentMode === 'execute'
     ? `执行模式当前工具权限：${toolPermissionShortLabel(level)}`
     : `${modeLabel(currentMode)}模式不会调用本机工具；需要操作电脑时切换到执行`;
-  executionCurrentPermission.textContent = `当前 · ${toolPermissionShortLabel(executeLevel)}`;
+  executionCurrentPermission.textContent = toolPermissionShortLabel(executeLevel);
   executionCurrentPermission.dataset.level = executeLevel;
 }
 

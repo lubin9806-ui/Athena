@@ -423,6 +423,9 @@ function createWindow(): void {
              const memoryPanel = document.getElementById('memory-panel');
              const executionButton = document.getElementById('mode-execute-button');
              const executionPanel = document.getElementById('execution-panel');
+             const executionSettingsButton = document.getElementById('execute-chip-settings');
+             const executionClose = document.getElementById('btn-execution-close');
+             const panelScrim = document.getElementById('panel-scrim');
              const executeContextBar = document.getElementById('execute-context-bar');
              const executeStream = document.getElementById('execute-stream');
              const chatWindowNew = document.getElementById('chat-window-new');
@@ -478,6 +481,9 @@ function createWindow(): void {
                memoryPanel &&
                executionButton &&
                executionPanel &&
+               executionSettingsButton &&
+               executionClose &&
+               panelScrim &&
                executeContextBar &&
                executeStream &&
                chatWindowNew instanceof HTMLButtonElement &&
@@ -1080,6 +1086,35 @@ function createWindow(): void {
                && getComputedStyle(executeStream).display !== 'none'
                && executionPanel.getAttribute('aria-hidden') === 'true';
              const executionPermissionReactive = toolAccessHint.dataset.level === originalSettings.settings.tools.modePermissions.execute;
+             executionSettingsButton.click();
+             for (let attempt = 0; attempt < 40 && executionPanel.dataset.open !== 'true'; attempt += 1) {
+               await new Promise(resolve => setTimeout(resolve, 50));
+             }
+             await new Promise(resolve => setTimeout(resolve, 90));
+             const executionPanelStyle = getComputedStyle(executionPanel);
+             const executionScrimStyle = getComputedStyle(panelScrim);
+             const executionThemeBeforeCheck = appShell.dataset.theme;
+             const executionThemeStylesClean = ['day', 'night'].every(theme => {
+               appShell.dataset.theme = theme;
+               const panelStyle = getComputedStyle(executionPanel);
+               const scrimStyle = getComputedStyle(panelScrim);
+               return ['none', ''].includes(panelStyle.backdropFilter)
+                 && ['none', ''].includes(scrimStyle.backdropFilter);
+             });
+             if (executionThemeBeforeCheck === undefined) {
+               delete appShell.dataset.theme;
+             } else {
+               appShell.dataset.theme = executionThemeBeforeCheck;
+             }
+             const executionSettingsCompact = executionPanel.dataset.open === 'true'
+               && executionPanel.getBoundingClientRect().width <= 380
+               && ['none', ''].includes(executionPanelStyle.backdropFilter)
+               && ['none', ''].includes(executionScrimStyle.backdropFilter)
+               && executionThemeStylesClean
+               && panelScrim.dataset.owner === 'execution'
+               && !document.querySelector('.execution-extensions[open]');
+             executionClose.click();
+             await new Promise(resolve => setTimeout(resolve, 60));
              originalButton.click();
              await new Promise(resolve => setTimeout(resolve, 90));
              const executionModeRestored = appShell.dataset.mode === originalMode;
@@ -1110,6 +1145,7 @@ function createWindow(): void {
                executionModeReactive,
                executionWorkspaceReactive,
                executionPermissionReactive,
+               executionSettingsCompact,
                executionModeRestored,
                glassReactive,
                liquidVelocityReactive,
@@ -1155,7 +1191,7 @@ function createWindow(): void {
                 dropOverlayReactive,
                 dropBridgeReady,
               }));
-             if (!panelReactive || memoryPanel.dataset.open !== 'false' || !executionModeReactive || !executionWorkspaceReactive || !executionPermissionReactive || !executionModeRestored || !streamingScrollPolicyReady || !historyMotionSuppressed) return false;
+             if (!panelReactive || memoryPanel.dataset.open !== 'false' || !executionModeReactive || !executionWorkspaceReactive || !executionPermissionReactive || !executionSettingsCompact || !executionModeRestored || !streamingScrollPolicyReady || !historyMotionSuppressed) return false;
 
              const ipcProbe = await api.transcribeRecording(new Uint8Array());
             if (!ipcProbe || ipcProbe.ok !== false || !/(empty|disabled)/i.test(ipcProbe.error || '')) return false;
@@ -1470,14 +1506,22 @@ function createWindow(): void {
                 ? 'tools-panel'
                 : 'execution-panel';
           const panelOpened = await mainWindow.webContents.executeJavaScript(`
-            (() => {
+            (async () => {
               const button = document.getElementById(${JSON.stringify(smokePanelButtonId)});
               const panel = document.getElementById(${JSON.stringify(smokePanelId)});
               if (!(button instanceof HTMLButtonElement) || !panel) return false;
               button.click();
-              return ${JSON.stringify(smokePanel)} === 'execution'
-                ? document.getElementById('app-shell')?.dataset.mode === 'execute' && getComputedStyle(panel).display !== 'none'
-                : panel.dataset.open === 'true';
+              if (${JSON.stringify(smokePanel)} === 'execution') {
+                await new Promise(resolve => setTimeout(resolve, 180));
+                const settingsButton = document.getElementById('execute-chip-settings');
+                if (!(settingsButton instanceof HTMLButtonElement)) return false;
+                settingsButton.click();
+                for (let attempt = 0; attempt < 40 && panel.dataset.open !== 'true'; attempt += 1) {
+                  await new Promise(resolve => setTimeout(resolve, 50));
+                }
+                return document.getElementById('app-shell')?.dataset.mode === 'execute' && panel.dataset.open === 'true';
+              }
+              return panel.dataset.open === 'true';
             })()
           `);
           if (!panelOpened) throw new Error('Smoke panel could not be opened');
