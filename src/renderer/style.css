@@ -8147,6 +8147,152 @@ html[data-theme="night"] body {
   }
 }
 
+/* --------------------------------------------------------------------------
+ * Runtime layout and motion contract
+ *
+ * Older visual experiments above are intentionally left reviewable, but they
+ * must not be allowed to define geometry. Drawers live in viewport space,
+ * animate only transform/opacity, and never inherit a grid area from an older
+ * execution workspace. This is the final runtime authority for motion.
+ * ----------------------------------------------------------------------- */
+#app-shell:is([data-theme="day"], [data-theme="night"]) {
+  --motion-fast: 120ms;
+  --motion-standard: 200ms;
+  --motion-emphasis: 260ms;
+  --space-transition-duration: 240ms;
+  --ease-standard: cubic-bezier(0.2, 0.75, 0.2, 1);
+  --ease-spring: cubic-bezier(0.2, 0.82, 0.18, 1);
+  transition: none;
+}
+
+/* An identity transform still creates a containing block for fixed children.
+   Remove it after startup so drawers use the actual window viewport. */
+#app-shell[data-intro="entered"] {
+  transform: none;
+}
+
+#panel-scrim,
+#app-shell:is([data-theme="day"], [data-theme="night"]) #panel-scrim {
+  position: fixed;
+  inset: 48px 0 0;
+  background: color-mix(in srgb, var(--athena-text, var(--text)) 14%, transparent);
+  opacity: 0;
+  visibility: hidden;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  transition: opacity 160ms ease, visibility 0s linear 160ms;
+}
+
+#panel-scrim[data-visible="true"],
+#app-shell:is([data-theme="day"], [data-theme="night"]) #panel-scrim[data-visible="true"] {
+  opacity: 1;
+  visibility: visible;
+  transition-delay: 0s;
+}
+
+.side-panel,
+#app-shell:is([data-theme="day"], [data-theme="night"]) .side-panel,
+#app-shell :is(#memory-panel, #settings-panel, #tools-panel, #execution-panel),
+#execution-panel,
+#app-shell:is([data-theme="day"], [data-theme="night"]) #execution-panel {
+  position: fixed;
+  top: 48px;
+  right: 0;
+  bottom: 0;
+  left: auto;
+  grid-column: auto;
+  grid-row: auto;
+  align-self: auto;
+  justify-self: auto;
+  width: min(420px, calc(100vw - 24px));
+  height: auto;
+  max-height: none;
+  margin: 0;
+  border: 0;
+  border-left: 1px solid var(--athena-line, var(--border));
+  border-radius: 0;
+  background: var(--panel-bg);
+  background-image: linear-gradient(180deg, color-mix(in srgb, var(--accent) 3%, transparent), transparent 160px);
+  box-shadow: -12px 0 34px rgba(4, 10, 7, 0.18);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translate3d(18px, 0, 0);
+  transform-origin: right center;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  contain: layout paint;
+  will-change: auto;
+  transition:
+    opacity 160ms ease,
+    visibility 0s linear 220ms,
+    transform 220ms var(--ease-standard);
+}
+
+.side-panel[data-open="true"],
+#app-shell:is([data-theme="day"], [data-theme="night"]) .side-panel[data-open="true"],
+#app-shell :is(#memory-panel, #settings-panel, #tools-panel, #execution-panel)[data-open="true"],
+#execution-panel[data-open="true"],
+#app-shell:is([data-theme="day"], [data-theme="night"]) #execution-panel[data-open="true"] {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translate3d(0, 0, 0);
+  transition-delay: 0s;
+}
+
+#execution-panel,
+#app-shell:is([data-theme="day"], [data-theme="night"]) #execution-panel {
+  width: min(372px, calc(100vw - 24px));
+}
+
+#execution-panel #execution-panel-body {
+  overscroll-behavior: contain;
+  scroll-behavior: smooth;
+}
+
+.execute-chip {
+  transition: color 120ms ease, background 120ms ease, transform 120ms ease;
+}
+
+.execute-chip:active {
+  transform: translateY(1px) scale(0.985);
+}
+
+@media (max-width: 720px) {
+  .side-panel,
+  #app-shell:is([data-theme="day"], [data-theme="night"]) .side-panel,
+  #app-shell :is(#memory-panel, #settings-panel, #tools-panel, #execution-panel) {
+    width: min(420px, calc(100vw - 16px));
+  }
+
+  #execution-panel,
+  #app-shell:is([data-theme="day"], [data-theme="night"]) #execution-panel {
+    width: min(360px, calc(100vw - 16px));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #app-shell *,
+  #app-shell *::before,
+  #app-shell *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 1ms !important;
+  }
+
+  .side-panel,
+  #execution-panel {
+    transform: none !important;
+  }
+}
+
+#app-shell[data-animation="low"] .side-panel,
+#app-shell[data-animation="low"] #execution-panel {
+  transform: none;
+}
+
 /* App-native dialogs replace Windows confirm/prompt surfaces. */
 #ui-dialog {
   width: min(500px, calc(100vw - 32px));
@@ -9870,21 +10016,35 @@ html[data-theme="night"] body {
   }
 }
 
-/* Cascade lock: execution settings must remain a solid, narrow rail even when
-   legacy glass themes redefine every generic `.side-panel` above. */
-#app-shell #panel-scrim[data-owner="execution"] {
-  background: rgba(8, 12, 10, 0.16);
+/* Final geometry lock. Legacy visual layers may change paint, never layout. */
+#app-shell #panel-scrim {
+  position: fixed;
+  inset: 48px 0 0;
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
 }
 
+#app-shell #panel-scrim[data-owner="execution"] {
+  background: rgba(8, 12, 10, 0.16);
+}
+
+.side-panel,
+#app-shell:is([data-theme="day"], [data-theme="night"]) .side-panel,
+#app-shell :is(#memory-panel, #settings-panel, #tools-panel, #execution-panel),
 #execution-panel,
 #app-shell:is([data-theme="day"], [data-theme="night"]) #execution-panel {
+  position: fixed;
   top: 48px;
   right: 0;
   bottom: 0;
   left: auto;
-  width: min(372px, calc(100vw - 64px));
+  grid-column: auto;
+  grid-row: auto;
+  align-self: auto;
+  justify-self: auto;
+  width: min(420px, calc(100vw - 24px));
+  height: auto;
+  max-height: none;
   margin: 0;
   border: 0;
   border-left: 1px solid var(--border-strong);
@@ -9892,13 +10052,41 @@ html[data-theme="night"] body {
   background: var(--panel-bg);
   background-image: linear-gradient(180deg, color-mix(in srgb, var(--accent) 3%, transparent), transparent 160px);
   box-shadow: -12px 0 34px rgba(4, 10, 7, 0.22);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translate3d(18px, 0, 0);
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
+  transition: opacity 160ms ease, visibility 0s linear 220ms, transform 220ms var(--ease-standard);
+}
+
+.side-panel[data-open="true"],
+#app-shell:is([data-theme="day"], [data-theme="night"]) .side-panel[data-open="true"],
+#app-shell :is(#memory-panel, #settings-panel, #tools-panel, #execution-panel)[data-open="true"],
+#execution-panel[data-open="true"],
+#app-shell:is([data-theme="day"], [data-theme="night"]) #execution-panel[data-open="true"] {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translate3d(0, 0, 0);
+  transition-delay: 0s;
+}
+
+#execution-panel,
+#app-shell:is([data-theme="day"], [data-theme="night"]) #execution-panel {
+  width: min(372px, calc(100vw - 24px));
 }
 
 @media (max-width: 720px) {
+  .side-panel,
+  #app-shell:is([data-theme="day"], [data-theme="night"]) .side-panel,
+  #app-shell :is(#memory-panel, #settings-panel, #tools-panel, #execution-panel) {
+    width: min(420px, calc(100vw - 16px));
+  }
+
   #execution-panel,
   #app-shell:is([data-theme="day"], [data-theme="night"]) #execution-panel {
-    width: min(348px, calc(100vw - 44px));
+    width: min(360px, calc(100vw - 16px));
   }
 }

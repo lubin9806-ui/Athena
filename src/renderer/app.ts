@@ -1301,6 +1301,8 @@ const executeChipNarration = mustGet<HTMLButtonElement>('execute-chip-narration'
 const executeChipNarrationLabel = mustGet<HTMLElement>('execute-chip-narration-label');
 const executeNarrationChoice = mustGet<HTMLElement>('execute-narration-choice');
 const executeChipSettings = mustGet<HTMLButtonElement>('execute-chip-settings');
+const executionPanelBody = mustGet<HTMLElement>('execution-panel-body');
+const executionPermissionsCard = mustGet<HTMLElement>('execution-permissions-card');
 const executionSettingsForm = mustGet<HTMLFormElement>('execution-settings-form');
 const executionSettingsFeedback = mustGet<HTMLElement>('execution-settings-feedback');
 const executionCurrentPermission = mustGet<HTMLElement>('execution-current-permission');
@@ -2234,13 +2236,16 @@ function init(): void {
     inputBox.focus();
     inputBox.setSelectionRange(inputBox.value.length, inputBox.value.length);
   });
-  executeChipFolder.addEventListener('click', () => {
-    void toggleExecutionPanel(true);
+  executeChipFolder.addEventListener('click', async () => {
+    await toggleExecutionPanel(true);
     agentRootPick.focus();
   });
-  executeChipPermission.addEventListener('click', () => {
-    void toggleExecutionPanel(true);
-    executionSettingsForm.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  executeChipPermission.addEventListener('click', async () => {
+    await toggleExecutionPanel(true);
+    executionPanelBody.scrollTo({
+      top: Math.max(0, executionPermissionsCard.offsetTop - 8),
+      behavior: appShell.dataset.animation === 'low' ? 'auto' : 'smooth',
+    });
   });
   executeChipApproval.addEventListener('click', () => {
     void setExecuteAutoApprove(currentSettingsBundle?.settings.tools.autoApprove !== true);
@@ -2513,11 +2518,12 @@ function init(): void {
       void cancelMicrophoneRecording();
       return;
     }
-    if (event.key === 'Escape' && (memoryPanel.dataset.open === 'true' || settingsPanel.dataset.open === 'true' || toolsPanel.dataset.open === 'true')) {
+    if (event.key === 'Escape' && (memoryPanel.dataset.open === 'true' || settingsPanel.dataset.open === 'true' || toolsPanel.dataset.open === 'true' || executionPanel.dataset.open === 'true')) {
       event.preventDefault();
       void toggleMemoryPanel(false);
       void toggleSettingsPanel(false);
       void toggleToolsPanel(false);
+      void toggleExecutionPanel(false);
       return;
     }
     if (event.key === 'Escape' && composerSecondaryTools.dataset.open === 'true') {
@@ -4239,12 +4245,20 @@ async function refreshDeferredStartupModelStatus(): Promise<void> {
   }
 }
 
+type SidePanelKind = 'memory' | 'settings' | 'tools' | 'execution';
+
+function closePanelsExcept(active?: SidePanelKind): void {
+  if (active !== 'memory') memoryPanel.dataset.open = 'false';
+  if (active !== 'settings') settingsPanel.dataset.open = 'false';
+  if (active !== 'tools') toolsPanel.dataset.open = 'false';
+  if (active !== 'execution') executionPanel.dataset.open = 'false';
+}
+
 async function toggleMemoryPanel(force?: boolean): Promise<void> {
   const next = force ?? memoryPanel.dataset.open !== 'true';
   memoryPanel.dataset.open = String(next);
   if (next) {
-    settingsPanel.dataset.open = 'false';
-    toolsPanel.dataset.open = 'false';
+    closePanelsExcept('memory');
   }
   toggleComposerTools(false);
   syncPanelState();
@@ -4271,8 +4285,7 @@ async function toggleSettingsPanel(force?: boolean): Promise<void> {
   const next = force ?? settingsPanel.dataset.open !== 'true';
   settingsPanel.dataset.open = String(next);
   if (next) {
-    memoryPanel.dataset.open = 'false';
-    toolsPanel.dataset.open = 'false';
+    closePanelsExcept('settings');
     toggleComposerTools(false);
     syncPanelState();
     await loadSettingsPanel();
@@ -4289,16 +4302,16 @@ async function toggleSettingsPanel(force?: boolean): Promise<void> {
 async function toggleExecutionPanel(force?: boolean): Promise<void> {
   const next = force ?? executionPanel.dataset.open !== 'true';
   executionPanel.dataset.open = String(next);
-  executionPanel.setAttribute('aria-hidden', String(!next));
-  executeChipSettings.setAttribute('aria-expanded', String(next));
   if (next) {
-    memoryPanel.dataset.open = 'false';
-    settingsPanel.dataset.open = 'false';
-    toolsPanel.dataset.open = 'false';
+    closePanelsExcept('execution');
     toggleComposerTools(false);
-    await refreshAgentWorkspace(selectedAgentTaskId);
-    await refreshSkillLibrary();
-    await refreshMcpIntegrations();
+    syncPanelState();
+    await Promise.all([
+      refreshAgentWorkspace(selectedAgentTaskId),
+      refreshSkillLibrary(),
+      refreshMcpIntegrations(),
+    ]);
+    return;
   }
   syncPanelState();
 }
@@ -4307,8 +4320,7 @@ async function toggleToolsPanel(force?: boolean): Promise<void> {
   const next = force ?? toolsPanel.dataset.open !== 'true';
   toolsPanel.dataset.open = String(next);
   if (next) {
-    memoryPanel.dataset.open = 'false';
-    settingsPanel.dataset.open = 'false';
+    closePanelsExcept('tools');
     toggleComposerTools(false);
   }
   syncPanelState();
@@ -4386,6 +4398,8 @@ function syncPanelState(): void {
   toolsPanel.setAttribute('aria-hidden', String(!toolsOpen));
   btnMemory.setAttribute('aria-expanded', String(memoryOpen));
   btnSettings.setAttribute('aria-expanded', String(settingsOpen));
+  availableToolsBtn.setAttribute('aria-expanded', String(toolsOpen));
+  executeChipSettings.setAttribute('aria-expanded', String(executionOpen));
 }
 
 function toggleComposerTools(force?: boolean): void {

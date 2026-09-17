@@ -424,6 +424,7 @@ function createWindow(): void {
              const executionButton = document.getElementById('mode-execute-button');
              const executionPanel = document.getElementById('execution-panel');
              const executionSettingsButton = document.getElementById('execute-chip-settings');
+             const executionPermissionButton = document.getElementById('execute-chip-permission');
              const executionClose = document.getElementById('btn-execution-close');
              const panelScrim = document.getElementById('panel-scrim');
              const executeContextBar = document.getElementById('execute-context-bar');
@@ -482,6 +483,7 @@ function createWindow(): void {
                executionButton &&
                executionPanel &&
                executionSettingsButton &&
+               executionPermissionButton instanceof HTMLButtonElement &&
                executionClose &&
                panelScrim &&
                executeContextBar &&
@@ -1090,31 +1092,60 @@ function createWindow(): void {
              for (let attempt = 0; attempt < 40 && executionPanel.dataset.open !== 'true'; attempt += 1) {
                await new Promise(resolve => setTimeout(resolve, 50));
              }
-             await new Promise(resolve => setTimeout(resolve, 90));
+             await new Promise(resolve => setTimeout(resolve, 480));
              const executionPanelStyle = getComputedStyle(executionPanel);
              const executionScrimStyle = getComputedStyle(panelScrim);
-             const executionThemeBeforeCheck = appShell.dataset.theme;
-             const executionThemeStylesClean = ['day', 'night'].every(theme => {
-               appShell.dataset.theme = theme;
-               const panelStyle = getComputedStyle(executionPanel);
-               const scrimStyle = getComputedStyle(panelScrim);
-               return ['none', ''].includes(panelStyle.backdropFilter)
-                 && ['none', ''].includes(scrimStyle.backdropFilter);
-             });
-             if (executionThemeBeforeCheck === undefined) {
-               delete appShell.dataset.theme;
-             } else {
-               appShell.dataset.theme = executionThemeBeforeCheck;
-             }
+             const executionPanelRect = executionPanel.getBoundingClientRect();
              const executionSettingsCompact = executionPanel.dataset.open === 'true'
                && executionPanel.getBoundingClientRect().width <= 380
+               && Math.abs(executionPanelRect.top - 48) <= 1
+               && Math.abs(executionPanelRect.right - window.innerWidth) <= 1
+               && Math.abs(executionPanelRect.bottom - window.innerHeight) <= 1
+               && executionPanelRect.left >= 0
                && ['none', ''].includes(executionPanelStyle.backdropFilter)
                && ['none', ''].includes(executionScrimStyle.backdropFilter)
-               && executionThemeStylesClean
                && panelScrim.dataset.owner === 'execution'
                && !document.querySelector('.execution-extensions[open]');
-             executionClose.click();
-             await new Promise(resolve => setTimeout(resolve, 60));
+             console.log('ATHENA_SMOKE_EXECUTION_PANEL', JSON.stringify({
+               rect: {
+                 top: executionPanelRect.top,
+                 right: executionPanelRect.right,
+                 bottom: executionPanelRect.bottom,
+                 left: executionPanelRect.left,
+                 width: executionPanelRect.width,
+                 height: executionPanelRect.height,
+               },
+               position: executionPanelStyle.position,
+               cssTop: executionPanelStyle.top,
+               cssRight: executionPanelStyle.right,
+               cssBottom: executionPanelStyle.bottom,
+               transform: executionPanelStyle.transform,
+               transitionProperty: executionPanelStyle.transitionProperty,
+               transitionDuration: executionPanelStyle.transitionDuration,
+               animations: executionPanel.getAnimations().map(animation => ({
+                 playState: animation.playState,
+                 currentTime: animation.currentTime,
+                 timing: animation.effect?.getComputedTiming(),
+               })),
+               offsetParent: executionPanel.offsetParent?.id || executionPanel.offsetParent?.tagName || null,
+               viewport: { width: window.innerWidth, height: window.innerHeight },
+             }));
+             executionPermissionButton.click();
+             await new Promise(resolve => setTimeout(resolve, 420));
+             const executionPanelAfterChipRect = executionPanel.getBoundingClientRect();
+             const executionChipNavigationStable = window.scrollX === 0
+               && document.documentElement.scrollLeft === 0
+               && document.body.scrollLeft === 0
+               && Math.abs(executionPanelAfterChipRect.top - 48) <= 1
+               && Math.abs(executionPanelAfterChipRect.right - window.innerWidth) <= 1;
+             memoryButton.click();
+             await new Promise(resolve => setTimeout(resolve, 320));
+             const panelHandoffExclusive = memoryPanel.dataset.open === 'true'
+               && executionPanel.dataset.open === 'false'
+               && panelScrim.dataset.owner === 'memory'
+               && document.querySelectorAll('.side-panel[data-open="true"]').length === 1;
+             memoryClose.click();
+             await new Promise(resolve => setTimeout(resolve, 220));
              originalButton.click();
              await new Promise(resolve => setTimeout(resolve, 90));
              const executionModeRestored = appShell.dataset.mode === originalMode;
@@ -1146,6 +1177,8 @@ function createWindow(): void {
                executionWorkspaceReactive,
                executionPermissionReactive,
                executionSettingsCompact,
+               executionChipNavigationStable,
+               panelHandoffExclusive,
                executionModeRestored,
                glassReactive,
                liquidVelocityReactive,
@@ -1191,7 +1224,7 @@ function createWindow(): void {
                 dropOverlayReactive,
                 dropBridgeReady,
               }));
-             if (!panelReactive || memoryPanel.dataset.open !== 'false' || !executionModeReactive || !executionWorkspaceReactive || !executionPermissionReactive || !executionSettingsCompact || !executionModeRestored || !streamingScrollPolicyReady || !historyMotionSuppressed) return false;
+             if (!panelReactive || memoryPanel.dataset.open !== 'false' || !executionModeReactive || !executionWorkspaceReactive || !executionPermissionReactive || !executionSettingsCompact || !executionChipNavigationStable || !panelHandoffExclusive || !executionModeRestored || !streamingScrollPolicyReady || !historyMotionSuppressed) return false;
 
              const ipcProbe = await api.transcribeRecording(new Uint8Array());
             if (!ipcProbe || ipcProbe.ok !== false || !/(empty|disabled)/i.test(ipcProbe.error || '')) return false;
@@ -1519,6 +1552,7 @@ function createWindow(): void {
                 for (let attempt = 0; attempt < 40 && panel.dataset.open !== 'true'; attempt += 1) {
                   await new Promise(resolve => setTimeout(resolve, 50));
                 }
+                await new Promise(resolve => setTimeout(resolve, 480));
                 return document.getElementById('app-shell')?.dataset.mode === 'execute' && panel.dataset.open === 'true';
               }
               return panel.dataset.open === 'true';
