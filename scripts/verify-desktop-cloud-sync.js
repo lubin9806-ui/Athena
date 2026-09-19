@@ -111,8 +111,12 @@ async function main() {
   // account for one reminder, and the phone would show it twice.
   assert.equal(mapper.reminderResourceId('job-17-abc'), 'reminder.desktop-job-17-abc');
   assert.equal(mapper.reminderResourceId('reminder.android-xyz'), 'reminder.android-xyz');
+  assert.equal(mapper.desktopReminderJobIdFromResourceId('reminder.desktop-job-17-abc'), 'job-17-abc');
+  assert.equal(mapper.desktopReminderJobIdFromResourceId('reminder.android-xyz'), null);
   assert.equal(mapper.ownsReminderResource('reminder.desktop-job-1'), true);
   assert.equal(mapper.ownsReminderResource('reminder.android-xyz'), false);
+  assert.deepEqual(mapper.desktopMemoryRefFromResourceId('memory.desktop-event-42'), { kind: 'event', id: 42 });
+  assert.equal(mapper.desktopMemoryRefFromResourceId('memory.android-42'), null);
 
   const reminderOut = mapper.toReminderPayload({ title: '回电话', dueAt: '2026-09-10T12:00:00.000Z', status: 'scheduled' });
   assert.equal(reminderOut.origin, 'desktop');
@@ -141,6 +145,10 @@ async function main() {
   // either. Retrying the write against the server's vector looks like a retry
   // and is a silent overwrite: the other device's turns disappear unannounced.
   const service = fs.readFileSync(path.join(root, 'src', 'core', 'cloud', 'CloudAccountService.ts'), 'utf8');
+  const ipc = fs.readFileSync(path.join(root, 'src', 'app', 'ipc', 'index.ts'), 'utf8');
+  const preload = fs.readFileSync(path.join(root, 'src', 'app', 'preload.ts'), 'utf8');
+  const renderer = fs.readFileSync(path.join(root, 'src', 'renderer', 'app.ts'), 'utf8');
+  const rendererHtml = fs.readFileSync(path.join(root, 'src', 'renderer', 'index.html'), 'utf8');
   const pushBody = service.slice(service.indexOf('async function pushLocalState'), service.indexOf('function ownsResource'));
   assert.match(pushBody, /conflicted\.push\(/, 'a conflicting conversation must be reported');
   assert.match(pushBody, /sync-conflict/, 'a sync that left a conflict must not report success');
@@ -162,12 +170,25 @@ async function main() {
   // exactly how a feature ends up green and absent.
   assert.match(pushBody, /listSyncableReminders\(\)/, 'the desktop must push its own reminders');
   assert.match(pushBody, /resourceType: 'reminder'/, 'reminders must be pushed under their own resource type');
-  const applyBody = service.slice(service.indexOf('const changes = await client.listChanges'), service.indexOf('writeSession({'));
+  const applyBody = service.slice(service.indexOf('const pulled = await pullAllChanges'), service.indexOf('const updatedSession'));
   assert.match(applyBody, /adoptSyncedReminder\(/, 'a reminder written on another device must be applied here');
-  assert.match(applyBody, /ownsReminderResource\(/, 'the desktop must not adopt back the reminders it wrote itself');
+  assert.match(applyBody, /desktopReminderJobIdFromResourceId\(resourceId\)/, 'a desktop reminder edited on the phone must update its original job');
   assert.match(applyBody, /desktopWindowIdFromResourceId\(resourceId\)/, 'phone turns added to a desktop conversation must return to that window');
+  assert.match(applyBody, /applyCloudTombstone\(/, 'deletions from another device must be applied locally');
+  assert.match(service, /listMemories\(\{ kind: 'all', limit: 200 \}\)/, 'desktop memory kinds are still only partially synced');
+  assert.match(service, /adoptedMemories\.get/, 'an imported phone memory would be pushed back under a duplicate id');
+  assert.match(service, /async function pullAllChanges/, 'the desktop would silently stop after the first change page');
+  assert.match(service, /const account = await client\.account\(\)/, 'desktop account status must come from the server');
+  assert.match(service, /const deviceBody = await client\.listDevices\(\)/, 'desktop account status must show server devices');
+  assert.match(ipc, /mfaCode: cleanString\(payload\.mfaCode/, 'desktop IPC must pass an MFA code to login');
+  assert.match(ipc, /recoveryCode: cleanString\(payload\.recoveryCode/, 'desktop IPC must pass a recovery code to login');
+  assert.match(preload, /createCloudPairingOffer/, 'desktop preload must expose pairing without exposing raw IPC');
+  assert.match(renderer, /createCloudPairingOffer\(\)/, 'desktop account UI must be able to create a phone pairing code');
+  assert.match(rendererHtml, /id="setting-cloud-mfa-code"/, 'desktop account UI must accept an MFA code');
+  assert.match(rendererHtml, /id="setting-cloud-recovery-code"/, 'desktop account UI must accept a recovery code');
+  assert.doesNotMatch(rendererHtml, /id="setting-cloud-tenant-id"/, 'tenant ID must not be part of the user login flow');
   assert.ok(
-    service.indexOf('const changes = await client.listChanges') < service.indexOf('await pushLocalState(client, imported, vectors)'),
+    service.indexOf('const pulled = await pullAllChanges') < service.indexOf('await pushLocalState(client, imported, importedMemoryKinds, vectors)'),
     'the desktop must pull current vectors and remote turns before it writes',
   );
 
@@ -195,6 +216,21 @@ async function main() {
       deviceName: 'Athena Desktop',
     });
     assert.ok(account.accessToken);
+    const accountStatus = await client.account();
+    assert.equal(accountStatus.email, 'desktop-sync@example.test');
+    assert.equal(accountStatus.mfaEnabled, false);
+    const emailOnlyClient = new CloudProtocol(`http://127.0.0.1:${address.port}`, 'desktop');
+    const emailOnlySession = await emailOnlyClient.login({
+      email: 'desktop-sync@example.test',
+      password: 'correct horse battery staple desktop',
+      deviceName: 'Athena Desktop email-only login',
+    });
+    assert.equal(emailOnlySession.tenantId, account.tenantId);
+    const deviceList = await client.listDevices();
+    assert.ok(deviceList.devices.some((device) => device.id === client.session.deviceId && device.status === 'active'));
+    const pairing = await client.offerPairing('Athena Desktop');
+    assert.match(pairing.code, /^\d{6}$/);
+    assert.ok(Number(pairing.expiresInSeconds) > 0);
     const pushed = await client.putRecord({
       resourceId: 'conversation.desktop-1',
       resourceType: 'conversation',

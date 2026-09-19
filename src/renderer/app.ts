@@ -227,7 +227,8 @@ declare global {
       getPrivacyCenter: () => Promise<PrivacyCenterState | null>;
       getCloudAccount: () => Promise<CloudSessionStatus | null>;
       registerCloudAccount: (payload: { tenantName: string; email: string; password: string }) => Promise<CloudSessionStatus | null>;
-      loginCloudAccount: (payload: { tenantId: string; email: string; password: string }) => Promise<CloudSessionStatus | null>;
+      loginCloudAccount: (payload: { email: string; password: string; mfaCode?: string; recoveryCode?: string }) => Promise<CloudSessionStatus | null>;
+      createCloudPairingOffer: () => Promise<{ code: string; expiresInSeconds: number; expiresAt: string } | null>;
       logoutCloudAccount: () => Promise<CloudSessionStatus | null>;
       syncCloudAccount: () => Promise<CloudSessionStatus | null>;
       exportPrivacyData: (format?: 'json' | 'markdown') => Promise<{ path: string; bytes: number } | null>;
@@ -955,6 +956,10 @@ interface CloudSessionStatus {
   email: string;
   tenantId: string | null;
   deviceId: string | null;
+  userId: string | null;
+  role: string | null;
+  mfaEnabled: boolean | null;
+  devices: Array<{ id: string; name: string; platform: string; active: boolean }>;
   lastSyncAt: string | null;
   lastError: string | null;
 }
@@ -1441,10 +1446,12 @@ const settingCloudSyncEnabled = mustGet<HTMLInputElement>('setting-cloud-sync-en
 const settingConsentCloudSync = mustGet<HTMLInputElement>('setting-consent-cloud-sync');
 const settingCloudBaseUrl = mustGet<HTMLInputElement>('setting-cloud-base-url');
 const settingCloudEmail = mustGet<HTMLInputElement>('setting-cloud-email');
-const settingCloudTenantId = mustGet<HTMLInputElement>('setting-cloud-tenant-id');
 const settingCloudPassword = mustGet<HTMLInputElement>('setting-cloud-password');
+const settingCloudMfaCode = mustGet<HTMLInputElement>('setting-cloud-mfa-code');
+const settingCloudRecoveryCode = mustGet<HTMLInputElement>('setting-cloud-recovery-code');
 const cloudRegister = mustGet<HTMLButtonElement>('cloud-register');
 const cloudLogin = mustGet<HTMLButtonElement>('cloud-login');
+const cloudPairingOffer = mustGet<HTMLButtonElement>('cloud-pairing-offer');
 const cloudSyncNow = mustGet<HTMLButtonElement>('cloud-sync-now');
 const cloudLogout = mustGet<HTMLButtonElement>('cloud-logout');
 const cloudAccountStatus = mustGet<HTMLElement>('cloud-account-status');
@@ -2419,6 +2426,7 @@ function init(): void {
   });
   cloudRegister.addEventListener('click', () => void registerCloudAccount());
   cloudLogin.addEventListener('click', () => void loginCloudAccount());
+  cloudPairingOffer.addEventListener('click', () => void createCloudPairingOffer());
   cloudSyncNow.addEventListener('click', () => void syncCloudAccountNow());
   cloudLogout.addEventListener('click', () => void logoutCloudAccount());
   diagnosticsExport.addEventListener('click', () => void exportDiagnosticSupport());
@@ -5562,7 +5570,6 @@ function populateSettingsForm(bundle: SettingsBundle): void {
   settingCloudSyncEnabled.checked = bundle.settings.cloud.syncEnabled;
   settingCloudBaseUrl.value = bundle.settings.cloud.baseUrl;
   settingCloudEmail.value = bundle.settings.cloud.email;
-  settingCloudTenantId.value = bundle.settings.cloud.tenantId;
   void refreshCloudAccountStatus();
   applySkuRuntimeProfile(bundle.sku);
   selectControls.sync();
@@ -5851,7 +5858,6 @@ async function saveSettingsForm(): Promise<void> {
           syncEnabled: settingCloudSyncEnabled.checked,
           baseUrl: settingCloudBaseUrl.value.trim(),
           email: settingCloudEmail.value.trim(),
-          tenantId: settingCloudTenantId.value.trim(),
           deviceName: currentSettingsBundle?.settings.cloud.deviceName || 'Athena Desktop',
         },
       },
@@ -5949,8 +5955,11 @@ function renderCloudAccountStatus(status: CloudSessionStatus | null): void {
   }
   const signed = status.signedIn ? '已登录' : '未登录';
   const sync = status.syncEnabled ? '同步开' : '同步关';
+  const mfa = status.mfaEnabled === true ? 'MFA 已开' : status.mfaEnabled === false ? 'MFA 未开' : 'MFA 未知';
+  const accountDevices = status.devices || [];
+  const devices = accountDevices.length ? `${accountDevices.filter(device => device.active).length} 台活动设备` : '设备未加载';
   const error = status.lastError ? ` · ${status.lastError}` : '';
-  cloudAccountStatus.textContent = `${signed} · ${sync} · ${status.email || '无邮箱'} · tenant ${status.tenantId || '无'}${error}`;
+  cloudAccountStatus.textContent = `${signed} · ${sync} · ${mfa} · ${devices} · ${status.email || '无邮箱'}${error}`;
 }
 
 async function refreshCloudAccountStatus(): Promise<void> {
@@ -5968,7 +5977,6 @@ async function persistCloudSettings(): Promise<void> {
         syncEnabled: settingCloudSyncEnabled.checked,
         baseUrl: settingCloudBaseUrl.value.trim(),
         email: settingCloudEmail.value.trim(),
-        tenantId: settingCloudTenantId.value.trim(),
         deviceName: currentSettingsBundle?.settings.cloud.deviceName || 'Athena Desktop',
       },
       privacy: {
@@ -5987,7 +5995,8 @@ async function registerCloudAccount(): Promise<void> {
       password: settingCloudPassword.value,
     });
     settingCloudPassword.value = '';
-    if (status?.tenantId) settingCloudTenantId.value = status.tenantId;
+    settingCloudMfaCode.value = '';
+    settingCloudRecoveryCode.value = '';
     renderCloudAccountStatus(status);
     setSettingsFeedback('Athena 账号已注册。', 'success');
   } catch (error) {
@@ -5999,15 +6008,29 @@ async function loginCloudAccount(): Promise<void> {
   try {
     await persistCloudSettings();
     const status = await window.athenaAPI.loginCloudAccount({
-      tenantId: settingCloudTenantId.value.trim(),
       email: settingCloudEmail.value.trim(),
       password: settingCloudPassword.value,
+      mfaCode: settingCloudMfaCode.value.trim() || undefined,
+      recoveryCode: settingCloudRecoveryCode.value.trim() || undefined,
     });
     settingCloudPassword.value = '';
+    settingCloudMfaCode.value = '';
+    settingCloudRecoveryCode.value = '';
     renderCloudAccountStatus(status);
     setSettingsFeedback('已登录 Athena 账号。', 'success');
   } catch (error) {
     setSettingsFeedback(`登录失败：${error instanceof Error ? error.message : String(error)}`, 'error');
+  }
+}
+
+async function createCloudPairingOffer(): Promise<void> {
+  try {
+    await persistCloudSettings();
+    const offer = await window.athenaAPI.createCloudPairingOffer();
+    if (!offer?.code) throw new Error('Cloud 没有返回配对码');
+    setSettingsFeedback(`手机配对码：${offer.code}（${offer.expiresInSeconds} 秒内有效）`, 'success');
+  } catch (error) {
+    setSettingsFeedback(`生成配对码失败：${error instanceof Error ? error.message : String(error)}`, 'error');
   }
 }
 

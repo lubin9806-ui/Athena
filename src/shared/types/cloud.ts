@@ -13,8 +13,19 @@ export interface CloudSessionStatus {
   email: string;
   tenantId: string | null;
   deviceId: string | null;
+  userId: string | null;
+  role: string | null;
+  mfaEnabled: boolean | null;
+  devices: CloudAccountDevice[];
   lastSyncAt: string | null;
   lastError: string | null;
+}
+
+export interface CloudAccountDevice {
+  id: string;
+  name: string;
+  platform: string;
+  active: boolean;
 }
 
 export interface CloudConversationTurn {

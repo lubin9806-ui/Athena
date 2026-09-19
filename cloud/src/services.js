@@ -26,16 +26,19 @@ class AuthService {
     // Checked before the tenant row exists. Left to hashPassword, a short
     // password surfaced as a plain Error, which the HTTP layer reports as a 500.
     assertPasswordPolicy(password);
+    const normalizedEmail = email.trim().toLowerCase();
+    const loginHash = this.loginHash(normalizedEmail);
+    const existing = this.db.prepare("SELECT 1 FROM users WHERE login_hash=? AND status='active' LIMIT 1").get(loginHash);
+    assert(!existing, 409, 'email-in-use', 'An account already exists for this email.');
     const tenantId = this.store.createTenant(tenantName.trim());
     const userId = randomId('usr');
     const key = this.store.getTenantKey(tenantId);
-    const normalizedEmail = email.trim().toLowerCase();
     const now = this.store.now();
     try {
       this.db.prepare(`INSERT INTO users
-        (id,tenant_id,email_hash,email_enc,email_key_version,password_hash,role,status,created_at)
-        VALUES (?,?,?,?,?,?,?,?,?)`).run(
-        userId, tenantId, this.emailHash(tenantId, normalizedEmail),
+        (id,tenant_id,email_hash,login_hash,email_enc,email_key_version,password_hash,role,status,created_at)
+        VALUES (?,?,?,?,?,?,?,?,?,?)`).run(
+        userId, tenantId, this.emailHash(tenantId, normalizedEmail), loginHash,
         encryptBytes(Buffer.from(normalizedEmail), key.key, `user-email:${tenantId}:${userId}`), key.version,
         hashPassword(password), 'owner', 'active', now,
       );
@@ -49,12 +52,19 @@ class AuthService {
   }
 
   login({ tenantId, email, password, mfaCode, recoveryCode, deviceName = 'Athena client', platform = 'unknown' }) {
-    validateId(tenantId, 'ten');
     validateEmail(email);
     const normalizedEmail = email.trim().toLowerCase();
-    const user = this.db.prepare('SELECT * FROM users WHERE tenant_id=? AND email_hash=?').get(
-      tenantId, this.emailHash(tenantId, normalizedEmail),
-    );
+    let user;
+    if (typeof tenantId === 'string' && tenantId.trim()) {
+      validateId(tenantId, 'ten');
+      user = this.db.prepare('SELECT * FROM users WHERE tenant_id=? AND email_hash=?').get(
+        tenantId, this.emailHash(tenantId, normalizedEmail),
+      );
+    } else {
+      const matches = this.db.prepare("SELECT * FROM users WHERE login_hash=? AND status='active'").all(this.loginHash(normalizedEmail));
+      user = matches.length === 1 ? matches[0] : null;
+      tenantId = user?.tenant_id;
+    }
     if (!user || user.status !== 'active') throw new CloudError(401, 'invalid-credentials', 'Credentials are invalid.');
     this.assertNotLocked(user);
     if (!verifyPassword(password, user.password_hash)) {
@@ -293,6 +303,10 @@ class AuthService {
 
   emailHash(tenantId, email) {
     return hmacSha256(this.config.masterKey, `${tenantId}:${email}`);
+  }
+
+  loginHash(email) {
+    return hmacSha256(this.config.masterKey, `login:${email}`);
   }
 }
 

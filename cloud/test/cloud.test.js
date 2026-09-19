@@ -168,6 +168,28 @@ test('authentication, MFA recovery, sessions and device revocation are enforced'
   } finally { await fx.close(); }
 });
 
+test('a person logs in with email and password without knowing a tenant id', () => {
+  const fx = fixture();
+  try {
+    const account = register(fx.services, 'email-only');
+    const session = fx.services.auth.login({
+      email: 'owner-email-only@example.test',
+      password: 'correct horse battery staple email-only',
+      deviceName: 'Phone',
+      platform: 'android',
+    });
+    assert.equal(session.tenantId, account.tenantId);
+    assert.equal(fx.services.auth.authenticate(session.accessToken).userId, account.userId);
+    assert.throws(() => fx.services.auth.registerTenant({
+      tenantName: 'Duplicate',
+      email: 'owner-email-only@example.test',
+      password: 'another correct horse battery staple',
+      deviceName: 'Other',
+      platform: 'test',
+    }), (error) => error.code === 'email-in-use');
+  } finally { fx.close(); }
+});
+
 test('tenant and user scopes prevent cross-tenant record access', async () => {
   const fx = fixture();
   try {

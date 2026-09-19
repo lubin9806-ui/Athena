@@ -1179,16 +1179,21 @@
               <input id="setting-cloud-email" type="email" autocomplete="username" />
             </label>
             <label class="settings-field">
-              <span>租户 ID</span>
-              <input id="setting-cloud-tenant-id" type="text" placeholder="登录已有账号时填写" />
-            </label>
-            <label class="settings-field">
               <span>密码</span>
               <input id="setting-cloud-password" type="password" autocomplete="current-password" />
+            </label>
+            <label class="settings-field">
+              <span>两步验证码（未开启可留空）</span>
+              <input id="setting-cloud-mfa-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="20" />
+            </label>
+            <label class="settings-field">
+              <span>恢复码（仅在无法使用验证器时填写）</span>
+              <input id="setting-cloud-recovery-code" type="password" autocomplete="off" maxlength="100" />
             </label>
             <div class="privacy-actions">
               <button id="cloud-register" class="settings-panel-link" type="button">注册并登录</button>
               <button id="cloud-login" class="settings-panel-link" type="button">登录</button>
+              <button id="cloud-pairing-offer" class="settings-panel-link" type="button">生成手机配对码</button>
               <button id="cloud-sync-now" class="settings-panel-link" type="button">立即同步</button>
               <button id="cloud-logout" class="settings-panel-link settings-panel-danger" type="button">退出账号</button>
             </div>

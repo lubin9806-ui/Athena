@@ -2,6 +2,7 @@ import { globalScheduler, type ScheduledJob } from '../../engine/Scheduler';
 import { createLogger } from '../../engine/Logger';
 import {
   createScheduledJob,
+  deleteScheduledJob,
   getScheduledJob,
   listPendingScheduledJobs,
   markScheduledJobCancelled,
@@ -49,6 +50,12 @@ export function adoptSyncedReminder(
   globalScheduler.cancel(input.id);
   liveReminder?.adopt(written.record);
   return true;
+}
+
+/** Applies a Cloud tombstone without turning it back into a live reminder on the next push. */
+export function deleteSyncedReminder(id: string): boolean {
+  globalScheduler.cancel(id);
+  return deleteScheduledJob(id);
 }
 
 export interface ReminderRequest {

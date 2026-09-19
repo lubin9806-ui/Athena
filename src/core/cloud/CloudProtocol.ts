@@ -71,7 +71,7 @@ export class CloudProtocol {
   }
 
   async login(input: {
-    tenantId: string;
+    tenantId?: string | null;
     email: string;
     password: string;
     deviceName: string;
@@ -81,7 +81,7 @@ export class CloudProtocol {
     const body = await this.request('POST', '/v1/auth/login', {
       auth: false,
       json: {
-        tenantId: input.tenantId,
+        tenantId: input.tenantId?.trim() || null,
         email: input.email,
         password: input.password,
         mfaCode: input.mfaCode ?? null,
@@ -102,6 +102,14 @@ export class CloudProtocol {
   /** Who the stored session belongs to, as the server sees it now. */
   async account(): Promise<Record<string, unknown>> {
     return this.request('GET', '/v1/account');
+  }
+
+  async listDevices(): Promise<Record<string, unknown>> {
+    return this.request('GET', '/v1/devices');
+  }
+
+  async offerPairing(label = 'Athena Desktop'): Promise<Record<string, unknown>> {
+    return this.request('POST', '/v1/pair/offer', { json: { label } });
   }
 
   async putRecord(record: Record<string, unknown>): Promise<Record<string, unknown>> {

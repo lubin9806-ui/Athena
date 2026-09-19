@@ -3,18 +3,19 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { getAppSettings, saveSettingsBundle } from '../config/SettingsStore';
 import { canUseNetworkCapability } from '../privacy/PrivacyDataService';
-import { createChatWindow, getChatWindow, getChatWindowMessages, listChatWindows, saveChatMessage } from '../../memory';
-import { listMemories, upsertSyncedMemory } from '../../memory/admin';
-import { adoptSyncedReminder } from '../scheduler/Reminder';
+import { createChatWindow, deleteChatWindow, getChatWindow, getChatWindowMessages, listChatWindows, saveChatMessage } from '../../memory';
+import { deleteMemory, listMemories, upsertSyncedMemory, type MemoryKind } from '../../memory/admin';
+import { adoptSyncedReminder, deleteSyncedReminder } from '../scheduler/Reminder';
 import { listSyncableReminders } from '../scheduler/ScheduledJobStore';
 import type { CloudAccountSettings, CloudSessionStatus } from '../../shared/types/cloud';
-import { CloudProtocol, CloudProtocolError } from './CloudProtocol';
+import { CloudProtocol, CloudProtocolError, isSessionEnded } from './CloudProtocol';
 import {
   conversationResourceId,
+  desktopMemoryRefFromResourceId,
+  desktopReminderJobIdFromResourceId,
   desktopWindowIdFromResourceId,
   incomingConversationTitle,
   memoryResourceId,
-  ownsReminderResource,
   parseReminderPayload,
   reminderResourceId,
   shouldSyncWindow,
@@ -35,6 +36,11 @@ interface StoredSession {
   lastSyncAt: string | null;
   cursor: string | null;
   imported: Record<string, number>;
+  /** Kind is stored separately so a remote memory tombstone can remove the right local table row. */
+  importedMemoryKinds?: Record<string, MemoryKind>;
+  role?: string | null;
+  mfaEnabled?: boolean | null;
+  devices?: CloudSessionStatus['devices'];
   /** Last server vector seen for each synced resource. Older sessions omit it. */
   vectors?: Record<string, Record<string, number>>;
 }
@@ -51,9 +57,50 @@ export function getCloudAccountStatus(): CloudSessionStatus {
     email: session?.email || settings.email,
     tenantId: session?.tenantId || settings.tenantId || null,
     deviceId: session?.deviceId || null,
+    userId: session?.userId || null,
+    role: session?.role ?? null,
+    mfaEnabled: session?.mfaEnabled ?? null,
+    devices: session?.devices || [],
     lastSyncAt: session?.lastSyncAt || null,
     lastError,
   };
+}
+
+export async function refreshCloudAccountStatus(): Promise<CloudSessionStatus> {
+  const client = createClientFromSession();
+  const session = readSession();
+  if (!client || !session) return getCloudAccountStatus();
+  try {
+    // Sequential on purpose: if the access token expired, the first call rotates
+    // the one-time refresh token before the second call starts.
+    const account = await client.account();
+    const deviceBody = await client.listDevices();
+    const devices = Array.isArray(deviceBody.devices)
+      ? deviceBody.devices.filter(isRecord).map(device => ({
+        id: String(device.id || ''),
+        name: String(device.name || '未命名设备'),
+        platform: String(device.platform || 'unknown'),
+        active: device.status === 'active',
+      })).filter(device => device.id)
+      : [];
+    writeSession({
+      ...session,
+      accessToken: client.session.accessToken || session.accessToken,
+      refreshToken: client.session.refreshToken || session.refreshToken,
+      tenantId: String(account.tenantId || session.tenantId),
+      userId: String(account.userId || session.userId),
+      deviceId: client.session.deviceId || session.deviceId,
+      email: String(account.email || session.email),
+      role: typeof account.role === 'string' ? account.role : null,
+      mfaEnabled: typeof account.mfaEnabled === 'boolean' ? account.mfaEnabled : null,
+      devices,
+    });
+    lastError = null;
+  } catch (error) {
+    if (isSessionEnded(error)) writeSession(null);
+    lastError = error instanceof Error ? error.message : String(error);
+  }
+  return getCloudAccountStatus();
 }
 
 export async function registerCloudAccount(input: { tenantName: string; email: string; password: string }): Promise<CloudSessionStatus> {
@@ -76,16 +123,22 @@ export async function registerCloudAccount(input: { tenantName: string; email: s
     },
   });
   lastError = null;
-  return getCloudAccountStatus();
+  return refreshCloudAccountStatus();
 }
 
-export async function loginCloudAccount(input: { tenantId: string; email: string; password: string }): Promise<CloudSessionStatus> {
+export async function loginCloudAccount(input: {
+  email: string;
+  password: string;
+  mfaCode?: string | null;
+  recoveryCode?: string | null;
+}): Promise<CloudSessionStatus> {
   const client = createClient();
   const settings = getAppSettings().cloud;
   const body = await client.login({
-    tenantId: input.tenantId.trim(),
     email: input.email.trim(),
     password: input.password,
+    mfaCode: input.mfaCode || null,
+    recoveryCode: input.recoveryCode || null,
     deviceName: settings.deviceName || 'Athena Desktop',
   });
   persistSession(client, input.email, body);
@@ -94,12 +147,12 @@ export async function loginCloudAccount(input: { tenantId: string; email: string
       cloud: {
         ...settings,
         email: input.email.trim(),
-        tenantId: input.tenantId.trim(),
+        tenantId: String(body.tenantId || client.session.tenantId || ''),
       },
     },
   });
   lastError = null;
-  return getCloudAccountStatus();
+  return refreshCloudAccountStatus();
 }
 
 export async function logoutCloudAccount(): Promise<CloudSessionStatus> {
@@ -110,6 +163,17 @@ export async function logoutCloudAccount(): Promise<CloudSessionStatus> {
   writeSession(null);
   lastError = null;
   return getCloudAccountStatus();
+}
+
+export async function createCloudPairingOffer(): Promise<{ code: string; expiresInSeconds: number; expiresAt: string }> {
+  const client = createClientFromSession();
+  if (!client) throw new CloudProtocolError(401, 'invalid-session', '请先在电脑端登录同一个 Athena 账号。');
+  const body = await client.offerPairing(getAppSettings().cloud.deviceName || 'Athena Desktop');
+  return {
+    code: String(body.code || ''),
+    expiresInSeconds: Number(body.expiresInSeconds || 0),
+    expiresAt: String(body.expiresAt || ''),
+  };
 }
 
 export async function syncCloudAccountNow(): Promise<CloudSessionStatus> {
@@ -125,14 +189,18 @@ export async function syncCloudAccountNow(): Promise<CloudSessionStatus> {
   if (!session) throw new CloudProtocolError(401, 'invalid-session', '尚未登录 Athena 账号。');
 
   const imported = { ...session.imported };
+  const importedMemoryKinds = { ...(session.importedMemoryKinds || {}) };
   const vectors = { ...(session.vectors || {}) };
-  const changes = await client.listChanges(session.cursor) as { records?: unknown[]; nextCursor?: string };
-  for (const record of Array.isArray(changes.records) ? changes.records : []) {
+  const pulled = await pullAllChanges(client, session.cursor);
+  for (const record of pulled.records) {
     if (!isRecord(record)) continue;
     const resourceId = String(record.resourceId || '');
     const vector = syncVector(record.vector);
     if (resourceId && Object.keys(vector).length) vectors[resourceId] = vector;
-    if (record.deleted === true) continue;
+    if (record.deleted === true) {
+      applyCloudTombstone(resourceId, imported, importedMemoryKinds);
+      continue;
+    }
     const payload = isRecord(record.payload) ? record.payload : null;
     if (!payload) continue;
 
@@ -140,19 +208,23 @@ export async function syncCloudAccountNow(): Promise<CloudSessionStatus> {
     // skipped every record that was not a conversation, so a memory noted on
     // the phone reached the account and stopped there.
     if (resourceId.startsWith('memory.')) {
-      if (ownsMemoryResource(resourceId)) continue;
+      const own = desktopMemoryRefFromResourceId(resourceId);
+      const existingId = own?.id || imported[resourceId];
       const applied = upsertSyncedMemory(
         {
-          kind: String(payload.kind || ''),
+          kind: own?.kind || String(payload.kind || ''),
           title: String(payload.title || ''),
           content: String(payload.content || ''),
           importance: typeof payload.importance === 'number' ? payload.importance : undefined,
         },
-        imported[resourceId],
+        existingId,
       );
       // The local row id is remembered, so a later edit of the same record
       // updates that memory instead of adding a second copy of it.
-      if (applied) imported[resourceId] = applied.id;
+      if (applied && !own) {
+        imported[resourceId] = applied.id;
+        importedMemoryKinds[resourceId] = applied.kind;
+      }
       continue;
     }
 
@@ -160,11 +232,10 @@ export async function syncCloudAccountNow(): Promise<CloudSessionStatus> {
     // and one finished on the phone calls the timer off. Without this the
     // account carried reminders that only one device ever acted on.
     if (resourceId.startsWith('reminder.')) {
-      if (ownsReminderResource(resourceId)) continue;
       const reminder = parseReminderPayload(payload);
       if (reminder) {
         adoptSyncedReminder({
-          id: resourceId,
+          id: desktopReminderJobIdFromResourceId(resourceId) || resourceId,
           title: reminder.title,
           dueAt: reminder.dueAt,
           status: reminder.status,
@@ -197,14 +268,15 @@ export async function syncCloudAccountNow(): Promise<CloudSessionStatus> {
     accessToken: client.session.accessToken || session.accessToken,
     refreshToken: client.session.refreshToken || session.refreshToken,
     lastSyncAt: new Date().toISOString(),
-    cursor: typeof changes.nextCursor === 'string' ? changes.nextCursor : session.cursor,
+    cursor: pulled.nextCursor,
     imported,
+    importedMemoryKinds,
     vectors,
   };
   // Preserve the pulled vectors even if a device races this one during the
   // following push. Without this, the next sync repeats an empty-base write.
   writeSession(updatedSession);
-  await pushLocalState(client, imported, vectors);
+  await pushLocalState(client, imported, importedMemoryKinds, vectors);
   writeSession({
     ...updatedSession,
     accessToken: client.session.accessToken || updatedSession.accessToken,
@@ -225,9 +297,55 @@ export function queueCloudWindowSync(windowId: number): void {
   void windowId;
 }
 
+async function pullAllChanges(
+  client: CloudProtocol,
+  initialCursor: string | null,
+): Promise<{ records: Record<string, unknown>[]; nextCursor: string | null }> {
+  const records: Record<string, unknown>[] = [];
+  let cursor = initialCursor;
+  while (true) {
+    const page = await client.listChanges(cursor, 100);
+    const pageRecords = Array.isArray(page.records) ? page.records.filter(isRecord) : [];
+    records.push(...pageRecords);
+    const next = typeof page.nextCursor === 'string' && page.nextCursor ? page.nextCursor : cursor;
+    if (pageRecords.length < 100 || !next || next === cursor) return { records, nextCursor: next || cursor };
+    cursor = next;
+  }
+}
+
+function applyCloudTombstone(
+  resourceId: string,
+  imported: Record<string, number>,
+  importedMemoryKinds: Record<string, MemoryKind>,
+): void {
+  if (resourceId.startsWith('memory.')) {
+    const own = desktopMemoryRefFromResourceId(resourceId);
+    const kind = own?.kind || importedMemoryKinds[resourceId];
+    const id = own?.id || imported[resourceId];
+    if (id && isMemoryKind(kind)) deleteMemory(kind, id);
+    delete imported[resourceId];
+    delete importedMemoryKinds[resourceId];
+    return;
+  }
+  if (resourceId.startsWith('reminder.')) {
+    deleteSyncedReminder(desktopReminderJobIdFromResourceId(resourceId) || resourceId);
+    return;
+  }
+  if (!resourceId.startsWith('conversation.')) return;
+  const windowId = desktopWindowIdFromResourceId(resourceId) || imported[resourceId];
+  if (windowId) deleteChatWindow(windowId);
+  delete imported[resourceId];
+}
+
+function isMemoryKind(value: unknown): value is MemoryKind {
+  return value === 'profile' || value === 'procedure' || value === 'fact' || value === 'event'
+    || value === 'daily' || value === 'project' || value === 'message';
+}
+
 async function pushLocalState(
   client: CloudProtocol,
   imported: Record<string, number>,
+  importedMemoryKinds: Record<string, MemoryKind>,
   vectors: Record<string, Record<string, number>>,
 ): Promise<void> {
   // windowId -> the record it belongs to. A window adopted from another client
@@ -235,8 +353,11 @@ async function pushLocalState(
   // put two records in the account for one conversation, and the phone would
   // list the same chat twice.
   const adopted = new Map<number, string>();
+  const adoptedMemories = new Map<string, string>();
   for (const [resourceId, windowId] of Object.entries(imported)) {
     if (resourceId.startsWith('conversation.')) adopted.set(windowId, resourceId);
+    const kind = importedMemoryKinds[resourceId];
+    if (resourceId.startsWith('memory.') && kind) adoptedMemories.set(`${kind}:${windowId}`, resourceId);
   }
 
   // Named so the account panel can say which conversations are waiting, rather
@@ -288,9 +409,9 @@ async function pushLocalState(
     else if (result) rememberAcceptedVector(vectors, resourceId, result);
   }
 
-  const memories = listMemories({ kind: 'profile', limit: 40 });
-  for (const item of memories.items) {
-    const resourceId = memoryResourceId(item.kind, item.id);
+  const memories = listMemories({ kind: 'all', limit: 200 });
+  for (const item of memories.items.filter(item => item.kind !== 'message')) {
+    const resourceId = adoptedMemories.get(`${item.kind}:${item.id}`) || memoryResourceId(item.kind, item.id);
     const result = await client.putRecord({
       resourceId,
       resourceType: 'memory',
@@ -331,14 +452,6 @@ function syncVector(value: unknown): Record<string, number> {
     if (typeof revision === 'number' && Number.isSafeInteger(revision) && revision > 0) vector[deviceId] = revision;
   }
   return vector;
-}
-
-/**
- * Records this desktop writes for its own memories come back on the feed.
- * Applying them would import a copy of every local memory on every sync.
- */
-function ownsMemoryResource(resourceId: string): boolean {
-  return /^memory\.desktop-/.test(resourceId);
 }
 
 /** Whether this resource is one this desktop writes for a window of its own. */
@@ -397,6 +510,18 @@ function createClientFromSession(): CloudProtocol | null {
     userId: session.userId,
     deviceId: session.deviceId,
   };
+  client.onTokensRotated = rotated => {
+    const current = readSession();
+    if (!current) return;
+    writeSession({
+      ...current,
+      accessToken: rotated.accessToken || current.accessToken,
+      refreshToken: rotated.refreshToken || current.refreshToken,
+      tenantId: rotated.tenantId || current.tenantId,
+      userId: rotated.userId || current.userId,
+      deviceId: rotated.deviceId || current.deviceId,
+    });
+  };
   return client;
 }
 
@@ -412,6 +537,10 @@ function persistSession(client: CloudProtocol, email: string, body: Record<strin
     lastSyncAt: null,
     cursor: null,
     imported: {},
+    importedMemoryKinds: {},
+    role: null,
+    mfaEnabled: null,
+    devices: [],
   });
 }
 

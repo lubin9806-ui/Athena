@@ -17,10 +17,11 @@ import {
 } from '../../core/privacy/PrivacyDataService';
 import { VoiceService } from '../../core/voice/VoiceService';
 import {
-  getCloudAccountStatus,
+  refreshCloudAccountStatus,
   loginCloudAccount,
   logoutCloudAccount,
   registerCloudAccount,
+  createCloudPairingOffer,
   syncCloudAccountNow,
 } from '../../core/cloud/CloudAccountService';
 import { createAssistModelClient, LLMClient } from '../../core/ai/Client';
@@ -210,6 +211,7 @@ const INVOKE_CHANNELS = [
   'cloud:status',
   'cloud:register',
   'cloud:login',
+  'cloud:pairingOffer',
   'cloud:logout',
   'cloud:syncNow',
   'diagnostics:getHealth',
@@ -1252,7 +1254,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<vo
 
   ipcMain.handle('cloud:status', async (event) => {
     if (!isTrustedSender(event)) return null;
-    return getCloudAccountStatus();
+    return refreshCloudAccountStatus();
   });
 
   ipcMain.handle('cloud:register', async (event, value: unknown) => {
@@ -1269,15 +1271,21 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<vo
     if (!isTrustedSender(event)) return null;
     const payload = isRecord(value) ? value : {};
     return loginCloudAccount({
-      tenantId: cleanString(payload.tenantId, 80),
       email: cleanString(payload.email, 254),
       password: typeof payload.password === 'string' ? payload.password : '',
+      mfaCode: cleanString(payload.mfaCode, 20) || null,
+      recoveryCode: cleanString(payload.recoveryCode, 100) || null,
     });
   });
 
   ipcMain.handle('cloud:logout', async (event) => {
     if (!isTrustedSender(event)) return null;
     return logoutCloudAccount();
+  });
+
+  ipcMain.handle('cloud:pairingOffer', async (event) => {
+    if (!isTrustedSender(event)) return null;
+    return createCloudPairingOffer();
   });
 
   ipcMain.handle('cloud:syncNow', async (event) => {

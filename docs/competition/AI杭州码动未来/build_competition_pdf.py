@@ -16,26 +16,32 @@ ROOT = Path(__file__).resolve().parents[3]
 OUT = Path(__file__).resolve().parent / "Athena_AI杭州码动未来_项目说明书.pdf"
 PAGE_W, PAGE_H = landscape(A4)
 
-INK = HexColor("#24302D")
-SUB = HexColor("#596761")
-SAGE = HexColor("#5C7168")
-DARK_SAGE = HexColor("#3F554D")
-PALE = HexColor("#E8ECE7")
-CREAM = HexColor("#F6F2E9")
-WHITE = HexColor("#FFFDFC")
-GOLD = HexColor("#C2A66B")
-RED = HexColor("#A85D54")
-AMBER = HexColor("#B07B35")
-GREEN = HexColor("#58745E")
-LINE = HexColor("#D8DDD7")
+INK = HexColor("#222C2A")
+SUB = HexColor("#58645F")
+SAGE = HexColor("#53675F")
+DARK_SAGE = HexColor("#3E6855")
+PALE = HexColor("#E6E9E2")
+CREAM = HexColor("#F5F1E8")
+WHITE = HexColor("#FCFCF8")
+GOLD = HexColor("#B49A6A")
+RED = HexColor("#9B403F")
+AMBER = HexColor("#9A743D")
+GREEN = HexColor("#3E6855")
+LINE = HexColor("#C4CCC2")
+MIST = HexColor("#F2F1EC")
+NIGHT = HexColor("#222C2A")
 
 FONT = "MicrosoftYaHei"
 FONT_BOLD = "MicrosoftYaHeiBold"
+FONT_DISPLAY = "NotoSerifSC"
+FONT_WORDMARK = "Georgia"
 
 
 def register_fonts() -> None:
     pdfmetrics.registerFont(TTFont(FONT, r"C:\Windows\Fonts\msyh.ttc", subfontIndex=0))
     pdfmetrics.registerFont(TTFont(FONT_BOLD, r"C:\Windows\Fonts\msyhbd.ttc", subfontIndex=0))
+    pdfmetrics.registerFont(TTFont(FONT_DISPLAY, r"C:\Windows\Fonts\NotoSerifSC-VF.ttf"))
+    pdfmetrics.registerFont(TTFont(FONT_WORDMARK, r"C:\Windows\Fonts\georgia.ttf"))
 
 
 def wrap_text(text: str, width: float, font: str, size: float) -> list[str]:
@@ -84,29 +90,45 @@ def draw_wrapped(c: canvas.Canvas, text: str, x: float, y: float, width: float,
 
 def footer(c: canvas.Canvas, page_no: int) -> None:
     c.setStrokeColor(LINE)
-    c.setLineWidth(0.6)
-    c.line(42, 27, PAGE_W - 42, 27)
-    c.setFont(FONT, 7.4)
+    c.setLineWidth(0.55)
+    c.line(42, 30, PAGE_W - 42, 30)
+    c.setFont(FONT_WORDMARK, 8.6)
+    c.setFillColor(SAGE)
+    c.drawString(42, 15, "Athena")
+    c.setFont(FONT, 6.7)
     c.setFillColor(SUB)
-    c.drawString(42, 14, "Athena · 本地优先的自主桌面 AI Agent · 0.9.7-beta.1")
-    c.drawRightString(PAGE_W - 42, 14, f"2026 AI杭州·码动未来  /  {page_no:02d}")
+    c.drawString(82, 15, "本地优先的自主桌面 AI Agent")
+    c.drawRightString(PAGE_W - 42, 15, f"2026 AI杭州·码动未来  ·  {page_no:02d} / 12")
 
 
 def page_base(c: canvas.Canvas, page_no: int, section: str, title: str, subtitle: str = "") -> None:
     c.setFillColor(CREAM)
     c.rect(0, 0, PAGE_W, PAGE_H, fill=1, stroke=0)
+    c.setFont(FONT_WORDMARK, 14)
     c.setFillColor(SAGE)
-    c.rect(0, PAGE_H - 8, PAGE_W, 8, fill=1, stroke=0)
-    c.setFont(FONT_BOLD, 8)
+    c.drawString(42, PAGE_H - 31, "Athena")
+    c.setStrokeColor(LINE)
+    c.setLineWidth(0.7)
+    c.line(91, PAGE_H - 34, 108, PAGE_H - 34)
+    c.setFont(FONT_BOLD, 7.4)
     c.setFillColor(SAGE)
-    c.drawString(42, PAGE_H - 38, section)
-    c.setFont(FONT_BOLD, 24)
+    c.drawString(117, PAGE_H - 37, section)
+    c.setFont(FONT_WORDMARK, 21)
+    c.setFillColor(Color(SAGE.red, SAGE.green, SAGE.blue, alpha=0.25))
+    c.drawRightString(PAGE_W - 42, PAGE_H - 34, f"{page_no:02d}")
+    title_size = 25.5
+    max_title_width = PAGE_W - 84
+    while title_size > 17 and pdfmetrics.stringWidth(title, FONT_DISPLAY, title_size) > max_title_width:
+        title_size -= 0.5
+    c.setFont(FONT_DISPLAY, title_size)
     c.setFillColor(INK)
     c.drawString(42, PAGE_H - 72, title)
+    c.setFillColor(GOLD)
+    c.rect(42, PAGE_H - 86, 38, 2.2, fill=1, stroke=0)
     if subtitle:
-        c.setFont(FONT, 9)
+        c.setFont(FONT, 8.4)
         c.setFillColor(SUB)
-        c.drawString(42, PAGE_H - 90, subtitle)
+        c.drawString(95, PAGE_H - 89, subtitle)
     footer(c, page_no)
 
 
@@ -115,15 +137,15 @@ def card(c: canvas.Canvas, x: float, y: float, w: float, h: float, title: str,
          title_size: float = 11, body_size: float = 8.5,
          leading: float = 12.5) -> None:
     c.setFillColor(bg)
-    c.setStrokeColor(LINE)
-    c.setLineWidth(0.7)
+    c.setStrokeColor(Color(LINE.red, LINE.green, LINE.blue, alpha=0.75))
+    c.setLineWidth(0.55)
     c.roundRect(x, y, w, h, 10, fill=1, stroke=1)
     c.setFillColor(accent)
-    c.roundRect(x, y + h - 5, w, 5, 3, fill=1, stroke=0)
+    c.roundRect(x, y, 4, h, 2, fill=1, stroke=0)
     c.setFont(FONT_BOLD, title_size)
     c.setFillColor(INK)
-    c.drawString(x + 14, y + h - 25, title)
-    draw_wrapped(c, body, x + 14, y + h - 43, w - 28, body_size, leading, SUB)
+    c.drawString(x + 18, y + h - 24, title)
+    draw_wrapped(c, body, x + 18, y + h - 43, w - 34, body_size, leading, SUB)
 
 
 def pill(c: canvas.Canvas, x: float, y: float, text: str, color: Color = SAGE) -> float:
@@ -146,14 +168,15 @@ def draw_image(c: canvas.Canvas, path: Path, x: float, y: float, w: float, h: fl
     dx, dy = x + (w - dw) / 2, y + (h - dh) / 2
     c.saveState()
     clip = c.beginPath()
-    clip.roundRect(x, y, w, h, radius)
+    clip.roundRect(x, y, w, h, min(radius, 5))
     c.clipPath(clip, stroke=0, fill=0)
     c.setFillColor(WHITE)
     c.rect(x, y, w, h, fill=1, stroke=0)
     c.drawImage(str(path), dx, dy, dw, dh, preserveAspectRatio=True, mask="auto")
     c.restoreState()
     c.setStrokeColor(LINE)
-    c.roundRect(x, y, w, h, radius, fill=0, stroke=1)
+    c.setLineWidth(0.7)
+    c.roundRect(x, y, w, h, min(radius, 5), fill=0, stroke=1)
 
 
 def node(c: canvas.Canvas, x: float, y: float, w: float, h: float, title: str,
@@ -161,9 +184,12 @@ def node(c: canvas.Canvas, x: float, y: float, w: float, h: float, title: str,
     c.setFillColor(fill)
     c.setStrokeColor(stroke)
     c.setLineWidth(1)
-    c.roundRect(x, y, w, h, 8, fill=1, stroke=1)
+    c.roundRect(x, y, w, h, 3, fill=1, stroke=1)
     c.setFillColor(INK)
-    c.setFont(FONT_BOLD, 9)
+    node_size = 9.0
+    while node_size > 6.6 and pdfmetrics.stringWidth(title, FONT_BOLD, node_size) > w - 12:
+        node_size -= 0.3
+    c.setFont(FONT_BOLD, node_size)
     c.drawCentredString(x + w / 2, y + h / 2 + (4 if subtitle else -3), title)
     if subtitle:
         c.setFillColor(SUB)
@@ -212,37 +238,55 @@ def simple_table(c: canvas.Canvas, x: float, y_top: float, widths: Sequence[floa
 def cover(c: canvas.Canvas) -> None:
     c.setFillColor(CREAM)
     c.rect(0, 0, PAGE_W, PAGE_H, fill=1, stroke=0)
-    c.setFillColor(SAGE)
-    c.rect(PAGE_W - 250, 0, 250, PAGE_H, fill=1, stroke=0)
-    c.setFillColor(DARK_SAGE)
-    c.circle(PAGE_W - 66, PAGE_H - 65, 160, fill=1, stroke=0)
+    c.setStrokeColor(SAGE)
+    c.setLineWidth(54)
+    c.arc(PAGE_W - 300, 58, PAGE_W + 125, 515, startAng=83, extent=220)
+    c.setFillColor(GOLD)
+    c.saveState()
+    c.translate(PAGE_W - 112, 446)
+    c.rotate(45)
+    c.rect(-5, -5, 10, 10, fill=1, stroke=0)
+    c.restoreState()
     icon = ROOT / "resources" / "athena-brand-icon.png"
-    c.drawImage(str(icon), PAGE_W - 195, 125, 145, 145, preserveAspectRatio=True, mask="auto")
-    c.setFont(FONT_BOLD, 54)
+    c.drawImage(str(icon), PAGE_W - 204, 223, 108, 108, preserveAspectRatio=True, mask="auto")
+    c.setFont(FONT_BOLD, 7.3)
+    c.setFillColor(SAGE)
+    c.drawString(54, 525, "2026 AI杭州 · 码动未来  /  AI+超级智能体赛道 · 高校组")
+    c.setFont(FONT_WORDMARK, 62)
+    c.setFillColor(SAGE)
+    c.drawString(50, 421, "Athena")
+    c.setFont(FONT_DISPLAY, 23)
     c.setFillColor(INK)
-    c.drawString(52, 412, "Athena")
-    c.setFont(FONT_BOLD, 25)
-    c.setFillColor(DARK_SAGE)
-    c.drawString(54, 365, "本地优先的自主桌面 AI Agent")
-    c.setStrokeColor(GOLD)
-    c.setLineWidth(3)
-    c.line(54, 340, 210, 340)
-    c.setFont(FONT, 13)
-    c.setFillColor(INK)
-    c.drawString(54, 292, "2026 AI杭州·码动未来 AI模型智能体创新大赛")
-    c.setFont(FONT_BOLD, 15)
-    c.drawString(54, 260, "AI+超级智能体赛道 · 高校组")
-    c.setFont(FONT, 9.5)
+    c.drawString(54, 372, "本地优先的自主桌面 AI Agent")
+    c.setFillColor(GOLD)
+    c.rect(54, 346, 70, 3, fill=1, stroke=0)
+    c.setFont(FONT, 10.5)
     c.setFillColor(SUB)
-    c.drawString(54, 186, "当前项目版本  0.9.7-beta.1  /  私测候选版")
-    c.drawString(54, 166, "材料基线  2026.09.15  /  当前仓库")
-    c.setFont(FONT, 7.8)
-    c.drawString(54, 147, "源码状态  关键验证通过；工作树含既存 Cloud 改动，非发行快照")
-    c.setFillColor(Color(1, 1, 1, alpha=0.92))
-    c.setFont(FONT_BOLD, 8.5)
-    c.drawString(PAGE_W - 217, 72, "TRUTHFUL CAPABILITY BRIEF")
-    c.setFont(FONT, 7.5)
-    c.drawString(PAGE_W - 217, 54, "实现、测试、运行与规划严格分层")
+    c.drawString(54, 314, "让 AI 从回答问题，走向在用户授权下完成任务")
+    c.setStrokeColor(LINE)
+    c.setLineWidth(0.7)
+    c.line(54, 270, 512, 270)
+    c.setFont(FONT_BOLD, 7.1)
+    c.setFillColor(SAGE)
+    c.drawString(54, 249, "TEAM / SUBMISSION PROFILE")
+    c.setFont(FONT, 8.4)
+    c.setFillColor(INK)
+    c.drawString(54, 225, "西安翻译学院  ·  数字媒体艺术")
+    c.drawString(54, 204, "团队成员  鲁滨 · 唐婧 · 贾晨泽 · 汪昊")
+    c.drawString(54, 183, "指导教师  席晶（授课老师）  /  联系人  鲁滨  13228367530")
+    c.drawString(54, 162, "报名编号  无  /  版权及盖章主体  暂无")
+    c.setFont(FONT_BOLD, 7.1)
+    c.setFillColor(SAGE)
+    c.drawString(54, 126, "BUILD SNAPSHOT")
+    c.setFont(FONT, 7.4)
+    c.setFillColor(SUB)
+    c.drawString(54, 105, "0.9.7-beta.1  ·  私测候选版  ·  未签名比赛候选安装包")
+    c.drawString(54, 85, "材料基线  2026.09.18  ·  HEAD 4129aab")
+    c.setFillColor(SAGE)
+    c.rect(0, 0, PAGE_W, 24, fill=1, stroke=0)
+    c.setFont(FONT_BOLD, 6.7)
+    c.setFillColor(CREAM)
+    c.drawString(54, 9, "TRUTHFUL CAPABILITY BRIEF  ·  实现 / 测试 / 运行 / 规划严格分层")
 
 
 def page_2(c: canvas.Canvas) -> None:
@@ -378,20 +422,21 @@ def page_7(c: canvas.Canvas) -> None:
 
 
 def page_8(c: canvas.Canvas) -> None:
-    page_base(c, 8, "08  典型使用场景", "选择能形成完整闭环的复杂任务，而不是罗列几十个小功能")
-    cards = [
-        ("01  本地资料 → 交付包", "读取 Markdown、CSV、DOCX/XLSX 和图片；本地 OCR；归纳约束；生成 PDF/DOCX；保存路径、哈希与成果记录。\n注意：当前避免 PDF 输入。", SAGE),
-        ("02  开发环境诊断", "读取配置、检查端口、发起 HTTP 请求、运行安全诊断命令、收集退出码与输出，并生成可追溯报告。", GOLD),
-        ("03  受控文件归档", "先列出拟处理对象，再复制/移动；覆盖与删除进入审批；逐项展示路径和风险，支持逐项决定；最终生成索引和变更摘要。", RED),
-        ("04  跨会话项目续作", "从项目消息、笔记、记忆和文档索引中检索上下文，继续已有任务并保存新成果。演示使用明确关键词。", DARK_SAGE),
-        ("05  语音发起本地任务", "本地 STT 转写后进入同一 Agent 链，并由本地/Windows TTS 反馈。比赛前必须完成真实麦克风与扬声器验证。", GREEN),
-    ]
-    positions = [(42, 322, 235, 162), (303, 322, 235, 162), (564, 322, 234, 162), (172, 126, 235, 162), (433, 126, 235, 162)]
-    for (title, body, accent), (x, y, w, h) in zip(cards, positions):
-        card(c, x, y, w, h, title, body, accent, body_size=8.1, leading=12)
-    c.setFont(FONT_BOLD, 8.5)
+    page_base(c, 8, "08  场景与已验证 Demo", "选择能形成完整闭环的复杂任务，而不是罗列几十个小功能")
+    card(c, 42, 356, 320, 128, "01  测试驱动修复 · 已录制", "运行失败测试 → 读取实现与用例 → 定位两处缺陷 → 逐项审批修改 → 再次测试 → 交付说明。DeepSeek live E2E 已通过。", SAGE, body_size=8.3, leading=13)
+    card(c, 42, 216, 320, 116, "02  本地资料 → 交付包", "读取 Markdown、CSV、DOCX/XLSX 和图片；本地 OCR；生成 PDF/DOCX。当前避免 PDF 输入，比赛设备尚需补同等级录像。", GOLD, body_size=8.1, leading=13)
+    card(c, 42, 87, 320, 105, "03  受控文件与诊断", "列出对象、运行命令、检查端口与 HTTP；覆盖、删除和高风险操作进入审批，并保存路径、输出和变更摘要。", RED, body_size=8.1, leading=13)
+    demo_shot = ROOT / "docs" / "competition" / "AI杭州码动未来" / "demo-output" / "live-deepseek-2026-09-18T02-31-05-252Z" / "evidence" / "01-command-approval.png"
+    draw_image(c, demo_shot, 388, 176, 410, 308)
+    c.setFont(FONT, 7.2)
+    c.setFillColor(SUB)
+    c.drawString(398, 162, "DeepSeek live E2E · 真实 Athena Renderer 命令审批画面")
+    c.setFont(FONT_BOLD, 8.4)
     c.setFillColor(DARK_SAGE)
-    c.drawString(42, 92, "推荐主 Demo：三份本地活动资料 → OCR → 执行简报 → 审批 → PDF → 打开验证（全程 3 分 20 秒）")
+    c.drawString(388, 120, "已生成：2 分 24 秒 1080p 字幕版 + 35 秒无剪辑证据版")
+    c.setFont(FONT, 7.5)
+    c.setFillColor(SUB)
+    c.drawString(388, 98, "边界：当前录屏来自源码构建；候选安装包已打包但未签名。UI 未配置验收项，外部 E2E 独立通过。")
 
 
 def page_9(c: canvas.Canvas) -> None:
@@ -416,11 +461,11 @@ def page_9(c: canvas.Canvas) -> None:
 def page_10(c: canvas.Canvas) -> None:
     page_base(c, 10, "10  当前完成度", "已实现、Beta 与规划项严格分开")
     card(c, 42, 128, 235, 357, "已实现", "• Electron Windows 桌面端，源码构建与 smoke 通过\n• 原生工具调用 AgentRunner\n• 22 个计算机工具\n• 持久化项目、任务、步骤、审批、证据与成果\n• 权限分级、远程同意、运行中撤权\n• SQLite 多层记忆与项目隔离\n• Ollama / OpenAI-compatible 适配\n• 常用附件、本地 OCR、文档成果\n• Skills 文本资源与 MCP 接入", GREEN, body_size=8.1, leading=15)
-    card(c, 303, 128, 235, 357, "部分实现 / Beta", "• 动态规划存在；缺少可审阅的细粒度计划\n• 成果可保存；普通任务自动验收不足\n• 语音依赖就绪；未做本次真实音频 E2E\n• 图像理解取决于模型\n• 云模型仅适配/夹具验证\n• Web 研究供应商仍实验性\n• 默认记忆同义改写召回弱\n• PDF 输入导入损坏\n• 新安全交互缺少最终构建素材", AMBER, body_size=8.1, leading=15)
+    card(c, 303, 128, 235, 357, "部分实现 / Beta", "• 动态规划存在；缺少可审阅的细粒度计划\n• 成果可保存；普通任务自动验收不足\n• 语音依赖就绪；未做本次真实音频 E2E\n• 图像理解取决于模型\n• DeepSeek 单例 live 通过；非多供应商稳定性证明\n• Web 研究供应商仍实验性\n• 默认记忆同义改写召回弱\n• PDF 输入导入损坏\n• 候选安装包已打包，但 Authenticode 未签名", AMBER, body_size=8.1, leading=15)
     card(c, 564, 128, 234, 357, "规划中 / 不计入当前能力", "• 通用鼠标、键盘、屏幕视觉理解\n• 任意 Windows GUI 自动化\n• 可编辑结构化计划\n• 普通任务的完整自动验收\n• 签名公开发行与商店上架\n• 干净设备规模化 Beta 证明\n• Athena Cloud 生产级服务\n• 默认角色 Live2D（release gate 当前关闭）", RED, body_size=8.1, leading=15)
     c.setFont(FONT_BOLD, 8.4)
     c.setFillColor(INK)
-    c.drawString(42, 94, "版本结论：私测候选版，不是公开商店版；测试桩、源码存在、真实设备运行和线上服务可用性不能混写。")
+    c.drawString(42, 94, "版本结论：私测候选版，安装程序已打包但未签名；测试桩、源码存在、真实设备运行和线上服务可用性不能混写。")
 
 
 def page_11(c: canvas.Canvas) -> None:
@@ -432,7 +477,7 @@ def page_11(c: canvas.Canvas) -> None:
     card(c, 42, 355, 360, 130, "已存在的安全边界", "权限默认 off；仅 Execute 可获得计算机权限；模型请求与外部网络分别同意；高风险工具审批；运行中撤权收紧上限；不确定重放要求 critical 确认。", GREEN)
     card(c, 42, 218, 360, 113, "本地数据与凭据", "SQLite 与项目文件保存在设备；Project/窗口/附件隔离；记忆有保留分层与摘要。Renderer sandbox + context isolation，nodeIntegration 关闭；API key 使用 safeStorage 且不下发 Renderer。", SAGE)
     card(c, 42, 75, 360, 119, "当前新增防护", "待审批调用逐项展示命令、工作目录、路径、URL 和写入预览；支持逐项批准/拒绝。追加写入与 Startup、Shell profile、Git hooks、快捷方式等自动执行位置会单独提示。", GREEN)
-    card(c, 438, 75, 360, 126, "证据边界", "类型检查、Agent/工具、桌面 smoke 与固定夹具驱动的真实 Renderer E2E 已通过，覆盖断线、预算门和逐项审批；仍非 live 模型，缺最终构建截图与第三方安全认证。", RED)
+    card(c, 438, 75, 360, 126, "证据边界", "隔离夹具驱动的真实 Renderer E2E 已通过；另有一条 DeepSeek live 任务与逐项审批录屏。候选安装包完成隐私封装检查但未签名；尚无比赛设备复测或第三方安全认证。", RED)
 
 
 def page_12(c: canvas.Canvas) -> None:
@@ -452,8 +497,8 @@ def page_12(c: canvas.Canvas) -> None:
     c.drawString(42, 187, "当前验证摘要")
     checks = [
         ("Electron smoke", "PASS"), ("Agent runtime", "PASS"), ("Execute UI E2E", "PASS"),
-        ("Memory keyword", "1.000"), ("Memory paraphrase", "0.000"), ("Voice deps", "PASS"),
-        ("PDF input", "KNOWN BUG"), ("Signed release", "NOT PROVEN"),
+        ("DeepSeek live", "PASS"), ("Demo MP4", "PASS"), ("Memory paraphrase", "0.000"),
+        ("PDF input", "KNOWN BUG"), ("Signed release", "NOT SIGNED"),
     ]
     x, y = 42, 146
     for label, status in checks:
@@ -472,7 +517,7 @@ def page_12(c: canvas.Canvas) -> None:
     c.setFont(FONT, 7.4)
     c.setFillColor(SUB)
     c.drawString(42, 106, "完整材料、代码依据、Demo 脚本、能力映射与补拍清单见同目录附件。")
-    c.drawString(42, 89, "视觉说明：所用 UI 图为仓库实际运行时空状态截图；不作为完整任务执行证明。")
+    c.drawString(42, 89, "视觉说明：核心功能页保留仓库 UI 图；第 8 页为本次 DeepSeek live E2E 的真实审批截图。")
 
 
 def build() -> None:
