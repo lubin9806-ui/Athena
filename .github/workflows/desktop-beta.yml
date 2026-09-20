@@ -184,8 +184,7 @@ jobs:
           npm.cmd run release:preflight
           npm.cmd run build:release -- --require-clean
       - name: Packaged smoke
-        shell: pwsh
-        run: "& '.\\release\\win-unpacked\\Athena.exe' --smoke-test; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }"
+        run: npm.cmd run test:packaged-smoke
       - name: Verify packaged desktop contents
         run: npm.cmd run test:desktop-package
       - name: Generate exact candidate manifest

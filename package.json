@@ -112,6 +112,7 @@
     "test:project-memory": "tsc && electron scripts/verify-project-memory-isolation.js",
     "test:project-documents": "tsc && electron scripts/verify-project-documents.js",
     "test:local-ocr": "tsc && electron scripts/verify-local-ocr.js",
+    "test:packaged-smoke": "node scripts/run-packaged-smoke.js",
     "test:packaged-ocr": "electron scripts/verify-packaged-ocr.js",
     "test:diagnostics": "tsc && electron scripts/verify-diagnostics.js",
     "test:cloud-sync": "tsc && node scripts/verify-desktop-cloud-sync.js",

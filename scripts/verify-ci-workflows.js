@@ -40,6 +40,7 @@ const auditClean = requireStep(desktop, 'module-audit', 'Prove audit checkout re
 const releaseSourceTime = requireStep(desktop, 'clean-checkout', 'Record deterministic source time');
 const releaseTag = requireStep(desktop, 'clean-checkout', 'Verify release tag identity');
 const releaseClean = requireStep(desktop, 'clean-checkout', 'Prove checkout remained clean');
+const packagedSmoke = requireStep(desktop, 'clean-checkout', 'Packaged smoke');
 const storeGates = requireStep(store, 'appx', 'Verify shared product gates');
 const storeClean = requireStep(store, 'appx', 'Prove checkout remained clean');
 
@@ -72,6 +73,7 @@ for (const command of [
 }
 
 assert(nodeModules.includes('npm.cmd run test:ci-workflows'), 'Desktop CI must enforce its own workflow contract.');
+assert.equal(packagedSmoke.trim(), 'npm.cmd run test:packaged-smoke', 'Packaged smoke must use the blocking marker-verifying wrapper.');
 assert(!electronModules.includes('test:execute:live'), 'Live model execution must not run in the ordinary PR workflow.');
 assert(!electronModules.includes('test:memory-embeddings:live'), 'Live embeddings must not run in the ordinary PR workflow.');
 
