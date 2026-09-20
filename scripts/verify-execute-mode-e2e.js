@@ -176,7 +176,7 @@ function readJson(file, fallback) {
   try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return fallback; }
 }
 
-function prepareProfile(name, modelOverride) {
+function prepareProfile(name, modelOverride, useSavedProfile) {
   const dir = path.join(RUN_ROOT, name);
   const profile = {
     dir,
@@ -191,9 +191,11 @@ function prepareProfile(name, modelOverride) {
     fs.mkdirSync(folder, { recursive: true });
   }
   const userConfig = path.join(process.env.APPDATA || '', 'Athena', 'config');
-  const settings = readJson(path.join(userConfig, 'settings.json'), { version: 2 });
-  const model = modelOverride || readJson(path.join(userConfig, 'model.json'), null);
-  if (!model) throw new Error('no saved model configuration to run against');
+  const settings = useSavedProfile
+    ? readJson(path.join(userConfig, 'settings.json'), { version: 2 })
+    : { version: 2 };
+  const model = modelOverride || (useSavedProfile ? readJson(path.join(userConfig, 'model.json'), null) : null);
+  if (useSavedProfile && !model) throw new Error('no saved model configuration to run against');
   const merged = {
     ...settings,
     general: { ...settings.general, closeToTray: false, launchAtStartup: false },
@@ -217,7 +219,7 @@ function prepareProfile(name, modelOverride) {
     cloud: { ...settings.cloud, syncEnabled: false },
   };
   fs.writeFileSync(path.join(profile.config, 'settings.json'), JSON.stringify(merged, null, 2));
-  fs.writeFileSync(path.join(profile.config, 'model.json'), JSON.stringify({ ...model, setupComplete: true }, null, 2));
+  if (model) fs.writeFileSync(path.join(profile.config, 'model.json'), JSON.stringify({ ...model, setupComplete: true }, null, 2));
   return profile;
 }
 
@@ -1004,13 +1006,16 @@ async function main() {
   const report = [];
   let failures = 0;
   for (const scenario of selected) {
-    const profile = prepareProfile(scenario.name, null);
+    const profile = prepareProfile(scenario.name, null, scenario.live);
     let context;
     let app;
     const entry = { scenario: scenario.name, profile: profile.dir };
     try {
       context = await scenario.setup(profile);
       if (context.provider) prepareProfileModel(profile, context.provider.model);
+      if (!fs.existsSync(path.join(profile.config, 'model.json'))) {
+        throw new Error('no saved model configuration to run against');
+      }
       app = await launchApp(profile);
       log(scenario.name, `开始：${context.goal}`);
       const result = await runGoal(app.page, {
