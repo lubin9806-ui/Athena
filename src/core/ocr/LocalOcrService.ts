@@ -25,7 +25,7 @@ const LANGUAGE_FILES = [
 ] as const;
 
 export class LocalOcrService {
-  private readonly runtimeRoot: string;
+  private runtimeRoot: string;
   private active = false;
   private closed = false;
   private currentWorker: Worker | null = null;
@@ -111,17 +111,29 @@ export class LocalOcrService {
     const rootStat = fs.lstatSync(this.runtimeRoot);
     if (!rootStat.isDirectory() || rootStat.isSymbolicLink()) throw new Error('OCR runtime root must be a real directory.');
     const realRoot = fs.realpathSync.native(this.runtimeRoot);
-    if (realRoot !== this.runtimeRoot) throw new Error('OCR runtime root changed during validation.');
+    const realRootStat = fs.lstatSync(realRoot);
+    if (
+      !realRootStat.isDirectory()
+      || realRootStat.isSymbolicLink()
+      || realRootStat.dev !== rootStat.dev
+      || realRootStat.ino !== rootStat.ino
+    ) {
+      throw new Error('OCR runtime root changed during validation.');
+    }
+    // Windows runners may spell the same temporary directory through an 8.3
+    // alias. Keep the verified canonical path for every subsequent write and
+    // for shutdown cleanup instead of treating that spelling change as a swap.
+    this.runtimeRoot = realRoot;
     for (const item of LANGUAGE_FILES) {
       const packageData = require(item.packageName) as { code?: string; gzip?: boolean; langPath?: string };
       if (packageData.code !== item.code || packageData.gzip !== true || typeof packageData.langPath !== 'string') {
         throw new Error(`Bundled OCR language package is invalid: ${item.code}`);
       }
       const source = path.join(packageData.langPath, `${item.code}.traineddata.gz`);
-      const target = path.join(this.runtimeRoot, `${item.code}.traineddata.gz`);
+      const target = path.join(realRoot, `${item.code}.traineddata.gz`);
       copyVerifiedLanguageFile(source, target, realRoot);
     }
-    return this.runtimeRoot;
+    return realRoot;
   }
 
   private throwIfAborted(signal?: AbortSignal): void {
