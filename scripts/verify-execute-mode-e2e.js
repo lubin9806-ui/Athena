@@ -384,9 +384,9 @@ async function runGoal(page, scenario, profile) {
         if (decision.persist) await page.click('#execute-stream .exec-secret-remember input');
       }
       await page.click(`#execute-stream button[data-agent-approval-id="${button.id}"][data-decision="${button.decision}"][data-scope="${button.scope}"]`);
-      await page.waitFor(`!document.querySelector('#execute-stream button[data-agent-approval-id="${button.id}"]')`, {
+      await page.waitFor(`!document.querySelector('#execute-stream button[data-agent-approval-id="${button.id}"]:not(:disabled)')`, {
         timeoutMs: 60_000,
-        label: 'the decided card to leave the list',
+        label: 'the decided card to become inactive',
       });
       continue;
     }
