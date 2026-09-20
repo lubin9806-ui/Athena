@@ -55,13 +55,23 @@ async function main() {
 
     const project = memory.createProject({ title: 'Packaged PDF verification' });
     const documents = new ProjectDocumentService({ ocr: service });
-    const imported = await documents.importFiles(project.id, [textPdf]);
-    assert.match(imported[0].text, /PACKAGED PDF TEXT 4826/i, 'packaged project PDF import must preserve selectable text');
+    const imported = await documents.importDocuments(project.id, [textPdf]);
+    assert(imported[0].chunk_count > 0, 'packaged project PDF import must create searchable chunks');
+    const textChunks = memory.searchProjectDocumentChunks(project.id, 'PACKAGED PDF TEXT 4826', 8);
+    assert(
+      textChunks.some(chunk => /PACKAGED PDF TEXT 4826/i.test(chunk.text)),
+      'packaged project PDF import must preserve selectable text',
+    );
 
     const scannedPdf = path.join(scratch, 'packaged-scan.pdf');
     await renderPdf(scannedPdf, `<img src="data:image/png;base64,${scanImage.toString('base64')}">`);
     const scanned = await documents.importScannedPdfs(project.id, [scannedPdf]);
-    assert.match(scanned[0].text, /PACKAGED\s+OCR\s+7319/i, 'packaged scanned PDF import must use local OCR');
+    assert(scanned[0].chunk_count > 0, 'packaged scanned PDF import must create searchable chunks');
+    const scannedChunks = memory.searchProjectDocumentChunks(project.id, 'PACKAGED OCR 7319', 8);
+    assert(
+      scannedChunks.some(chunk => /PACKAGED\s+OCR\s+7319/i.test(chunk.text)),
+      'packaged scanned PDF import must use local OCR',
+    );
 
     console.log('ATHENA_PACKAGED_OCR_OK asar=worker+wasm languages=chi_sim,eng native=canvas chatPdf=ok projectPdf=ok scannedPdfOcr=ok');
   } catch (error) {
