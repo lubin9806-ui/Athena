@@ -116,7 +116,16 @@ const {
   assert.equal(document.status, 'completed');
   const documentPath = document.metadata.artifactPath;
   assert(fs.existsSync(documentPath));
-  assert.equal(path.relative(projectRoot, documentPath).startsWith('..'), false);
+  // Windows runners can expose os.tmpdir() through an 8.3 alias while
+  // fs.realpathSync.native() returns the long path. Compare canonical paths so
+  // the containment assertion tests the workspace boundary, not path spelling.
+  const canonicalProjectRoot = fs.realpathSync.native(projectRoot);
+  const canonicalDocumentPath = fs.realpathSync.native(documentPath);
+  const relativeDocumentPath = path.relative(canonicalProjectRoot, canonicalDocumentPath);
+  assert.equal(
+    relativeDocumentPath === '' || (!relativeDocumentPath.startsWith('..') && !path.isAbsolute(relativeDocumentPath)),
+    true,
+  );
   assert.match(fs.readFileSync(documentPath, 'utf8'), /# Local report/);
   const replayed = await execute(registry, 'create_document_artifact', {
     title: 'Local report', format: 'markdown', filename: 'report', sections: [{ heading: 'Result', body: 'Done.' }],
