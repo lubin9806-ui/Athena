@@ -685,8 +685,14 @@ function createWindow(): void {
                clientX: switchRect.left + switchRect.width * 0.6,
                clientY: switchRect.top + switchRect.height * 0.5,
              }));
-             const liquidPressReactive = spaceSwitch.dataset.liquidPressed === 'true';
-             if (!liquidPressReactive) return false;
+             const liquidMotionReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+             const liquidPressReactive = liquidMotionReduced
+               ? spaceSwitch.dataset.liquidPressed !== 'true'
+               : spaceSwitch.dataset.liquidPressed === 'true';
+             if (!liquidPressReactive) return failSmokeGate('liquid-press', {
+               reducedMotion: liquidMotionReduced,
+               pressed: spaceSwitch.dataset.liquidPressed || null,
+             });
 
              const inputLiquidCanvas = inputForm.querySelector('.liquid-glass-canvas');
              const inputLiquidCanvasRect = inputLiquidCanvas?.getBoundingClientRect();

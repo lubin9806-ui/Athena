@@ -4,7 +4,7 @@ const os = require('os');
 const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
-const scratch = path.join(ROOT, 'temp', 'voice-service-verification');
+const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'athena-voice-service-'));
 const fixtureRoot = path.join(scratch, 'voice-scripts');
 const modelRoot = path.join(scratch, 'whisper-model');
 const tempRoot = path.join(scratch, 'voice-temp');
@@ -16,7 +16,6 @@ process.env.ATHENA_VOICE_TEMP_DIR = tempRoot;
 process.env.ATHENA_PYTHON = process.execPath;
 process.env.ATHENA_WHISPER_MODEL_DIR = modelRoot;
 
-fs.rmSync(scratch, { recursive: true, force: true });
 fs.mkdirSync(fixtureRoot, { recursive: true });
 fs.mkdirSync(modelRoot, { recursive: true });
 fs.mkdirSync(tempRoot, { recursive: true });
@@ -128,17 +127,18 @@ async function main() {
   // The fake runtime never completes the handshake, which is also what proves
   // every assertion above ran through the one-shot fallback.
   service.dispose();
-  removeScratch();
+  await removeScratch();
   console.log('ATHENA_VOICE_SERVICE_OK cancelled=classified input=validated fallback=one-shot');
 }
 
-function removeScratch() {
-  // A killed child releases its working directory a moment later on Windows.
-  fs.rmSync(scratch, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 });
+async function removeScratch() {
+  // A killed child releases its working directory asynchronously on Windows.
+  // Promise-based retries yield to that exit instead of blocking it with rmSync.
+  await fs.promises.rm(scratch, { recursive: true, force: true, maxRetries: 100, retryDelay: 100 });
 }
 
 main().catch(async (error) => {
   console.error(error);
   process.exitCode = 1;
-  try { removeScratch(); } catch { /* Reporting the real failure matters more. */ }
+  try { await removeScratch(); } catch { /* Reporting the real failure matters more. */ }
 });
