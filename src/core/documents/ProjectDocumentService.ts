@@ -320,13 +320,14 @@ async function extractDocument(
   const importModule = new Function('specifier', 'return import(specifier)') as (specifier: string) => Promise<any>;
   const pdfjs = await importModule('pdfjs-dist/legacy/build/pdf.mjs');
   const task = pdfjs.getDocument({ data: new Uint8Array(bytes), disableWorker: true, isEvalSupported: false, useSystemFonts: false });
-  const document = await task.promise;
-  const pageCount = document.numPages;
-  if (pageCount > MAX_PDF_PAGES) throw new Error(`PDF exceeds the ${MAX_PDF_PAGES}-page limit.`);
   const sections: ExtractedSection[] = [];
   const missingPages: Array<{ page: number; bytes: Buffer }> = [];
   let chars = 0;
+  let pageCount = 0;
   try {
+    const document = await task.promise;
+    pageCount = document.numPages;
+    if (pageCount > MAX_PDF_PAGES) throw new Error(`PDF exceeds the ${MAX_PDF_PAGES}-page limit.`);
     if (options.ocrMissingPages && pageCount > MAX_OCR_PDF_PAGES) throw new Error(`Local OCR PDFs are limited to ${MAX_OCR_PDF_PAGES} pages.`);
     for (let pageNumber = 1; pageNumber <= pageCount; pageNumber += 1) {
       const page = await document.getPage(pageNumber);
@@ -355,7 +356,7 @@ async function extractDocument(
       });
     }
   } finally {
-    await document.destroy();
+    await task.destroy();
   }
   sections.sort((left, right) => (left.page || 0) - (right.page || 0));
   return {

@@ -198,7 +198,12 @@ function prepareProfile(name, modelOverride) {
     ...settings,
     general: { ...settings.general, closeToTray: false, launchAtStartup: false },
     conversation: { ...settings.conversation, activeMode: 'companion', saveHistory: true, semanticRouting: false },
-    tools: { ...settings.tools, modePermissions: { create: 'off', companion: 'off', reason: 'off', execute: 'full' }, allowExternalNetwork: false },
+    tools: {
+      ...settings.tools,
+      modePermissions: { create: 'off', companion: 'off', reason: 'off', execute: 'full' },
+      allowExternalNetwork: false,
+      autoApprove: false,
+    },
     webSearch: { ...settings.webSearch, enabled: false },
     memory: { ...settings.memory, enabled: false, autoExtract: false },
     personalization: { ...settings.personalization, initiative: 'low', proactiveCare: false, initiativeMessages: false },
