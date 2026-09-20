@@ -1164,8 +1164,10 @@ function createWindow(): void {
              } else {
                chatContainer.dataset.streaming = previousStreamingState;
              }
-             const streamingScrollPolicyReady = idleScrollBehavior === 'smooth'
-               && streamingScrollBehavior === 'auto';
+             const scrollMotionReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+               || appShell.dataset.animation === 'low';
+             const streamingScrollPolicyReady = streamingScrollBehavior === 'auto'
+               && (scrollMotionReduced ? idleScrollBehavior === 'auto' : idleScrollBehavior === 'smooth');
              const historyMotionSuppressed = ['user', 'assistant'].every(role => {
                const historyMotionProbe = document.createElement('div');
                historyMotionProbe.className = 'message ' + role;
@@ -1222,6 +1224,9 @@ function createWindow(): void {
                 composerMetaVisible,
                 layoutAligned,
                 presenceLayoutReadable,
+                scrollMotionReduced,
+                idleScrollBehavior,
+                streamingScrollBehavior,
                 streamingScrollPolicyReady,
                 historyMotionSuppressed,
                 webSearchForceReactive,

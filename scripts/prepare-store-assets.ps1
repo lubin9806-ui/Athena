@@ -1,7 +1,8 @@
 [CmdletBinding()]
 param(
   [string]$Source = "",
-  [string]$Output = ""
+  [string]$Output = "",
+  [switch]$Force
 )
 
 $ErrorActionPreference = "Stop"
@@ -13,6 +14,20 @@ $sourcePath = (Resolve-Path -LiteralPath $Source).Path
 New-Item -ItemType Directory -Force -Path $Output | Out-Null
 
 function Save-Asset([string]$Name, [int]$Width, [int]$Height, [double]$IconScale = 0.82) {
+  $target = Join-Path $Output $Name
+  if ((Test-Path -LiteralPath $target) -and -not $Force) {
+    $existingImage = [System.Drawing.Image]::FromFile($target)
+    try {
+      if ($existingImage.Width -ne $Width -or $existingImage.Height -ne $Height) {
+        throw "Store asset has invalid dimensions: $Name ($($existingImage.Width)x$($existingImage.Height), expected ${Width}x${Height})."
+      }
+    } finally {
+      $existingImage.Dispose()
+    }
+    Write-Host "ATHENA_STORE_ASSET_OK $Name ${Width}x${Height} reused"
+    return
+  }
+
   $sourceImage = [System.Drawing.Image]::FromFile($sourcePath)
   try {
     $bitmap = [System.Drawing.Bitmap]::new($Width, $Height, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
@@ -30,9 +45,8 @@ function Save-Asset([string]$Name, [int]$Width, [int]$Height, [double]$IconScale
       } finally {
         $graphics.Dispose()
       }
-      $target = Join-Path $Output $Name
       $bitmap.Save($target, [System.Drawing.Imaging.ImageFormat]::Png)
-      Write-Host "ATHENA_STORE_ASSET_OK $Name ${Width}x${Height}"
+      Write-Host "ATHENA_STORE_ASSET_OK $Name ${Width}x${Height} generated"
     } finally {
       $bitmap.Dispose()
     }
