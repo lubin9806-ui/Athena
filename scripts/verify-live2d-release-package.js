@@ -19,8 +19,6 @@ const FORBIDDEN_PACKAGE_PATTERNS = [
 ];
 
 const BUILDER_EXCLUSIONS = [
-  '!assets/avatar/**/*',
-  '!assets/vendor/live2d/**/*',
   '!dist/app/avatar/**/*',
   '!dist/app/live2d-preload.js',
   '!dist/core/avatar/**/*',
@@ -39,11 +37,22 @@ function verifySourceContract() {
   assert.match(read('src/shared/releaseFeatures.ts'), /live2d:\s*false/, 'Live2D release feature must remain disabled');
 
   const vite = read('vite.config.mts');
-  assert.match(vite, /disabledPaths\s*=\s*\[\s*['"]avatar['"]\s*\]/, 'Vite must prune the complete renderer avatar tree');
+  assert.match(
+    vite,
+    /disabledPaths\s*=\s*\[\s*['"]avatar['"]\s*,\s*['"]steam['"]\s*,\s*['"]vendor\/live2d['"]\s*\]/,
+    'Vite must prune the complete renderer avatar, Steam, and vendored Live2D trees',
+  );
   assert.doesNotMatch(vite, /\blive2dPet\s*:/, 'Vite must not build the disabled desktop-pet entry point');
 
   for (const config of ['electron-builder.yml', 'electron-builder.store.yml', 'electron-builder.steam.yml']) {
     const builder = read(config);
+    const excludesAllSourceAssets = builder.includes('!assets/**/*');
+    for (const exclusion of ['!assets/avatar/**/*', '!assets/vendor/live2d/**/*']) {
+      assert.ok(
+        excludesAllSourceAssets || builder.includes(exclusion),
+        `${config} is missing disabled Live2D asset exclusion: ${exclusion}`,
+      );
+    }
     for (const exclusion of BUILDER_EXCLUSIONS) {
       assert.ok(builder.includes(exclusion), `${config} is missing disabled Live2D exclusion: ${exclusion}`);
     }
