@@ -39,7 +39,8 @@ import {
 import { Conversation } from '../ai/Conversation';
 import { EmotionEngine } from '../ai/Emotion';
 import { buildChatPrompt } from '../ai/PromptBuilder';
-import { getAppSettings, resolveToolSettingsForMode, shouldSaveHistory } from '../config/SettingsStore';
+import { getAppSettings, getModelSettings, resolveToolSettingsForMode, shouldSaveHistory } from '../config/SettingsStore';
+import { OllamaMemoryEmbeddingProvider } from '../ai/OllamaMemoryEmbeddingProvider';
 import { WebSearchService } from '../web/WebSearchService';
 import { WebResearchAgent } from '../web/WebResearchAgent';
 import { SearchApiClient } from '../web/SearchApiClient';
@@ -49,11 +50,17 @@ import {
   AgentRunner,
   AgentStore,
   ProjectWorkspaceService,
+  SecretAgentToolBridge,
   ToolRegistry,
+  onAgentStoreActivity,
   type AgentRunnerResult,
   type UpdateAgentWorkspaceInput,
 } from '../agent';
+import { resolveExecutionCredential, setExecutionCredential } from '../ai/CredentialStore';
 import { ComputerAgentToolBridge } from '../tools/AgentComputerTools';
+import { buildExecuteSession, type ExecuteSessionSnapshot } from '../../shared/executeTimeline';
+import { describeAgentToolStep, describeAgentToolTarget, presentAgentApproval } from '../../shared/agentRunPresentation';
+import { summarizeAgentToolOutcome } from '../../shared/agentVerification';
 import { SkillAgentToolBridge, SkillLibrary } from '../skills';
 import { McpIntegrationHost, ResearchAgentToolBridge } from '../integrations';
 import {
@@ -109,6 +116,7 @@ import {
   queueExtractedMemory,
   rebuildMemoryIndex,
   retrieveContext,
+  retrieveContextWithSemanticHandoff,
   saveChatMessage,
   saveMessage,
 } from '../../memory';
@@ -228,6 +236,7 @@ export class AthenaController {
   private readonly agentStore: AgentStore;
   private readonly agentTools: ToolRegistry;
   private readonly agentComputerTools: ComputerAgentToolBridge;
+  private readonly secretTools: SecretAgentToolBridge;
   private readonly projectWorkspace: ProjectWorkspaceService;
   private readonly skillLibrary: SkillLibrary;
   private readonly skillTools: SkillAgentToolBridge;
@@ -241,6 +250,8 @@ export class AthenaController {
   private readonly documents: ProjectDocumentService;
   private messageRouter: AgentMessageRouter;
   private agentRunner: AgentRunner;
+  /** run id → the chat window it belongs to, so live activity can name its session. */
+  private readonly runWindowIds = new Map<string, number | null>();
   private initialized = false;
   private initializePromise: Promise<void> | null = null;
   private memoryMaintenanceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -281,7 +292,11 @@ export class AthenaController {
     this.agentComputerTools = new ComputerAgentToolBridge({
       registry: this.agentTools,
       getSettings: runId => this.resolveAgentToolSettings(runId),
+      resolveWorkspaceRoots: runId => this.resolveProjectRootsForRun(runId),
+      resolveCredential: reference => resolveExecutionCredential(reference),
     });
+    this.secretTools = new SecretAgentToolBridge(this.agentTools);
+    this.secretTools.refresh();
     this.projectWorkspace = new ProjectWorkspaceService(this.agentStore);
     this.skillLibrary = new SkillLibrary();
     this.skillTools = new SkillAgentToolBridge(this.agentTools, this.skillLibrary);
@@ -332,7 +347,9 @@ export class AthenaController {
         return this.attachments.resolveModelImages(task.chatWindowId, attachmentIds);
       },
     });
-    this.agentRunner = new AgentRunner(this.llm, this.agentTools, undefined, this.agentStore);
+    this.agentRunner = new AgentRunner(this.llm, this.agentTools, undefined, this.agentStore, {
+      isAutoApproveEnabled: () => getAppSettings().tools.autoApprove === true,
+    });
   }
 
   async initialize(): Promise<void> {
@@ -581,7 +598,7 @@ export class AthenaController {
       }
     }
 
-    const retrieved = buildRetrievedContext(
+    const retrieved = await buildRetrievedContext(
       userMessage,
       settings.memory,
       effectiveSaveHistory,
@@ -840,7 +857,9 @@ export class AthenaController {
     this.conversation.shutdown();
     this.llm = new LLMClient();
     this.conversation = new Conversation(this.llm);
-    this.agentRunner = new AgentRunner(this.llm, this.agentTools, undefined, this.agentStore);
+    this.agentRunner = new AgentRunner(this.llm, this.agentTools, undefined, this.agentStore, {
+      isAutoApproveEnabled: () => getAppSettings().tools.autoApprove === true,
+    });
     this.messageRouter = this.createMessageRouter();
     // The initiative engine holds a model client, so it has to be rebuilt too or it
     // would keep calling the provider the user just switched away from.
@@ -891,6 +910,44 @@ export class AthenaController {
 
   getAgentWorkspace(projectId: number, selectedTaskId?: string): AgentProjectWorkspaceSnapshot {
     return this.projectWorkspace.getSnapshot(projectId, selectedTaskId);
+  }
+
+  /** One chat window read as one execute conversation: what was said, done, decided. */
+  getExecuteSession(chatWindowId: number, runLimit = 8): ExecuteSessionSnapshot {
+    const chatWindow = getChatWindow(chatWindowId);
+    if (!chatWindow) throw new Error(`Chat window not found: ${chatWindowId}`);
+    const runs = this.agentStore.listWindowRuns(chatWindowId, runLimit)
+      .slice()
+      .reverse()
+      .map(run => this.agentStore.getRunSnapshot(run.id));
+    return buildExecuteSession({
+      chatWindowId,
+      projectId: chatWindow.project_id ?? null,
+      title: chatWindow.title,
+      runs,
+    });
+  }
+
+  /**
+   * Tells the caller which window changed whenever a run records anything, so a
+   * running session can be watched instead of only reported when it ends.
+   */
+  watchExecuteActivity(listener: (change: { chatWindowId: number; runId: string; type: string }) => void): () => void {
+    return onAgentStoreActivity(({ runId, type }) => {
+      const chatWindowId = this.chatWindowForRun(runId);
+      if (chatWindowId) listener({ chatWindowId, runId, type });
+    });
+  }
+
+  private chatWindowForRun(runId: string): number | null {
+    const cached = this.runWindowIds.get(runId);
+    if (cached !== undefined) return cached;
+    const run = this.agentStore.getRun(runId);
+    const task = run ? this.agentStore.getTask(run.taskId) : null;
+    const chatWindowId = task?.chatWindowId ?? null;
+    if (this.runWindowIds.size > 200) this.runWindowIds.clear();
+    this.runWindowIds.set(runId, chatWindowId);
+    return chatWindowId;
   }
 
   updateAgentWorkspace(
@@ -985,8 +1042,22 @@ export class AthenaController {
     const staleDraft = this.projectWorkspace.findPendingDraftTask(chatWindow.id);
     // A draft left by the old flow would otherwise sit in the window forever.
     if (staleDraft) this.agentStore.transitionTask(staleDraft.id, 'cancelled', staleDraft.revision);
+    // One window is one session: while a run of this window is still open, this
+    // message belongs to it. Replying to a run that had stopped to ask for an API
+    // key used to start a second task that knew nothing about the first, so the
+    // key arrived as a brand-new request (ATH-EXEC-006).
+    const openRun = this.agentStore.listWindowRuns(chatWindow.id, 1)[0] || null;
+    if (openRun && !['completed', 'failed', 'cancelled'].includes(openRun.status)) {
+      const continued = await this.continueOpenSessionRun(openRun.id, {
+        content: attachmentText.length > 0 ? withChatAttachmentContext(goal, attachmentText) : goal,
+        chatMessageId: savedUser.chatMessageId ?? null,
+        images: modelImages,
+        onState,
+      });
+      if (continued) return continued;
+    }
     const task = this.startExecutionTask(projectId, chatWindow.id, goal);
-    const retrievedForExecution = buildRetrievedContext(
+    const retrievedForExecution = await buildRetrievedContext(
       task.spec.goal,
       settings.memory,
       settings.conversation.saveHistory,
@@ -1001,7 +1072,10 @@ export class AthenaController {
       retrievedContext: { ...retrievedForExecution, recentMessages: [] },
       mode: 'execute',
     }).find(message => message.role === 'system')?.content || '';
-    const executionMessages = this.projectWorkspace.buildExecutionMessages(task.id, executionRuntimePrompt);
+    const executionMessages = this.projectWorkspace.buildExecutionMessages(task.id, executionRuntimePrompt, {
+      currentChatMessageId: savedUser.chatMessageId ?? null,
+      narration: settings.conversation.executeNarration,
+    });
     const current = executionMessages[executionMessages.length - 1];
     if (attachmentText.length > 0) current.content = withChatAttachmentContext(current.content, attachmentText);
     if (modelImages.length > 0) {
@@ -1015,6 +1089,7 @@ export class AthenaController {
       approvalMode: 'risk_based',
       scene: 'project-workspace',
       strategy: 'native-tools',
+      session: { chatWindowId: chatWindow.id, lastChatMessageId: savedUser.chatMessageId ?? null },
     });
     // The ceiling is the permission the run was granted at the moment it started.
     this.agentStore.initializeRunPermissionCeiling(
@@ -1022,8 +1097,12 @@ export class AthenaController {
       resolveToolSettingsForMode(getAppSettings().tools, 'execute').permissionLevel,
     );
     onState?.(this.agentStore.getRunSnapshot(handle.run.id));
-    const result = this.materializeAgentResultArtifact(await handle.result);
+    let result = await handle.result;
     onState?.(result.snapshot);
+    // A message can land in the gap between the run's last inbox check and its
+    // final answer. It still belongs to this window, so it starts the next turn
+    // here rather than waiting for the person to send it again.
+    result = await this.followUpOnUnreadSessionMessages(result, projectId, chatWindow.id, executionRuntimePrompt, onState);
     recordDataActivity('tool', 'durable-agent-run', {
       projectId,
       taskId: result.snapshot.task.id,
@@ -1032,7 +1111,88 @@ export class AthenaController {
       stepCount: result.snapshot.steps.length,
       artifactCount: result.snapshot.artifacts.length,
     });
-    return this.agentResultToChatResponse(result, true);
+    // A paused run is still waiting: its card says what it waits on, so writing
+    // that sentence into the window as Athena's reply would be a second, stale
+    // copy of it once the run continues.
+    return this.agentResultToChatResponse(result, result.status !== 'paused');
+  }
+
+  /**
+   * Hands a message to the window's open run instead of starting a parallel one.
+   *
+   * Returns null when the run finished between the lookup and the handover, so
+   * the caller starts the next turn normally.
+   */
+  private async continueOpenSessionRun(
+    runId: string,
+    input: {
+      content: string;
+      chatMessageId: number | null;
+      images: ModelImageInput[];
+      onState?: (snapshot: AgentRunSnapshot) => void;
+    },
+  ): Promise<ChatResponse | null> {
+    this.assertAgentRunMayContinue();
+    const submitted = this.agentRunner.submitUserMessage(runId, {
+      content: input.content,
+      chatMessageId: input.chatMessageId,
+      ...(input.images.length > 0 ? { images: input.images.map(image => ({ ...image })) } : {}),
+    });
+    if (submitted.outcome === 'terminal') return null;
+    const snapshot = this.agentStore.getRunSnapshot(runId);
+    input.onState?.(snapshot);
+    if (submitted.outcome === 'queued') {
+      // The run is mid-round in this process; it reads the message before its next
+      // model call, and the turn that is already awaiting its result reports back.
+      return {
+        content: '',
+        emotion: this.emotion.analyzeResponse(''),
+        agentExecution: { taskId: snapshot.task.id, runId, status: 'running' },
+      };
+    }
+    const result = await submitted.result;
+    input.onState?.(result.snapshot);
+    this.persistTerminalAgentResponse(result);
+    return this.agentResultToChatResponse(result, false);
+  }
+
+  /** Starts the next turn for messages a finished run never got to read. */
+  private async followUpOnUnreadSessionMessages(
+    result: AgentRunnerResult,
+    projectId: number,
+    chatWindowId: number,
+    runtimeSystemContext: string,
+    onState?: (snapshot: AgentRunSnapshot) => void,
+  ): Promise<AgentRunnerResult> {
+    let current = result;
+    for (let guard = 0; guard < 3; guard += 1) {
+      if (current.status === 'paused') return current;
+      const unread = this.agentRunner.unreadSessionMessages(current.runId);
+      if (unread.length === 0) return current;
+      const task = this.startExecutionTask(projectId, chatWindowId, unread[0].content);
+      const messages = this.projectWorkspace.buildExecutionMessages(task.id, runtimeSystemContext, {
+        currentChatMessageId: unread[0].chatMessageId ?? null,
+        narration: getAppSettings().conversation.executeNarration,
+      });
+      const handle = this.agentRunner.start({
+        taskId: task.id,
+        messages,
+        allowedCapabilities: task.spec.requiredCapabilities.map(item => item.id),
+        approvalMode: 'risk_based',
+        scene: 'project-workspace',
+        strategy: 'native-tools',
+        session: { chatWindowId, lastChatMessageId: unread[0].chatMessageId ?? null },
+      });
+      this.agentStore.initializeRunPermissionCeiling(
+        handle.run.id,
+        resolveToolSettingsForMode(getAppSettings().tools, 'execute').permissionLevel,
+      );
+      for (const extra of unread.slice(1)) this.agentRunner.submitUserMessage(handle.run.id, extra);
+      onState?.(this.agentStore.getRunSnapshot(handle.run.id));
+      current = await handle.result;
+      onState?.(current.snapshot);
+    }
+    return current;
   }
 
   getSkillLibrary(): AgentSkillLibrarySnapshot {
@@ -1273,24 +1433,39 @@ export class AthenaController {
     return this.mcpIntegrations.remove(id, fingerprint);
   }
 
-  async resolveAgentApprovalGroup(
+  /**
+   * One click used to decide every pending item in the group at once, while the card
+   * showed only tool names (ATH-SEC-009). `item` decides exactly one approval and
+   * leaves the run paused until nothing in the group is pending; `group` remains for
+   * an explicit "approve all" on a card that lists every item in full.
+   */
+  async resolveAgentApproval(
     projectId: number,
     runId: string,
     approvalId: string,
     decision: 'approved' | 'denied',
+    scope: 'item' | 'group',
     onState?: (snapshot: AgentRunSnapshot) => void,
   ): Promise<AgentRunnerResult> {
     const snapshot = this.requireAgentRunProject(runId, projectId);
     const approval = snapshot.approvals.find(item => item.id === approvalId);
     if (!approval || approval.status !== 'pending') throw new Error('待审批项不存在或已处理。');
     if (approval.groupId !== snapshot.run.approvalGroupId) throw new Error('审批项不属于当前运行检查点。');
-    for (const item of snapshot.approvals.filter(candidate => (
-      candidate.groupId === approval.groupId && candidate.status === 'pending'
-    ))) {
+    const targets = scope === 'item'
+      ? [approval]
+      : snapshot.approvals.filter(candidate => candidate.groupId === approval.groupId && candidate.status === 'pending');
+    for (const item of targets) {
       this.agentStore.resolveApproval(item.id, decision, {
         actor: 'user',
-        scope: 'approval-group',
+        scope: scope === 'item' ? 'approval-item' : 'approval-group',
       }, item.revision);
+    }
+    const stillPending = this.agentStore.listApprovals(runId)
+      .some(item => item.groupId === approval.groupId && item.status === 'pending');
+    if (stillPending) {
+      const partial = this.agentRunner.inspect(runId);
+      onState?.(partial.snapshot);
+      return partial;
     }
     this.assertAgentRunMayContinue();
     this.agentComputerTools.refresh();
@@ -1298,7 +1473,47 @@ export class AthenaController {
     this.artifactTools.refresh();
     await this.mcpIntegrations.refreshEnabled();
     onState?.(this.agentStore.getRunSnapshot(runId));
-    const result = this.materializeAgentResultArtifact(await this.agentRunner.resume(runId));
+    const result = await this.agentRunner.resume(runId);
+    onState?.(result.snapshot);
+    this.persistTerminalAgentResponse(result);
+    return result;
+  }
+
+  async provideAgentSecret(
+    projectId: number,
+    runId: string,
+    approvalId: string,
+    value: string,
+    persist: boolean,
+    onState?: (snapshot: AgentRunSnapshot) => void,
+  ): Promise<AgentRunnerResult> {
+    const snapshot = this.requireAgentRunProject(runId, projectId);
+    const approval = snapshot.approvals.find(item => item.id === approvalId);
+    if (!approval || approval.status !== 'pending') throw new Error('安全凭据请求不存在或已处理。');
+    if (approval.groupId !== snapshot.run.approvalGroupId) throw new Error('安全凭据请求不属于当前运行检查点。');
+    if (approval.request.kind !== 'tool_call' || approval.request.toolName !== 'request_secret') {
+      throw new Error('该审批项不是安全凭据请求。');
+    }
+    const args = approval.request.arguments;
+    const service = args && typeof args === 'object' && !Array.isArray(args)
+      && typeof (args as Record<string, unknown>).service === 'string'
+      ? String((args as Record<string, unknown>).service)
+      : '';
+    setExecutionCredential(service, value, persist);
+    this.agentStore.resolveApproval(approval.id, 'approved', {
+      actor: 'user',
+      scope: persist ? 'secret-saved' : 'secret-session',
+    }, approval.revision);
+    const stillPending = this.agentStore.listApprovals(runId)
+      .some(item => item.groupId === approval.groupId && item.status === 'pending');
+    if (stillPending) {
+      const partial = this.agentRunner.inspect(runId);
+      onState?.(partial.snapshot);
+      return partial;
+    }
+    this.assertAgentRunMayContinue();
+    onState?.(this.agentStore.getRunSnapshot(runId));
+    const result = await this.agentRunner.resume(runId);
     onState?.(result.snapshot);
     this.persistTerminalAgentResponse(result);
     return result;
@@ -1321,7 +1536,7 @@ export class AthenaController {
     this.researchTools.refresh();
     this.artifactTools.refresh();
     await this.mcpIntegrations.refreshEnabled();
-    const result = this.materializeAgentResultArtifact(await this.agentRunner.resume(runId));
+    const result = await this.agentRunner.resume(runId);
     onState?.(result.snapshot);
     this.persistTerminalAgentResponse(result);
     return result;
@@ -1724,7 +1939,7 @@ export class AthenaController {
         logger.info(`Memory retention applied: daily_summaries=${memoryRetention.dailySummariesGenerated}, llm_refined=${memoryRetention.llmRefinedSummaries ?? 0}, raw_events_pruned=${memoryRetention.rawEventsPruned}`);
       }
       const indexStats = rebuildMemoryIndex();
-      logger.info(`Memory index ready: messages=${indexStats.messages}, profile=${indexStats.profile}, events=${indexStats.events}, daily_memory_summaries=${indexStats.daily_memory_summaries}, procedural_memories=${indexStats.procedural_memories}, memory_facts=${indexStats.memory_facts}, project_notes=${indexStats.project_notes}, project_document_chunks=${indexStats.project_document_chunks}`);
+      logger.info(`Memory index ready: messages=${indexStats.messages}, chat_windows=${indexStats.chat_windows}, profile=${indexStats.profile}, events=${indexStats.events}, daily_memory_summaries=${indexStats.daily_memory_summaries}, procedural_memories=${indexStats.procedural_memories}, memory_facts=${indexStats.memory_facts}, project_notes=${indexStats.project_notes}, project_document_chunks=${indexStats.project_document_chunks}`);
     } catch (error) {
       logger.warn(`Startup maintenance failed: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
@@ -1749,7 +1964,7 @@ export class AthenaController {
       const staleAttachmentsDeleted = this.attachments.cleanupStalePending();
       if (staleAttachmentsDeleted > 0) logger.info(`Scheduled attachment cleanup removed ${staleAttachmentsDeleted} stale pending files.`);
       const indexStats = rebuildMemoryIndex();
-      logger.info(`Scheduled memory index refreshed: messages=${indexStats.messages}, profile=${indexStats.profile}, events=${indexStats.events}, daily_memory_summaries=${indexStats.daily_memory_summaries}, procedural_memories=${indexStats.procedural_memories}, memory_facts=${indexStats.memory_facts}, project_notes=${indexStats.project_notes}`);
+      logger.info(`Scheduled memory index refreshed: messages=${indexStats.messages}, chat_windows=${indexStats.chat_windows}, profile=${indexStats.profile}, events=${indexStats.events}, daily_memory_summaries=${indexStats.daily_memory_summaries}, procedural_memories=${indexStats.procedural_memories}, memory_facts=${indexStats.memory_facts}, project_notes=${indexStats.project_notes}`);
     } catch (error) {
       logger.warn(`Scheduled memory maintenance failed: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
@@ -1924,19 +2139,21 @@ export class AthenaController {
 
   private agentResultToChatResponse(result: AgentRunnerResult, persist: boolean): ChatResponse {
     let content = result.status === 'paused'
-      ? '任务已暂停，执行工作区中有一组操作等待你审批。'
+      ? describePausedAgentRun(result)
       : result.content.trim()
         || (result.status === 'cancelled'
           ? '任务已停止。'
           : result.status === 'failed'
-            ? `任务执行失败：${result.error ? classifyModelFailure(new Error(result.error)).message : '未返回具体错误'}`
-            : result.verification === 'unverified'
-              ? '任务已执行结束。'
-              : '任务已完成。');
+            ? `任务执行失败：${result.failure?.message || '未返回具体错误'}`
+            : result.verification === 'not_applicable' || result.verification === 'verified'
+              ? '任务已完成。'
+              : '任务已执行结束。');
     // Run termination is not acceptance: say so rather than letting the model's
     // own closing claim stand in for evidence.
     if (result.verification === 'unverified') {
       content += '\n\n注意：这次任务没有声明可核对的验收项，以上结果未经自动验证，请自行确认是否达到目标。';
+    } else if (result.verification === 'issues') {
+      content += `\n\n${describeUnresolvedAgentSteps(result)}`;
     }
     const outputGuardrail = evaluateSteamAiContent(content);
     if (!outputGuardrail.allowed) content = steamAiGuardrailRefusal();
@@ -1977,21 +2194,48 @@ export class AthenaController {
     return snapshot;
   }
 
-  private materializeAgentResultArtifact(result: AgentRunnerResult): AgentRunnerResult {
-    if (result.status !== 'completed' || !result.content.trim()) return result;
-    const exists = result.snapshot.artifacts.some(artifact => artifact.kind === 'final_response');
-    if (!exists) {
-      this.agentStore.addArtifact({
-        taskId: result.snapshot.task.id,
-        runId: result.runId,
-        kind: 'final_response',
-        name: `${result.snapshot.task.title} - final response`,
-        metadata: { content: result.content.slice(0, 20_000) },
-        validationStatus: 'not_applicable',
-      });
-    }
-    return { ...result, snapshot: this.agentStore.getRunSnapshot(result.runId) };
+}
+
+/** What the chat says while a run waits, naming what it waits on rather than "a group of operations". */
+function describePausedAgentRun(result: AgentRunnerResult): string {
+  const pending = result.snapshot.approvals.filter(item => (
+    item.status === 'pending' && item.groupId === result.snapshot.run.approvalGroupId
+  ));
+  const gate = pending.find(item => item.request.kind === 'model_retry' || item.request.kind === 'budget_extension');
+  if (gate) {
+    const view = presentAgentApproval(gate);
+    const progress = view.fields.find(field => field.label === '已保留的进度' || field.label === '已用');
+    return [
+      `任务已暂停：${view.explanation}`,
+      progress ? `${progress.label}：${progress.value}。` : '',
+      gate.request.kind === 'model_retry'
+        ? '已完成的步骤不会丢失。可以在执行中心点“从检查点重试”继续，或者结束任务。'
+        : '可以在执行中心选择“继续执行”，或者“停止并总结”。',
+    ].filter(Boolean).join('\n');
   }
+  if (pending.length === 0) return '任务已暂停。';
+  const lines = pending.slice(0, 5).map(item => {
+    const view = presentAgentApproval(item);
+    const target = describeAgentToolTarget(item.request.arguments);
+    return `- ${view.title}${target ? `：${target}` : ''}`;
+  });
+  if (pending.length > 5) lines.push(`- 另外还有 ${pending.length - 5} 项`);
+  return [`任务已暂停，有 ${pending.length} 项操作等你在执行中心逐项确认：`, ...lines].join('\n');
+}
+
+/** Names the steps behind an `issues` verdict so nobody has to open the log to find them. */
+function describeUnresolvedAgentSteps(result: AgentRunnerResult): string {
+  const outcome = summarizeAgentToolOutcome(result.snapshot.steps);
+  const describe = (step: (typeof outcome.failed)[number]) => {
+    const reason = (step.error || '').replace(/\s+/g, ' ').trim();
+    return `- ${describeAgentToolStep(step)}${reason ? `（${reason.length > 120 ? `${reason.slice(0, 119)}…` : reason}）` : ''}`;
+  };
+  const lines = ['注意：下面这些步骤没有成功，而且之后没有被重新成功执行。任务停止运行不代表目标已经达成，请确认它们是否影响结果：'];
+  lines.push(...outcome.failed.slice(0, 5).map(describe));
+  lines.push(...outcome.denied.slice(0, 5).map(describe));
+  const hidden = Math.max(0, outcome.failed.length - 5) + Math.max(0, outcome.denied.length - 5);
+  if (hidden > 0) lines.push(`- 另外还有 ${hidden} 步，详见执行中心`);
+  return lines.join('\n');
 }
 
 function capabilityAccess(capability: string): AgentCapabilityAccess {
@@ -2041,7 +2285,7 @@ async function withOptionalTimeout<T>(promise: Promise<T>, timeoutMs: number | u
   ]);
 }
 
-function buildRetrievedContext(
+async function buildRetrievedContext(
   query: string,
   settings: MemorySettings,
   saveHistory: boolean,
@@ -2049,7 +2293,7 @@ function buildRetrievedContext(
   chatWindowId?: number,
   excludeChatMessageId?: number,
   temporaryChat = false,
-): RetrievedContext {
+): Promise<RetrievedContext> {
   const depth = settings.retrievalDepth;
   const recentMessageCount = Math.max(10, Math.min(20, depth > 0 ? depth * 2 : 10));
   if (!settings.enabled || temporaryChat) {
@@ -2058,7 +2302,7 @@ function buildRetrievedContext(
 
   let context: RetrievedContext;
   try {
-    context = retrieveContext({
+    const retrieveOptions = {
       query,
       maxProfileFacts: settings.retrieveProfile ? depth * 2 : 0,
       maxProceduralMemories: settings.retrieveProfile ? Math.max(4, Math.ceil(depth / 2)) : 0,
@@ -2070,7 +2314,16 @@ function buildRetrievedContext(
       recentMessageCount: chatWindowId ? recentMessageCount + 1 : (saveHistory ? recentMessageCount : 0),
       conversationMode: mode,
       chatWindowId,
-    });
+    };
+    if (settings.semanticRetrieval) {
+      const ollama = getModelSettings().ollama;
+      context = await retrieveContextWithSemanticHandoff(
+        retrieveOptions,
+        new OllamaMemoryEmbeddingProvider({ endpoint: ollama.baseUrl, model: settings.embeddingModel }),
+      );
+    } else {
+      context = retrieveContext(retrieveOptions);
+    }
   } catch (error) {
     logger.warn(`Memory retrieval failed; continuing with current-window context only: ${error instanceof Error ? error.message : String(error)}`);
     return buildWindowOnlyRetrievedContext(chatWindowId, recentMessageCount, excludeChatMessageId);

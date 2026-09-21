@@ -13,7 +13,8 @@
   background: var(--athena-bg);
   grid-template-rows: 64px 58px minmax(0, 1fr) auto;
 }
-#app-shell[data-interface-preset="daylight"][data-sidebar="open"] { grid-template-columns: 252px minmax(0, 1fr); }
+#app-shell[data-interface-preset="daylight"][data-space="companion"][data-sidebar="open"] { grid-template-columns: 84px minmax(0, 1fr); }
+#app-shell[data-interface-preset="daylight"][data-space="work"][data-sidebar="open"] { grid-template-columns: 272px minmax(0, 1fr); }
 #app-shell[data-interface-preset="daylight"][data-sidebar="closed"] { grid-template-columns: 0 minmax(0, 1fr); }
 #app-shell[data-interface-preset="daylight"][data-theme="night"] {
   --athena-bg: #18201d; --athena-surface: #222d27; --athena-surface-soft: #2d3a32;
@@ -28,7 +29,7 @@
 #app-shell[data-interface-preset="daylight"] #chat-window-bar { background: var(--sidebar-bg); border-right: 1px solid var(--athena-line); box-shadow: none; backdrop-filter: none; }
 #app-shell[data-interface-preset="daylight"] #chat-window-new { min-height: 42px; color: var(--athena-on-accent); background: var(--athena-accent); }
 #app-shell[data-interface-preset="daylight"] #stage { background: transparent; }
-#app-shell[data-interface-preset="daylight"] #presence-panel { text-align: left; align-items: flex-start; width: min(740px, calc(100% - 72px)); margin-inline: auto; }
+#app-shell[data-interface-preset="daylight"] #presence-panel { text-align: left; align-items: flex-start; }
 #app-shell[data-interface-preset="daylight"] .presence-title { font-size: clamp(26px, 2.7vw, 36px); font-weight: 500; letter-spacing: -.045em; line-height: 1.5; text-wrap: balance; }
 #app-shell[data-interface-preset="daylight"] .presence-copy { margin-top: 12px; color: var(--athena-muted); font-size: 15px; line-height: 1.8; }
 #app-shell[data-interface-preset="daylight"] #presence-actions { justify-content: flex-start; margin-top: 24px; }

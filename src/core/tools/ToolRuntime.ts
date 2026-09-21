@@ -4,8 +4,10 @@ import type { ModelResponse, ModelToolDefinition } from '../ai/model';
 import { createLogger } from '../../engine/Logger';
 import {
   ComputerToolService,
+  resolveComputerPath,
   type ComputerToolResult,
 } from './ComputerTools';
+import { describeAutoExecutedLocation } from './AutoExecutedLocations';
 import {
   permissionLabel,
   toolPermissionPrompt,
@@ -692,6 +694,29 @@ export function buildToolConfirmation(
   toolLabel: string,
   args: Record<string, unknown>,
 ): ToolConfirmationRequest | null {
+  const autoExecuted = autoExecutedWriteTarget(toolName, args);
+  if (autoExecuted) {
+    return {
+      toolName,
+      toolLabel,
+      risk: 'auto-executed-location',
+      explanation: `目标位于${autoExecuted.location}：${autoExecuted.path}。写到这里等于安排代码自动运行，所以无论当前权限档都需要你确认。`,
+      inputPreview: buildToolArgumentPreview(args),
+    };
+  }
+
+  // Appending changes an existing file just as overwriting does, and creates it when
+  // it is missing; only the overwrite spelling used to be treated as destructive.
+  if (toolName === 'write_file' && String(args.mode || 'overwrite') === 'append') {
+    return {
+      toolName,
+      toolLabel,
+      risk: 'destructive-file',
+      explanation: '此操作会向文件末尾追加内容（文件不存在时会新建），会改变这个文件，Athena 无法自动撤销。',
+      inputPreview: buildToolArgumentPreview(args),
+    };
+  }
+
   const destructiveFileTools = new Set([
     'delete_path',
     'move_path',
@@ -744,6 +769,31 @@ export function buildToolConfirmation(
   return null;
 }
 
+const WRITE_TARGET_ARGUMENTS: Readonly<Record<string, readonly string[]>> = {
+  write_file: ['path'],
+  replace_in_file: ['path'],
+  copy_path: ['destination'],
+  move_path: ['destination'],
+  move_matching_files: ['destination_directory'],
+  make_directory: ['path'],
+};
+
+function autoExecutedWriteTarget(toolName: string, args: Record<string, unknown>): { location: string; path: string } | null {
+  for (const key of WRITE_TARGET_ARGUMENTS[toolName] || []) {
+    const value = args[key];
+    if (typeof value !== 'string' || !value.trim()) continue;
+    let resolved: string;
+    try {
+      resolved = resolveComputerPath(value);
+    } catch {
+      continue;
+    }
+    const location = describeAutoExecutedLocation(resolved);
+    if (location) return { location, path: resolved };
+  }
+  return null;
+}
+
 function isExternalNetworkTarget(value: unknown): boolean {
   if (typeof value !== 'string') return true;
   try {
@@ -779,7 +829,7 @@ function redactPreviewValue(value: unknown, key = '', depth = 0): unknown {
   return value;
 }
 
-function redactInlineSecrets(value: string): string {
+export function redactInlineSecrets(value: string): string {
   return value
     .replace(/(authorization|cookie|password|passwd|passphrase|secret|token|api[_-]?key|credential)\s*[:=]\s*[^\s,;]+/gi, '$1=[REDACTED]')
     .replace(/\b(?:sk|sk-proj)-[A-Za-z0-9_-]{8,}\b/g, '[REDACTED_KEY]');

@@ -53,6 +53,7 @@ jobs:
       - name: Verify shared product gates
         shell: pwsh
         run: |
+          $PSNativeCommandUseErrorActionPreference = $true
           npm.cmd run test:security
           npm.cmd run test:privacy
           npm.cmd run test:supply-chain
@@ -68,6 +69,7 @@ jobs:
       - name: Prove checkout remained clean
         shell: pwsh
         run: |
+          $PSNativeCommandUseErrorActionPreference = $true
           git diff --exit-code
           if (git status --porcelain --untracked-files=all) { throw 'Store build created an unignored source-tree file.' }
       - uses: actions/upload-artifact@v4

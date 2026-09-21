@@ -21,6 +21,7 @@ import {
   normalizeModelIds,
   normalizeToolCall,
   normalizeUsage,
+  parseToolCallsBeforeLimit,
 } from './ProtocolUtils';
 
 export interface OpenAICompatibleAdapterConfig {
@@ -141,7 +142,10 @@ export class OpenAICompatibleAdapter implements ModelAdapter {
     const data = await response.json() as Record<string, any>;
     const choice = data.choices?.[0];
     if (!choice?.message) throw new ModelProtocolError('Provider response did not contain choices[0].message');
-    const toolCalls = parseOpenAIToolCalls(choice.message.tool_calls, `${this.providerName}-call`);
+    const toolCalls = parseToolCallsBeforeLimit(
+      choice.finish_reason,
+      () => parseOpenAIToolCalls(choice.message.tool_calls, `${this.providerName}-call`),
+    );
     return {
       provider: this.providerName,
       model: typeof data.model === 'string' ? data.model : this.modelName,
@@ -222,13 +226,13 @@ export class OpenAICompatibleAdapter implements ModelAdapter {
     buffer += decoder.decode();
     if (buffer.trim()) processLine(buffer);
 
-    const toolCalls = Array.from(toolDeltas.entries())
+    const toolCalls = parseToolCallsBeforeLimit(finishReason, () => Array.from(toolDeltas.entries())
       .sort(([left], [right]) => left - right)
       .map(([index, value]) => normalizeToolCall({
         id: value.id,
         name: value.name,
         arguments: value.arguments,
-      }, `${this.providerName}-stream-${index}`));
+      }, `${this.providerName}-stream-${index}`)));
     const result: ModelResponse = {
       provider: this.providerName,
       model: responseModel,

@@ -83,6 +83,9 @@ Purpose:
 - Project-scoped decisions, status, and constraints.
 - `project_notes.project_id` is authoritative. The title string is display and legacy-import metadata only.
 - Local semantic retrieval stores a small vector beside keyword ngrams in `memory_index.semantic_vector`. The default provider is an offline hashed ngram vector, and the indexer exposes a narrow `MemoryVectorProvider` seam for a future local embedding model. This is not a remote embedding provider; exact keyword search still works when no embedding provider is installed.
+- Persistent, non-archived `chat_windows` summaries and working state share that index. Cross-chat handoff uses direct topic matches first, an installed local semantic provider second, and the most recent eligible window only as the final fallback. The default hashed ngram vector is never presented as semantic paraphrase recall.
+- Optional paraphrase recall uses Ollama's loopback-only `/api/embed` endpoint and is disabled by default. Athena batches the current handoff query with up to 24 eligible same-Project window summaries only when keyword matching would otherwise fall back to recency. It does not upload memory, contact a non-loopback endpoint, persist raw embedding vectors, or run for Temporary Chat.
+- The configured embedding model defaults to `embeddinggemma`. Status detection reports disabled, unavailable Ollama, missing model, blocked endpoint, or ready without downloading anything. Downloading remains a separate user-click action with the existing confirmation dialog; missing, malformed, or timed-out embedding responses preserve keyword/recent fallback.
 - Scoped index rows carry a Project ID before ranking and limits are applied, preventing another Project from crowding out the active Project's candidates.
 
 Retention:
@@ -190,3 +193,16 @@ Athena should not directly depend on cloud memory systems by default. If externa
 - `remote-memory`: optional only with explicit network consent.
 
 This keeps the product truthful: local memory works without accounts, while advanced providers can be added later without rewriting prompt assembly.
+
+The first production `local-vector` adapter is `OllamaMemoryEmbeddingProvider`. It accepts only loopback Ollama endpoints, uses one bounded batch per eligible cross-chat handoff, and validates vector count, dimensions, and numeric values before ranking. For EmbeddingGemma it applies the model's retrieval-specific query and titled-document prompt formats before making that batch request. Its `0.28` similarity floor is provider-specific and calibrated against both paraphrase positives and unrelated-topic negatives; the separate best-versus-runner-up margin still rejects ambiguous matches. Other Ollama embedding models retain the conservative `0.50` default until separately evaluated. Its failure contract is intentionally soft: ordinary keyword and recent-window continuity remain available even when semantic retrieval is disabled or unhealthy.
+
+## Local Embedding Validation
+
+The live validation command is `npm.cmd run test:memory-embeddings:live`. It is intentionally excluded from the default offline suite because it requires an installed and running Ollama embedding model. The mock-backed `test:memory-embeddings` remains the deterministic CI contract.
+
+On 2026-09-14, `embeddinggemma:latest` (`85462619ee72`, 768 dimensions) was validated on the development machine against the checked-in recall fixture:
+
+- Four paraphrase positives selected the intended prior window: accuracy `1.000`, scores `0.3107-0.4172`.
+- Four unrelated-topic negatives produced no semantic selection: highest observed candidate score `0.1681`.
+- After explicitly unloading the model, warmup completed in `2217.7 ms`; subsequent full handoff batches took `124.6-478.8 ms` in that run.
+- The test uses an isolated temporary database and config directory. It does not read or mutate the user's chat database or enable semantic retrieval in personal settings.

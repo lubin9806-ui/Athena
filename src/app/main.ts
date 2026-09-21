@@ -410,6 +410,7 @@ function createWindow(): void {
              const micButton = document.getElementById('voice-stt-btn');
              const appShell = document.getElementById('app-shell');
              const chatContainer = document.getElementById('chat-container');
+             const chatWindowBar = document.getElementById('chat-window-bar');
              const stage = document.getElementById('stage');
              const titlebar = document.getElementById('titlebar');
              const lifeCore = document.getElementById('life-core');
@@ -422,6 +423,12 @@ function createWindow(): void {
              const memoryPanel = document.getElementById('memory-panel');
              const executionButton = document.getElementById('mode-execute-button');
              const executionPanel = document.getElementById('execution-panel');
+             const executionSettingsButton = document.getElementById('execute-chip-settings');
+             const executionPermissionButton = document.getElementById('execute-chip-permission');
+             const executionClose = document.getElementById('btn-execution-close');
+             const panelScrim = document.getElementById('panel-scrim');
+             const executeContextBar = document.getElementById('execute-context-bar');
+             const executeStream = document.getElementById('execute-stream');
              const chatWindowNew = document.getElementById('chat-window-new');
              const chatWindowTemporary = document.getElementById('chat-window-temporary');
              const chatWindowBadge = document.getElementById('temporary-chat-badge');
@@ -460,6 +467,7 @@ function createWindow(): void {
               const uiReady = Boolean(
                appShell &&
                chatContainer &&
+               chatWindowBar &&
                inputForm &&
                stage &&
                titlebar &&
@@ -474,6 +482,12 @@ function createWindow(): void {
                memoryPanel &&
                executionButton &&
                executionPanel &&
+               executionSettingsButton &&
+               executionPermissionButton instanceof HTMLButtonElement &&
+               executionClose &&
+               panelScrim &&
+               executeContextBar &&
+               executeStream &&
                chatWindowNew instanceof HTMLButtonElement &&
                chatWindowTemporary instanceof HTMLButtonElement &&
                chatWindowBadge &&
@@ -671,8 +685,14 @@ function createWindow(): void {
                clientX: switchRect.left + switchRect.width * 0.6,
                clientY: switchRect.top + switchRect.height * 0.5,
              }));
-             const liquidPressReactive = spaceSwitch.dataset.liquidPressed === 'true';
-             if (!liquidPressReactive) return false;
+             const liquidMotionReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+             const liquidPressReactive = liquidMotionReduced
+               ? spaceSwitch.dataset.liquidPressed !== 'true'
+               : spaceSwitch.dataset.liquidPressed === 'true';
+             if (!liquidPressReactive) return failSmokeGate('liquid-press', {
+               reducedMotion: liquidMotionReduced,
+               pressed: spaceSwitch.dataset.liquidPressed || null,
+             });
 
              const inputLiquidCanvas = inputForm.querySelector('.liquid-glass-canvas');
              const inputLiquidCanvasRect = inputLiquidCanvas?.getBoundingClientRect();
@@ -967,6 +987,20 @@ function createWindow(): void {
              const composerMetaRect = composerMeta?.getBoundingClientRect();
              const composerMetaStyle = composerMeta ? window.getComputedStyle(composerMeta) : null;
              const inputFormRect = inputForm?.getBoundingClientRect();
+             const chatWindowBarRect = chatWindowBar?.getBoundingClientRect();
+             const spaceNavigationRect = spaceNavigation?.getBoundingClientRect();
+             const presenceTitleRect = document.querySelector('.presence-title')?.getBoundingClientRect();
+             const presenceActionsRect = document.getElementById('presence-actions')?.getBoundingClientRect();
+             const mainContentLeft = appShell.dataset.sidebar === 'open' && chatWindowBarRect
+               ? chatWindowBarRect.right
+               : 0;
+             const mainContentCenter = (mainContentLeft + window.innerWidth) / 2;
+             const layoutAligned = Boolean(inputFormRect && spaceNavigationRect)
+               && Math.abs((inputFormRect.left + inputFormRect.width / 2) - mainContentCenter) <= 2
+               && Math.abs((spaceNavigationRect.left + spaceNavigationRect.width / 2) - mainContentCenter) <= 2;
+             const presenceLayoutReadable = Boolean(presenceTitleRect && presenceActionsRect)
+               && presenceTitleRect.width >= 280
+               && presenceActionsRect.width >= 240;
              const composerInViewport = Boolean(inputFormRect
                && inputFormRect.top >= 0
                && inputFormRect.bottom <= window.innerHeight);
@@ -1027,10 +1061,13 @@ function createWindow(): void {
                } : null,
                metaVisible: composerMetaVisible,
                composerInViewport,
+               layoutAligned,
+               presenceLayoutReadable,
+               mainContentCenter,
                windowHeight: window.innerHeight,
                windowWidth: window.innerWidth,
              }));
-             if (!composerToolsVisible || !composerMetaVisible || !composerInViewport) return false;
+             if (!composerToolsVisible || !composerMetaVisible || !composerInViewport || !layoutAligned || !presenceLayoutReadable) return false;
              availableToolsButton.click();
              let toolCatalogReactive = false;
              for (let attempt = 0; attempt < 20; attempt += 1) {
@@ -1052,9 +1089,69 @@ function createWindow(): void {
              executionButton.click();
              await new Promise(resolve => setTimeout(resolve, 90));
              const executionModeReactive = appShell.dataset.mode === 'execute';
-             const executionWorkspaceReactive = getComputedStyle(executionPanel).display !== 'none'
-               && executionPanel.getAttribute('aria-hidden') === 'false';
+             const executionWorkspaceReactive = executeContextBar.hidden === false
+               && getComputedStyle(executeContextBar).display !== 'none'
+               && getComputedStyle(executeStream).display !== 'none'
+               && executionPanel.getAttribute('aria-hidden') === 'true';
              const executionPermissionReactive = toolAccessHint.dataset.level === originalSettings.settings.tools.modePermissions.execute;
+             executionSettingsButton.click();
+             for (let attempt = 0; attempt < 40 && executionPanel.dataset.open !== 'true'; attempt += 1) {
+               await new Promise(resolve => setTimeout(resolve, 50));
+             }
+             await new Promise(resolve => setTimeout(resolve, 480));
+             const executionPanelStyle = getComputedStyle(executionPanel);
+             const executionScrimStyle = getComputedStyle(panelScrim);
+             const executionPanelRect = executionPanel.getBoundingClientRect();
+             const executionSettingsCompact = executionPanel.dataset.open === 'true'
+               && executionPanel.getBoundingClientRect().width <= 380
+               && Math.abs(executionPanelRect.top - 48) <= 1
+               && Math.abs(executionPanelRect.right - window.innerWidth) <= 1
+               && Math.abs(executionPanelRect.bottom - window.innerHeight) <= 1
+               && executionPanelRect.left >= 0
+               && ['none', ''].includes(executionPanelStyle.backdropFilter)
+               && ['none', ''].includes(executionScrimStyle.backdropFilter)
+               && panelScrim.dataset.owner === 'execution'
+               && !document.querySelector('.execution-extensions[open]');
+             console.log('ATHENA_SMOKE_EXECUTION_PANEL', JSON.stringify({
+               rect: {
+                 top: executionPanelRect.top,
+                 right: executionPanelRect.right,
+                 bottom: executionPanelRect.bottom,
+                 left: executionPanelRect.left,
+                 width: executionPanelRect.width,
+                 height: executionPanelRect.height,
+               },
+               position: executionPanelStyle.position,
+               cssTop: executionPanelStyle.top,
+               cssRight: executionPanelStyle.right,
+               cssBottom: executionPanelStyle.bottom,
+               transform: executionPanelStyle.transform,
+               transitionProperty: executionPanelStyle.transitionProperty,
+               transitionDuration: executionPanelStyle.transitionDuration,
+               animations: executionPanel.getAnimations().map(animation => ({
+                 playState: animation.playState,
+                 currentTime: animation.currentTime,
+                 timing: animation.effect?.getComputedTiming(),
+               })),
+               offsetParent: executionPanel.offsetParent?.id || executionPanel.offsetParent?.tagName || null,
+               viewport: { width: window.innerWidth, height: window.innerHeight },
+             }));
+             executionPermissionButton.click();
+             await new Promise(resolve => setTimeout(resolve, 420));
+             const executionPanelAfterChipRect = executionPanel.getBoundingClientRect();
+             const executionChipNavigationStable = window.scrollX === 0
+               && document.documentElement.scrollLeft === 0
+               && document.body.scrollLeft === 0
+               && Math.abs(executionPanelAfterChipRect.top - 48) <= 1
+               && Math.abs(executionPanelAfterChipRect.right - window.innerWidth) <= 1;
+             memoryButton.click();
+             await new Promise(resolve => setTimeout(resolve, 320));
+             const panelHandoffExclusive = memoryPanel.dataset.open === 'true'
+               && executionPanel.dataset.open === 'false'
+               && panelScrim.dataset.owner === 'memory'
+               && document.querySelectorAll('.side-panel[data-open="true"]').length === 1;
+             memoryClose.click();
+             await new Promise(resolve => setTimeout(resolve, 220));
              originalButton.click();
              await new Promise(resolve => setTimeout(resolve, 90));
              const executionModeRestored = appShell.dataset.mode === originalMode;
@@ -1067,8 +1164,10 @@ function createWindow(): void {
              } else {
                chatContainer.dataset.streaming = previousStreamingState;
              }
-             const streamingScrollPolicyReady = idleScrollBehavior === 'smooth'
-               && streamingScrollBehavior === 'auto';
+             const scrollMotionReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+               || appShell.dataset.animation === 'low';
+             const streamingScrollPolicyReady = streamingScrollBehavior === 'auto'
+               && (scrollMotionReduced ? idleScrollBehavior === 'auto' : idleScrollBehavior === 'smooth');
              const historyMotionSuppressed = ['user', 'assistant'].every(role => {
                const historyMotionProbe = document.createElement('div');
                historyMotionProbe.className = 'message ' + role;
@@ -1085,6 +1184,9 @@ function createWindow(): void {
                executionModeReactive,
                executionWorkspaceReactive,
                executionPermissionReactive,
+               executionSettingsCompact,
+               executionChipNavigationStable,
+               panelHandoffExclusive,
                executionModeRestored,
                glassReactive,
                liquidVelocityReactive,
@@ -1120,6 +1222,11 @@ function createWindow(): void {
                 toolCatalogReactive,
                 composerToolsVisible,
                 composerMetaVisible,
+                layoutAligned,
+                presenceLayoutReadable,
+                scrollMotionReduced,
+                idleScrollBehavior,
+                streamingScrollBehavior,
                 streamingScrollPolicyReady,
                 historyMotionSuppressed,
                 webSearchForceReactive,
@@ -1128,7 +1235,7 @@ function createWindow(): void {
                 dropOverlayReactive,
                 dropBridgeReady,
               }));
-             if (!panelReactive || memoryPanel.dataset.open !== 'false' || !executionModeReactive || !executionWorkspaceReactive || !executionPermissionReactive || !executionModeRestored || !streamingScrollPolicyReady || !historyMotionSuppressed) return false;
+             if (!panelReactive || memoryPanel.dataset.open !== 'false' || !executionModeReactive || !executionWorkspaceReactive || !executionPermissionReactive || !executionSettingsCompact || !executionChipNavigationStable || !panelHandoffExclusive || !executionModeRestored || !streamingScrollPolicyReady || !historyMotionSuppressed) return false;
 
              const ipcProbe = await api.transcribeRecording(new Uint8Array());
             if (!ipcProbe || ipcProbe.ok !== false || !/(empty|disabled)/i.test(ipcProbe.error || '')) return false;
@@ -1443,14 +1550,23 @@ function createWindow(): void {
                 ? 'tools-panel'
                 : 'execution-panel';
           const panelOpened = await mainWindow.webContents.executeJavaScript(`
-            (() => {
+            (async () => {
               const button = document.getElementById(${JSON.stringify(smokePanelButtonId)});
               const panel = document.getElementById(${JSON.stringify(smokePanelId)});
               if (!(button instanceof HTMLButtonElement) || !panel) return false;
               button.click();
-              return ${JSON.stringify(smokePanel)} === 'execution'
-                ? document.getElementById('app-shell')?.dataset.mode === 'execute' && getComputedStyle(panel).display !== 'none'
-                : panel.dataset.open === 'true';
+              if (${JSON.stringify(smokePanel)} === 'execution') {
+                await new Promise(resolve => setTimeout(resolve, 180));
+                const settingsButton = document.getElementById('execute-chip-settings');
+                if (!(settingsButton instanceof HTMLButtonElement)) return false;
+                settingsButton.click();
+                for (let attempt = 0; attempt < 40 && panel.dataset.open !== 'true'; attempt += 1) {
+                  await new Promise(resolve => setTimeout(resolve, 50));
+                }
+                await new Promise(resolve => setTimeout(resolve, 480));
+                return document.getElementById('app-shell')?.dataset.mode === 'execute' && panel.dataset.open === 'true';
+              }
+              return panel.dataset.open === 'true';
             })()
           `);
           if (!panelOpened) throw new Error('Smoke panel could not be opened');
@@ -1644,14 +1760,38 @@ function createWindow(): void {
         const layoutState = await mainWindow.webContents.executeJavaScript(`
           (() => {
             const shell = document.getElementById('app-shell');
-            const ids = ['titlebar', 'chat-window-bar', 'mode-switch', 'stage', 'input-form', 'memory-panel', 'settings-panel', 'tools-panel'];
+            const ids = ['titlebar', 'chat-window-bar', 'mode-switch', 'stage', 'presence-panel', 'presence-actions', 'input-form', 'memory-panel', 'settings-panel', 'tools-panel'];
             const rects = Object.fromEntries(ids.map(id => {
               const element = document.getElementById(id);
               if (!element) return [id, null];
               const rect = element.getBoundingClientRect();
               return [id, { x: Math.round(rect.x), y: Math.round(rect.y), width: Math.round(rect.width), height: Math.round(rect.height), display: getComputedStyle(element).display }];
             }));
-            return { sidebar: shell?.dataset.sidebar, mode: shell?.dataset.mode, rects };
+            const presencePanel = document.getElementById('presence-panel');
+            const presenceTitle = document.querySelector('.presence-title');
+            const presenceCopy = document.querySelector('.presence-copy');
+            const describe = element => {
+              if (!element) return null;
+              const rect = element.getBoundingClientRect();
+              const style = getComputedStyle(element);
+              return {
+                x: Math.round(rect.x), width: Math.round(rect.width), height: Math.round(rect.height),
+                cssWidth: style.width, minWidth: style.minWidth, maxWidth: style.maxWidth,
+                paddingInline: [style.paddingLeft, style.paddingRight],
+                gridTemplateColumns: style.gridTemplateColumns,
+                justifyItems: style.justifyItems,
+              };
+            };
+            return {
+              sidebar: shell?.dataset.sidebar,
+              mode: shell?.dataset.mode,
+              rects,
+              presence: {
+                panel: describe(presencePanel),
+                title: describe(presenceTitle),
+                copy: describe(presenceCopy),
+              },
+            };
           })()
         `);
         console.log('ATHENA_SMOKE_LAYOUT_STATE', JSON.stringify(layoutState));

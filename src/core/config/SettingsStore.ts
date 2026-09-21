@@ -70,6 +70,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     showTimestamps: false,
     saveHistory: true,
     semanticRouting: false,
+    executeNarration: 'plain',
   },
   tools: {
     permissionLevel: 'off',
@@ -81,6 +82,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     },
     maxToolRounds: 4,
     commandTimeoutSeconds: 60,
+    autoApprove: false,
   },
   webSearch: {
     enabled: true,
@@ -108,6 +110,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
     retrieveProfile: true,
     retrieveEvents: true,
     retrieveProjects: true,
+    semanticRetrieval: false,
+    embeddingModel: 'embeddinggemma',
     retrievalDepth: 8,
     minImportanceForAutoExtract: 5,
     importContentMode: 'normal',
@@ -550,6 +554,9 @@ function sanitizeConversation(value: unknown): ConversationSettings {
     showTimestamps: cleanBoolean(source.showTimestamps, DEFAULT_SETTINGS.conversation.showTimestamps),
     saveHistory: cleanBoolean(source.saveHistory, DEFAULT_SETTINGS.conversation.saveHistory),
     semanticRouting: cleanBoolean(source.semanticRouting, DEFAULT_SETTINGS.conversation.semanticRouting),
+    executeNarration: source.executeNarration === 'professional' || source.executeNarration === 'plain'
+      ? source.executeNarration
+      : DEFAULT_SETTINGS.conversation.executeNarration,
   };
 }
 
@@ -562,6 +569,7 @@ export function normalizeToolSettings(value: unknown): ToolSettings {
     maxToolRounds: clampInteger(source.maxToolRounds, 1, 8, DEFAULT_SETTINGS.tools.maxToolRounds),
     commandTimeoutSeconds: clampInteger(source.commandTimeoutSeconds, 5, 300, DEFAULT_SETTINGS.tools.commandTimeoutSeconds),
     allowExternalNetwork: cleanBoolean(source.allowExternalNetwork, false),
+    autoApprove: cleanBoolean(source.autoApprove, DEFAULT_SETTINGS.tools.autoApprove === true),
   };
 }
 
@@ -625,6 +633,8 @@ function sanitizeMemory(value: unknown): MemorySettings {
     retrieveProfile: cleanBoolean(source.retrieveProfile, DEFAULT_SETTINGS.memory.retrieveProfile),
     retrieveEvents: cleanBoolean(source.retrieveEvents, DEFAULT_SETTINGS.memory.retrieveEvents),
     retrieveProjects: cleanBoolean(source.retrieveProjects, DEFAULT_SETTINGS.memory.retrieveProjects),
+    semanticRetrieval: cleanBoolean(source.semanticRetrieval, DEFAULT_SETTINGS.memory.semanticRetrieval),
+    embeddingModel: cleanString(source.embeddingModel, 120, DEFAULT_SETTINGS.memory.embeddingModel),
     retrievalDepth: clampInteger(source.retrievalDepth, 0, 20, DEFAULT_SETTINGS.memory.retrievalDepth),
     minImportanceForAutoExtract: clampInteger(source.minImportanceForAutoExtract, 1, 10, DEFAULT_SETTINGS.memory.minImportanceForAutoExtract),
     importContentMode: cleanEnum(source.importContentMode, MEMORY_IMPORT_CONTENT_MODES, DEFAULT_SETTINGS.memory.importContentMode),

@@ -43,9 +43,15 @@ function main() {
     assert.ok(host.includes(contract), `Cubism host is missing visible layered mesh contract: ${contract}`);
   }
   assert.match(releaseFeatures, /live2d:\s*false/, 'Live2D must remain disabled for release');
-  assert.match(vite, /disabledPaths\s*=\s*\[\s*['"]avatar['"]\s*\]/, 'Vite must prune the renderer avatar tree');
+  assert.match(
+    vite,
+    /disabledPaths\s*=\s*\[[^\]]*['"]avatar['"][^\]]*['"]steam['"][^\]]*['"]vendor\/live2d['"][^\]]*\]/s,
+    'Vite must prune every disabled or SKU-specific renderer tree',
+  );
   assert.doesNotMatch(vite, /\blive2dPet\s*:/, 'Vite must not build the disabled desktop-pet entry point');
-  assert.equal(fs.existsSync(path.join(ROOT, 'dist', 'renderer', 'avatar')), false);
+  for (const relativePath of ['avatar', 'steam', 'vendor/live2d']) {
+    assert.equal(fs.existsSync(path.join(ROOT, 'dist', 'renderer', relativePath)), false, `${relativePath} must be pruned`);
+  }
   assert.equal(fs.existsSync(path.join(ROOT, 'dist', 'renderer', 'live2d-pet.html')), false);
 
   const result = spawnSync(electronPath, [ROOT, '--smoke-test'], {

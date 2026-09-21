@@ -184,10 +184,16 @@ export class ComputerToolService {
     const target = resolveComputerPath(requireString(args.path, 'path'));
     const stat = await fs.promises.stat(target);
     const type = stat.isDirectory() ? 'directory' : stat.isFile() ? 'file' : 'other';
+    // A directory's own size is 0 on Windows whatever it holds. Reported as `size: 0`,
+    // the agent told a person a folder it was about to delete was empty when it held
+    // a log file (2026-09-15 execute-mode run). Directories report what they contain.
+    const contents = stat.isDirectory()
+      ? `entries: ${(await fs.promises.readdir(target)).length} (immediate children; a directory has no size of its own — use list_directory to see them)`
+      : `size: ${stat.size}`;
     const output = [
       `path: ${target}`,
       `type: ${type}`,
-      `size: ${stat.size}`,
+      contents,
       `created_at: ${stat.birthtime.toISOString()}`,
       `modified_at: ${stat.mtime.toISOString()}`,
     ].join('\n');
@@ -787,7 +793,8 @@ function completed(summary: string, output: string): ComputerToolResult {
   return { status: 'completed', summary, output: truncate(output, MAX_HTTP_OUTPUT) };
 }
 
-function resolveComputerPath(value: string): string {
+/** Also used to judge a call before it runs, so the check sees the path the tool will touch. */
+export function resolveComputerPath(value: string): string {
   let expanded = value.trim();
   expanded = expanded.replace(/^~(?=$|[\\/])/, process.env.USERPROFILE || process.env.HOME || '~');
   expanded = expanded.replace(/%([^%]+)%/g, (_, key: string) => process.env[key] ?? `%${key}%`);

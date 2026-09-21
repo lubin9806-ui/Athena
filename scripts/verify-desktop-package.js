@@ -129,17 +129,34 @@ function main() {
   assert(!entries.includes('config/model.local.json'), 'Packaged application contains a local developer model overlay.');
   assert(!entries.includes('config/model.json'), 'Packaged application contains a developer model/API configuration.');
   assert(!entries.includes('config/skills.json'), 'Packaged application contains the obsolete declarative skill shell.');
+  const packagedConfigEntries = entries.filter(value => value.startsWith('config/') && !value.endsWith('/')).sort();
+  assert.deepStrictEqual(packagedConfigEntries, [
+    'config/app.json',
+    'config/commercial.json',
+    'config/memory.json',
+    'config/theme.json',
+  ], 'Direct desktop package contains local state or a cross-SKU configuration file.');
   assert(!entries.some(value => value.startsWith('dist/skills/')), 'Packaged application contains the obsolete SkillManager shell.');
   assert(!entries.some(value => value.startsWith('config/personas/')), 'Packaged application contains user-imported persona cards.');
   assert(!entries.some(value => value.startsWith('config/private/')), 'Packaged application contains private configuration.');
   assert(!entries.some(value => value.startsWith('personality/private/')), 'Packaged application contains a private persona card.');
   assert(!entries.some(value => value.startsWith('assets/avatar/')), 'Packaged application contains disabled avatar assets.');
   assert(!entries.some(value => value.startsWith('assets/vendor/live2d/')), 'Packaged application contains the disabled Live2D vendor runtime.');
+  assert(!entries.some(value => value.startsWith('assets/')), 'Packaged application contains the duplicate source asset tree.');
+  assert(!entries.some(value => value.startsWith('resources/voice-runtime/')), 'Packaged application duplicates the managed voice runtime inside app.asar.');
   assert(!entries.some(value => value.startsWith('dist/app/avatar/')), 'Packaged application contains the disabled desktop-pet runtime.');
   assert(!entries.includes('dist/app/live2d-preload.js'), 'Packaged application contains the disabled Live2D preload.');
   assert(!entries.some(value => value.startsWith('dist/renderer/avatar/')), 'Packaged application contains the disabled renderer avatar runtime.');
+  assert(!entries.some(value => value.startsWith('dist/renderer/steam/')), 'Direct desktop package contains Steam marketing assets.');
+  assert(!entries.some(value => value.startsWith('dist/renderer/vendor/live2d/')), 'Packaged application contains the disabled renderer Live2D vendor runtime.');
+  assert(entries.includes('dist/renderer/ui/athena-daylight-mineral-v1.png'), 'Packaged application is missing the active UI texture.');
   assert(!entries.some(value => /(^|\/)live2d-(?:pet|preview)(?:\.|\/)/i.test(value)), 'Packaged application contains a Live2D preview or pet entry point.');
   assert(!entries.some(value => value.startsWith('node_modules/untitled-pixi-live2d-engine/')), 'Packaged application contains the disabled Live2D engine dependency.');
+  assert(!entries.some(value => value.startsWith('node_modules/three/')), 'Direct desktop package contains the disabled Three runtime.');
+  assert(!entries.some(value => value.startsWith('node_modules/@pixiv/')), 'Direct desktop package contains disabled VRM dependencies.');
+  assert(!entries.some(value => value.startsWith('node_modules/steamworks.js/')), 'Direct desktop package contains Steam-only native dependencies.');
+  assert(!entries.some(value => value.startsWith('node_modules/better-sqlite3/src/')), 'Packaged application contains better-sqlite3 source files.');
+  assert(!entries.some(value => value.startsWith('node_modules/better-sqlite3/deps/')), 'Packaged application contains better-sqlite3 build sources.');
   assert.equal(entries.filter(value => value.endsWith('.map')).length, 0, 'Packaged application contains source maps.');
   assert.equal(entries.filter(value => value.endsWith('.d.ts')).length, 0, 'Packaged application contains declarations.');
 
@@ -147,6 +164,8 @@ function main() {
   const updateConfig = readJson(path.join(resources, 'update-config.json'));
   const updaterMetadata = fs.readFileSync(path.join(resources, 'app-update.yml'), 'utf8');
   const imageRuntime = verifyPackagedImageRuntime(resources);
+  const asarBytes = fs.statSync(asarPath).size;
+  assert(asarBytes < 256 * 1024 * 1024, `Desktop app.asar is unexpectedly large (${asarBytes} bytes); check for duplicated runtimes or source assets.`);
   assert.equal(buildInfo.version, pkg.version);
   assert.equal(buildInfo.channel, releaseChannel(pkg.version));
   assert.equal(buildInfo.buildInputSha256, buildInputHash(), 'Build inputs changed after the desktop package was created.');
@@ -190,7 +209,7 @@ function main() {
   if (!updateConfig.enabled) blockers.push('PRODUCTION_UPDATE_FEED_DISABLED');
   if (ownedArtifacts.some(item => !item.signedAndTimestamped)) blockers.push('AUTHENTICODE_OR_TIMESTAMP_INVALID');
 
-  console.log(`ATHENA_DESKTOP_PACKAGE_OK version=${pkg.version} channel=${buildInfo.channel} entries=${entries.length} settings=excluded modelConfig=excluded personas=public-default memory=empty live2d=disabled imageRuntime=${imageRuntime.delivery} comfyui=optional maps=0`);
+  console.log(`ATHENA_DESKTOP_PACKAGE_OK version=${pkg.version} channel=${buildInfo.channel} entries=${entries.length} asarBytes=${asarBytes} settings=excluded modelConfig=excluded personas=public-default memory=empty live2d=disabled voiceRuntime=external-once imageRuntime=${imageRuntime.delivery} comfyui=optional maps=0`);
   for (const artifact of ownedArtifacts) {
     console.log(`ATHENA_DESKTOP_ARTIFACT file=${artifact.file} bytes=${artifact.bytes} sha256=${artifact.sha256} authenticode=${artifact.authenticode}`);
   }

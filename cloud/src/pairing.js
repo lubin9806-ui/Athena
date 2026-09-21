@@ -155,6 +155,10 @@ class PairingService {
     // marker is what makes the local account findable again.
     this.db.prepare('UPDATE users SET email_hash=? WHERE tenant_id=? AND id=?')
       .run(LOCAL_ACCOUNT_MARKER, created.tenantId, created.userId);
+    // registerTenant also opened a session for a first device. Nobody receives
+    // it, and left active it would sit in every paired phone's device list as a
+    // computer that was never connected, holding one of the account's slots.
+    this.auth.revokeDevice({ tenantId: created.tenantId, userId: created.userId }, created.device.id);
     return { tenantId: created.tenantId, userId: created.userId };
   }
 }

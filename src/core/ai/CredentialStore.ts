@@ -22,7 +22,7 @@ export class CredentialStoreError extends Error {
 
 interface CredentialFile {
   version: 1;
-  entries: Partial<Record<CredentialProvider, string>>;
+  entries: Record<string, string>;
 }
 
 type CredentialProvider = RemoteModelProvider | ImageCloudProvider | SearchApiProvider;
@@ -45,6 +45,43 @@ const ENVIRONMENT_KEYS: Record<CredentialProvider, string> = {
   replicate: 'REPLICATE_API_TOKEN',
   fal: 'FAL_KEY',
 };
+
+const sessionExecutionCredentials = new Map<string, string>();
+
+/** Save a credential requested by an execution session without putting it in chat or logs. */
+export function setExecutionCredential(id: string, value: string, persist: boolean): string {
+  const key = executionCredentialKey(id);
+  const secret = value;
+  if (!secret.trim() || secret.length > 10_000) throw new Error('凭据为空或长度无效。');
+  if (!persist) {
+    sessionExecutionCredentials.set(key, secret);
+    return `credential://${normalizeExecutionCredentialId(id)}`;
+  }
+  if (!encryptionReady()) throw new Error('Windows 安全凭据加密当前不可用，凭据未保存。');
+  const file = readCredentialFile();
+  file.entries[key] = safeStorage.encryptString(secret).toString('base64');
+  writeCredentialFile(file);
+  sessionExecutionCredentials.delete(key);
+  return `credential://${normalizeExecutionCredentialId(id)}`;
+}
+
+export function resolveExecutionCredential(referenceOrId: string): string | null {
+  const id = referenceOrId.replace(/^credential:\/\//i, '');
+  const key = executionCredentialKey(id);
+  const session = sessionExecutionCredentials.get(key);
+  if (session) return session;
+  const encrypted = readCredentialFile().entries[key];
+  if (!encrypted) return null;
+  return decryptStoredCredential(key, encrypted, true);
+}
+
+export function hasExecutionCredential(id: string): boolean {
+  try {
+    return Boolean(resolveExecutionCredential(id));
+  } catch {
+    return false;
+  }
+}
 
 export function getModelCredentialStatus(provider: RemoteModelProvider): ModelCredentialStatus {
   return getCredentialStatus(provider) as ModelCredentialStatus;
@@ -172,7 +209,7 @@ function resolveCredential(provider: CredentialProvider): string | null {
   return resolveLocalEnvironmentCredential(provider)?.value ?? null;
 }
 
-function decryptStoredCredential(provider: CredentialProvider, encrypted: string): string {
+function decryptStoredCredential(provider: string, encrypted: string, preserveWhitespace = false): string {
   if (!encryptionReady()) {
     throw new CredentialStoreError(
       'credential.encryption_unavailable',
@@ -180,8 +217,9 @@ function decryptStoredCredential(provider: CredentialProvider, encrypted: string
     );
   }
   try {
-    const value = safeStorage.decryptString(Buffer.from(encrypted, 'base64')).trim();
-    if (!value) throw new Error('decrypted credential is empty');
+    const decrypted = safeStorage.decryptString(Buffer.from(encrypted, 'base64'));
+    const value = preserveWhitespace ? decrypted : decrypted.trim();
+    if (!value.trim()) throw new Error('decrypted credential is empty');
     return value;
   } catch (error) {
     if (error instanceof CredentialStoreError) throw error;
@@ -266,4 +304,16 @@ function encryptionReady(): boolean {
 
 function assertProvider(provider: CredentialProvider): void {
   if (!PROVIDERS.has(provider)) throw new Error('不支持的远程模型 Provider。');
+}
+
+function executionCredentialKey(id: string): string {
+  return `execution:${normalizeExecutionCredentialId(id)}`;
+}
+
+function normalizeExecutionCredentialId(id: string): string {
+  const normalized = String(id || '').trim().toLowerCase();
+  if (!/^[a-z0-9][a-z0-9._-]{1,63}$/.test(normalized)) {
+    throw new Error('凭据标识只能包含字母、数字、点、下划线和连字符。');
+  }
+  return normalized;
 }

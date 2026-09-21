@@ -20,6 +20,7 @@ function loadConfig(overrides = {}) {
     region: overrides.region || process.env.ATHENA_CLOUD_REGION || 'local-1',
     cloudProvider: overrides.cloudProvider || process.env.ATHENA_CLOUD_PROVIDER || 'local',
     billingAdapter: overrides.billingAdapter || process.env.ATHENA_CLOUD_BILLING_ADAPTER || 'local-no-charge',
+    recoveryDeliveryAdapter: overrides.recoveryDeliveryAdapter || process.env.ATHENA_CLOUD_RECOVERY_DELIVERY_ADAPTER || 'local-return-token',
     modelProvider: overrides.modelProvider || process.env.ATHENA_CLOUD_MODEL_PROVIDER || 'local-fixture',
     searchProvider: overrides.searchProvider || process.env.ATHENA_CLOUD_SEARCH_PROVIDER || 'local-fixture',
     accessTtlMs: Number(overrides.accessTtlMs || 15 * 60 * 1000),
@@ -54,6 +55,7 @@ function validateConfig(config) {
     if (config.region.startsWith('local')) blockers.push('deployment region decision');
     if (config.cloudProvider === 'local') blockers.push('cloud provider decision');
     if (config.billingAdapter === 'local-no-charge') blockers.push('billing/tax adapter decision');
+    if (config.recoveryDeliveryAdapter === 'local-return-token') blockers.push('account recovery delivery decision');
     if (config.modelProvider === 'local-fixture') blockers.push('model provider terms decision');
     if (config.searchProvider === 'local-fixture') blockers.push('search provider terms decision');
     if (blockers.length) throw new Error(`Production Cloud configuration blocked: ${blockers.join(', ')}.`);

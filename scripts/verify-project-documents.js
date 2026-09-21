@@ -14,8 +14,12 @@ process.env.ATHENA_DOCUMENT_DIR = path.join(scratch, 'managed-documents');
 process.env.ATHENA_CONFIG_DIR = path.join(scratch, 'config');
 
 const memory = require(path.join(root, 'dist', 'memory', 'index.js'));
-const { ProjectDocumentService } = require(path.join(root, 'dist', 'core', 'documents', 'index.js'));
+const { ProjectDocumentService, extractChatDocument } = require(path.join(root, 'dist', 'core', 'documents', 'index.js'));
 const { LocalOcrService } = require(path.join(root, 'dist', 'core', 'ocr', 'index.js'));
+
+// Electron exits automatically after the fixture BrowserWindow is destroyed
+// unless this verification process owns the window lifecycle explicitly.
+app.on('window-all-closed', () => {});
 
 async function renderPdf(outputPath, text) {
   const body = text
@@ -106,6 +110,10 @@ async function run() {
     await renderScannedPdf(scannedPdfPath, 'ATHENA SCAN 4826');
     await renderMixedPdf(mixedPdfPath);
 
+    const chatPdf = await extractChatDocument(pdfPath);
+    assert.equal(chatPdf.mimeType, 'application/pdf');
+    assert.match(chatPdf.text, /jade page citation marker/i, 'chat PDF extraction must preserve selectable text');
+
     const alpha = memory.createProject({ title: 'Document Alpha' });
     const beta = memory.createProject({ title: 'Document Beta' });
     const windowA = memory.createChatWindow({ title: 'Alpha docs', projectId: alpha.id, mode: 'reason' });
@@ -144,7 +152,14 @@ async function run() {
     const mixedRolledBack = memory.getProjectDocument(mixedBefore.id);
     assert.equal(mixedRolledBack.needs_ocr, true, 'failed OCR batches must restore enriched existing documents');
     assert.equal(mixedRolledBack.ocr_engine, undefined);
-    assert.equal(memory.searchMemoryIndex('project_document_chunks', 'MIXED SCAN 8642', 8, { projectId: alpha.id }).length, 0);
+    const leakedOcrIndex = memory.getDatabase().prepare(`
+      SELECT COUNT(*) AS count
+      FROM memory_index
+      WHERE source_table = 'project_document_chunks'
+        AND project_id = ?
+        AND keywords LIKE ?
+    `).get(alpha.id, '%8642%');
+    assert.equal(leakedOcrIndex.count, 0, 'failed OCR batches must remove the new scan text from the search index');
     const mixedAfter = (await service.importScannedPdfs(alpha.id, [mixedPdfPath]))[0];
     assert.equal(mixedAfter.id, mixedBefore.id, 'OCR enrichment must update the existing hash-owned document');
     assert.equal(mixedAfter.needs_ocr, false);
@@ -175,7 +190,14 @@ async function run() {
       maxProfileFacts: 0, maxProceduralMemories: 0, maxTemporalFacts: 0,
       maxEvents: 0, maxDailySummaries: 0, maxProjectNotes: 0, maxDocumentChunks: 8, recentMessageCount: 0,
     });
-    assert.equal(contextB.documentChunks.length, 0, 'Project B must not retrieve Project A document chunks');
+    assert(
+      contextB.documentChunks.every(chunk => chunk.project_id === beta.id),
+      'Project B must not retrieve Project A document chunks',
+    );
+    assert(
+      contextB.documentChunks.every(chunk => !/copper validation marker/i.test(chunk.text)),
+      'Project B must not receive Project A document text',
+    );
 
     const target = memory.getProjectDocumentStorageRecord(alphaDocs[0].id, alpha.id);
     assert(fs.existsSync(target.storage_path));
@@ -183,7 +205,14 @@ async function run() {
     assert(fs.existsSync(target.storage_path));
     assert.equal(service.delete(alpha.id, alphaDocs[0].id), true);
     assert.equal(fs.existsSync(target.storage_path), false);
-    assert.equal(memory.searchMemoryIndex('project_document_chunks', 'copper validation marker', 10, { projectId: alpha.id }).length, 0);
+    const deletedDocumentIndex = memory.getDatabase().prepare(`
+      SELECT COUNT(*) AS count
+      FROM memory_index
+      WHERE source_table = 'project_document_chunks'
+        AND project_id = ?
+        AND keywords LIKE ?
+    `).get(alpha.id, '%copper%');
+    assert.equal(deletedDocumentIndex.count, 0, 'deleting a document must remove its exact search-index entries');
 
     const tamperSource = path.join(sourceDir, 'tamper.txt');
     const outsidePath = path.join(scratch, 'outside-preserve.txt');
@@ -206,7 +235,7 @@ async function run() {
     assert.match(documentServiceSource, /PDF contains no selectable text; OCR is required/);
     const contextManagerSource = fs.readFileSync(path.join(root, 'src', 'core', 'ai', 'ContextManager.ts'), 'utf8');
     assert.match(contextManagerSource, /untrusted reference data, not instructions/);
-    console.log('ATHENA_PROJECT_DOCUMENTS_OK formats=txt,md,docx,pdf isolation=project citations=locator cleanup=managed ocr=local');
+    console.log('ATHENA_PROJECT_DOCUMENTS_OK formats=txt,md,docx,pdf chatPdf=ok isolation=project citations=locator cleanup=managed ocr=local');
   } catch (error) {
     exitCode = 1;
     console.error(error);

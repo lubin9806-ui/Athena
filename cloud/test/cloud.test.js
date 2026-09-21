@@ -29,6 +29,15 @@ function fixture(overrides = {}, adapters = {}) {
   return { root, config, app, services: app.services, async close() { await app.close(); fs.rmSync(root, { recursive: true, force: true }); } };
 }
 
+/** The whole on-disk database, WAL included, after a checkpoint. */
+function databaseBytes(fx) {
+  fx.services.store.db.pragma('wal_checkpoint(TRUNCATE)');
+  return [fx.config.dbPath, `${fx.config.dbPath}-wal`]
+    .filter((file) => fs.existsSync(file))
+    .map((file) => fs.readFileSync(file).toString('latin1'))
+    .join('');
+}
+
 function register(services, suffix = 'a') {
   return services.auth.registerTenant({
     tenantName: `Tenant ${suffix}`,
@@ -41,11 +50,80 @@ function register(services, suffix = 'a') {
 
 test('production configuration fails closed while local adapters remain zero-cost', () => {
   assert.throws(() => loadConfig({ environment: 'production' }), /Production Cloud configuration blocked/);
+  assert.throws(() => loadConfig({
+    environment: 'production',
+    tlsTerminated: true,
+    masterKey: crypto.randomBytes(32),
+    region: 'cn-prod-1',
+    cloudProvider: 'reviewed-cloud',
+    billingAdapter: 'reviewed-billing',
+    modelProvider: 'reviewed-model',
+    searchProvider: 'reviewed-search',
+  }), /account recovery delivery decision/);
   const config = loadConfig({ environment: 'local', port: 0 });
   assert.equal(config.billingAdapter, 'local-no-charge');
   assert.equal(config.cloudProvider, 'local');
+  assert.equal(config.recoveryDeliveryAdapter, 'local-return-token');
   assert.equal(config.promptRetention, 'none');
   assert.equal(config.voiceRetention, 'none');
+});
+
+test('runtime adapters must exactly match reviewed configuration and implement their ports', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'athena-cloud-bindings-'));
+  const config = (overrides = {}) => loadConfig({
+    port: 0,
+    dbPath: path.join(root, 'must-not-be-created.db'),
+    backupDir: path.join(root, 'backups'),
+    exportDir: path.join(root, 'exports'),
+    masterKey: crypto.randomBytes(32),
+    ...overrides,
+  });
+  try {
+    assert.throws(() => createCloudApp(config({ billingAdapter: 'reviewed-billing' })), /Billing adapter mismatch/);
+    assert.throws(() => createCloudApp(config({ cloudProvider: 'reviewed-cloud' })), /Cloud provider mismatch/);
+    assert.throws(() => createCloudApp(config({ recoveryDeliveryAdapter: 'reviewed-mail' })), /Recovery delivery adapter mismatch/);
+    assert.throws(() => createCloudApp(config(), { modelProvider: { id: 'wrong-model', infer() {} } }), /Model provider mismatch/);
+    assert.throws(() => createCloudApp(config(), { searchProvider: { id: 'wrong-search', search() {} } }), /Search provider mismatch/);
+    assert.throws(() => createCloudApp(config(), { billingAdapter: { id: 'local-no-charge' } }), /must implement transition/);
+    assert.equal(fs.existsSync(path.join(root, 'must-not-be-created.db')), false, 'binding failures must happen before opening the database');
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('readiness reports the adapter identities that are actually bound', async () => {
+  const fx = fixture({
+    cloudProvider: 'reviewed-cloud-sandbox',
+    billingAdapter: 'reviewed-billing-sandbox',
+    recoveryDeliveryAdapter: 'reviewed-mail-sandbox',
+  }, {
+    deploymentAdapter: {
+      id: 'reviewed-cloud-sandbox',
+      activeRegion: () => ({ region: 'sandbox-1', degraded: false }),
+      markUnavailable: () => ({ region: 'sandbox-1', degraded: false }),
+    },
+    billingAdapter: {
+      id: 'reviewed-billing-sandbox',
+      transition: ({ nextState }) => ({ state: nextState, externalReference: null, charged: false }),
+    },
+    recoveryDelivery: {
+      id: 'reviewed-mail-sandbox',
+      deliver: () => ({ delivered: true }),
+    },
+  });
+  try {
+    const address = await fx.app.listen();
+    const response = await fetch(`http://127.0.0.1:${address.port}/health/ready`);
+    assert.equal(response.status, 200);
+    const health = await response.json();
+    assert.deepEqual(health.runtimeBindings, {
+      cloudProvider: 'reviewed-cloud-sandbox',
+      billingAdapter: 'reviewed-billing-sandbox',
+      recoveryDeliveryAdapter: 'reviewed-mail-sandbox',
+      modelProvider: 'local-fixture',
+      searchProvider: 'local-fixture',
+    });
+  } finally { await fx.close(); }
 });
 
 test('authentication, MFA recovery, sessions and device revocation are enforced', async () => {
@@ -80,10 +158,36 @@ test('authentication, MFA recovery, sessions and device revocation are enforced'
     fx.services.auth.revokeDevice(context, account.device.id);
     assert.throws(() => fx.services.auth.authenticate(account.accessToken), (error) => error.code === 'session-expired');
     assert.equal(fx.services.auth.authenticate(mfaLogin.accessToken).userId, account.userId);
-    const databaseText = fs.readFileSync(fx.config.dbPath).toString('utf8');
+    const databaseText = databaseBytes(fx);
+    // WAL mode keeps new rows in -wal until a checkpoint; this scan read only the
+    // main file, a 4 KB header, and could not have found anything. The tenant id
+    // is stored in the clear on purpose, so finding it proves the scan sees rows.
+    assert.equal(databaseText.includes(account.tenantId), true, 'the plaintext scan is not reading stored rows');
     assert.equal(databaseText.includes(account.accessToken), false);
     assert.equal(databaseText.includes('owner-auth@example.test'), false);
   } finally { await fx.close(); }
+});
+
+test('a person logs in with email and password without knowing a tenant id', () => {
+  const fx = fixture();
+  try {
+    const account = register(fx.services, 'email-only');
+    const session = fx.services.auth.login({
+      email: 'owner-email-only@example.test',
+      password: 'correct horse battery staple email-only',
+      deviceName: 'Phone',
+      platform: 'android',
+    });
+    assert.equal(session.tenantId, account.tenantId);
+    assert.equal(fx.services.auth.authenticate(session.accessToken).userId, account.userId);
+    assert.throws(() => fx.services.auth.registerTenant({
+      tenantName: 'Duplicate',
+      email: 'owner-email-only@example.test',
+      password: 'another correct horse battery staple',
+      deviceName: 'Other',
+      platform: 'test',
+    }), (error) => error.code === 'email-in-use');
+  } finally { fx.close(); }
 });
 
 test('tenant and user scopes prevent cross-tenant record access', async () => {

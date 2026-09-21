@@ -132,6 +132,10 @@ export function markScheduledJobCancelled(id: string): boolean {
   `).run(id).changes > 0;
 }
 
+export function deleteScheduledJob(id: string): boolean {
+  return getDatabase().prepare('DELETE FROM scheduled_jobs WHERE id = ? AND kind = \'reminder\'').run(id).changes > 0;
+}
+
 /**
  * Records whether an initiative wake actually said something. The daily budget is
  * counted from these rows rather than from chat messages, so a message the user

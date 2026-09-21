@@ -5,7 +5,9 @@ import { fileURLToPath } from 'node:url';
 const rendererOutput = fileURLToPath(new URL('./dist/renderer', import.meta.url));
 
 function pruneDisabledAvatarAssets() {
-  const disabledPaths = ['avatar'];
+  // publicDir is copied verbatim. These are source/reference or SKU-specific
+  // assets, not files the Direct desktop renderer consumes at runtime.
+  const disabledPaths = ['avatar', 'steam', 'vendor/live2d'];
   return {
     name: 'athena-prune-disabled-avatar-assets',
     closeBundle() {

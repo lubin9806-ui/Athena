@@ -6,10 +6,18 @@ asar: true
 artifactName: "${productName} Setup ${version}.${ext}"
 files:
   - dist/**/*
+  - "!dist/renderer/steam/**/*"
+  - "!dist/renderer/vendor/live2d/**/*"
   - resources/**/*
   - "!resources/OllamaSetup.exe"
+  - "!resources/voice-runtime/**/*"
   - "!resources/image-runtime/**/*"
-  - config/**/*
+  # Package only immutable Direct-desktop defaults. A wildcard here previously
+  # leaked local Skill invocation state and unrelated Store/Steam/ops configs.
+  - config/app.json
+  - config/commercial.json
+  - config/memory.json
+  - config/theme.json
   - "!config/settings.json"
   - "!config/settings.local.json"
   - "!config/model.json"
@@ -17,9 +25,9 @@ files:
   - "!config/personas/**/*"
   - "!config/private/**/*"
   - skills/**/*
-  - assets/**/*
-  - "!assets/avatar/**/*"
-  - "!assets/vendor/live2d/**/*"
+  # Renderer assets are already emitted under dist/renderer by Vite. Shipping
+  # the source asset tree as well duplicated UI/Steam artwork in app.asar.
+  - "!assets/**/*"
   - "!dist/app/avatar/**/*"
   - "!dist/app/live2d-preload.js"
   - "!dist/core/avatar/**/*"
@@ -28,6 +36,11 @@ files:
   - "!dist/renderer/live2d-*.js"
   - "!dist/renderer/live2d-*.css"
   - "!node_modules/untitled-pixi-live2d-engine/**/*"
+  - "!node_modules/three/**/*"
+  - "!node_modules/@pixiv/**/*"
+  - "!node_modules/steamworks.js/**/*"
+  - "!node_modules/better-sqlite3/src/**/*"
+  - "!node_modules/better-sqlite3/deps/**/*"
   - "!**/*.map"
   - "!**/*.d.ts"
 extraResources:

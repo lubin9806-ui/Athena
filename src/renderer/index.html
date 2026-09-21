@@ -110,7 +110,7 @@
     <div id="space-navigation">
       <div id="mode-switch" role="tablist" aria-label="空间">
         <button class="space-btn active" type="button" data-space="companion" role="tab" aria-selected="true" title="进入长期陪伴空间">陪伴</button>
-        <button class="space-btn" type="button" data-space="work" role="tab" aria-selected="false" title="进入工作创作空间">创作</button>
+        <button class="space-btn" type="button" data-space="work" role="tab" aria-selected="false" title="进入工作台：创作、推理与执行">工作台</button>
       </div>
 
       <div id="work-mode-switch" role="tablist" aria-label="创作方式" aria-hidden="true">
@@ -159,7 +159,7 @@
           <button class="presence-action" type="button" data-prompt-mode="create" data-prompt="帮我写一版可以继续修改的初稿">开始一版初稿</button>
           <button class="presence-action" type="button" data-prompt-mode="companion" data-prompt="陪我聊聊今天发生的事">聊聊今天</button>
           <button class="presence-action" type="button" data-prompt-mode="companion" data-prompt="帮我整理一下现在的心情">整理一下心情</button>
-          <button class="presence-action" type="button" data-prompt-mode="companion" data-prompt="我们继续上次没有说完的话题">继续上次的话题</button>
+          <button class="presence-action" type="button" data-prompt-mode="companion" data-action="continue-previous" data-prompt="我们继续上次没有说完的话题">继续上次的话题</button>
           <button class="presence-action" type="button" data-prompt-mode="reason" data-prompt="帮我把这个问题拆成关键假设">拆解关键假设</button>
           <button class="presence-action" type="button" data-prompt-mode="reason" data-prompt="比较这两个方案的收益、风险和边界">比较两个方案</button>
           <button class="presence-action" type="button" data-prompt-mode="reason" data-prompt="检查我的推理里有没有遗漏或矛盾">检查遗漏与矛盾</button>
@@ -169,6 +169,24 @@
         <canvas id="live2d-companion-canvas" width="420" height="680" aria-hidden="true" hidden></canvas>
       </div>
       <section id="chat-container" aria-label="聊天记录"></section>
+      <section id="execute-context-bar" aria-label="当前执行任务" hidden>
+        <div class="execute-context-main">
+          <span class="execute-context-kicker">当前任务</span>
+          <div class="execute-context-goal-row">
+            <strong id="execute-context-goal">告诉 Athena 要完成什么</strong>
+            <button id="execute-context-edit-goal" type="button" title="在当前执行对话中调整目标">调整目标</button>
+          </div>
+        </div>
+        <div class="execute-context-meta">
+          <span id="execute-context-folder">未选择工作文件夹</span>
+          <span id="execute-context-permission">权限关闭</span>
+          <span id="execute-context-approval">逐项审批</span>
+          <span id="execute-context-state">待命</span>
+        </div>
+      </section>
+      <!-- Execute mode is a conversation of its own: one chat window is one
+           session, and everything it does reads in this stream. -->
+      <section id="execute-stream" aria-label="执行对话" hidden></section>
       <!-- Sits under #live2d-companion (z-index 2) on purpose: the companion
            stays visible above it, so a call has someone on the other end. -->
       <div id="voice-session" data-voice-session="idle" aria-hidden="true" hidden>
@@ -331,13 +349,15 @@
       <div id="tools-panel-list"></div>
     </aside>
 
-    <section id="execution-panel" class="execution-workspace" aria-label="执行工作区">
-      <div class="execution-workspace-head">
+    <aside id="execution-panel" class="side-panel" aria-label="执行设置" aria-hidden="true" data-open="false">
+      <div class="side-panel-head">
         <div>
-          <div class="panel-eyebrow">EXECUTION</div>
-          <div id="execution-panel-title">执行</div>
-          <div id="execution-panel-subtitle">直接描述目标，当前角色会调用工具并把真实过程留在这里</div>
+          <div id="execution-panel-title">执行设置</div>
+          <div id="execution-panel-subtitle">当前执行对话的范围与行为</div>
         </div>
+        <button id="btn-execution-close" class="icon-button" type="button" title="关闭" aria-label="关闭">
+          <svg class="icon"><use href="#icon-close"></use></svg>
+        </button>
       </div>
       <div id="agent-execution-feedback" class="agent-execution-feedback" role="status" aria-live="polite" hidden></div>
 
@@ -345,215 +365,113 @@
         <section class="execution-card execution-project-card">
           <div class="execution-card-head">
             <div>
-              <div class="execution-section-label">PROJECT WORKSPACE</div>
-              <div id="agent-project-title" class="execution-card-title">当前 Project</div>
+              <div class="execution-card-title">工作文件夹</div>
+              <div class="execution-card-copy">命令和相对路径默认从这里开始</div>
             </div>
-            <div id="agent-workspace-revision" class="execution-current-meta">rev 0</div>
+            <button id="agent-root-pick" class="execution-secondary-button" type="button">选择…</button>
           </div>
-          <div class="agent-workspace-grid">
-            <div class="agent-workspace-column">
-              <div class="execution-section-label">工作目录</div>
-              <div id="agent-root-list" class="agent-chip-list"></div>
-              <form id="agent-root-form" class="agent-inline-form">
-                <input id="agent-root-input" type="text" maxlength="2048" placeholder="例如 G:\\Athena" aria-label="添加工作目录" />
-                <button class="icon-button" type="submit" title="添加工作目录" aria-label="添加工作目录">
-                  <svg class="icon"><use href="#icon-plus"></use></svg>
-                </button>
-              </form>
-            </div>
-            <div class="agent-workspace-column">
-              <div class="execution-section-label">项目目标</div>
-              <div id="agent-goal-list" class="agent-goal-list"></div>
-              <form id="agent-goal-form" class="agent-inline-form">
-                <input id="agent-goal-input" type="text" maxlength="500" placeholder="添加项目目标" aria-label="添加项目目标" />
-                <button class="icon-button" type="submit" title="添加项目目标" aria-label="添加项目目标">
-                  <svg class="icon"><use href="#icon-plus"></use></svg>
-                </button>
-              </form>
-            </div>
-          </div>
+          <div id="agent-root-list" class="agent-chip-list"></div>
+          <div class="settings-note">“工作区读写”只能修改这里；“完全访问”可以离开此目录。</div>
         </section>
 
-        <section class="execution-card">
+        <section id="execution-permissions-card" class="execution-card execution-permissions-card">
           <div class="execution-card-head">
             <div>
-              <div class="execution-section-label">SKILL LIBRARY</div>
-              <div class="execution-card-title">Agent Skills</div>
+              <div class="execution-card-title">权限与连续执行</div>
+              <div class="execution-card-copy">决定能做什么，以及是否逐项询问</div>
             </div>
-            <button id="skill-install" class="execution-secondary-button" type="button">从文件夹安装</button>
-          </div>
-          <div id="skill-library-summary" class="execution-current-meta">正在读取 Skill 库...</div>
-          <div id="skill-library-list" class="skill-library-list"></div>
-        </section>
-
-        <section class="execution-card">
-          <div class="execution-card-head">
-            <div>
-              <div class="execution-section-label">INTEGRATIONS</div>
-              <div class="execution-card-title">MCP Servers</div>
-            </div>
-            <button id="mcp-add-toggle" class="execution-secondary-button" type="button">添加 Server</button>
-          </div>
-          <div id="mcp-integration-summary" class="execution-current-meta">正在读取 MCP 配置...</div>
-          <form id="mcp-server-form" class="mcp-server-form" hidden>
-            <input id="mcp-server-id" type="hidden" />
-            <label>
-              <span>名称</span>
-              <input id="mcp-server-name" type="text" maxlength="120" required />
-            </label>
-            <label>
-              <span>传输</span>
-              <select id="mcp-server-transport">
-                <option value="stdio">stdio</option>
-                <option value="streamable-http">Streamable HTTP</option>
-              </select>
-            </label>
-            <label>
-              <span>协议</span>
-              <select id="mcp-server-protocol">
-                <option value="auto">自动协商</option>
-                <option value="legacy">2025 兼容</option>
-                <option value="2026-07-28">2026-07-28</option>
-              </select>
-            </label>
-            <div id="mcp-stdio-fields" class="mcp-transport-fields">
-              <label>
-                <span>可执行命令</span>
-                <input id="mcp-server-command" type="text" maxlength="1024" />
-              </label>
-              <label>
-                <span>工作目录</span>
-                <input id="mcp-server-cwd" type="text" maxlength="2048" />
-              </label>
-              <label class="mcp-wide-field">
-                <span>参数</span>
-                <textarea id="mcp-server-args" rows="3" maxlength="12000"></textarea>
-              </label>
-              <label class="mcp-wide-field">
-                <span>环境变量名</span>
-                <textarea id="mcp-server-env" rows="2" maxlength="4000"></textarea>
-              </label>
-            </div>
-            <div id="mcp-http-fields" class="mcp-transport-fields" hidden>
-              <label class="mcp-wide-field">
-                <span>MCP URL</span>
-                <input id="mcp-server-url" type="url" maxlength="2048" />
-              </label>
-              <label class="mcp-wide-field">
-                <span>Bearer Token 环境变量名</span>
-                <input id="mcp-server-token-env" type="text" maxlength="128" />
-              </label>
-            </div>
-            <div class="mcp-form-actions">
-              <button class="execution-secondary-button" type="submit">保存配置</button>
-              <button id="mcp-form-cancel" class="execution-secondary-button" type="button">取消</button>
-            </div>
-          </form>
-          <div id="mcp-integration-list" class="mcp-integration-list"></div>
-        </section>
-
-        <section class="execution-card">
-          <div class="execution-card-head">
-            <div>
-              <div class="execution-section-label">任务板</div>
-              <div class="execution-card-title">从讨论到交付</div>
-            </div>
-            <button id="agent-workspace-refresh" class="icon-button" type="button" title="刷新任务板" aria-label="刷新任务板">
-              <svg class="icon"><use href="#icon-refresh"></use></svg>
-            </button>
-          </div>
-          <div id="agent-task-board" class="agent-task-board"></div>
-        </section>
-
-        <section id="execution-current-card" class="execution-card" data-state="idle">
-          <div class="execution-card-head">
-            <div>
-              <div class="execution-section-label">当前任务</div>
-              <div id="execution-state-label" class="execution-state-badge" data-state="idle">待命</div>
-            </div>
-            <div class="execution-run-actions">
-              <button id="agent-run-resume" class="execution-secondary-button" type="button" disabled>继续任务</button>
-              <button id="execution-stop" class="execution-secondary-button" type="button" disabled>停止后续步骤</button>
-            </div>
-          </div>
-          <div id="execution-current-goal" class="execution-current-goal">还没有正在执行的电脑任务。</div>
-          <div id="execution-current-meta" class="execution-current-meta">只有真实触发工具后，这里才会出现操作记录。</div>
-          <ol id="execution-live-log" class="execution-live-log" aria-live="polite"></ol>
-          <div id="execution-current-result" class="execution-current-result" data-visible="false"></div>
-        </section>
-
-        <section id="agent-approval-section" class="execution-card agent-approval-section" hidden>
-          <div class="execution-card-head">
-            <div>
-              <div class="execution-section-label">需要确认</div>
-              <div class="execution-card-title">本次操作审批</div>
-            </div>
-          </div>
-          <div id="agent-approval-list" class="agent-approval-list"></div>
-        </section>
-
-        <section class="execution-card agent-details-card">
-          <div class="agent-details-grid">
-            <div>
-              <div class="execution-section-label">计划与步骤</div>
-              <div id="agent-plan-list" class="agent-detail-list"></div>
-            </div>
-            <div>
-              <div class="execution-section-label">交付产物</div>
-              <div id="agent-artifact-list" class="agent-detail-list"></div>
-            </div>
-          </div>
-        </section>
-
-        <section class="execution-card">
-          <div class="execution-card-head">
-            <div>
-              <div class="execution-section-label">PROJECT HISTORY</div>
-              <div class="execution-card-title">持久化执行记录</div>
-            </div>
-            <button id="execution-clear" class="execution-secondary-button" type="button">刷新记录</button>
-          </div>
-          <div id="execution-history" class="execution-history">
-            <div class="execution-empty">当前 Project 还没有持久化执行记录。</div>
-          </div>
-        </section>
-
-        <section class="execution-card execution-permissions-card">
-          <div class="execution-card-head">
-            <div>
-              <div class="execution-section-label">安全边界</div>
-              <div class="execution-card-title">工具权限</div>
-            </div>
-            <div id="execution-current-permission" class="execution-permission-pill" data-level="off">当前 · 关闭</div>
+            <span id="execution-current-permission" data-level="off" hidden>关闭</span>
           </div>
           <form id="execution-settings-form" class="execution-settings-form">
             <label class="settings-field settings-field-full">
-              <span>执行模式权限</span>
+              <span>可使用的电脑能力</span>
               <select id="setting-tool-permission-execute">
                 <option value="off">关闭 · 不使用电脑工具</option>
                 <option value="read">全盘只读 · 读取、列出和搜索文件</option>
-                <option value="files">全盘文件读写 · 创建、修改、移动和删除</option>
+                <option value="files">工作区文件读写 · 仅在所选工作文件夹内修改</option>
                 <option value="full">完全访问 · 文件、终端、程序与端口</option>
               </select>
             </label>
-            <div class="execution-settings-grid">
-              <label class="settings-field">
-                <span>连续工具轮次</span>
-                <input id="setting-tool-max-rounds" type="number" min="1" max="8" step="1" />
-              </label>
-              <label class="settings-field">
-                <span>命令超时（秒）</span>
-                <input id="setting-tool-command-timeout" type="number" min="5" max="300" step="5" />
-              </label>
-            </div>
-            <div class="settings-note">电脑工具只在“执行”模式中开放；创作、陪伴和推理保持纯聊天。模型会把这里的自然语言目标转成真实工具步骤。</div>
-            <div class="settings-note settings-note-warning">“完全访问”可在当前 Windows 账户权限内读写文件、运行命令与程序、连接 HTTP 和 TCP 端口。每次真实调用都会记录在上方。</div>
+            <details class="execution-advanced">
+              <summary>高级限制</summary>
+              <div class="execution-settings-grid">
+                <label class="settings-field">
+                  <span>连续工具轮次</span>
+                  <input id="setting-tool-max-rounds" type="number" min="1" max="8" step="1" />
+                </label>
+                <label class="settings-field">
+                  <span>命令超时（秒）</span>
+                  <input id="setting-tool-command-timeout" type="number" min="5" max="300" step="5" />
+                </label>
+              </div>
+              <button id="execution-settings-save" class="execution-primary-button" type="submit">保存高级限制</button>
+            </details>
             <div id="execution-settings-feedback" role="status" aria-live="polite"></div>
-            <button id="execution-settings-save" class="execution-primary-button" type="submit">保存执行权限</button>
           </form>
+          <div class="execution-auto-approve">
+            <label class="settings-toggle">
+              <input id="setting-tool-auto-approve" type="checkbox" />
+              <span><b>连续执行</b><small>普通操作不再逐项审批；敏感凭据仍会停下来</small></span>
+            </label>
+          </div>
         </section>
+
+        <section class="execution-card execution-narration-card">
+          <div class="execution-card-head">
+            <div>
+              <div class="execution-card-title">讲解方式</div>
+              <div class="execution-card-copy">每次动手前用哪种语言说明</div>
+            </div>
+          </div>
+          <div id="execute-narration-choice" class="execute-narration-choice" role="radiogroup" aria-label="讲解风格">
+            <button type="button" class="execute-narration-option" data-narration="plain" role="radio" aria-checked="true"><b>通俗</b><small>直接说要做什么</small></button>
+            <button type="button" class="execute-narration-option" data-narration="professional" role="radio" aria-checked="false"><b>专业</b><small>使用准确术语</small></button>
+          </div>
+        </section>
+
+        <details class="execution-extensions">
+          <summary>
+            <span><b>扩展能力</b><small>Skills 与 MCP，不常用时收起</small></span>
+          </summary>
+          <div class="execution-extensions-body">
+            <section class="execution-extension-section">
+              <div class="execution-card-head">
+                <div class="execution-card-title">Skills</div>
+                <button id="skill-install" class="execution-secondary-button" type="button">安装</button>
+              </div>
+              <div id="skill-library-summary" class="execution-current-meta">正在读取 Skill 库...</div>
+              <div id="skill-library-list" class="skill-library-list"></div>
+            </section>
+
+            <section class="execution-extension-section">
+              <div class="execution-card-head">
+                <div class="execution-card-title">MCP 服务</div>
+                <button id="mcp-add-toggle" class="execution-secondary-button" type="button">添加</button>
+              </div>
+              <div id="mcp-integration-summary" class="execution-current-meta">正在读取 MCP 配置...</div>
+              <form id="mcp-server-form" class="mcp-server-form" hidden>
+                <input id="mcp-server-id" type="hidden" />
+                <label><span>名称</span><input id="mcp-server-name" type="text" maxlength="120" required /></label>
+                <label><span>传输</span><select id="mcp-server-transport"><option value="stdio">stdio</option><option value="streamable-http">Streamable HTTP</option></select></label>
+                <label><span>协议</span><select id="mcp-server-protocol"><option value="auto">自动协商</option><option value="legacy">2025 兼容</option><option value="2026-07-28">2026-07-28</option></select></label>
+                <div id="mcp-stdio-fields" class="mcp-transport-fields">
+                  <label><span>可执行命令</span><input id="mcp-server-command" type="text" maxlength="1024" /></label>
+                  <label><span>工作目录</span><input id="mcp-server-cwd" type="text" maxlength="2048" /></label>
+                  <label class="mcp-wide-field"><span>参数</span><textarea id="mcp-server-args" rows="3" maxlength="12000"></textarea></label>
+                  <label class="mcp-wide-field"><span>环境变量名</span><textarea id="mcp-server-env" rows="2" maxlength="4000"></textarea></label>
+                </div>
+                <div id="mcp-http-fields" class="mcp-transport-fields" hidden>
+                  <label class="mcp-wide-field"><span>MCP URL</span><input id="mcp-server-url" type="url" maxlength="2048" /></label>
+                  <label class="mcp-wide-field"><span>Bearer Token 环境变量名</span><input id="mcp-server-token-env" type="text" maxlength="128" /></label>
+                </div>
+                <div class="mcp-form-actions"><button class="execution-secondary-button" type="submit">保存</button><button id="mcp-form-cancel" class="execution-secondary-button" type="button">取消</button></div>
+              </form>
+              <div id="mcp-integration-list" class="mcp-integration-list"></div>
+            </section>
+          </div>
+        </details>
       </div>
-    </section>
+    </aside>
 
     <aside id="settings-panel" class="side-panel" aria-label="设置与个性化" aria-hidden="true" data-open="false">
       <div id="settings-panel-head" class="side-panel-head">
@@ -1128,6 +1046,19 @@
               <input id="setting-memory-projects" type="checkbox" />
               <span>检索项目记忆</span>
             </label>
+            <label class="settings-toggle settings-field-full">
+              <input id="setting-memory-semantic" type="checkbox" />
+              <span>使用本机 Ollama 理解近义话题</span>
+            </label>
+            <label class="settings-field settings-field-full">
+              <span>本地 Embedding 模型</span>
+              <input id="setting-memory-embedding-model" type="text" spellcheck="false" placeholder="embeddinggemma" />
+            </label>
+            <div id="setting-memory-embedding-status" class="settings-note settings-field-full" role="status">语义记忆默认关闭；关键词记忆不受影响。</div>
+            <div class="settings-field settings-field-full settings-memory-actions">
+              <button id="setting-memory-embedding-refresh" class="settings-panel-link" type="button">检测本地语义模型</button>
+              <button id="setting-memory-embedding-pull" class="settings-panel-link" type="button">下载此模型</button>
+            </div>
             <label class="settings-field">
               <span>每类检索条数</span>
               <input id="setting-memory-depth" type="number" min="0" max="20" step="1" />
@@ -1248,16 +1179,21 @@
               <input id="setting-cloud-email" type="email" autocomplete="username" />
             </label>
             <label class="settings-field">
-              <span>租户 ID</span>
-              <input id="setting-cloud-tenant-id" type="text" placeholder="登录已有账号时填写" />
-            </label>
-            <label class="settings-field">
               <span>密码</span>
               <input id="setting-cloud-password" type="password" autocomplete="current-password" />
+            </label>
+            <label class="settings-field">
+              <span>两步验证码（未开启可留空）</span>
+              <input id="setting-cloud-mfa-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="20" />
+            </label>
+            <label class="settings-field">
+              <span>恢复码（仅在无法使用验证器时填写）</span>
+              <input id="setting-cloud-recovery-code" type="password" autocomplete="off" maxlength="100" />
             </label>
             <div class="privacy-actions">
               <button id="cloud-register" class="settings-panel-link" type="button">注册并登录</button>
               <button id="cloud-login" class="settings-panel-link" type="button">登录</button>
+              <button id="cloud-pairing-offer" class="settings-panel-link" type="button">生成手机配对码</button>
               <button id="cloud-sync-now" class="settings-panel-link" type="button">立即同步</button>
               <button id="cloud-logout" class="settings-panel-link settings-panel-danger" type="button">退出账号</button>
             </div>
@@ -1369,6 +1305,31 @@
         <button id="send-btn" type="submit" title="发送" aria-label="发送" data-busy="false">
           <svg class="icon send-glyph"><use href="#icon-send"></use></svg>
           <svg class="icon stop-glyph"><use href="#icon-stop"></use></svg>
+        </button>
+      </div>
+      <!-- Execute mode keeps its switches where the typing happens, instead of
+           in a panel beside it: the folder work runs in, the permission tier,
+           and everything else behind one settings button. -->
+      <div id="execute-chips" hidden>
+        <button id="execute-chip-folder" class="execute-chip" type="button" title="工作文件夹">
+          <svg class="icon"><use href="#icon-folder"></use></svg>
+          <span id="execute-chip-folder-label">选择工作文件夹</span>
+        </button>
+        <button id="execute-chip-permission" class="execute-chip" type="button" title="工具权限" data-level="off">
+          <svg class="icon"><use href="#icon-tools"></use></svg>
+          <span id="execute-chip-permission-label">权限 · 关闭</span>
+        </button>
+        <button id="execute-chip-narration" class="execute-chip" type="button" title="切换讲解风格" data-style="plain">
+          <svg class="icon"><use href="#icon-chat"></use></svg>
+          <span id="execute-chip-narration-label">讲解 · 通俗</span>
+        </button>
+        <button id="execute-chip-approval" class="execute-chip" type="button" title="逐项审批或连续执行" data-auto="false">
+          <svg class="icon"><use href="#icon-check"></use></svg>
+          <span id="execute-chip-approval-label">逐项审批</span>
+        </button>
+        <button id="execute-chip-settings" class="execute-chip" type="button" title="执行设置" aria-expanded="false">
+          <svg class="icon"><use href="#icon-sliders"></use></svg>
+          <span>执行设置</span>
         </button>
       </div>
       <div id="composer-meta">

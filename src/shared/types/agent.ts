@@ -211,5 +211,6 @@ export interface AgentProjectWorkspaceSnapshot {
 export interface AgentExecutionSummary {
   taskId: string;
   runId: string;
-  status: 'completed' | 'paused' | 'failed' | 'cancelled';
+  /** `running` means the message joined a run that is still working; its reply arrives with that run. */
+  status: 'completed' | 'paused' | 'failed' | 'cancelled' | 'running';
 }

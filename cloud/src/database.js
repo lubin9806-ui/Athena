@@ -5,8 +5,9 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const Database = require('better-sqlite3');
 const { randomId, sha256, hmacSha256, encryptBytes, decryptBytes, encryptJson, decryptJson } = require('./crypto');
+const { sealReplay, openReplay } = require('./lifecycle');
 
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 
 class CloudDatabase {
   constructor(config) {
@@ -16,6 +17,9 @@ class CloudDatabase {
     this.db.pragma('foreign_keys = ON');
     this.db.pragma('journal_mode = WAL');
     this.db.pragma('synchronous = FULL');
+    // Deleted rows are zeroed rather than left readable in free pages, so a
+    // purge or an account deletion does not leave its content on disk.
+    this.db.pragma('secure_delete = ON');
     this.migrate();
   }
 
@@ -36,7 +40,7 @@ class CloudDatabase {
         );
         CREATE UNIQUE INDEX one_active_tenant_key ON tenant_keys(tenant_id) WHERE status='active';
         CREATE TABLE users (
-          id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, email_hash TEXT NOT NULL, email_enc TEXT NOT NULL,
+          id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL, email_hash TEXT NOT NULL, login_hash TEXT NOT NULL, email_enc TEXT NOT NULL,
           email_key_version INTEGER NOT NULL, password_hash TEXT NOT NULL, role TEXT NOT NULL CHECK(role IN ('owner','admin','member')),
           status TEXT NOT NULL CHECK(status IN ('active','locked','deleted')), mfa_secret_enc TEXT, mfa_key_version INTEGER,
           mfa_enabled INTEGER NOT NULL DEFAULT 0, recovery_hashes_json TEXT NOT NULL DEFAULT '[]',
@@ -112,8 +116,23 @@ class CloudDatabase {
           id TEXT PRIMARY KEY, region TEXT NOT NULL, file_path TEXT NOT NULL, sha256 TEXT NOT NULL,
           key_version INTEGER NOT NULL, created_at TEXT NOT NULL, restored_at TEXT, deleted_tenants_json TEXT NOT NULL DEFAULT '[]'
         );
-        PRAGMA user_version = 1;
+        CREATE INDEX users_login_hash ON users(login_hash);
+        PRAGMA user_version = 2;
       `);
+      return;
+    }
+    if (version === 1) {
+      this.db.exec('ALTER TABLE users ADD COLUMN login_hash TEXT;');
+      const rows = this.db.prepare('SELECT id,tenant_id,email_enc,email_key_version FROM users').all();
+      const update = this.db.prepare('UPDATE users SET login_hash=? WHERE tenant_id=? AND id=?');
+      this.db.transaction(() => {
+        for (const row of rows) {
+          const key = this.getTenantKey(row.tenant_id, row.email_key_version).key;
+          const email = decryptBytes(row.email_enc, key, `user-email:${row.tenant_id}:${row.id}`).toString('utf8');
+          update.run(hmacSha256(this.config.masterKey, `login:${email}`), row.tenant_id, row.id);
+        }
+        this.db.exec('CREATE INDEX users_login_hash ON users(login_hash); PRAGMA user_version = 2;');
+      })();
     }
   }
 
@@ -185,6 +204,21 @@ class CloudDatabase {
         const plain = decryptBytes(record.payload_enc, oldKey, `sync:${tenantId}:${record.resource_id}`);
         this.db.prepare('UPDATE sync_records SET payload_enc=?, key_version=? WHERE tenant_id=? AND resource_id=?')
           .run(encryptBytes(plain, nextKey, `sync:${tenantId}:${record.resource_id}`), nextVersion, tenantId, record.resource_id);
+      }
+      // Replay entries carry the same content as the records they answered.
+      for (const entry of this.db.prepare('SELECT * FROM idempotency WHERE tenant_id=?').all(tenantId)) {
+        let resealed = null;
+        try {
+          resealed = sealReplay(this, tenantId, entry.route, entry.idem_key, openReplay(this, entry), { key: nextKey, version: nextVersion });
+        } catch {
+          // An entry that cannot be opened cannot be replayed either.
+        }
+        if (resealed) {
+          this.db.prepare('UPDATE idempotency SET response_json=? WHERE tenant_id=? AND route=? AND idem_key=?')
+            .run(resealed, tenantId, entry.route, entry.idem_key);
+        } else {
+          this.db.prepare('DELETE FROM idempotency WHERE tenant_id=? AND route=? AND idem_key=?').run(tenantId, entry.route, entry.idem_key);
+        }
       }
       let previousHash = 'GENESIS';
       for (const event of this.db.prepare('SELECT * FROM audit_events WHERE tenant_id=? ORDER BY rowid').all(tenantId)) {

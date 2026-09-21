@@ -3,7 +3,8 @@
 import { ipcMain, BrowserWindow, clipboard, dialog, IpcMainEvent, IpcMainInvokeEvent, shell } from 'electron';
 import { AthenaController } from '../../core/controller/AthenaController';
 import { DiagnosticsService } from '../../core/diagnostics';
-import { getAppSettings, getSettingsBundle, saveSettingsBundle, saveAppearanceSettings } from '../../core/config/SettingsStore';
+import { getAppSettings, getModelSettings, getSettingsBundle, saveSettingsBundle, saveAppearanceSettings } from '../../core/config/SettingsStore';
+import { OllamaMemoryEmbeddingProvider } from '../../core/ai/OllamaMemoryEmbeddingProvider';
 import type { AppearanceSettings } from '../../shared/types/settings';
 import {
   applyDataRetention,
@@ -16,10 +17,11 @@ import {
 } from '../../core/privacy/PrivacyDataService';
 import { VoiceService } from '../../core/voice/VoiceService';
 import {
-  getCloudAccountStatus,
+  refreshCloudAccountStatus,
   loginCloudAccount,
   logoutCloudAccount,
   registerCloudAccount,
+  createCloudPairingOffer,
   syncCloudAccountNow,
 } from '../../core/cloud/CloudAccountService';
 import { createAssistModelClient, LLMClient } from '../../core/ai/Client';
@@ -99,6 +101,8 @@ const MAX_RECORDING_BYTES = 12 * 1024 * 1024;
 const MAX_TEXT_TO_SPEAK_CHARS = 8_000;
 const MAX_PATH_CHARS = 2_048;
 const CONTROLLER_WARMUP_DELAY_MS = 1_500;
+/** Live session updates are coalesced: a busy run records several events per second. */
+const EXECUTE_SESSION_NOTIFY_MS = 160;
 
 const INVOKE_CHANNELS = [
   'chat:route',
@@ -134,9 +138,12 @@ const INVOKE_CHANNELS = [
   'chatWindow:contextSnapshots',
   'execution:cancel',
   'agentWorkspace:get',
+  'executeSession:get',
+  'agentWorkspace:chooseFolder',
   'agentArtifact:open',
   'agentWorkspace:update',
   'agentRun:resolveApproval',
+  'agentRun:provideSecret',
   'agentRun:resume',
   'agentRun:cancel',
   'skill:list',
@@ -189,6 +196,7 @@ const INVOKE_CHANNELS = [
   'memory:delete',
   'memory:update',
   'memory:debug',
+  'memory:embeddingStatus',
   'memoryReview:list',
   'memoryReview:approve',
   'memoryReview:approveMany',
@@ -203,6 +211,7 @@ const INVOKE_CHANNELS = [
   'cloud:status',
   'cloud:register',
   'cloud:login',
+  'cloud:pairingOffer',
   'cloud:logout',
   'cloud:syncNow',
   'diagnostics:getHealth',
@@ -681,6 +690,23 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<vo
     return projectId ? controller.getAgentWorkspace(projectId, taskId || undefined) : null;
   });
 
+  ipcMain.handle('executeSession:get', async (event, value: unknown) => {
+    if (!isTrustedSender(event)) return null;
+    const chatWindowId = cleanPositiveInteger(value);
+    return chatWindowId ? controller.getExecuteSession(chatWindowId) : null;
+  });
+
+  // Typing a path into a box did nothing when the box was empty, which is how a
+  // work folder ends up feeling like it "点不动". This is the system picker.
+  ipcMain.handle('agentWorkspace:chooseFolder', async (event) => {
+    if (!isTrustedSender(event)) return null;
+    const selection = await dialog.showOpenDialog(mainWindow, {
+      title: '选择工作文件夹',
+      properties: ['openDirectory', 'createDirectory'],
+    });
+    return selection.canceled ? null : selection.filePaths[0] || null;
+  });
+
   ipcMain.handle('agentArtifact:open', async (event, value: unknown) => {
     if (!isTrustedSender(event)) return false;
     if (!isRecord(value)) return false;
@@ -712,8 +738,24 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<vo
     const approvalId = cleanAgentId(value.approvalId);
     const projectId = cleanPositiveInteger(value.projectId);
     const decision = value.decision === 'approved' || value.decision === 'denied' ? value.decision : null;
+    // Anything other than an explicit "group" decides the single item that was clicked.
+    const scope = value.scope === 'group' ? 'group' : 'item';
     if (!projectId || !runId || !approvalId || !decision) return null;
-    return controller.resolveAgentApprovalGroup(projectId, runId, approvalId, decision, snapshot => {
+    return controller.resolveAgentApproval(projectId, runId, approvalId, decision, scope, snapshot => {
+      notifyAgentWorkspaceChanged(mainWindow, snapshot.task.projectId, snapshot.task.id, snapshot.run.id);
+    });
+  });
+
+  ipcMain.handle('agentRun:provideSecret', async (event, value: unknown) => {
+    if (!isTrustedSender(event)) return null;
+    if (!isRecord(value)) return null;
+    const runId = cleanAgentId(value.runId);
+    const approvalId = cleanAgentId(value.approvalId);
+    const projectId = cleanPositiveInteger(value.projectId);
+    const secret = typeof value.value === 'string' ? value.value.slice(0, 10_000) : '';
+    const persist = value.persist === true;
+    if (!projectId || !runId || !approvalId || !secret.trim()) return null;
+    return controller.provideAgentSecret(projectId, runId, approvalId, secret, persist, snapshot => {
       notifyAgentWorkspaceChanged(mainWindow, snapshot.task.projectId, snapshot.task.id, snapshot.run.id);
     });
   });
@@ -738,6 +780,22 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<vo
     return controller.cancelAgentRun(projectId, runId, snapshot => {
       notifyAgentWorkspaceChanged(mainWindow, snapshot.task.projectId, snapshot.task.id, snapshot.run.id);
     });
+  });
+
+  // A run records every narration line, tool step and approval as it happens.
+  // Without this the window only heard from a run when it started and when it
+  // stopped, so watching it work was watching a spinner.
+  const sessionNotifyTimers = new Map<number, NodeJS.Timeout>();
+  controller.watchExecuteActivity(({ chatWindowId, runId }) => {
+    if (mainWindow.isDestroyed() || sessionNotifyTimers.has(chatWindowId)) return;
+    const timer = setTimeout(() => {
+      sessionNotifyTimers.delete(chatWindowId);
+      if (mainWindow.isDestroyed()) return;
+      mainWindow.webContents.send('execute:session-changed', { chatWindowId, runId });
+    }, EXECUTE_SESSION_NOTIFY_MS);
+    const handle = timer as unknown as { unref?: () => void };
+    handle.unref?.();
+    sessionNotifyTimers.set(chatWindowId, timer);
   });
 
   ipcMain.handle('skill:list', async (event) => {
@@ -1128,6 +1186,16 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<vo
     return debugRetrieveMemory(cleanString(query, 1_000));
   });
 
+  ipcMain.handle('memory:embeddingStatus', async (event, value: unknown) => {
+    if (!isTrustedSender(event)) return null;
+    const saved = getAppSettings().memory;
+    const input = isRecord(value) ? value : {};
+    const enabled = typeof input.enabled === 'boolean' ? input.enabled : saved.semanticRetrieval;
+    const model = cleanString(input.model, 120) || saved.embeddingModel;
+    const ollama = getModelSettings().ollama;
+    return new OllamaMemoryEmbeddingProvider({ endpoint: ollama.baseUrl, model }).status(enabled);
+  });
+
   ipcMain.handle('memoryReview:list', async (event, status: unknown, limit: unknown) => {
     if (!isTrustedSender(event)) return [];
     return listMemoryReviewQueue(cleanMemoryReviewListOptions(status, limit));
@@ -1186,7 +1254,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<vo
 
   ipcMain.handle('cloud:status', async (event) => {
     if (!isTrustedSender(event)) return null;
-    return getCloudAccountStatus();
+    return refreshCloudAccountStatus();
   });
 
   ipcMain.handle('cloud:register', async (event, value: unknown) => {
@@ -1203,15 +1271,21 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<vo
     if (!isTrustedSender(event)) return null;
     const payload = isRecord(value) ? value : {};
     return loginCloudAccount({
-      tenantId: cleanString(payload.tenantId, 80),
       email: cleanString(payload.email, 254),
       password: typeof payload.password === 'string' ? payload.password : '',
+      mfaCode: cleanString(payload.mfaCode, 20) || null,
+      recoveryCode: cleanString(payload.recoveryCode, 100) || null,
     });
   });
 
   ipcMain.handle('cloud:logout', async (event) => {
     if (!isTrustedSender(event)) return null;
     return logoutCloudAccount();
+  });
+
+  ipcMain.handle('cloud:pairingOffer', async (event) => {
+    if (!isTrustedSender(event)) return null;
+    return createCloudPairingOffer();
   });
 
   ipcMain.handle('cloud:syncNow', async (event) => {

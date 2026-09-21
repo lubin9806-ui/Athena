@@ -208,7 +208,12 @@ function verifyArtifact(value) {
   assert.equal(runtime.storePackageVersion, storePackageVersion);
   const manifestVersion = manifest.match(/<Identity\b[^>]*\bVersion=["']([^"']+)["']/)?.[1];
   assert.equal(manifestVersion, runtime.storePackageVersion, 'Manifest and Store runtime package versions must match.');
-  const databaseCheck = spawnSync('python', [path.join(ROOT, 'scripts', 'verify-store-package-database.py'), artifact], {
+  const { DATABASE_SCHEMA_VERSION } = require('../dist/memory/database/index.js');
+  const databaseCheck = spawnSync('python', [
+    path.join(ROOT, 'scripts', 'verify-store-package-database.py'),
+    artifact,
+    String(DATABASE_SCHEMA_VERSION),
+  ], {
     cwd: ROOT,
     encoding: 'utf8',
     windowsHide: true,

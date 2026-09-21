@@ -18,6 +18,7 @@ import {
   normalizeFinishReason,
   normalizeModelIds,
   normalizeToolCall,
+  parseToolCallsBeforeLimit,
 } from './ProtocolUtils';
 
 export interface OllamaAdapterConfig {
@@ -143,7 +144,7 @@ export class OllamaAdapter implements ModelAdapter {
   private async readResponse(response: Response): Promise<ModelResponse> {
     const data = await response.json() as Record<string, any>;
     if (!data.message) throw new ModelProtocolError('Ollama response did not contain a message');
-    const toolCalls = parseOllamaToolCalls(data.message.tool_calls, 'ollama-call');
+    const toolCalls = parseToolCallsBeforeLimit(data.done_reason, () => parseOllamaToolCalls(data.message.tool_calls, 'ollama-call'));
     return {
       provider: 'ollama',
       model: typeof data.model === 'string' ? data.model : this.modelName,
@@ -236,13 +237,13 @@ export class OllamaAdapter implements ModelAdapter {
     }
     buffer += decoder.decode();
     if (buffer.trim()) processLine(buffer);
-    const toolCalls = Array.from(toolCallsByIndex.entries())
+    const toolCalls = parseToolCallsBeforeLimit(finishReason, () => Array.from(toolCallsByIndex.entries())
       .sort(([left], [right]) => left - right)
       .map(([index, call]) => normalizeToolCall({
         id: call.id,
         name: call.name,
         arguments: call.argumentsText || call.argumentsObject,
-      }, `ollama-stream-${index}`));
+      }, `ollama-stream-${index}`)));
     const result: ModelResponse = {
       provider: 'ollama',
       model: responseModel,

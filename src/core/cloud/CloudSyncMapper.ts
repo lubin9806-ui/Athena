@@ -21,6 +21,12 @@ export function memoryResourceId(kind: string, id: number): string {
   return `memory.desktop-${kind}-${id}`;
 }
 
+export function desktopMemoryRefFromResourceId(resourceId: string): { kind: string; id: number } | null {
+  const match = /^memory\.desktop-([a-z]+)-(\d+)$/.exec(resourceId);
+  const id = match ? Number(match[2]) : 0;
+  return match && id > 0 ? { kind: match[1], id } : null;
+}
+
 /**
  * A reminder adopted from another client keeps that client's id as its job id,
  * so it writes back to the same record rather than opening a second one for the
@@ -28,6 +34,11 @@ export function memoryResourceId(kind: string, id: number): string {
  */
 export function reminderResourceId(jobId: string): string {
   return jobId.startsWith('reminder.') ? jobId : `reminder.desktop-${jobId}`;
+}
+
+export function desktopReminderJobIdFromResourceId(resourceId: string): string | null {
+  const prefix = 'reminder.desktop-';
+  return resourceId.startsWith(prefix) && resourceId.length > prefix.length ? resourceId.slice(prefix.length) : null;
 }
 
 /** Records this desktop wrote for its own reminders come back on the feed. */

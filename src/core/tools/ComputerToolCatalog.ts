@@ -175,7 +175,7 @@ export const COMPUTER_PERMISSION_RANK: Readonly<Record<ToolPermissionLevel, numb
 
 export function permissionLabel(level: ToolPermissionLevel): string {
   if (level === 'read') return '全盘只读';
-  if (level === 'files') return '全盘文件读写';
+  if (level === 'files') return '工作区文件读写';
   if (level === 'full') return '完全访问';
   return '关闭';
 }
@@ -197,7 +197,7 @@ export function toolPermissionPrompt(settings: ToolSettings): string {
   const capabilities = settings.permissionLevel === 'read'
     ? '可以读取、列出和搜索当前 Windows 账户可访问的任意文件，但不能写入。'
     : settings.permissionLevel === 'files'
-      ? '可以读取、创建、修改、复制、移动和删除当前 Windows 账户可访问的任意文件，但不能执行命令、启动程序或访问端口。'
+      ? '可以读取当前 Windows 账户可访问的文件；创建、修改、复制、移动和删除仅限当前任务选择的工作文件夹，且不能执行命令、启动程序或访问端口。'
       : '可以读写当前 Windows 账户可访问的任意文件，执行命令、启动程序，并访问 HTTP 地址和 TCP 端口。';
   return [
     '## 本机工具权限',

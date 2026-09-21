@@ -104,6 +104,25 @@ export class AgentApprovalError extends Error {
   }
 }
 
+export interface AgentStoreActivity {
+  runId: string;
+  type: string;
+}
+
+const ACTIVITY_LISTENERS = new Set<(activity: AgentStoreActivity) => void>();
+
+/**
+ * Every recorded step, approval and checkpoint, as it happens.
+ *
+ * A run only reported itself when it started and when it stopped, so the window
+ * showed nothing between - the person watched a spinner while Athena explained
+ * itself into a log nobody could see. Returns an unsubscribe function.
+ */
+export function onAgentStoreActivity(listener: (activity: AgentStoreActivity) => void): () => void {
+  ACTIVITY_LISTENERS.add(listener);
+  return () => ACTIVITY_LISTENERS.delete(listener);
+}
+
 export class AgentStore {
   constructor(private readonly database: Database.Database = getDatabase()) {}
 
@@ -267,6 +286,20 @@ export class AgentStore {
       SELECT * FROM agent_runs WHERE task_id = ?
       ORDER BY created_at DESC LIMIT ?
     `).all(taskId, clampInteger(limit, 1, 500, 100)) as unknown[]).map(rowToRun);
+  }
+
+  /**
+   * Every run of a chat window, newest first: one window is one execute session,
+   * so the window - not the task - is what the next turn continues from.
+   */
+  listWindowRuns(chatWindowId: number, limit = 20): AgentRunRecord[] {
+    return (this.database.prepare(`
+      SELECT r.* FROM agent_runs r
+      JOIN agent_tasks t ON t.id = r.task_id
+      WHERE t.chat_window_id = ?
+      ORDER BY r.created_at DESC, r.rowid DESC
+      LIMIT ?
+    `).all(chatWindowId, clampInteger(limit, 1, 200, 20)) as unknown[]).map(rowToRun);
   }
 
   listRecoverableRuns(limit = 100): AgentRunRecord[] {
@@ -475,8 +508,11 @@ export class AgentStore {
   }
 
   listApprovals(runId: string): AgentApprovalRecord[] {
+    // `created_at` only has one-second resolution, and a batch's approvals are written
+    // within the same second; ordering the tie by the random id put a batch on the
+    // approval card in random order. Insertion order is the order the calls run in.
     return (this.database.prepare(`
-      SELECT * FROM agent_approvals WHERE run_id = ? ORDER BY created_at ASC, id ASC
+      SELECT * FROM agent_approvals WHERE run_id = ? ORDER BY created_at ASC, rowid ASC
     `).all(runId) as unknown[]).map(rowToApproval);
   }
 
@@ -655,6 +691,13 @@ export class AgentStore {
       VALUES (?, ?, ?, ?)
     `).run(runId, sequence, requireText(type, 'Event type', 160), toJson(payload));
     const row = this.database.prepare('SELECT * FROM agent_run_events WHERE id = ?').get(result.lastInsertRowid);
+    for (const listener of ACTIVITY_LISTENERS) {
+      try {
+        listener({ runId, type });
+      } catch {
+        // A watcher must never break the run it is watching.
+      }
+    }
     return rowToEvent(row);
   }
 

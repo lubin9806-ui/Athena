@@ -154,7 +154,9 @@ function buildEngine(overrides = {}) {
       spoken.push(message);
       return { chatWindowId: 1 };
     },
-    now: overrides.now,
+    // Keep engine behaviour deterministic across local and CI time zones. Tests
+    // that exercise the quiet-hours boundary provide their own clock below.
+    now: overrides.now ?? (() => awake),
   });
   return { engine, spoken, gate, calls };
 }

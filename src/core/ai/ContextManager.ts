@@ -5,6 +5,7 @@ export type ContextSnapshotItemKind =
   | 'system'
   | 'current_input'
   | 'recent_message'
+  | 'previous_window_handoff'
   | 'pinned_fact'
   | 'procedural_memory'
   | 'working_state'
@@ -224,6 +225,49 @@ function buildCandidates(input: ManagedContextInput): ContextCandidate[] {
       }],
     });
   });
+
+  const previousChatWindow = input.retrievedContext.previousChatWindow;
+  if (previousChatWindow?.summary?.trim()) {
+    const workingState = previousChatWindow.workingStateJson?.trim();
+    const handoffContent = [
+      '## 最近一次聊天交接',
+      `来源窗口: ${previousChatWindow.title} (#${previousChatWindow.id}); messages: ${previousChatWindow.messageCount}; updated: ${previousChatWindow.updatedAt}`,
+      previousChatWindow.matchStrategy === 'topic'
+        ? `匹配方式: 话题匹配；命中关键词: ${previousChatWindow.matchedTerms.join('、')}`
+        : previousChatWindow.matchStrategy === 'semantic'
+          ? '匹配方式: 本地语义向量匹配（未把近义改写误报为原词命中）'
+          : '匹配方式: 最近聊天回退（用户未提供足够明确的话题关键词）',
+      '- 用户明确要求回忆或继续此前聊天。请根据下面的交接内容自然接上，不要让用户重复已经记录的信息。',
+      '- 回复开头先用一句自然语言说明你接上的是哪个话题，然后直接继续；不要暴露窗口编号、匹配分数或 working_state_json。',
+      '- 这是同一 Project 中最近一个持久聊天的摘要，不是当前窗口的逐字历史。若可能对应多个话题，先简短说明你理解的是哪个话题；不要编造摘要之外的细节。',
+      '交接摘要:',
+      previousChatWindow.summary,
+      workingState && workingState !== '{}'
+        ? `交接 working_state_json:\n${truncateForSnippet(workingState, 1_200)}`
+        : '',
+    ].filter(Boolean).join('\n');
+    candidates.push({
+      kind: 'previous_window_handoff',
+      id: String(previousChatWindow.id),
+      label: `previous chat handoff from window #${previousChatWindow.id}`,
+      priority: 74,
+      content: handoffContent,
+      placement: 'system',
+      order: order += 1,
+      minTokens: 80,
+      evidence: [{
+        memoryTable: 'chat_windows',
+        memoryId: previousChatWindow.id,
+        memoryKind: 'window',
+        projectId: previousChatWindow.projectId,
+        sourceTable: 'chat_windows',
+        sourceId: previousChatWindow.id,
+        chatWindowId: previousChatWindow.id,
+        origin: 'record',
+        excerpt: truncateForSnippet(previousChatWindow.summary, 240),
+      }],
+    });
+  }
 
   const pinnedFacts = input.retrievedContext.profileFacts
     .filter(fact => fact.confidence >= 0.7 || fact.importance >= 8)

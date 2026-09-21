@@ -43,9 +43,17 @@ contextBridge.exposeInMainWorld('athenaAPI', {
   cancelExecution: () => ipcRenderer.invoke('execution:cancel'),
   cancelChat: () => ipcRenderer.invoke('chat:cancel'),
   getAgentWorkspace: (projectId: number, taskId?: string) => ipcRenderer.invoke('agentWorkspace:get', projectId, taskId),
+  getExecuteSession: (chatWindowId: number) => ipcRenderer.invoke('executeSession:get', chatWindowId),
+  chooseWorkspaceFolder: () => ipcRenderer.invoke('agentWorkspace:chooseFolder'),
+  onExecuteSessionChanged: (callback: (event: { chatWindowId: number; runId: string }) => void) => {
+    const handler = (_: any, event: { chatWindowId: number; runId: string }) => callback(event);
+    ipcRenderer.on('execute:session-changed', handler);
+    return () => ipcRenderer.removeListener('execute:session-changed', handler);
+  },
   openAgentArtifact: (projectId: number, artifactId: string) => ipcRenderer.invoke('agentArtifact:open', { projectId, artifactId }),
   updateAgentWorkspace: (projectId: number, value: unknown) => ipcRenderer.invoke('agentWorkspace:update', projectId, value),
-  resolveAgentApproval: (projectId: number, runId: string, approvalId: string, decision: 'approved' | 'denied') => ipcRenderer.invoke('agentRun:resolveApproval', { projectId, runId, approvalId, decision }),
+  resolveAgentApproval: (projectId: number, runId: string, approvalId: string, decision: 'approved' | 'denied', scope: 'item' | 'group' = 'item') => ipcRenderer.invoke('agentRun:resolveApproval', { projectId, runId, approvalId, decision, scope }),
+  provideAgentSecret: (projectId: number, runId: string, approvalId: string, value: string, persist: boolean) => ipcRenderer.invoke('agentRun:provideSecret', { projectId, runId, approvalId, value, persist }),
   resumeAgentRun: (projectId: number, runId: string) => ipcRenderer.invoke('agentRun:resume', { projectId, runId }),
   cancelAgentRun: (projectId: number, runId: string) => ipcRenderer.invoke('agentRun:cancel', { projectId, runId }),
   onAgentWorkspaceChanged: (callback: (event: { projectId: number; taskId?: string; runId?: string }) => void) => {
@@ -143,6 +151,7 @@ contextBridge.exposeInMainWorld('athenaAPI', {
   deleteMemory: (kind: string, id: number) => ipcRenderer.invoke('memory:delete', kind, id),
   updateMemory: (kind: string, id: number, patch: any) => ipcRenderer.invoke('memory:update', kind, id, patch),
   debugMemory: (query: string) => ipcRenderer.invoke('memory:debug', query),
+  getMemoryEmbeddingStatus: (value?: { enabled?: boolean; model?: string }) => ipcRenderer.invoke('memory:embeddingStatus', value),
   listMemoryReviewQueue: (status?: string, limit?: number) => ipcRenderer.invoke('memoryReview:list', status, limit),
   approveMemoryReview: (id: number) => ipcRenderer.invoke('memoryReview:approve', id),
   approveMemoryReviews: (ids: number[]) => ipcRenderer.invoke('memoryReview:approveMany', ids),
@@ -154,7 +163,8 @@ contextBridge.exposeInMainWorld('athenaAPI', {
   getPrivacyCenter: () => ipcRenderer.invoke('privacy:get'),
   getCloudAccount: () => ipcRenderer.invoke('cloud:status'),
   registerCloudAccount: (payload: { tenantName: string; email: string; password: string }) => ipcRenderer.invoke('cloud:register', payload),
-  loginCloudAccount: (payload: { tenantId: string; email: string; password: string }) => ipcRenderer.invoke('cloud:login', payload),
+  loginCloudAccount: (payload: { email: string; password: string; mfaCode?: string; recoveryCode?: string }) => ipcRenderer.invoke('cloud:login', payload),
+  createCloudPairingOffer: () => ipcRenderer.invoke('cloud:pairingOffer'),
   logoutCloudAccount: () => ipcRenderer.invoke('cloud:logout'),
   syncCloudAccount: () => ipcRenderer.invoke('cloud:syncNow'),
   exportPrivacyData: (format?: 'json' | 'markdown') => ipcRenderer.invoke('privacy:export', format),

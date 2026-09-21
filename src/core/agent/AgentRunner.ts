@@ -1,4 +1,4 @@
-import { createHash } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 import * as path from 'path';
 import type {
   AgentApprovalRecord,
@@ -6,25 +6,33 @@ import type {
   AgentStepRecord,
   AgentTaskRecord,
 } from '../../shared/types';
+import { deriveAgentRunVerification } from '../../shared/agentVerification';
 import {
   ModelCapabilityError,
+  ModelOutputTruncatedError,
   ModelProtocolError,
   type ModelMessage,
   type ModelResponse,
   type ModelToolCall,
 } from '../ai/model';
+import { classifyModelFailure } from '../ai/ModelFailure';
 import { AgentPolicyEngine, type AgentPolicyContext, type AgentPolicyDecision } from './AgentPolicyEngine';
 import { AgentStore } from './AgentStore';
-import type {
-  AgentModelClient,
-  AgentRunHandle,
-  AgentRunnerCheckpointV1,
-  AgentRunnerOptions,
-  AgentRunnerResult,
-  AgentRunVerification,
-  CreateAgentExecutionInput,
-  PendingAgentToolBatch,
-  PendingAgentToolCall,
+import {
+  SESSION_USER_MESSAGE_EVENT,
+  type AgentModelClient,
+  type AgentRunBudget,
+  type AgentRunFailureRecord,
+  type AgentRunHandle,
+  type AgentRunnerCheckpointV1,
+  type AgentRunnerGate,
+  type AgentRunnerOptions,
+  type AgentRunnerResult,
+  type AgentSessionUserMessage,
+  type AgentSubmitUserMessageOutcome,
+  type CreateAgentExecutionInput,
+  type PendingAgentToolBatch,
+  type PendingAgentToolCall,
 } from './AgentRuntimeTypes';
 import {
   AgentToolArgumentsError,
@@ -35,14 +43,36 @@ import {
   type ResolvedAgentTool,
 } from './ToolRegistry';
 
-const DEFAULT_MAX_MODEL_ROUNDS = 8;
-const DEFAULT_MAX_TOOL_CALLS = 32;
-const DEFAULT_MODEL_ATTEMPTS = 2;
+// A budget is not a failure line any more: reaching it pauses the run and asks.
+// Sixteen rounds covers a write-run-fix-rerun loop without asking; the old eight
+// was used up by a plain read-around-and-report task (2026-09-14 run log).
+const DEFAULT_MAX_MODEL_ROUNDS = 16;
+const DEFAULT_MAX_TOOL_CALLS = 48;
+const DEFAULT_MODEL_ATTEMPTS = 3;
+const DEFAULT_MODEL_RETRY_DELAY_MS = 1_000;
+const MAX_MODEL_RETRY_DELAY_MS = 8_000;
+const MIN_AGENT_OUTPUT_TOKENS = 8_192;
+/** The adapters' own ceiling for a request's output budget. */
+const MAX_AGENT_OUTPUT_TOKENS = 32_768;
+const MAX_OUTPUT_BUDGET_RAISES = 2;
 const MAX_INITIAL_MESSAGES = 128;
 const MAX_CHECKPOINT_MESSAGES = 512;
 const MAX_CHECKPOINT_CHARS = 16 * 1024 * 1024;
 const MAX_MODEL_CONTENT_CHARS = 1_000_000;
 const MAX_MODEL_TOOL_ARGUMENT_CHARS = 2_000_000;
+
+const CLOSING_INSTRUCTION = [
+  '这次任务的执行预算已经用完，用户选择不再继续。',
+  '不要再调用任何工具。请根据上面真实的工具结果，如实说明：已经完成了什么、还没有完成什么、哪些步骤失败或没有执行。',
+  '没有工具结果支持的内容不要说成已经完成。',
+].join('\n');
+
+const MAX_SESSION_MESSAGE_CHARS = 20_000;
+/** Decision scopes written when the person answers a waiting run by writing to it instead. */
+export const SUPERSEDED_BY_MESSAGE_SCOPE = 'superseded-by-message';
+export const CONTINUED_BY_MESSAGE_SCOPE = 'continued-by-message';
+/** Written on approvals the person's standing "免审批" decision granted. */
+export const AUTO_APPROVE_SCOPE = 'auto-approve';
 
 interface ActiveRun {
   controller: AbortController;
@@ -73,6 +103,14 @@ export class AgentRunCancelledError extends Error {
   }
 }
 
+/** The model could not be reached after every attempt this request was allowed. */
+class AgentModelUnavailableError extends Error {
+  constructor(readonly failure: unknown, readonly attempts: number) {
+    super(failure instanceof Error ? failure.message : String(failure || 'Model request failed'));
+    this.name = 'AgentModelUnavailableError';
+  }
+}
+
 export class AgentRunner {
   private readonly activeRuns = ACTIVE_AGENT_RUNS;
   private readonly maxModelRounds: number;
@@ -80,6 +118,7 @@ export class AgentRunner {
   private readonly modelMaxAttempts: number;
   private readonly modelRetryDelayMs: number;
   private readonly maxPersistedToolOutputChars: number;
+  private readonly isAutoApproveEnabled: () => boolean;
 
   constructor(
     private readonly model: AgentModelClient,
@@ -91,15 +130,16 @@ export class AgentRunner {
     this.maxModelRounds = clampInteger(options.maxModelRounds, 1, 32, DEFAULT_MAX_MODEL_ROUNDS);
     this.maxToolCalls = clampInteger(options.maxToolCalls, 1, 128, DEFAULT_MAX_TOOL_CALLS);
     this.modelMaxAttempts = clampInteger(options.modelMaxAttempts, 1, 5, DEFAULT_MODEL_ATTEMPTS);
-    this.modelRetryDelayMs = clampInteger(options.modelRetryDelayMs, 0, 30_000, 400);
+    this.modelRetryDelayMs = clampInteger(options.modelRetryDelayMs, 0, 30_000, DEFAULT_MODEL_RETRY_DELAY_MS);
     this.maxPersistedToolOutputChars = clampInteger(options.maxPersistedToolOutputChars, 1_000, 200_000, 20_000);
+    this.isAutoApproveEnabled = options.isAutoApproveEnabled || (() => false);
   }
 
   create(input: CreateAgentExecutionInput): AgentRunRecord {
     if (!this.model.capabilities.nativeToolCalls) {
       throw new ModelCapabilityError('AgentRunner requires a model adapter with native tool-call support');
     }
-    const checkpoint = createCheckpoint(input);
+    const checkpoint = createCheckpoint(input, { modelRounds: this.maxModelRounds, toolCalls: this.maxToolCalls });
     return this.store.createRun({
       taskId: input.taskId,
       scene: input.scene || 'work',
@@ -128,6 +168,11 @@ export class AgentRunner {
     return this.run(runId);
   }
 
+  /** The current result of a run without driving it, e.g. after one of several approvals is decided. */
+  inspect(runId: string): AgentRunnerResult {
+    return this.buildResult(runId);
+  }
+
   async cancel(runId: string): Promise<AgentRunnerResult> {
     const active = this.activeRuns.get(runId);
     if (active) {
@@ -140,6 +185,65 @@ export class AgentRunner {
 
   listRecoverableRuns(limit = 100): AgentRunRecord[] {
     return this.store.listRecoverableRuns(limit);
+  }
+
+  /**
+   * A message written to a run that has not finished belongs to that run.
+   *
+   * Replying while a run waited used to start a second, parallel task that knew
+   * nothing of the first. A driving run now picks the message up before its
+   * next model round. A waiting run treats the message as the person's answer:
+   * an ordinary reply is retained without silently deciding pending tool calls;
+   * only explicit stop/change wording supersedes those calls. A paused retry or
+   * budget question counts as "go on", and the same run receives the message.
+   */
+  submitUserMessage(runId: string, message: AgentSessionUserMessage): AgentSubmitUserMessageOutcome {
+    const run = this.store.getRun(runId);
+    if (!run || isTerminalStatus(run.status)) return { outcome: 'terminal', runId };
+    const content = message.content.trim().slice(0, MAX_SESSION_MESSAGE_CHARS);
+    if (!content) throw new Error('A session message needs text');
+    this.store.appendEvent(runId, SESSION_USER_MESSAGE_EVENT, {
+      content,
+      chatMessageId: positiveIntegerOrNull(message.chatMessageId),
+      ...(message.images?.length ? { images: structuredClone(message.images) } : {}),
+    });
+    if (this.activeRuns.has(runId)) return { outcome: 'queued', runId };
+    let waitingOnToolApproval = false;
+    const supersedesPendingCalls = messageSupersedesPendingCalls(content);
+    for (const approval of this.store.listApprovals(runId)) {
+      if (approval.status !== 'pending') continue;
+      const continues = approval.request.kind === 'model_retry' || approval.request.kind === 'budget_extension';
+      if (!continues) {
+        if (!supersedesPendingCalls) {
+          // An answer or extra detail is not a rejection. Keep the pending
+          // operation waiting for an explicit button decision; the inbox is
+          // drained when the run resumes, so the model receives this message.
+          waitingOnToolApproval = true;
+          continue;
+        }
+      }
+      this.store.resolveApproval(
+        approval.id,
+        continues ? 'approved' : 'denied',
+        { actor: 'user', scope: continues ? CONTINUED_BY_MESSAGE_SCOPE : SUPERSEDED_BY_MESSAGE_SCOPE },
+        approval.revision,
+      );
+    }
+    if (waitingOnToolApproval) return { outcome: 'queued', runId };
+    return { outcome: 'resumed', runId, result: this.run(runId) };
+  }
+
+  /** Messages that reached a run after it had stopped reading them, oldest first. */
+  unreadSessionMessages(runId: string): AgentSessionUserMessage[] {
+    const run = this.store.getRun(runId);
+    if (!run) return [];
+    let inboxSequence = 0;
+    try {
+      inboxSequence = parseCheckpoint(run.state).session?.inboxSequence ?? 0;
+    } catch {
+      inboxSequence = 0;
+    }
+    return this.readInbox(runId, inboxSequence).map(item => item.message);
   }
 
   private async drive(runId: string, signal: AbortSignal): Promise<AgentRunnerResult> {
@@ -156,6 +260,11 @@ export class AgentRunner {
         throwIfAborted(signal);
         run = requireRun(this.store, runId);
         state = parseCheckpoint(run.state);
+        if (state.gate) {
+          const outcome = await this.settleGate(run, state);
+          if (outcome === 'waiting' || outcome === 'finished') return this.buildResult(runId);
+          continue;
+        }
         if (run.phase === 'awaiting_approval' && !state.pendingBatch) {
           throw new Error('Awaiting-approval run has no persisted tool batch');
         }
@@ -164,11 +273,23 @@ export class AgentRunner {
           if (paused) return this.buildResult(runId);
           continue;
         }
-        if (state.round >= this.maxModelRounds) {
-          throw new Error(`Agent model round limit reached (${this.maxModelRounds})`);
-        }
         if (run.phase !== 'planning') {
           run = this.store.transitionRun(run.id, 'planning', run.revision);
+        }
+        if (this.drainInbox(run.id, state)) {
+          run = this.store.checkpointRun(run.id, state as unknown as Record<string, unknown>, requireRun(this.store, run.id).revision);
+        }
+        if (state.closing) {
+          const summary = await this.requestModel(run, state, signal, { closing: true });
+          state.messages.push({ role: 'assistant', content: summary.content });
+          state.round += 1;
+          run = this.store.checkpointRun(run.id, state as unknown as Record<string, unknown>, requireRun(this.store, run.id).revision);
+          return this.completeRun(run, state, summary.content);
+        }
+        const budget = this.budgetOf(state);
+        if (state.round >= budget.modelRounds) {
+          this.openGate(run, state, { id: randomUUID(), kind: 'budget_extension', reason: 'model_rounds' });
+          return this.buildResult(runId);
         }
         const response = await this.requestModel(run, state, signal);
         state.messages.push({
@@ -180,19 +301,21 @@ export class AgentRunner {
         run = this.store.checkpointRun(run.id, state as unknown as Record<string, unknown>, requireRun(this.store, run.id).revision);
 
         if (response.toolCalls.length === 0) {
-          state.finalContent = response.content;
-          assertRequiredValidations(requireTask(this.store, run.taskId), state);
-          run = this.store.transitionRun(run.id, 'verifying', run.revision, { state: state as unknown as Record<string, unknown> });
-          run = this.store.transitionRun(run.id, 'completed', run.revision, { state: state as unknown as Record<string, unknown> });
-          return this.buildResult(run.id);
-        }
-        if (state.toolCallCount + response.toolCalls.length > this.maxToolCalls) {
-          throw new Error(`Agent tool call limit reached (${this.maxToolCalls})`);
+          // Something the person wrote while this answer was being produced has not
+          // been read yet: answer it before calling the turn finished.
+          if (this.readInbox(run.id, state.session?.inboxSequence ?? 0).length > 0) continue;
+          return this.completeRun(run, state, response.content);
         }
         state.pendingBatch = {
           cursor: 0,
           calls: response.toolCalls.map(call => ({ call: structuredClone(call), stepId: null })),
         };
+        if (state.toolCallCount + response.toolCalls.length > budget.toolCalls) {
+          // The calls stay pending behind the question, so a yes runs them and a no
+          // still answers each one before the closing summary.
+          this.openGate(run, state, { id: randomUUID(), kind: 'budget_extension', reason: 'tool_calls' });
+          return this.buildResult(runId);
+        }
         this.store.checkpointRun(run.id, state as unknown as Record<string, unknown>, run.revision);
       }
     } catch (error) {
@@ -200,49 +323,261 @@ export class AgentRunner {
         await this.cancelPersistedRun(runId);
         return this.buildResult(runId);
       }
-      await this.failPersistedRun(runId, error);
+      if (error instanceof AgentModelUnavailableError) {
+        // A dropped connection used to end the run and throw away every step it had
+        // taken; the person could only start over. The run now waits at its
+        // checkpoint with the reason on the card (2026-09-14, two "fetch failed" runs).
+        if (this.parkForModelRetry(runId, error)) return this.buildResult(runId);
+        await this.failPersistedRun(runId, failureRecordOf(error.failure));
+        return this.buildResult(runId);
+      }
+      await this.failPersistedRun(runId, failureRecordOf(error));
       return this.buildResult(runId);
     }
+  }
+
+  private completeRun(initialRun: AgentRunRecord, state: AgentRunnerCheckpointV1, content: string): AgentRunnerResult {
+    let run = initialRun;
+    state.finalContent = content;
+    assertRequiredValidations(requireTask(this.store, run.taskId), state);
+    run = this.store.transitionRun(run.id, 'verifying', requireRun(this.store, run.id).revision, { state: state as unknown as Record<string, unknown> });
+    run = this.store.transitionRun(run.id, 'completed', run.revision, { state: state as unknown as Record<string, unknown> });
+    return this.buildResult(run.id);
+  }
+
+  private budgetOf(state: AgentRunnerCheckpointV1): AgentRunBudget {
+    return state.budget ?? { modelRounds: this.maxModelRounds, toolCalls: this.maxToolCalls };
+  }
+
+  /** Adds messages the person wrote since the last model round, in the order they were sent. */
+  private drainInbox(runId: string, state: AgentRunnerCheckpointV1): boolean {
+    const unread = this.readInbox(runId, state.session?.inboxSequence ?? 0);
+    if (unread.length === 0) return false;
+    const session = state.session ?? {
+      chatWindowId: null,
+      ownStart: Math.max(0, state.messages.map(message => message.role).lastIndexOf('user')),
+      inboxSequence: 0,
+      lastChatMessageId: null,
+    };
+    for (const item of unread) {
+      state.messages.push({
+        role: 'user',
+        content: item.message.content,
+        ...(item.message.images?.length ? { images: item.message.images } : {}),
+      });
+      session.inboxSequence = item.sequence;
+      if (item.message.chatMessageId && (session.lastChatMessageId ?? 0) < item.message.chatMessageId) {
+        session.lastChatMessageId = item.message.chatMessageId;
+      }
+    }
+    state.session = session;
+    this.store.appendEvent(runId, 'session.messages_read', { count: unread.length, inboxSequence: session.inboxSequence });
+    return true;
+  }
+
+  private readInbox(runId: string, afterSequence: number): Array<{ sequence: number; message: AgentSessionUserMessage }> {
+    return this.store.listEvents(runId, 10_000)
+      .filter(event => event.type === SESSION_USER_MESSAGE_EVENT && event.sequence > afterSequence)
+      .flatMap(event => {
+        const content = typeof event.payload.content === 'string' ? event.payload.content.trim() : '';
+        if (!content) return [];
+        const images = Array.isArray(event.payload.images) ? event.payload.images as AgentSessionUserMessage['images'] : undefined;
+        return [{
+          sequence: event.sequence,
+          message: {
+            content,
+            chatMessageId: positiveIntegerOrNull(event.payload.chatMessageId),
+            ...(images?.length ? { images } : {}),
+          },
+        }];
+      });
+  }
+
+  private openGate(initialRun: AgentRunRecord, state: AgentRunnerCheckpointV1, gate: AgentRunnerGate): void {
+    state.gate = gate;
+    const run = this.store.checkpointRun(
+      initialRun.id,
+      state as unknown as Record<string, unknown>,
+      requireRun(this.store, initialRun.id).revision,
+    );
+    this.requestGateApproval(run, state, gate);
+  }
+
+  private requestGateApproval(run: AgentRunRecord, state: AgentRunnerCheckpointV1, gate: AgentRunnerGate): void {
+    const budget = this.budgetOf(state);
+    const request: Record<string, unknown> = gate.kind === 'model_retry'
+      ? {
+          kind: 'model_retry',
+          gateId: gate.id,
+          failure: gate.failure,
+          attempts: gate.attempts,
+          round: state.round,
+          completedToolSteps: this.store.listSteps(run.id).filter(step => step.kind === 'tool' && step.status === 'completed').length,
+        }
+      : {
+          kind: 'budget_extension',
+          gateId: gate.id,
+          reason: gate.reason,
+          used: { modelRounds: state.round, toolCalls: state.toolCallCount },
+          budget,
+          extension: { modelRounds: this.maxModelRounds, toolCalls: this.maxToolCalls },
+          pendingToolCalls: state.pendingBatch ? state.pendingBatch.calls.length - state.pendingBatch.cursor : 0,
+        };
+    this.store.requestApproval({
+      runId: run.id,
+      capability: 'runner.continue',
+      riskLevel: 'low',
+      request,
+    }, run.revision);
+    this.store.appendEvent(run.id, 'runner.gate_opened', {
+      gateId: gate.id,
+      kind: gate.kind,
+      ...(gate.kind === 'model_retry'
+        ? { failureKind: gate.failure.kind, failureCode: gate.failure.code, attempts: gate.attempts }
+        : { reason: gate.reason, round: state.round, toolCallCount: state.toolCallCount }),
+    });
+  }
+
+  private async settleGate(
+    initialRun: AgentRunRecord,
+    state: AgentRunnerCheckpointV1,
+  ): Promise<'waiting' | 'continue' | 'finished'> {
+    const gate = state.gate;
+    if (!gate) return 'continue';
+    const approval = this.store.listApprovals(initialRun.id)
+      .filter(item => item.request.kind === gate.kind && item.request.gateId === gate.id)
+      .at(-1);
+    if (!approval) {
+      // The process stopped between saving the gate and asking: ask now.
+      if (initialRun.phase === 'awaiting_approval') throw new Error(`Runner gate ${gate.id} has no approval record`);
+      this.requestGateApproval(initialRun, state, gate);
+      return 'waiting';
+    }
+    if (approval.status === 'pending') return 'waiting';
+
+    this.store.appendEvent(initialRun.id, 'runner.gate_resolved', { gateId: gate.id, kind: gate.kind, decision: approval.status });
+    if (approval.status !== 'approved' && gate.kind === 'model_retry') {
+      await this.failPersistedRun(initialRun.id, gate.failure);
+      return 'finished';
+    }
+    if (approval.status === 'approved' && gate.kind === 'budget_extension') {
+      const budget = this.budgetOf(state);
+      state.budget = {
+        modelRounds: budget.modelRounds + this.maxModelRounds,
+        toolCalls: budget.toolCalls + this.maxToolCalls,
+      };
+    }
+    if (approval.status !== 'approved' && gate.kind === 'budget_extension') {
+      await this.declinePendingCallsForBudget(initialRun.id, state);
+      state.messages.push({ role: 'user', content: CLOSING_INSTRUCTION });
+      state.closing = true;
+    }
+    state.gate = null;
+    const run = requireRun(this.store, initialRun.id);
+    if (run.phase === 'awaiting_approval') {
+      this.store.transitionRun(run.id, 'planning', run.revision, { state: state as unknown as Record<string, unknown> });
+    } else {
+      this.store.checkpointRun(run.id, state as unknown as Record<string, unknown>, run.revision);
+    }
+    return 'continue';
+  }
+
+  /** Every call the model already proposed gets an answer, so the transcript stays valid. */
+  private async declinePendingCallsForBudget(runId: string, state: AgentRunnerCheckpointV1): Promise<void> {
+    const batch = state.pendingBatch;
+    if (!batch) return;
+    await this.ensureBatchSteps(runId, batch, state);
+    for (let index = batch.cursor; index < batch.calls.length; index += 1) {
+      const pending = batch.calls[index];
+      const result: AgentToolExecutionResult = {
+        status: 'denied',
+        summary: '执行预算已用完，按你的选择没有执行',
+        content: '执行预算已用完，用户选择停止，这一步没有执行。',
+      };
+      skipStepWithResult(this.store, requireStep(this.store, String(pending.stepId)), result);
+      state.messages.push(toToolMessage(pending.call, result, this.maxPersistedToolOutputChars));
+      batch.cursor = index + 1;
+    }
+    state.pendingBatch = null;
+  }
+
+  private parkForModelRetry(runId: string, error: AgentModelUnavailableError): boolean {
+    const run = this.store.getRun(runId);
+    if (!run || isTerminalStatus(run.status) || !['planning', 'executing', 'researching'].includes(run.phase)) return false;
+    let state: AgentRunnerCheckpointV1;
+    try {
+      state = parseCheckpoint(run.state);
+    } catch {
+      return false;
+    }
+    if (state.gate || state.pendingBatch) return false;
+    const failure = failureRecordOf(error.failure);
+    if (failure.kind === 'cancelled') return false;
+    this.openGate(run, state, { id: randomUUID(), kind: 'model_retry', failure, attempts: error.attempts });
+    return true;
   }
 
   private async requestModel(
     run: AgentRunRecord,
     state: AgentRunnerCheckpointV1,
     signal: AbortSignal,
+    options: { closing?: boolean } = {},
   ): Promise<ModelResponse> {
     let step = this.store.appendStep({
       runId: run.id,
       kind: 'model',
       title: `Model round ${state.round + 1}`,
-      input: { round: state.round + 1, messageCount: state.messages.length },
+      input: { round: state.round + 1, messageCount: state.messages.length, ...(options.closing ? { closing: true } : {}) },
     });
     step = this.store.transitionStep(step.id, 'running', step.revision);
     this.store.appendEvent(run.id, 'runner.model_requested', { stepId: step.id, round: state.round + 1 });
+    // The configured budget is sized for a chat reply. A tool call carries whole file
+    // contents, and a reasoning model spends part of any budget thinking first: at the
+    // default 2048 tokens DeepSeek's write_file arguments were cut off at a few hundred
+    // characters on every retry (2026-09-15 live run). Execution starts higher and
+    // raises the budget again when a response still stops at the limit.
+    const configuredOutputTokens = positiveIntegerOrNull(this.model.maxOutputTokens);
+    const startingOutputTokens = state.outputTokens ?? Math.max(MIN_AGENT_OUTPUT_TOKENS, configuredOutputTokens ?? 0);
+    let outputTokens = startingOutputTokens;
+    let budgetRaises = 0;
+    let loweredAfterRejection = false;
+    let transportFailures = 0;
     let lastError: unknown;
-    for (let attempt = 1; attempt <= this.modelMaxAttempts; attempt += 1) {
+    let attempts = 0;
+    while (true) {
       throwIfAborted(signal);
+      attempts += 1;
       try {
         const task = requireTask(this.store, run.taskId);
         const declared = new Set(task.spec.requiredCapabilities.map(item => item.id));
         const exposedCapabilities = state.allowedCapabilities.filter(capability => declared.has(capability));
+        // The closing summary keeps the tool definitions (a transcript holding tool
+        // results is not valid without them on some providers) but may not call one.
         const response = await this.model.chatWithTools(
           structuredClone(state.messages),
           this.tools.getModelDefinitionsForCapabilities(exposedCapabilities),
-          { toolChoice: 'auto', mode: 'reason', signal },
+          { toolChoice: options.closing ? 'none' : 'auto', mode: 'reason', signal, overrides: { maxTokens: outputTokens } },
         );
         assertModelResponseBounds(response);
+        // An answer that stopped at the limit is unfinished, not final.
+        if (response.finishReason === 'length' && response.toolCalls.length === 0) {
+          throw new ModelOutputTruncatedError('Output limit reached before the answer was complete');
+        }
+        // Later rounds start from the budget that worked instead of hitting the limit again.
+        if (outputTokens !== startingOutputTokens) state.outputTokens = outputTokens;
         this.store.transitionStep(step.id, 'completed', requireStep(this.store, step.id).revision, {
           output: {
-            attempt,
+            attempt: attempts,
             finishReason: response.finishReason,
             contentChars: response.content.length,
             toolCalls: response.toolCalls.map(call => call.name),
             usage: response.usage,
+            outputTokens,
           },
         });
         this.store.appendEvent(run.id, 'runner.model_completed', {
           stepId: step.id,
-          attempt,
+          attempt: attempts,
           finishReason: response.finishReason,
           toolCallCount: response.toolCalls.length,
         });
@@ -250,17 +585,54 @@ export class AgentRunner {
       } catch (error) {
         lastError = error;
         if (isCancellation(error, signal)) throw new AgentRunCancelledError();
-        if (!isRetryableModelError(error) || attempt >= this.modelMaxAttempts) break;
+        if (error instanceof ModelOutputTruncatedError && budgetRaises < MAX_OUTPUT_BUDGET_RAISES && outputTokens < MAX_AGENT_OUTPUT_TOKENS) {
+          const raised = Math.min(MAX_AGENT_OUTPUT_TOKENS, outputTokens * 2);
+          this.store.appendEvent(run.id, 'runner.model_output_budget_raised', { stepId: step.id, from: outputTokens, to: raised });
+          outputTokens = raised;
+          budgetRaises += 1;
+          continue;
+        }
+        const failure = classifyModelFailure(error);
+        // A provider may cap output below what execution asked for. Fall back to the
+        // budget the person configured, once, before treating the rejection as final.
+        if (failure.code === 'model.request_rejected' && !loweredAfterRejection
+          && configuredOutputTokens !== null && outputTokens > configuredOutputTokens) {
+          this.store.appendEvent(run.id, 'runner.model_output_budget_lowered', { stepId: step.id, from: outputTokens, to: configuredOutputTokens, error: failure.detail });
+          outputTokens = configuredOutputTokens;
+          loweredAfterRejection = true;
+          budgetRaises = MAX_OUTPUT_BUDGET_RAISES;
+          continue;
+        }
+        transportFailures += 1;
+        if (transportFailures >= this.attemptsAllowed(error, failure.kind)) break;
+        const delayMs = Math.min(MAX_MODEL_RETRY_DELAY_MS, this.modelRetryDelayMs * 2 ** (transportFailures - 1));
         this.store.appendEvent(run.id, 'runner.model_retry_scheduled', {
           stepId: step.id,
-          attempt,
-          error: errorMessage(error),
+          attempt: attempts,
+          delayMs,
+          error: failure.detail,
+          failureKind: failure.kind,
+          failureCode: failure.code,
         });
-        await abortableDelay(this.modelRetryDelayMs * attempt, signal);
+        await abortableDelay(delayMs, signal);
       }
     }
-    this.store.transitionStep(step.id, 'failed', requireStep(this.store, step.id).revision, { error: errorMessage(lastError) });
-    throw lastError instanceof Error ? lastError : new Error(errorMessage(lastError));
+    const failure = classifyModelFailure(lastError);
+    this.store.transitionStep(step.id, 'failed', requireStep(this.store, step.id).revision, {
+      output: { attempts, outputTokens, failureKind: failure.kind, failureCode: failure.code },
+      error: failure.detail,
+    });
+    throw new AgentModelUnavailableError(lastError, attempts);
+  }
+
+  /**
+   * A reset or refused connection is usually over in seconds, so it gets the full
+   * allowance. A timeout already waited out its own long budget, and a malformed
+   * response tends to repeat, so those get one more try before the run asks.
+   */
+  private attemptsAllowed(error: unknown, kind: string): number {
+    if (!isRetryableModelError(error)) return 1;
+    return kind === 'timeout' ? Math.min(2, this.modelMaxAttempts) : this.modelMaxAttempts;
   }
 
   private async processPendingBatch(
@@ -312,7 +684,7 @@ export class AgentRunner {
         };
         completeStepWithResult(this.store, currentStep, result, 0);
       } else if (item.decision.kind === 'deny') {
-        result = { status: 'denied', summary: 'Tool call denied by policy', content: item.decision.explanation };
+        result = { status: 'denied', summary: '策略不允许这项操作，没有执行', content: item.decision.explanation };
         skipStepWithResult(this.store, currentStep, result);
       } else {
         const approval = findToolApproval(
@@ -332,13 +704,19 @@ export class AgentRunner {
         );
         if ((item.decision.kind === 'approval' && approval?.status !== 'approved')
           || (replayApproval && replayApproval.status !== 'approved')) {
-          result = {
-            status: 'denied',
-            summary: 'Tool call was not approved',
-            content: approval?.status === 'denied' || replayApproval?.status === 'denied'
-              ? 'The user denied this scoped operation.'
-              : 'The scoped approval was not granted.',
-          };
+          const deniedByUser = approval?.status === 'denied' || replayApproval?.status === 'denied';
+          const superseded = [approval, replayApproval].some(item => item?.decision.scope === SUPERSEDED_BY_MESSAGE_SCOPE);
+          result = superseded
+            ? {
+                status: 'denied',
+                summary: '用户没有批准，而是发来了新消息，这一步没有执行',
+                content: '用户没有回答这次审批，而是发来了一条新消息（在后面）。这一步没有执行。先按新消息回应；如果这一步仍然需要，就重新提出，会重新征求批准。',
+              }
+            : {
+                status: 'denied',
+                summary: deniedByUser ? '你拒绝了这项操作，没有执行' : '这项操作没有获得批准，没有执行',
+                content: deniedByUser ? '用户拒绝了这项操作。' : '这项操作的审批没有通过。',
+              };
           skipStepWithResult(this.store, currentStep, result);
         } else {
           result = await this.executePreparedCall(run, currentStep, item.pending.call, item.resolved, signal);
@@ -376,6 +754,9 @@ export class AgentRunner {
         input: {
           callId: pending.call.id,
           toolName: pending.call.name,
+          // Persisted with the step so the step list reads "执行命令 · npm test" even
+          // after the tool has left the registry.
+          toolLabel: this.tools.list().find(tool => tool.name === pending.call.name)?.label || pending.call.name,
           arguments: safelyPersistArguments(this.tools, pending.call),
         },
       });
@@ -397,6 +778,7 @@ export class AgentRunner {
       taskSpec: task.spec,
       allowedCapabilities: state.allowedCapabilities,
       approvalMode: state.approvalMode,
+      autoApprove: this.isAutoApproveEnabled() === true,
     };
     return batch.calls.map((pending) => {
       const step = requireStep(this.store, String(pending.stepId));
@@ -453,10 +835,12 @@ export class AgentRunner {
           kind: 'uncertain_replay',
           callId: item.pending.call.id,
           toolName: item.pending.call.name,
+          toolLabel: item.resolved.definition.label,
           toolVersion: item.resolved.definition.version,
           callFingerprint: fingerprintCall(item.pending.call),
           arguments: item.resolved.persistedArguments,
-          explanation: 'The previous process stopped while this non-idempotent tool was running. Its side effects are unknown.',
+          preview: item.resolved.approvalPreview,
+          explanation: 'Athena 上次退出时这一步正在执行，它的效果无法确认。',
         },
       }, run.revision);
       requested = true;
@@ -486,7 +870,7 @@ export class AgentRunner {
       )) continue;
       if (step.status === 'pending') step = this.store.transitionStep(step.id, 'waiting', step.revision);
       run = requireRun(this.store, run.id);
-      this.store.requestApproval({
+      const approval = this.store.requestApproval({
         runId: run.id,
         stepId: step.id,
         capability: item.decision.capability,
@@ -495,14 +879,22 @@ export class AgentRunner {
           kind: 'tool_call',
           callId: item.pending.call.id,
           toolName: item.pending.call.name,
+          toolLabel: item.resolved.definition.label,
           toolVersion: item.resolved.definition.version,
           callFingerprint: fingerprintCall(item.pending.call),
           arguments: item.resolved.persistedArguments,
+          preview: item.resolved.approvalPreview,
           explanation: item.decision.explanation,
         },
       }, run.revision);
+      // With 免审批 on, the same record is written and immediately granted, so the
+      // session still shows every call that was let through and on whose say-so.
+      if (item.decision.autoApproved) {
+        this.store.resolveApproval(approval.id, 'approved', { actor: 'auto-approve', scope: AUTO_APPROVE_SCOPE }, approval.revision);
+      } else {
+        requested = true;
+      }
       approvals = this.store.listApprovals(run.id);
-      requested = true;
     }
     if (requested) return true;
     const pendingStepIds = new Set(prepared
@@ -603,12 +995,12 @@ export class AgentRunner {
     }
   }
 
-  private async failPersistedRun(runId: string, error: unknown): Promise<void> {
+  private async failPersistedRun(runId: string, failure: AgentRunFailureRecord): Promise<void> {
     const run = this.store.getRun(runId);
     if (!run || isTerminalStatus(run.status)) return;
     for (const step of this.store.listSteps(runId)) {
       if (step.status === 'running') {
-        this.store.transitionStep(step.id, 'failed', step.revision, { error: errorMessage(error) });
+        this.store.transitionStep(step.id, 'failed', step.revision, { error: failure.detail });
       } else if (step.status === 'pending' || step.status === 'waiting') {
         this.store.transitionStep(step.id, 'cancelled', step.revision, { error: 'Run failed before this step completed' });
       }
@@ -616,20 +1008,25 @@ export class AgentRunner {
     this.cancelPendingApprovals(runId, 'Run failed');
     const current = requireRun(this.store, runId);
     if (!isTerminalStatus(current.status)) {
-      this.store.appendEvent(runId, 'runner.failed', { error: errorMessage(error) });
+      this.store.appendEvent(runId, 'runner.failed', {
+        error: failure.detail,
+        message: failure.message,
+        failureKind: failure.kind,
+        failureCode: failure.code,
+      });
       const latest = requireRun(this.store, runId);
-      this.store.transitionRun(runId, 'failed', latest.revision, { error: errorMessage(error) });
+      this.store.transitionRun(runId, 'failed', latest.revision, { error: failure.detail });
     }
   }
 
   private buildResult(runId: string): AgentRunnerResult {
     const snapshot = this.store.getRunSnapshot(runId);
     let content = '';
-    let toolCallCount = 0;
+    let gate: AgentRunnerGate | null = null;
     try {
       const state = parseCheckpoint(snapshot.run.state);
       content = state.finalContent || '';
-      toolCallCount = state.toolCallCount;
+      gate = state.gate || null;
     }
     catch (error) {
       if (!isTerminalStatus(snapshot.run.status)) throw error;
@@ -646,7 +1043,12 @@ export class AgentRunner {
       status,
       content,
       error: snapshot.run.error,
-      verification: resolveVerification(snapshot.task, status, toolCallCount),
+      verification: deriveAgentRunVerification(snapshot.task, snapshot.run, snapshot.steps),
+      failure: status === 'failed'
+        ? readRecordedFailure(snapshot.events, snapshot.run.error)
+        : status === 'paused' && gate?.kind === 'model_retry'
+          ? gate.failure
+          : null,
       snapshot,
     };
   }
@@ -660,7 +1062,18 @@ export class AgentRunner {
   }
 }
 
-function createCheckpoint(input: CreateAgentExecutionInput): AgentRunnerCheckpointV1 {
+/**
+ * Only explicit change/stop language supersedes a waiting tool call. A token,
+ * path, port number or ordinary clarification must never be treated as a hidden
+ * click on “拒绝”. This deliberately stays narrow; the visible buttons remain
+ * the unambiguous approval channel.
+ */
+function messageSupersedesPendingCalls(content: string): boolean {
+  const normalized = content.trim().toLowerCase();
+  return /(?:先别|不要|别再|取消|停一下|暂停|改成|改用|换成|更正|纠正|不是.{0,80}(?:而是|是)|instead\b|\b(?:stop|cancel|pause)\b|\bdo not\b|\bdon't\b)/iu.test(normalized);
+}
+
+function createCheckpoint(input: CreateAgentExecutionInput, budget: AgentRunBudget): AgentRunnerCheckpointV1 {
   if (!Array.isArray(input.messages) || input.messages.length === 0 || input.messages.length > MAX_INITIAL_MESSAGES) {
     throw new Error(`Agent execution requires 1-${MAX_INITIAL_MESSAGES} initial messages`);
   }
@@ -674,6 +1087,20 @@ function createCheckpoint(input: CreateAgentExecutionInput): AgentRunnerCheckpoi
     pendingBatch: null,
     validationResults: {},
     finalContent: null,
+    budget,
+    gate: null,
+    ...(input.session
+      ? {
+          session: {
+            chatWindowId: positiveIntegerOrNull(input.session.chatWindowId),
+            // Everything before the last message was carried in from earlier turns
+            // of this window; the UI and the next turn both need that line.
+            ownStart: Math.max(0, input.messages.length - 1),
+            inboxSequence: 0,
+            lastChatMessageId: positiveIntegerOrNull(input.session.lastChatMessageId),
+          },
+        }
+      : {}),
   };
   assertCheckpoint(checkpoint);
   return checkpoint;
@@ -737,12 +1164,53 @@ function assertCheckpoint(value: AgentRunnerCheckpointV1): void {
     for (const pending of value.pendingBatch.calls) assertPendingCall(pending);
   }
   if (value.finalContent !== null && typeof value.finalContent !== 'string') throw new Error('Invalid final agent content');
+  if (value.budget !== undefined) {
+    if (!isRecord(value.budget)
+      || !Number.isInteger(value.budget.modelRounds) || value.budget.modelRounds < 1
+      || !Number.isInteger(value.budget.toolCalls) || value.budget.toolCalls < 1) {
+      throw new Error('Invalid agent checkpoint budget');
+    }
+  }
+  if (value.gate !== undefined && value.gate !== null) assertGate(value.gate);
+  if (value.session !== undefined && value.session !== null) {
+    const session = value.session as unknown;
+    if (!isRecord(session)
+      || (session.chatWindowId !== null && (!Number.isInteger(session.chatWindowId) || Number(session.chatWindowId) <= 0))
+      || !Number.isInteger(session.ownStart) || Number(session.ownStart) < 0 || Number(session.ownStart) > value.messages.length
+      || !Number.isInteger(session.inboxSequence) || Number(session.inboxSequence) < 0
+      || (session.lastChatMessageId !== null && (!Number.isInteger(session.lastChatMessageId) || Number(session.lastChatMessageId) <= 0))) {
+      throw new Error('Invalid agent checkpoint session state');
+    }
+  }
+  if (value.closing !== undefined && typeof value.closing !== 'boolean') throw new Error('Invalid agent checkpoint closing flag');
+  if (value.outputTokens !== undefined
+    && (!Number.isInteger(value.outputTokens) || value.outputTokens < 128 || value.outputTokens > MAX_AGENT_OUTPUT_TOKENS)) {
+    throw new Error('Invalid agent checkpoint output budget');
+  }
   try {
     const serialized = JSON.stringify(value);
     if (serialized.length > MAX_CHECKPOINT_CHARS) throw new Error(`Agent checkpoint exceeds ${MAX_CHECKPOINT_CHARS} characters`);
   } catch (error) {
     throw new Error(`Agent checkpoint is not persistable: ${errorMessage(error)}`);
   }
+}
+
+function assertGate(gate: AgentRunnerGate): void {
+  if (!isRecord(gate) || typeof gate.id !== 'string' || !gate.id) throw new Error('Invalid agent checkpoint gate');
+  if (gate.kind === 'model_retry') {
+    const failure = gate.failure as unknown;
+    if (!isRecord(failure)
+      || ['kind', 'code', 'message', 'detail'].some(key => typeof failure[key] !== 'string')
+      || !Number.isInteger(gate.attempts) || gate.attempts < 1) {
+      throw new Error('Invalid model retry gate in agent checkpoint');
+    }
+    return;
+  }
+  if (gate.kind === 'budget_extension') {
+    if (gate.reason !== 'model_rounds' && gate.reason !== 'tool_calls') throw new Error('Invalid budget gate in agent checkpoint');
+    return;
+  }
+  throw new Error('Unknown agent checkpoint gate');
 }
 
 function assertPendingCall(value: PendingAgentToolCall): void {
@@ -752,6 +1220,29 @@ function assertPendingCall(value: PendingAgentToolCall): void {
     || !call.arguments || typeof call.arguments !== 'object' || Array.isArray(call.arguments)) {
     throw new Error('Invalid pending model tool call');
   }
+}
+
+function failureRecordOf(error: unknown): AgentRunFailureRecord {
+  const failure = classifyModelFailure(error);
+  return { kind: failure.kind, code: failure.code, message: failure.message, detail: failure.detail };
+}
+
+/** Prefers what was classified when the run failed: re-reading the log line loses the error's type. */
+function readRecordedFailure(
+  events: ReadonlyArray<{ type: string; payload: Record<string, unknown> }>,
+  runError: string | null,
+): AgentRunFailureRecord | null {
+  const recorded = [...events].reverse().find(event => event.type === 'runner.failed');
+  const payload = recorded?.payload;
+  if (payload && typeof payload.message === 'string' && payload.message.trim()) {
+    return {
+      kind: typeof payload.failureKind === 'string' ? payload.failureKind : 'passthrough',
+      code: typeof payload.failureCode === 'string' ? payload.failureCode : 'model.unclassified',
+      message: payload.message,
+      detail: typeof payload.error === 'string' ? payload.error : runError || '',
+    };
+  }
+  return runError ? failureRecordOf(new Error(runError)) : null;
 }
 
 function safelyPersistArguments(registry: ToolRegistry, call: ModelToolCall): Record<string, unknown> {
@@ -896,21 +1387,6 @@ function readPersistedValidations(value: unknown): AgentToolExecutionResult['val
   ));
 }
 
-// Reaching `completed` only means the model stopped calling tools. That is
-// evidence of acceptance only when the task declared required validations, which
-// assertRequiredValidations then enforced. A run that acted on the machine
-// without declaring any is finished, not verified — callers must not present it
-// as an accepted result.
-function resolveVerification(
-  task: AgentTaskRecord,
-  status: AgentRunnerResult['status'],
-  toolCallCount: number,
-): AgentRunVerification {
-  if (status !== 'completed') return 'not_applicable';
-  if (task.spec.validation.some(item => item.required)) return 'verified';
-  return toolCallCount > 0 ? 'unverified' : 'not_applicable';
-}
-
 /**
  * What the step list and the model are told when a call never reached its tool.
  *
@@ -975,10 +1451,11 @@ function riskCovers(granted: AgentApprovalRecord['riskLevel'], required: AgentAp
 }
 
 function isRetryableModelError(error: unknown): boolean {
-  return !(error instanceof ModelProtocolError)
-    && !(error instanceof ModelCapabilityError)
-    && !(error instanceof AgentToolArgumentsError)
-    && !(error instanceof AgentToolNotFoundError);
+  if (error instanceof ModelProtocolError
+    || error instanceof ModelCapabilityError
+    || error instanceof AgentToolArgumentsError
+    || error instanceof AgentToolNotFoundError) return false;
+  return classifyModelFailure(error).retryable;
 }
 
 function isCancellation(error: unknown, signal: AbortSignal): boolean {
@@ -1041,6 +1518,10 @@ function truncate(value: string, maxLength: number): string {
 function clampInteger(value: unknown, min: number, max: number, fallback: number): number {
   const number = Number(value);
   return Math.max(min, Math.min(max, Number.isFinite(number) ? Math.round(number) : fallback));
+}
+
+function positiveIntegerOrNull(value: unknown): number | null {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : null;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

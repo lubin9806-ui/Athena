@@ -11,6 +11,13 @@ export interface AgentToolPolicyDescriptor {
   riskLevel: AgentRiskLevel;
   approval: AgentToolApprovalMode;
   reason: string;
+  /**
+   * Asked for every time, even when the person has turned approvals off.
+   *
+   * Reserved for dedicated requests for API keys, tokens, passwords and other
+   * secret material. Ordinary computer actions are covered by continuous mode.
+   */
+  alwaysAsk?: boolean;
 }
 
 export interface AgentToolRetryPolicy {
@@ -55,10 +62,20 @@ export interface AgentToolRegistration {
   retry?: Partial<AgentToolRetryPolicy>;
   policy: AgentToolPolicyDescriptor | ((argumentsValue: Record<string, unknown>) => AgentToolPolicyDescriptor);
   redactArguments?: (argumentsValue: Record<string, unknown>) => Record<string, unknown>;
+  /**
+   * Bounded excerpts of payload arguments that `redactArguments` hides, shown only
+   * on an approval card so the person can see what they are agreeing to write.
+   */
+  previewArguments?: (argumentsValue: Record<string, unknown>) => Record<string, AgentToolArgumentPreview>;
   execute: (
     argumentsValue: Record<string, unknown>,
     context: AgentToolExecutionContext,
   ) => Promise<AgentToolExecutionResult>;
+}
+
+export interface AgentToolArgumentPreview {
+  text: string;
+  totalChars: number;
 }
 
 export interface ResolvedAgentTool {
@@ -66,6 +83,7 @@ export interface ResolvedAgentTool {
   policy: AgentToolPolicyDescriptor;
   retry: AgentToolRetryPolicy;
   persistedArguments: Record<string, unknown>;
+  approvalPreview: Record<string, AgentToolArgumentPreview>;
 }
 
 interface RegisteredTool {
@@ -216,6 +234,7 @@ export class ToolRegistry {
       policy,
       retry: registered.retry,
       persistedArguments,
+      approvalPreview: normalizeArgumentPreview(registered.definition.previewArguments?.(structuredClone(call.arguments))),
     };
   }
 
@@ -258,6 +277,7 @@ function resolvePolicy(
     riskLevel: resolved.riskLevel,
     approval: resolved.approval,
     reason: String(resolved.reason || '').trim(),
+    ...(resolved.alwaysAsk === true ? { alwaysAsk: true } : {}),
   };
 }
 
@@ -341,6 +361,21 @@ function assertJsonSerializable(value: unknown, label: string): void {
   } catch (error) {
     throw new AgentToolRegistrationError(`${label} must be JSON-serializable: ${error instanceof Error ? error.message : String(error)}`);
   }
+}
+
+function normalizeArgumentPreview(value: unknown): Record<string, AgentToolArgumentPreview> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  const output: Record<string, AgentToolArgumentPreview> = {};
+  for (const [key, item] of Object.entries(value as Record<string, unknown>).slice(0, 8)) {
+    if (!item || typeof item !== 'object') continue;
+    const record = item as Record<string, unknown>;
+    if (typeof record.text !== 'string') continue;
+    output[key] = {
+      text: record.text.slice(0, 2_000),
+      totalChars: clampInteger(record.totalChars, 0, Number.MAX_SAFE_INTEGER, record.text.length),
+    };
+  }
+  return output;
 }
 
 function redactSensitiveValues(value: Record<string, unknown>): Record<string, unknown> {

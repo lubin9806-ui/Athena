@@ -17,6 +17,12 @@ export interface ToolSettings {
   maxToolRounds: number;
   commandTimeoutSeconds: number;
   allowExternalNetwork?: boolean;
+  /**
+   * Execute mode stops asking before each write, delete, command and download,
+   * and does them under the permission tier already granted. Only a dedicated
+   * secret request may interrupt it; every ordinary call is still recorded.
+   */
+  autoApprove?: boolean;
 }
 
 export interface ToolExecutionRecord {
@@ -43,7 +49,7 @@ export interface ToolStatusEvent {
 export interface ToolConfirmationRequest {
   toolName: string;
   toolLabel: string;
-  risk: 'destructive-file' | 'command' | 'program' | 'external-network';
+  risk: 'destructive-file' | 'auto-executed-location' | 'command' | 'program' | 'external-network';
   explanation: string;
   inputPreview: string;
 }

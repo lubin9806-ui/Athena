@@ -15,24 +15,32 @@ const { randomId } = require('./crypto');
 const { LocalNoChargeBillingAdapter, LocalDeploymentAdapter, LocalRecoveryDeliveryAdapter } = require('./ports');
 
 function createCloudApp(config, adapters = {}) {
+  const runtime = resolveRuntimeAdapters(config, adapters);
   const store = new CloudDatabase(config);
   const sync = new SyncService(store, config);
   const services = {
     store,
-    auth: new AuthService(store, config, adapters.recoveryDelivery || new LocalRecoveryDeliveryAdapter()),
+    auth: new AuthService(store, config, runtime.recoveryDelivery),
     sync,
     rate: new RateLimiter(config),
     // Built from the config rather than defaulted, so naming a provider in the
     // config is what actually decides which one answers.
-    model: new ModelGateway(store, config, sync, adapters.modelProvider || createModelProvider(config)),
-    search: new SearchGateway(store, config, adapters.searchProvider || new LocalFixtureSearchProvider()),
-    entitlements: new EntitlementService(store, config, adapters.billingAdapter || new LocalNoChargeBillingAdapter()),
-    deployment: adapters.deploymentAdapter || new LocalDeploymentAdapter(config.region, 'local-2'),
+    model: new ModelGateway(store, config, sync, runtime.modelProvider),
+    search: new SearchGateway(store, config, runtime.searchProvider),
+    entitlements: new EntitlementService(store, config, runtime.billingAdapter),
+    deployment: runtime.deploymentAdapter,
     idempotency: new IdempotencyService(store),
     dataRights: new DataRightsService(store, config, sync),
     backup: new BackupService(store, config),
     metrics: new Metrics(),
   };
+  services.runtimeBindings = Object.freeze({
+    cloudProvider: runtime.deploymentAdapter.id,
+    billingAdapter: runtime.billingAdapter.id,
+    recoveryDeliveryAdapter: runtime.recoveryDelivery.id,
+    modelProvider: runtime.modelProvider.id,
+    searchProvider: runtime.searchProvider.id,
+  });
   services.pairing = new PairingService(store, services.auth, config);
 
   const server = http.createServer(async (request, response) => {
@@ -84,7 +92,16 @@ async function route(request, services, config) {
     const database = services.store.db.prepare('SELECT 1 AS ok').get().ok === 1;
     const deployment = services.deployment.activeRegion();
     const ready = database && Boolean(deployment.region);
-    return { status: ready ? 200 : 503, body: { status: ready ? 'ready' : 'not-ready', database, modelProvider: services.model.provider.id, deployment } };
+    return {
+      status: ready ? 200 : 503,
+      body: {
+        status: ready ? 'ready' : 'not-ready',
+        database,
+        modelProvider: services.model.provider.id,
+        deployment,
+        runtimeBindings: services.runtimeBindings,
+      },
+    };
   }
   if (method === 'GET' && path === '/internal/metrics' && config.environment === 'local') return { body: services.metrics.snapshot() };
 
@@ -150,6 +167,13 @@ async function route(request, services, config) {
     const body = await readJson(request, config.maxBodyBytes); exactKeys(body, ['code']);
     services.auth.confirmMfa(context, body.code); return { body: { enabled: true } };
   }
+  if (method === 'POST' && path === '/v1/auth/mfa/disable') {
+    const body = await readJson(request, config.maxBodyBytes); exactKeys(body, ['code']);
+    services.auth.disableMfa(context, body.code); return { body: { enabled: false } };
+  }
+  // Who this session belongs to. Clients otherwise only learn it at login and
+  // cannot tell, after a restart, whether MFA is on or the device still exists.
+  if (method === 'GET' && path === '/v1/account') return { body: services.auth.account(context) };
   if (method === 'GET' && path === '/v1/devices') return { body: { devices: services.auth.listDevices(context) } };
   const deviceMatch = path.match(/^\/v1\/devices\/(dev_[a-f0-9]{32})$/);
   if (method === 'DELETE' && deviceMatch) {
@@ -218,6 +242,34 @@ async function route(request, services, config) {
   }
 
   throw new CloudError(404, 'not-found', 'Route was not found.');
+}
+
+function resolveRuntimeAdapters(config, adapters) {
+  const runtime = {
+    modelProvider: adapters.modelProvider || createModelProvider(config),
+    searchProvider: adapters.searchProvider || new LocalFixtureSearchProvider(),
+    billingAdapter: adapters.billingAdapter || new LocalNoChargeBillingAdapter(),
+    deploymentAdapter: adapters.deploymentAdapter || new LocalDeploymentAdapter(config.region, 'local-2'),
+    recoveryDelivery: adapters.recoveryDelivery || new LocalRecoveryDeliveryAdapter(),
+  };
+  assertAdapterBinding('Model provider', config.modelProvider, runtime.modelProvider, ['infer']);
+  assertAdapterBinding('Search provider', config.searchProvider, runtime.searchProvider, ['search']);
+  assertAdapterBinding('Billing adapter', config.billingAdapter, runtime.billingAdapter, ['transition']);
+  assertAdapterBinding('Cloud provider', config.cloudProvider, runtime.deploymentAdapter, ['activeRegion', 'markUnavailable']);
+  assertAdapterBinding('Recovery delivery adapter', config.recoveryDeliveryAdapter, runtime.recoveryDelivery, ['deliver']);
+  return runtime;
+}
+
+function assertAdapterBinding(label, configuredId, adapter, methods) {
+  if (!adapter || typeof adapter.id !== 'string' || adapter.id.length === 0) {
+    throw new Error(`${label} must expose a non-empty id.`);
+  }
+  if (adapter.id !== configuredId) {
+    throw new Error(`${label} mismatch: config names ${configuredId} and runtime was given ${adapter.id}.`);
+  }
+  for (const method of methods) {
+    if (typeof adapter[method] !== 'function') throw new Error(`${label} ${adapter.id} must implement ${method}().`);
+  }
 }
 
 function authenticate(request, authService) {

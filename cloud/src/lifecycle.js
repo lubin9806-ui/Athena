@@ -7,19 +7,40 @@ const Database = require('better-sqlite3');
 const { randomId, sha256, hmacSha256, constantEqual, encryptBytes, decryptBytes } = require('./crypto');
 const { CloudError, assert } = require('./errors');
 
+/**
+ * Replays the first result of a write retried under the same key.
+ *
+ * The stored result is what the client was told, so for a sync write it holds
+ * the decrypted record and for a model call the answer. It is sealed with the
+ * tenant key like every other piece of content. Kept as plain JSON, this table
+ * was the one place conversation text sat in the database unencrypted, outside
+ * key rotation and for as long as the row lived.
+ */
 class IdempotencyService {
-  constructor(store) { this.store = store; this.db = store.db; }
+  constructor(store) {
+    this.store = store;
+    this.db = store.db;
+    this.lastPurgeAt = 0;
+    // Rows from before sealing hold plaintext. They only ever served a retry
+    // within 24 hours, so dropping them costs at most one repeated operation.
+    // The checkpoint is what removes the old page images from the WAL file.
+    const legacy = this.db.prepare(`DELETE FROM idempotency WHERE response_json NOT LIKE '${SEALED_PREFIX}%'`).run().changes;
+    if (legacy > 0) this.db.pragma('wal_checkpoint(TRUNCATE)');
+    this.purgeExpired(0);
+  }
 
   execute(tenantId, route, key, request, operation) {
     assert(typeof key === 'string' && /^[A-Za-z0-9._:-]{8,128}$/.test(key), 400, 'idempotency-key-required', 'A valid Idempotency-Key is required.');
+    this.purgeExpired();
     const requestHash = sha256(JSON.stringify(request));
     const existing = this.db.prepare('SELECT * FROM idempotency WHERE tenant_id=? AND route=? AND idem_key=?').get(tenantId, route, key);
     if (existing) {
-      if (Date.parse(existing.expires_at) <= Date.now()) {
+      const replay = Date.parse(existing.expires_at) > Date.now() ? this.open(existing) : undefined;
+      if (replay === undefined) {
         this.db.prepare('DELETE FROM idempotency WHERE tenant_id=? AND route=? AND idem_key=?').run(tenantId, route, key);
       } else {
         assert(existing.request_hash === requestHash, 409, 'idempotency-mismatch', 'Idempotency key was already used with a different request.');
-        return { replayed: true, statusCode: existing.status_code, body: JSON.parse(existing.response_json) };
+        return { replayed: true, statusCode: existing.status_code, body: replay };
       }
     }
     const result = operation();
@@ -34,10 +55,44 @@ class IdempotencyService {
     const createdAt = this.store.now();
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
     this.db.prepare('INSERT INTO idempotency VALUES (?,?,?,?,?,?,?,?)').run(
-      tenantId, route, key, requestHash, statusCode, JSON.stringify(value), createdAt, expiresAt,
+      tenantId, route, key, requestHash, statusCode, sealReplay(this.store, tenantId, route, key, value), createdAt, expiresAt,
     );
     return { replayed: false, statusCode, body: value };
   }
+
+  /** The stored response, or undefined when it cannot be opened and must be recomputed. */
+  open(row) {
+    try {
+      return openReplay(this.store, row);
+    } catch {
+      return undefined;
+    }
+  }
+
+  purgeExpired(minimumIntervalMs = 60_000) {
+    const now = Date.now();
+    if (now - this.lastPurgeAt < minimumIntervalMs) return 0;
+    this.lastPurgeAt = now;
+    return this.db.prepare('DELETE FROM idempotency WHERE expires_at<=?').run(new Date(now).toISOString()).changes;
+  }
+}
+
+const SEALED_PREFIX = '{"v":2,';
+
+function replayContext(tenantId, route, key) {
+  return `idempotency:${tenantId}:${route}:${key}`;
+}
+
+function sealReplay(store, tenantId, route, key, value, tenantKey = store.getTenantKey(tenantId)) {
+  const sealed = encryptBytes(Buffer.from(JSON.stringify(value ?? null), 'utf8'), tenantKey.key, replayContext(tenantId, route, key));
+  return JSON.stringify({ v: 2, keyVersion: tenantKey.version, sealed });
+}
+
+function openReplay(store, row) {
+  const envelope = JSON.parse(row.response_json);
+  if (!envelope || envelope.v !== 2) throw new Error('Replay entry is not sealed.');
+  const tenantKey = store.getTenantKey(row.tenant_id, envelope.keyVersion).key;
+  return JSON.parse(decryptBytes(envelope.sealed, tenantKey, replayContext(row.tenant_id, row.route, row.idem_key)).toString('utf8'));
 }
 
 class DataRightsService {
@@ -234,4 +289,4 @@ function readDeletionLedger(filePath, masterKey) {
 }
 function signLedger(entries, masterKey) { return hmacSha256(masterKey, JSON.stringify(entries)); }
 
-module.exports = { IdempotencyService, DataRightsService, BackupService, Metrics, readDeletionLedger };
+module.exports = { IdempotencyService, DataRightsService, BackupService, Metrics, readDeletionLedger, sealReplay, openReplay };
