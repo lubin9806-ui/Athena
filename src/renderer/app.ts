@@ -228,7 +228,7 @@ declare global {
       getCloudAccount: () => Promise<CloudSessionStatus | null>;
       registerCloudAccount: (payload: { tenantName: string; email: string; password: string }) => Promise<CloudSessionStatus | null>;
       loginCloudAccount: (payload: { email: string; password: string; mfaCode?: string; recoveryCode?: string }) => Promise<CloudSessionStatus | null>;
-      createCloudPairingOffer: () => Promise<{ code: string; expiresInSeconds: number; expiresAt: string } | null>;
+      createCloudPairingOffer: () => Promise<{ code: string; expiresInSeconds: number; expiresAt: string; pairingUri: string } | null>;
       logoutCloudAccount: () => Promise<CloudSessionStatus | null>;
       syncCloudAccount: () => Promise<CloudSessionStatus | null>;
       exportPrivacyData: (format?: 'json' | 'markdown') => Promise<{ path: string; bytes: number } | null>;
@@ -6028,7 +6028,7 @@ async function createCloudPairingOffer(): Promise<void> {
     await persistCloudSettings();
     const offer = await window.athenaAPI.createCloudPairingOffer();
     if (!offer?.code) throw new Error('Cloud 没有返回配对码');
-    setSettingsFeedback(`手机配对码：${offer.code}（${offer.expiresInSeconds} 秒内有效）`, 'success');
+    setSettingsFeedback(`手机配对码：${offer.code}（${offer.expiresInSeconds} 秒内有效）。手机端可扫描或粘贴：${offer.pairingUri}`, 'success');
   } catch (error) {
     setSettingsFeedback(`生成配对码失败：${error instanceof Error ? error.message : String(error)}`, 'error');
   }

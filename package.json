@@ -116,6 +116,7 @@
     "test:packaged-ocr": "electron scripts/verify-packaged-ocr.js",
     "test:diagnostics": "tsc && electron scripts/verify-diagnostics.js",
     "test:cloud-sync": "tsc && node scripts/verify-desktop-cloud-sync.js",
+    "test:mobile-connection": "npm.cmd --prefix mobile test",
     "test:ci-workflows": "node scripts/verify-ci-workflows.js",
     "test:agent-routing": "tsc && node scripts/verify-agent-routing.js",
     "test:initiative": "tsc && electron scripts/verify-initiative.js",

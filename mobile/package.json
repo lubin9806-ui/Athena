@@ -1,0 +1,10 @@
+{
+  "name": "@athena/mobile-connection",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Athena mobile-to-cloud connection contract",
+  "scripts": {
+    "build": "node ../node_modules/typescript/bin/tsc -p tsconfig.json",
+    "test": "npm run build && node --test test/*.test.js"
+  }
+}

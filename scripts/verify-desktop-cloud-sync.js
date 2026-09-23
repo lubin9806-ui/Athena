@@ -16,6 +16,7 @@ async function main() {
   }
   const mapper = require(mapperPath);
   const { CloudProtocol, CloudProtocolError } = require(protocolPath);
+  const { buildMobilePairingUri } = require(path.join(root, 'dist', 'core', 'cloud', 'CloudAccountService.js'));
 
   assert.equal(mapper.shouldSyncWindow({ mode: 'companion', is_temporary: false }), true);
   assert.equal(mapper.shouldSyncWindow({ mode: 'execute', is_temporary: false }), false);
@@ -184,6 +185,7 @@ async function main() {
   assert.match(ipc, /recoveryCode: cleanString\(payload\.recoveryCode/, 'desktop IPC must pass a recovery code to login');
   assert.match(preload, /createCloudPairingOffer/, 'desktop preload must expose pairing without exposing raw IPC');
   assert.match(renderer, /createCloudPairingOffer\(\)/, 'desktop account UI must be able to create a phone pairing code');
+  assert.match(renderer, /offer\.pairingUri/, 'desktop must hand the phone client both the short-lived code and Cloud endpoint');
   assert.match(rendererHtml, /id="setting-cloud-mfa-code"/, 'desktop account UI must accept an MFA code');
   assert.match(rendererHtml, /id="setting-cloud-recovery-code"/, 'desktop account UI must accept a recovery code');
   assert.doesNotMatch(rendererHtml, /id="setting-cloud-tenant-id"/, 'tenant ID must not be part of the user login flow');
@@ -195,6 +197,9 @@ async function main() {
   assert.throws(() => CloudProtocol.assertBaseUrl(''), /基址为空/);
   assert.throws(() => CloudProtocol.assertBaseUrl('http://example.test', true), /HTTPS/);
   assert.equal(CloudProtocol.assertBaseUrl('http://127.0.0.1:8787'), 'http://127.0.0.1:8787');
+  const pairingUri = buildMobilePairingUri('https://cloud.example.test/', '123456');
+  assert.equal(pairingUri, 'athena://pair?version=1&server=https%3A%2F%2Fcloud.example.test&code=123456');
+  assert.throws(() => buildMobilePairingUri('https://cloud.example.test', 'not-a-code'), /配对码/);
 
   const { loadConfig } = require(path.join(root, 'cloud', 'src', 'config'));
   const { createCloudApp } = require(path.join(root, 'cloud', 'src', 'server'));

@@ -165,15 +165,40 @@ export async function logoutCloudAccount(): Promise<CloudSessionStatus> {
   return getCloudAccountStatus();
 }
 
-export async function createCloudPairingOffer(): Promise<{ code: string; expiresInSeconds: number; expiresAt: string }> {
+export interface CloudPairingOffer {
+  code: string;
+  expiresInSeconds: number;
+  expiresAt: string;
+  /** A short-lived hand-off, never an access or refresh token. */
+  pairingUri: string;
+}
+
+export async function createCloudPairingOffer(): Promise<CloudPairingOffer> {
   const client = createClientFromSession();
   if (!client) throw new CloudProtocolError(401, 'invalid-session', '请先在电脑端登录同一个 Athena 账号。');
   const body = await client.offerPairing(getAppSettings().cloud.deviceName || 'Athena Desktop');
+  const code = String(body.code || '');
+  const baseUrl = CloudProtocol.assertBaseUrl(getAppSettings().cloud.baseUrl);
   return {
-    code: String(body.code || ''),
+    code,
     expiresInSeconds: Number(body.expiresInSeconds || 0),
     expiresAt: String(body.expiresAt || ''),
+    pairingUri: buildMobilePairingUri(baseUrl, code),
   };
+}
+
+/**
+ * This is data for a native phone app link, not an authentication URL. The
+ * phone still has to exchange its one-time code with the configured server.
+ */
+export function buildMobilePairingUri(baseUrl: string, code: string): string {
+  const normalized = CloudProtocol.assertBaseUrl(baseUrl);
+  if (!/^\d{6}$/.test(code)) throw new CloudProtocolError(0, 'invalid-code', '手机配对码格式无效。');
+  const uri = new URL('athena://pair');
+  uri.searchParams.set('version', '1');
+  uri.searchParams.set('server', normalized);
+  uri.searchParams.set('code', code);
+  return uri.toString();
 }
 
 export async function syncCloudAccountNow(): Promise<CloudSessionStatus> {
