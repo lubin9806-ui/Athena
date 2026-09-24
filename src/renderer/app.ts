@@ -230,6 +230,7 @@ declare global {
       loginCloudAccount: (payload: { email: string; password: string; mfaCode?: string; recoveryCode?: string }) => Promise<CloudSessionStatus | null>;
       createCloudPairingOffer: () => Promise<{ code: string; expiresInSeconds: number; expiresAt: string; pairingUri: string } | null>;
       logoutCloudAccount: () => Promise<CloudSessionStatus | null>;
+      deleteCloudAccount: () => Promise<CloudSessionStatus | null>;
       syncCloudAccount: (conflictChoice?: 'local' | 'cloud') => Promise<CloudSessionStatus | null>;
       getBackgroundImage: () => Promise<string | null>;
       chooseBackgroundImage: () => Promise<string | null>;
@@ -1482,6 +1483,7 @@ const cloudLogin = mustGet<HTMLButtonElement>('cloud-login');
 const cloudPairingOffer = mustGet<HTMLButtonElement>('cloud-pairing-offer');
 const cloudSyncNow = mustGet<HTMLButtonElement>('cloud-sync-now');
 const cloudLogout = mustGet<HTMLButtonElement>('cloud-logout');
+const cloudDeleteAccount = mustGet<HTMLButtonElement>('cloud-delete-account');
 const cloudAccountStatus = mustGet<HTMLElement>('cloud-account-status');
 const modelSaveApiKey = mustGet<HTMLButtonElement>('model-save-api-key');
 const modelLoadOptions = mustGet<HTMLButtonElement>('model-load-options');
@@ -2457,6 +2459,7 @@ function init(): void {
   cloudPairingOffer.addEventListener('click', () => void createCloudPairingOffer());
   cloudSyncNow.addEventListener('click', () => void syncCloudAccountNow());
   cloudLogout.addEventListener('click', () => void logoutCloudAccount());
+  cloudDeleteAccount.addEventListener('click', () => void deleteCloudAccount());
   backgroundImageChoose.addEventListener('click', () => void chooseBackgroundImage());
   backgroundImageClear.addEventListener('click', () => void clearBackgroundImage());
   diagnosticsExport.addEventListener('click', () => void exportDiagnosticSupport());
@@ -6130,7 +6133,7 @@ async function reviewCloudInitialMerge(status: CloudSessionStatus | null): Promi
 async function syncCloudAccountWithConflictChoice(): Promise<CloudSessionStatus | null> {
   try {
     const status = await window.athenaAPI.syncCloudAccount();
-    await refreshBackgroundImage();
+    await refreshCloudAppliedSettings();
     return status;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -6144,9 +6147,17 @@ async function syncCloudAccountWithConflictChoice(): Promise<CloudSessionStatus 
       tone: 'danger',
     });
     const status = await window.athenaAPI.syncCloudAccount(useLocal ? 'local' : 'cloud');
-    await refreshBackgroundImage();
+    await refreshCloudAppliedSettings();
     return status;
   }
+}
+
+async function refreshCloudAppliedSettings(): Promise<void> {
+  const bundle = await window.athenaAPI.getSettings();
+  currentSettingsBundle = bundle;
+  populateSettingsForm(bundle);
+  applyRuntimeSettings(bundle.settings);
+  await refreshBackgroundImage();
 }
 
 async function refreshBackgroundImage(): Promise<void> {
@@ -6217,6 +6228,42 @@ async function logoutCloudAccount(): Promise<void> {
     setSettingsFeedback('已退出 Athena 账号。', 'success');
   } catch (error) {
     setSettingsFeedback(`退出失败：${error instanceof Error ? error.message : String(error)}`, 'error');
+  }
+}
+
+async function deleteCloudAccount(): Promise<void> {
+  const approved = await dialogs.confirm({
+    eyebrow: '账号数据',
+    title: '永久删除整个 Athena 云端账号？',
+    message: '账号中的同步记录、设备会话和已知备份会被清除，无法撤销。这一步不会删除这台电脑的本机数据。',
+    confirmLabel: '删除云端账号',
+    cancelLabel: '取消',
+    tone: 'danger',
+  });
+  if (!approved) return;
+  try {
+    const status = await window.athenaAPI.deleteCloudAccount();
+    const bundle = await window.athenaAPI.getSettings();
+    currentSettingsBundle = bundle;
+    populateSettingsForm(bundle);
+    applyRuntimeSettings(bundle.settings);
+    renderCloudAccountStatus(status);
+  } catch (error) {
+    setSettingsFeedback(`账号删除失败：${error instanceof Error ? error.message : String(error)}`, 'error');
+    return;
+  }
+  const clearLocal = await dialogs.confirm({
+    eyebrow: '本机数据',
+    title: '还要清除这台电脑的本机数据吗？',
+    message: '这是独立的第二个选择。保留本机数据不会恢复已删除的云端账号；清除会删除聊天、长期记忆和活动记录，但保留应用设置。',
+    confirmLabel: '同时清除本机数据',
+    cancelLabel: '保留本机数据',
+    tone: 'danger',
+  });
+  if (clearLocal) {
+    await executeClearLocalData();
+  } else {
+    setSettingsFeedback('云端账号已删除；这台电脑的本机数据仍然保留。', 'success');
   }
 }
 
@@ -6323,6 +6370,10 @@ async function clearLocalData(): Promise<void> {
     tone: 'danger',
   });
   if (!approved) return;
+  await executeClearLocalData();
+}
+
+async function executeClearLocalData(): Promise<void> {
   setSettingsFeedback('正在清除本机数据...');
   try {
     const result = await window.athenaAPI.clearLocalData();

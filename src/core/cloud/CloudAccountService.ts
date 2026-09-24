@@ -176,6 +176,26 @@ export async function logoutCloudAccount(): Promise<CloudSessionStatus> {
   return getCloudAccountStatus();
 }
 
+export async function deleteCloudAccount(): Promise<CloudSessionStatus> {
+  const client = createClientFromSession();
+  if (!client) throw new CloudProtocolError(401, 'invalid-session', '尚未登录 Athena 账号。');
+  await client.deleteAccount();
+  const settings = getAppSettings().cloud;
+  writeSession(null);
+  saveSettingsBundle({
+    settings: {
+      cloud: {
+        ...settings,
+        syncEnabled: false,
+        mergeReviewedAccount: '',
+        tenantId: '',
+      },
+    },
+  });
+  lastError = null;
+  return getCloudAccountStatus();
+}
+
 export interface CloudPairingOffer {
   code: string;
   expiresInSeconds: number;
@@ -309,6 +329,7 @@ export async function syncCloudAccountNow(
     const labels = [...preferenceConflicts].map(resourceId => {
       if (resourceId === 'preference.persona') return '人格卡';
       if (resourceId === BACKGROUND_RESOURCE_ID) return '背景图';
+      if (resourceId === 'preference.settings') return '互动偏好';
       return '成年模式状态';
     });
     throw new CloudProtocolError(
@@ -338,6 +359,11 @@ export async function syncCloudAccountNow(
     if (resourceId === 'preference.adult-mode') {
       if (preferenceConflicts.has(resourceId) && mergeConflictChoice === 'local') continue;
       applyAdultModePreference(payload);
+      continue;
+    }
+    if (resourceId === 'preference.settings') {
+      if (preferenceConflicts.has(resourceId) && mergeConflictChoice === 'local') continue;
+      applySettingsPreference(payload);
       continue;
     }
     if (resourceId === BACKGROUND_RESOURCE_ID) {
@@ -498,6 +524,7 @@ function findPreferenceConflicts(
     let local: Record<string, unknown> | null = null;
     if (resourceId === 'preference.persona' && categories.persona) local = personaPreferencePayload();
     if (resourceId === 'preference.adult-mode' && categories.adultMode) local = adultModePreferencePayload();
+    if (resourceId === 'preference.settings' && categories.preferences) local = settingsPreferencePayload();
     if (resourceId === BACKGROUND_RESOURCE_ID && categories.backgroundImage) local = desktopBackgroundPayload();
     if (local && stableJson(local) !== stableJson(remote)) conflicts.add(resourceId);
   }
@@ -647,6 +674,20 @@ async function pushLocalState(
     else if (result) rememberAcceptedVector(vectors, resourceId, result);
   }
 
+  if (categories.preferences) {
+    const resourceId = 'preference.settings';
+    const result = await client.putRecord({
+      resourceId,
+      resourceType: 'preference',
+      schemaVersion: 1,
+      baseVector: vectors[resourceId] || {},
+      payload: settingsPreferencePayload(),
+      deleted: false,
+    }).catch(() => undefined);
+    if (result?.outcome === 'conflict') conflicted.push('互动偏好');
+    else if (result) rememberAcceptedVector(vectors, resourceId, result);
+  }
+
   if (conflicted.length) {
     // Surfaced through the status the account panel already reads, so a sync
     // that left something unsettled does not look like one that finished.
@@ -698,6 +739,17 @@ function adultModePreferencePayload(): Record<string, unknown> {
   };
 }
 
+function settingsPreferencePayload(): Record<string, unknown> {
+  const settings = getAppSettings().personalization;
+  return {
+    origin: 'desktop',
+    schemaVersion: 1,
+    preferredAddress: settings.preferredAddress,
+    tone: settings.tone,
+    replyLength: settings.replyLength,
+  };
+}
+
 function applyPersonaPreference(payload: Record<string, unknown>): void {
   const profile = isRecord(payload.profile) ? payload.profile : null;
   if (!profile) return;
@@ -723,6 +775,25 @@ function applyPersonaPreference(payload: Record<string, unknown>): void {
 function applyAdultModePreference(payload: Record<string, unknown>): void {
   if (payload.schemaVersion !== 1 || typeof payload.enabled !== 'boolean') return;
   saveSettingsBundle({ settings: { conversation: { adultModeEnabled: payload.enabled } } });
+}
+
+function applySettingsPreference(payload: Record<string, unknown>): void {
+  if (payload.schemaVersion !== 1) return;
+  const tone = ['balanced', 'soft', 'playful', 'direct'].includes(String(payload.tone))
+    ? String(payload.tone) as 'balanced' | 'soft' | 'playful' | 'direct'
+    : 'balanced';
+  const replyLength = ['short', 'balanced', 'detailed'].includes(String(payload.replyLength))
+    ? String(payload.replyLength) as 'short' | 'balanced' | 'detailed'
+    : 'balanced';
+  saveSettingsBundle({
+    settings: {
+      personalization: {
+        preferredAddress: cleanPreferenceText(payload.preferredAddress, 80),
+        tone,
+        replyLength,
+      },
+    },
+  });
 }
 
 function cleanPreferenceText(value: unknown, limit: number): string {

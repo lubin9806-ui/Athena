@@ -22,6 +22,7 @@ import {
   logoutCloudAccount,
   registerCloudAccount,
   createCloudPairingOffer,
+  deleteCloudAccount,
   syncCloudAccountNow,
 } from '../../core/cloud/CloudAccountService';
 import {
@@ -221,6 +222,7 @@ const INVOKE_CHANNELS = [
   'cloud:login',
   'cloud:pairingOffer',
   'cloud:logout',
+  'cloud:deleteAccount',
   'cloud:syncNow',
   'diagnostics:getHealth',
   'diagnostics:exportSupport',
@@ -1289,6 +1291,11 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<vo
   ipcMain.handle('cloud:logout', async (event) => {
     if (!isTrustedSender(event)) return null;
     return logoutCloudAccount();
+  });
+
+  ipcMain.handle('cloud:deleteAccount', async event => {
+    if (!isTrustedSender(event)) return null;
+    return deleteCloudAccount();
   });
 
   ipcMain.handle('cloud:pairingOffer', async (event) => {

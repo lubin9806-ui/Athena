@@ -194,6 +194,7 @@ async function main() {
   assert.match(service, /if \(categories\.reminders\)/, 'reminder sync needs its own category gate');
   assert.match(service, /if \(categories\.persona\)/, 'persona sync needs its own category gate');
   assert.match(service, /if \(categories\.adultMode\)/, 'adult-mode sync needs its own category gate');
+  assert.match(service, /if \(categories\.preferences\)/, 'ordinary preferences need their own category gate');
   assert.match(service, /merge-decision-required/, 'sync must be blocked until the account merge choice is reviewed');
   assert.match(service, /findPreferenceConflicts/, 'sync must detect different whole-value preference versions before applying them');
   assert.match(service, /merge-conflict/, 'different first-login preference versions must require an explicit choice');
@@ -212,6 +213,7 @@ async function main() {
     assert.match(rendererHtml, new RegExp(`id="${id}"`), `desktop sync selector is missing ${id}`);
   }
   assert.doesNotMatch(rendererHtml, /id="setting-cloud-sync-background"[^>]*disabled/, 'background sync must be available once sanitized adaptation is implemented');
+  assert.doesNotMatch(rendererHtml, /id="setting-cloud-sync-preferences"[^>]*disabled/, 'the safe ordinary-preference subset must be available');
   assert.doesNotMatch(rendererHtml, /id="setting-cloud-sync-persona"[^>]*disabled/, 'persona sync must be available once its preference record is implemented');
   assert.doesNotMatch(rendererHtml, /id="setting-cloud-sync-adult-mode"[^>]*disabled/, 'adult-mode sync must be available once its preference record is implemented');
   assert.match(backgroundSync, /MAX_EDGE = 1600/, 'background copies must be bounded before upload');
@@ -222,6 +224,9 @@ async function main() {
   assert.doesNotMatch(backgroundPayloadBody, /sourcePath|originalPath|exif/i, 'the source image path and metadata must not enter the Cloud payload');
   assert.match(rendererHtml, /id="setting-cloud-mfa-code"/, 'desktop account UI must accept an MFA code');
   assert.match(rendererHtml, /id="setting-cloud-recovery-code"/, 'desktop account UI must accept a recovery code');
+  assert.match(rendererHtml, /id="cloud-delete-account"/, 'desktop account UI must expose account deletion separately from local clearing');
+  assert.match(renderer, /还要清除这台电脑的本机数据吗/, 'account deletion must ask about local data in a separate decision');
+  assert.match(ipc, /cloud:deleteAccount/, 'desktop IPC must expose account deletion through a trusted handler');
   assert.doesNotMatch(rendererHtml, /id="setting-cloud-tenant-id"/, 'tenant ID must not be part of the user login flow');
   assert.ok(
     service.indexOf('const pulled = await pullAllChanges') < service.indexOf('await pushLocalState(client, imported, importedMemoryKinds, vectors)'),
@@ -291,6 +296,9 @@ async function main() {
     assert.equal(pushed.outcome, 'accepted');
     const changes = await client.listChanges();
     assert.ok(changes.records.some((item) => item.resourceId === 'conversation.desktop-1'));
+    const deletion = await client.deleteAccount();
+    assert.equal(deletion.status, 'complete');
+    assert.equal(deletion.cryptographicErase, true);
   } finally {
     await app.close();
     fs.rmSync(temp, { recursive: true, force: true });

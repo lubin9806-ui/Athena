@@ -104,6 +104,12 @@ export class CloudProtocol {
     return this.request('GET', '/v1/account');
   }
 
+  async deleteAccount(): Promise<Record<string, unknown>> {
+    const tenantId = this.session.tenantId;
+    if (!tenantId) throw new CloudProtocolError(401, 'invalid-session', '账号会话缺少租户信息。');
+    return this.request('DELETE', '/v1/account', { json: { confirmation: `DELETE ${tenantId}` } });
+  }
+
   async listDevices(): Promise<Record<string, unknown>> {
     return this.request('GET', '/v1/devices');
   }

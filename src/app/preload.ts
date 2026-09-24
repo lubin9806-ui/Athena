@@ -166,6 +166,7 @@ contextBridge.exposeInMainWorld('athenaAPI', {
   loginCloudAccount: (payload: { email: string; password: string; mfaCode?: string; recoveryCode?: string }) => ipcRenderer.invoke('cloud:login', payload),
   createCloudPairingOffer: () => ipcRenderer.invoke('cloud:pairingOffer'),
   logoutCloudAccount: () => ipcRenderer.invoke('cloud:logout'),
+  deleteCloudAccount: () => ipcRenderer.invoke('cloud:deleteAccount'),
   syncCloudAccount: (conflictChoice?: 'local' | 'cloud') => ipcRenderer.invoke('cloud:syncNow', conflictChoice),
   getBackgroundImage: () => ipcRenderer.invoke('appearance:backgroundGet'),
   chooseBackgroundImage: () => ipcRenderer.invoke('appearance:backgroundChoose'),
