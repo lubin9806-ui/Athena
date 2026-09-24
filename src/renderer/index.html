@@ -591,6 +591,10 @@
                 <option value="detailed">更详细</option>
               </select>
             </label>
+            <label class="settings-toggle">
+              <input id="setting-adult-mode-enabled" type="checkbox" />
+              <span>启用成年陪伴模式（创作模式仍保持独立）</span>
+            </label>
             <label class="settings-field">
               <span>主动性</span>
               <select id="setting-initiative">
@@ -757,6 +761,14 @@
                 <option value="system">跟随系统</option>
               </select>
             </label>
+            <div class="settings-field settings-field-full">
+              <span>主界面背景</span>
+              <div class="model-actions">
+                <button id="background-image-choose" class="settings-panel-link" type="button">选择图片</button>
+                <button id="background-image-clear" class="settings-panel-link settings-panel-danger" type="button">恢复默认</button>
+              </div>
+              <small id="background-image-status" class="settings-note">正在读取背景状态…</small>
+            </div>
           </div>
         </details>
 
@@ -1180,20 +1192,20 @@
               <span>同步提醒</span>
             </label>
             <label class="settings-toggle">
-              <input id="setting-cloud-sync-persona" type="checkbox" disabled />
-              <span>同步人格卡（下一阶段接入）</span>
+              <input id="setting-cloud-sync-persona" type="checkbox" />
+              <span>同步人格卡</span>
             </label>
             <label class="settings-toggle">
               <input id="setting-cloud-sync-preferences" type="checkbox" disabled />
               <span>同步普通偏好（下一阶段接入）</span>
             </label>
             <label class="settings-toggle">
-              <input id="setting-cloud-sync-background" type="checkbox" disabled />
-              <span>同步背景图适配副本（下一阶段接入；不上传原图与元数据）</span>
+              <input id="setting-cloud-sync-background" type="checkbox" />
+              <span>同步背景图适配副本（不上传原图、路径与元数据）</span>
             </label>
             <label class="settings-toggle">
-              <input id="setting-cloud-sync-adult-mode" type="checkbox" disabled />
-              <span>同步成年模式启用状态（下一阶段接入）</span>
+              <input id="setting-cloud-sync-adult-mode" type="checkbox" />
+              <span>同步成年模式启用状态</span>
             </label>
             <label class="settings-toggle">
               <input id="setting-consent-cloud-sync" type="checkbox" />

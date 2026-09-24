@@ -24,6 +24,11 @@ import {
   createCloudPairingOffer,
   syncCloudAccountNow,
 } from '../../core/cloud/CloudAccountService';
+import {
+  clearDesktopBackground,
+  desktopBackgroundDataUrl,
+  saveDesktopBackgroundFromFile,
+} from '../../core/cloud/BackgroundSync';
 import { createAssistModelClient, LLMClient } from '../../core/ai/Client';
 import { diagnoseModelConnection } from '../../core/ai/ModelConnectionDiagnostics';
 import { canRouteModelRequest } from '../../core/ai/ModelNetworkPolicy';
@@ -165,6 +170,9 @@ const INVOKE_CHANNELS = [
   'config:get',
   'config:set',
   'appearance:set',
+  'appearance:backgroundGet',
+  'appearance:backgroundChoose',
+  'appearance:backgroundClear',
   'persona:get',
   'persona:save',
   'persona:chooseImportFile',
@@ -1288,9 +1296,33 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): () => Promise<vo
     return createCloudPairingOffer();
   });
 
-  ipcMain.handle('cloud:syncNow', async (event) => {
+  ipcMain.handle('cloud:syncNow', async (event, conflictChoice: unknown) => {
     if (!isTrustedSender(event)) return null;
-    return syncCloudAccountNow();
+    return syncCloudAccountNow(conflictChoice === 'local' || conflictChoice === 'cloud' ? conflictChoice : undefined);
+  });
+
+  ipcMain.handle('appearance:backgroundGet', async event => {
+    if (!isTrustedSender(event)) return null;
+    return desktopBackgroundDataUrl();
+  });
+
+  ipcMain.handle('appearance:backgroundChoose', async event => {
+    if (!isTrustedSender(event)) return null;
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: '选择 Athena 背景图',
+      properties: ['openFile'],
+      filters: [{ name: '图片', extensions: ['png', 'jpg', 'jpeg', 'webp', 'bmp'] }],
+    });
+    const sourcePath = result.filePaths[0];
+    if (result.canceled || !sourcePath) return null;
+    saveDesktopBackgroundFromFile(sourcePath);
+    return desktopBackgroundDataUrl();
+  });
+
+  ipcMain.handle('appearance:backgroundClear', async event => {
+    if (!isTrustedSender(event)) return null;
+    clearDesktopBackground();
+    return null;
   });
 
   ipcMain.handle('privacy:export', async (event, format: unknown) => {

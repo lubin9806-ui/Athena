@@ -15,11 +15,12 @@ import { trustedNow } from '../runtime/TrustedClock';
 import type { ConversationMode, Message, RetrievedContext, WebSearchContext } from '../../shared/types';
 
 export function buildSystemPrompt(style?: StyleProfile, persona: PersonaCard = resolvePersonaCard(getAppSettings().profile)): string {
+  const settings = getAppSettings();
   return [
     buildPersonaPrompt(persona),
     buildPersonalizationPrompt(),
     buildSteamAiGuardrailPrompt(),
-    buildFictionalContentContext(),
+    settings.conversation.adultModeEnabled ? buildFictionalContentContext() : '',
     '',
     style ? buildStyleContext(style) : '',
   ].join('\n');

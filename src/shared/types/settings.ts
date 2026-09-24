@@ -70,6 +70,8 @@ export interface AppearanceSettings {
 
 export interface ConversationSettings {
   activeMode: ConversationMode;
+  /** Account-portable opt-in state for adult companion/persona behavior; Create keeps its own semantics. */
+  adultModeEnabled: boolean;
   enterToSend: boolean;
   streamResponses: boolean;
   showTimestamps: boolean;

@@ -65,6 +65,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   },
   conversation: {
     activeMode: 'companion',
+    adultModeEnabled: false,
     enterToSend: true,
     streamResponses: true,
     showTimestamps: false,
@@ -187,6 +188,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
       backgroundImage: false,
       adultMode: false,
     },
+    mergeReviewedAccount: '',
     baseUrl: '',
     pairingBaseUrl: 'http://127.0.0.1:8787',
     email: '',
@@ -559,6 +561,7 @@ function sanitizeConversation(value: unknown): ConversationSettings {
   const source = isRecord(value) ? value : {};
   return {
     activeMode: cleanEnum(source.activeMode, CONVERSATION_MODES, DEFAULT_SETTINGS.conversation.activeMode),
+    adultModeEnabled: cleanBoolean(source.adultModeEnabled, DEFAULT_SETTINGS.conversation.adultModeEnabled),
     enterToSend: cleanBoolean(source.enterToSend, DEFAULT_SETTINGS.conversation.enterToSend),
     streamResponses: cleanBoolean(source.streamResponses, DEFAULT_SETTINGS.conversation.streamResponses),
     showTimestamps: cleanBoolean(source.showTimestamps, DEFAULT_SETTINGS.conversation.showTimestamps),
@@ -766,6 +769,11 @@ function sanitizeCloud(value: unknown): CloudAccountSettings {
       backgroundImage: cleanBoolean(categories.backgroundImage, DEFAULT_SETTINGS.cloud.syncCategories.backgroundImage),
       adultMode: cleanBoolean(categories.adultMode, DEFAULT_SETTINGS.cloud.syncCategories.adultMode),
     },
+    mergeReviewedAccount: cleanString(
+      source.mergeReviewedAccount,
+      254,
+      DEFAULT_SETTINGS.cloud.mergeReviewedAccount,
+    ).trim().toLowerCase(),
     baseUrl: cleanString(source.baseUrl, 200, DEFAULT_SETTINGS.cloud.baseUrl),
     pairingBaseUrl: cleanString(source.pairingBaseUrl, 200, DEFAULT_SETTINGS.cloud.pairingBaseUrl),
     email: cleanString(source.email, 254, DEFAULT_SETTINGS.cloud.email),

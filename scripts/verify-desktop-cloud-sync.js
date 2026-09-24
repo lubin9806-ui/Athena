@@ -150,6 +150,7 @@ async function main() {
   const preload = fs.readFileSync(path.join(root, 'src', 'app', 'preload.ts'), 'utf8');
   const renderer = fs.readFileSync(path.join(root, 'src', 'renderer', 'app.ts'), 'utf8');
   const rendererHtml = fs.readFileSync(path.join(root, 'src', 'renderer', 'index.html'), 'utf8');
+  const backgroundSync = fs.readFileSync(path.join(root, 'src', 'core', 'cloud', 'BackgroundSync.ts'), 'utf8');
   const pushBody = service.slice(service.indexOf('async function pushLocalState'), service.indexOf('function ownsResource'));
   assert.match(pushBody, /conflicted\.push\(/, 'a conflicting conversation must be reported');
   assert.match(pushBody, /sync-conflict/, 'a sync that left a conflict must not report success');
@@ -191,6 +192,13 @@ async function main() {
   assert.match(service, /if \(categories\.conversations\)/, 'conversation sync needs its own category gate');
   assert.match(service, /if \(categories\.memories\)/, 'memory sync needs its own category gate');
   assert.match(service, /if \(categories\.reminders\)/, 'reminder sync needs its own category gate');
+  assert.match(service, /if \(categories\.persona\)/, 'persona sync needs its own category gate');
+  assert.match(service, /if \(categories\.adultMode\)/, 'adult-mode sync needs its own category gate');
+  assert.match(service, /merge-decision-required/, 'sync must be blocked until the account merge choice is reviewed');
+  assert.match(service, /findPreferenceConflicts/, 'sync must detect different whole-value preference versions before applying them');
+  assert.match(service, /merge-conflict/, 'different first-login preference versions must require an explicit choice');
+  assert.match(renderer, /reviewCloudInitialMerge/, 'desktop login must ask whether to merge local content');
+  assert.match(renderer, /syncCloudAccountWithConflictChoice/, 'desktop must expose a conflict choice rather than silently overwriting');
   assert.match(service, /session\.syncCategoriesKey === categoriesKey \? session\.cursor : null/, 'enabling a category must replay records skipped by the old cursor');
   for (const id of [
     'setting-cloud-sync-conversations',
@@ -203,8 +211,15 @@ async function main() {
   ]) {
     assert.match(rendererHtml, new RegExp(`id="${id}"`), `desktop sync selector is missing ${id}`);
   }
-  assert.match(rendererHtml, /id="setting-cloud-sync-background"[^>]*disabled/, 'background sync must stay visibly unavailable until sanitized adaptation is implemented');
-  assert.match(rendererHtml, /id="setting-cloud-sync-adult-mode"[^>]*disabled/, 'adult-mode sync must stay visibly unavailable until its preference record is implemented');
+  assert.doesNotMatch(rendererHtml, /id="setting-cloud-sync-background"[^>]*disabled/, 'background sync must be available once sanitized adaptation is implemented');
+  assert.doesNotMatch(rendererHtml, /id="setting-cloud-sync-persona"[^>]*disabled/, 'persona sync must be available once its preference record is implemented');
+  assert.doesNotMatch(rendererHtml, /id="setting-cloud-sync-adult-mode"[^>]*disabled/, 'adult-mode sync must be available once its preference record is implemented');
+  assert.match(backgroundSync, /MAX_EDGE = 1600/, 'background copies must be bounded before upload');
+  assert.match(backgroundSync, /MAX_JPEG_BYTES = 180 \* 1024/, 'background copies must fit below the encrypted record limit');
+  assert.match(backgroundSync, /toJPEG\(/, 'background sync must decode and re-encode instead of uploading the original file');
+  assert.match(backgroundSync, /createFromBuffer\(incoming\)/, 'downloaded background bytes must be decoded before local use');
+  const backgroundPayloadBody = backgroundSync.slice(backgroundSync.indexOf('function payloadFor'), backgroundSync.indexOf('function writeBackground'));
+  assert.doesNotMatch(backgroundPayloadBody, /sourcePath|originalPath|exif/i, 'the source image path and metadata must not enter the Cloud payload');
   assert.match(rendererHtml, /id="setting-cloud-mfa-code"/, 'desktop account UI must accept an MFA code');
   assert.match(rendererHtml, /id="setting-cloud-recovery-code"/, 'desktop account UI must accept a recovery code');
   assert.doesNotMatch(rendererHtml, /id="setting-cloud-tenant-id"/, 'tenant ID must not be part of the user login flow');

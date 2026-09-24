@@ -11,6 +11,8 @@ export interface CloudSyncCategories {
 export interface CloudAccountSettings {
   syncEnabled: boolean;
   syncCategories: CloudSyncCategories;
+  /** Normalized account email whose first-login local merge choice was answered. */
+  mergeReviewedAccount: string;
   /** Account/sync service. Ordinary release builds supply this; developer builds may override it. */
   baseUrl: string;
   /** Loopback service used only to pair a phone with this computer's capabilities. */

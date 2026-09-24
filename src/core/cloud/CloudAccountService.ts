@@ -8,8 +8,10 @@ import { createChatWindow, deleteChatWindow, getChatWindow, getChatWindowMessage
 import { deleteMemory, listMemories, upsertSyncedMemory, type MemoryKind } from '../../memory/admin';
 import { adoptSyncedReminder, deleteSyncedReminder } from '../scheduler/Reminder';
 import { listSyncableReminders } from '../scheduler/ScheduledJobStore';
+import { resolvePersonaCard, savePersonaCard, type PersonaCardPatch } from '../ai/Personality';
 import type { CloudAccountSettings, CloudSessionStatus, CloudSyncCategories } from '../../shared/types/cloud';
 import { CloudProtocol, CloudProtocolError, isSessionEnded } from './CloudProtocol';
+import { applyCloudBackground, BACKGROUND_RESOURCE_ID, desktopBackgroundPayload } from './BackgroundSync';
 import {
   conversationResourceId,
   desktopMemoryRefFromResourceId,
@@ -53,9 +55,13 @@ let lastError: string | null = null;
 export function getCloudAccountStatus(): CloudSessionStatus {
   const settings = getAppSettings().cloud;
   const session = readSession();
+  const sessionAccount = normalizeAccountEmail(session?.email || settings.email);
   return {
     signedIn: Boolean(session?.accessToken),
-    syncEnabled: settings.syncEnabled,
+    syncEnabled: Boolean(session?.accessToken)
+      && settings.syncEnabled
+      && Boolean(sessionAccount)
+      && settings.mergeReviewedAccount === sessionAccount,
     baseUrl: settings.baseUrl,
     email: session?.email || settings.email,
     tenantId: session?.tenantId || settings.tenantId || null,
@@ -120,6 +126,7 @@ export async function registerCloudAccount(input: { tenantName: string; email: s
     settings: {
       cloud: {
         ...settings,
+        syncEnabled: settings.mergeReviewedAccount === normalizeAccountEmail(input.email) && settings.syncEnabled,
         email: input.email.trim(),
         tenantId: String(body.tenantId || ''),
       },
@@ -149,6 +156,7 @@ export async function loginCloudAccount(input: {
     settings: {
       cloud: {
         ...settings,
+        syncEnabled: settings.mergeReviewedAccount === normalizeAccountEmail(input.email) && settings.syncEnabled,
         email: input.email.trim(),
         tenantId: String(body.tenantId || client.session.tenantId || ''),
       },
@@ -269,24 +277,46 @@ function isPrivateIpv4(host: string): boolean {
     || (octets[0] === 192 && octets[1] === 168);
 }
 
-export async function syncCloudAccountNow(): Promise<CloudSessionStatus> {
+export async function syncCloudAccountNow(
+  mergeConflictChoice?: 'local' | 'cloud',
+): Promise<CloudSessionStatus> {
   if (!canUseNetworkCapability('cloudSync')) {
     throw new CloudProtocolError(403, 'consent-required', '跨设备同步需要先在隐私中心同意。');
-  }
-  if (!getAppSettings().cloud.syncEnabled) {
-    throw new CloudProtocolError(403, 'sync-disabled', '尚未打开 Athena 账号同步。');
   }
   const client = createClientFromSession();
   if (!client) throw new CloudProtocolError(401, 'invalid-session', '尚未登录 Athena 账号。');
   const session = readSession();
   if (!session) throw new CloudProtocolError(401, 'invalid-session', '尚未登录 Athena 账号。');
-  const categories = getAppSettings().cloud.syncCategories;
+  const cloudSettings = getAppSettings().cloud;
+  if (cloudSettings.mergeReviewedAccount !== normalizeAccountEmail(session.email)) {
+    throw new CloudProtocolError(409, 'merge-decision-required', '请先决定是否合并这台电脑的本机内容。');
+  }
+  if (!cloudSettings.syncEnabled) {
+    throw new CloudProtocolError(403, 'sync-disabled', '尚未打开 Athena 账号同步。');
+  }
+  const categories = cloudSettings.syncCategories;
   const categoriesKey = JSON.stringify(categories);
 
   const imported = { ...session.imported };
   const importedMemoryKinds = { ...(session.importedMemoryKinds || {}) };
   const vectors = { ...(session.vectors || {}) };
   const pulled = await pullAllChanges(client, session.syncCategoriesKey === categoriesKey ? session.cursor : null);
+  // Preference records are whole-value settings, not append-only histories.
+  // Without a durable local dirty marker, a difference can never be assumed
+  // safe to overwrite in either direction, even after the first sync.
+  const preferenceConflicts = findPreferenceConflicts(pulled.records, categories);
+  if (preferenceConflicts.size > 0 && !mergeConflictChoice) {
+    const labels = [...preferenceConflicts].map(resourceId => {
+      if (resourceId === 'preference.persona') return '人格卡';
+      if (resourceId === BACKGROUND_RESOURCE_ID) return '背景图';
+      return '成年模式状态';
+    });
+    throw new CloudProtocolError(
+      409,
+      'merge-conflict',
+      `账号与本机的${labels.join('、')}版本不同，请明确选择保留哪一边。`,
+    );
+  }
   for (const record of pulled.records) {
     if (!isRecord(record)) continue;
     const resourceId = String(record.resourceId || '');
@@ -299,6 +329,22 @@ export async function syncCloudAccountNow(): Promise<CloudSessionStatus> {
     }
     const payload = isRecord(record.payload) ? record.payload : null;
     if (!payload) continue;
+
+    if (resourceId === 'preference.persona') {
+      if (preferenceConflicts.has(resourceId) && mergeConflictChoice === 'local') continue;
+      applyPersonaPreference(payload);
+      continue;
+    }
+    if (resourceId === 'preference.adult-mode') {
+      if (preferenceConflicts.has(resourceId) && mergeConflictChoice === 'local') continue;
+      applyAdultModePreference(payload);
+      continue;
+    }
+    if (resourceId === BACKGROUND_RESOURCE_ID) {
+      if (preferenceConflicts.has(resourceId) && mergeConflictChoice === 'local') continue;
+      applyCloudBackground(payload);
+      continue;
+    }
 
     // Memories written elsewhere become real memories here. Until now the loop
     // skipped every record that was not a conversation, so a memory noted on
@@ -439,6 +485,37 @@ function isMemoryKind(value: unknown): value is MemoryKind {
     || value === 'daily' || value === 'project' || value === 'message';
 }
 
+function findPreferenceConflicts(
+  records: Record<string, unknown>[],
+  categories: CloudSyncCategories,
+): Set<string> {
+  const conflicts = new Set<string>();
+  for (const record of records) {
+    if (record.deleted === true) continue;
+    const resourceId = String(record.resourceId || '');
+    const remote = isRecord(record.payload) ? record.payload : null;
+    if (!remote) continue;
+    let local: Record<string, unknown> | null = null;
+    if (resourceId === 'preference.persona' && categories.persona) local = personaPreferencePayload();
+    if (resourceId === 'preference.adult-mode' && categories.adultMode) local = adultModePreferencePayload();
+    if (resourceId === BACKGROUND_RESOURCE_ID && categories.backgroundImage) local = desktopBackgroundPayload();
+    if (local && stableJson(local) !== stableJson(remote)) conflicts.add(resourceId);
+  }
+  return conflicts;
+}
+
+function stableJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(',')}]`;
+  if (isRecord(value)) {
+    return `{${Object.keys(value).filter(key => key !== 'origin').sort().map(key => `${JSON.stringify(key)}:${stableJson(value[key])}`).join(',')}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function normalizeAccountEmail(value: string | undefined | null): string {
+  return String(value || '').trim().toLowerCase();
+}
+
 async function pushLocalState(
   client: CloudProtocol,
   imported: Record<string, number>,
@@ -528,6 +605,48 @@ async function pushLocalState(
     }
   }
 
+  if (categories.persona) {
+    const resourceId = 'preference.persona';
+    const result = await client.putRecord({
+      resourceId,
+      resourceType: 'preference',
+      schemaVersion: 1,
+      baseVector: vectors[resourceId] || {},
+      payload: personaPreferencePayload(),
+      deleted: false,
+    }).catch(() => undefined);
+    if (result?.outcome === 'conflict') conflicted.push('人格卡');
+    else if (result) rememberAcceptedVector(vectors, resourceId, result);
+  }
+
+  if (categories.adultMode) {
+    const resourceId = 'preference.adult-mode';
+    const result = await client.putRecord({
+      resourceId,
+      resourceType: 'preference',
+      schemaVersion: 1,
+      baseVector: vectors[resourceId] || {},
+      payload: adultModePreferencePayload(),
+      deleted: false,
+    }).catch(() => undefined);
+    if (result?.outcome === 'conflict') conflicted.push('成年模式状态');
+    else if (result) rememberAcceptedVector(vectors, resourceId, result);
+  }
+
+  if (categories.backgroundImage) {
+    const resourceId = BACKGROUND_RESOURCE_ID;
+    const result = await client.putRecord({
+      resourceId,
+      resourceType: 'preference',
+      schemaVersion: 1,
+      baseVector: vectors[resourceId] || {},
+      payload: desktopBackgroundPayload(),
+      deleted: false,
+    }).catch(() => undefined);
+    if (result?.outcome === 'conflict') conflicted.push('背景图');
+    else if (result) rememberAcceptedVector(vectors, resourceId, result);
+  }
+
   if (conflicted.length) {
     // Surfaced through the status the account panel already reads, so a sync
     // that left something unsettled does not look like one that finished.
@@ -548,6 +667,75 @@ function shouldSyncResource(resourceId: string, categories: CloudSyncCategories)
   if (resourceId === 'preference.background') return categories.backgroundImage;
   if (resourceId === 'preference.adult-mode') return categories.adultMode;
   return false;
+}
+
+function personaPreferencePayload(): Record<string, unknown> {
+  const card = resolvePersonaCard(getAppSettings().profile);
+  return {
+    origin: 'desktop',
+    schemaVersion: 1,
+    profile: {
+      displayName: card.displayName,
+      nickname: card.nickname,
+      description: card.description,
+      identity: card.identity,
+      relationshipFrame: card.relationshipFrame,
+      traits: card.prompt.traits,
+      speakingStyle: card.prompt.speakingStyle,
+      roleplayNotes: card.prompt.roleplayNotes,
+      boundaries: card.prompt.boundaries,
+      selfIntroductionExample: card.prompt.selfIntroductionExample,
+      systemPrompt: '',
+    },
+  };
+}
+
+function adultModePreferencePayload(): Record<string, unknown> {
+  return {
+    origin: 'desktop',
+    schemaVersion: 1,
+    enabled: getAppSettings().conversation.adultModeEnabled,
+  };
+}
+
+function applyPersonaPreference(payload: Record<string, unknown>): void {
+  const profile = isRecord(payload.profile) ? payload.profile : null;
+  if (!profile) return;
+  const displayName = cleanPreferenceText(profile.displayName, 120);
+  if (!displayName) return;
+  const identity = cleanPreferenceText(profile.identity, 4_000)
+    || cleanPreferenceText(profile.systemPrompt, 4_000);
+  const patch: PersonaCardPatch = {
+    displayName,
+    nickname: cleanPreferenceText(profile.nickname, 120),
+    description: cleanPreferenceText(profile.description, 4_000),
+    identity,
+    relationshipFrame: cleanPreferenceText(profile.relationshipFrame, 4_000),
+    traits: cleanPreferenceItems(profile.traits),
+    speakingStyle: cleanPreferenceItems(profile.speakingStyle),
+    roleplayNotes: cleanPreferenceItems(profile.roleplayNotes),
+    boundaries: cleanPreferenceItems(profile.boundaries),
+    selfIntroductionExample: cleanPreferenceText(profile.selfIntroductionExample, 2_000),
+  };
+  savePersonaCard(getAppSettings().profile, patch);
+}
+
+function applyAdultModePreference(payload: Record<string, unknown>): void {
+  if (payload.schemaVersion !== 1 || typeof payload.enabled !== 'boolean') return;
+  saveSettingsBundle({ settings: { conversation: { adultModeEnabled: payload.enabled } } });
+}
+
+function cleanPreferenceText(value: unknown, limit: number): string {
+  return typeof value === 'string' ? value.trim().slice(0, limit) : '';
+}
+
+function cleanPreferenceItems(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item): item is string => typeof item === 'string')
+    .map(item => item.trim().slice(0, 1_000))
+    .filter(Boolean)
+    .slice(0, 80);
 }
 
 function rememberAcceptedVector(

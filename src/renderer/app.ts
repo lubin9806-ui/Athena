@@ -230,7 +230,10 @@ declare global {
       loginCloudAccount: (payload: { email: string; password: string; mfaCode?: string; recoveryCode?: string }) => Promise<CloudSessionStatus | null>;
       createCloudPairingOffer: () => Promise<{ code: string; expiresInSeconds: number; expiresAt: string; pairingUri: string } | null>;
       logoutCloudAccount: () => Promise<CloudSessionStatus | null>;
-      syncCloudAccount: () => Promise<CloudSessionStatus | null>;
+      syncCloudAccount: (conflictChoice?: 'local' | 'cloud') => Promise<CloudSessionStatus | null>;
+      getBackgroundImage: () => Promise<string | null>;
+      chooseBackgroundImage: () => Promise<string | null>;
+      clearBackgroundImage: () => Promise<null>;
       exportPrivacyData: (format?: 'json' | 'markdown') => Promise<{ path: string; bytes: number } | null>;
       clearLocalData: () => Promise<{ deletedTables: string[]; voiceCacheFilesDeleted: number; skillInvocationsDeleted: number } | null>;
       getDiagnosticHealth: () => Promise<DiagnosticHealthSnapshot | null>;
@@ -744,6 +747,7 @@ interface AppearanceSettings {
 
 interface ConversationSettings {
   activeMode: AthenaMode;
+  adultModeEnabled: boolean;
   enterToSend: boolean;
   streamResponses: boolean;
   showTimestamps: boolean;
@@ -952,6 +956,7 @@ interface CloudAccountSettings {
     backgroundImage: boolean;
     adultMode: boolean;
   };
+  mergeReviewedAccount: string;
   baseUrl: string;
   pairingBaseUrl: string;
   email: string;
@@ -1406,6 +1411,7 @@ const settingUserName = mustGet<HTMLInputElement>('setting-user-name');
 const settingPreferredAddress = mustGet<HTMLInputElement>('setting-preferred-address');
 const settingTone = mustGet<HTMLSelectElement>('setting-tone');
 const settingReplyLength = mustGet<HTMLSelectElement>('setting-reply-length');
+const settingAdultModeEnabled = mustGet<HTMLInputElement>('setting-adult-mode-enabled');
 const settingInitiative = mustGet<HTMLSelectElement>('setting-initiative');
 const settingProactiveCare = mustGet<HTMLInputElement>('setting-proactive-care');
 const settingInitiativeMessages = mustGet<HTMLInputElement>('setting-initiative-messages');
@@ -1439,6 +1445,9 @@ const settingLive2dScale = mustGet<HTMLInputElement>('setting-live2d-scale');
 const settingLive2dOpacity = mustGet<HTMLInputElement>('setting-live2d-opacity');
 const settingAnimationLevel = mustGet<HTMLSelectElement>('setting-animation-level');
 const settingTheme = mustGet<HTMLSelectElement>('setting-theme');
+const backgroundImageChoose = mustGet<HTMLButtonElement>('background-image-choose');
+const backgroundImageClear = mustGet<HTMLButtonElement>('background-image-clear');
+const backgroundImageStatus = mustGet<HTMLElement>('background-image-status');
 const modelSettingsSection = mustGet<HTMLDetailsElement>('model-settings-section');
 const modelFirstRunChoice = mustGet<HTMLElement>('model-first-run-choice');
 const settingModelProvider = mustGet<HTMLSelectElement>('setting-model-provider');
@@ -2448,6 +2457,8 @@ function init(): void {
   cloudPairingOffer.addEventListener('click', () => void createCloudPairingOffer());
   cloudSyncNow.addEventListener('click', () => void syncCloudAccountNow());
   cloudLogout.addEventListener('click', () => void logoutCloudAccount());
+  backgroundImageChoose.addEventListener('click', () => void chooseBackgroundImage());
+  backgroundImageClear.addEventListener('click', () => void clearBackgroundImage());
   diagnosticsExport.addEventListener('click', () => void exportDiagnosticSupport());
   diagnosticsClear.addEventListener('click', () => void clearDiagnostics());
   inputBox.addEventListener('keydown', handleInputKeydown);
@@ -5502,6 +5513,7 @@ function populateSettingsForm(bundle: SettingsBundle): void {
   settingPreferredAddress.value = personalization.preferredAddress;
   settingTone.value = personalization.tone;
   settingReplyLength.value = personalization.replyLength;
+  settingAdultModeEnabled.checked = conversation.adultModeEnabled;
   settingInitiative.value = personalization.initiative;
   settingProactiveCare.checked = personalization.proactiveCare;
   settingInitiativeMessages.checked = personalization.initiativeMessages;
@@ -5598,6 +5610,7 @@ function populateSettingsForm(bundle: SettingsBundle): void {
   settingCloudBaseUrl.value = bundle.settings.cloud.baseUrl;
   settingDesktopPairingBaseUrl.value = bundle.settings.cloud.pairingBaseUrl || 'http://127.0.0.1:8787';
   settingCloudEmail.value = bundle.settings.cloud.email;
+  void refreshBackgroundImage();
   void refreshCloudAccountStatus();
   applySkuRuntimeProfile(bundle.sku);
   selectControls.sync();
@@ -5813,6 +5826,7 @@ async function saveSettingsForm(): Promise<void> {
         },
         conversation: {
           activeMode: currentMode,
+          adultModeEnabled: settingAdultModeEnabled.checked,
           enterToSend: settingEnterSend.checked,
           streamResponses: settingStreamResponses.checked,
           showTimestamps: settingShowTimestamps.checked,
@@ -5885,6 +5899,7 @@ async function saveSettingsForm(): Promise<void> {
         cloud: {
           syncEnabled: settingCloudSyncEnabled.checked,
           syncCategories: readCloudSyncCategories(),
+          mergeReviewedAccount: currentSettingsBundle?.settings.cloud.mergeReviewedAccount || '',
           baseUrl: settingCloudBaseUrl.value.trim(),
           pairingBaseUrl: settingDesktopPairingBaseUrl.value.trim(),
           email: settingCloudEmail.value.trim(),
@@ -6001,11 +6016,12 @@ async function refreshCloudAccountStatus(): Promise<void> {
 }
 
 async function persistCloudSettings(): Promise<void> {
-  await window.athenaAPI.saveSettings({
+  const bundle = await window.athenaAPI.saveSettings({
     settings: {
       cloud: {
         syncEnabled: settingCloudSyncEnabled.checked,
         syncCategories: readCloudSyncCategories(),
+        mergeReviewedAccount: currentSettingsBundle?.settings.cloud.mergeReviewedAccount || '',
         baseUrl: settingCloudBaseUrl.value.trim(),
         pairingBaseUrl: settingDesktopPairingBaseUrl.value.trim(),
         email: settingCloudEmail.value.trim(),
@@ -6016,6 +6032,7 @@ async function persistCloudSettings(): Promise<void> {
       },
     },
   });
+  currentSettingsBundle = bundle;
 }
 
 function readCloudSyncCategories(): CloudAccountSettings['syncCategories'] {
@@ -6042,7 +6059,7 @@ async function registerCloudAccount(): Promise<void> {
     settingCloudMfaCode.value = '';
     settingCloudRecoveryCode.value = '';
     renderCloudAccountStatus(status);
-    setSettingsFeedback('Athena 账号已注册。', 'success');
+    await reviewCloudInitialMerge(status);
   } catch (error) {
     setSettingsFeedback(`注册失败：${error instanceof Error ? error.message : String(error)}`, 'error');
   }
@@ -6061,9 +6078,115 @@ async function loginCloudAccount(): Promise<void> {
     settingCloudMfaCode.value = '';
     settingCloudRecoveryCode.value = '';
     renderCloudAccountStatus(status);
-    setSettingsFeedback('已登录 Athena 账号。', 'success');
+    await reviewCloudInitialMerge(status);
   } catch (error) {
     setSettingsFeedback(`登录失败：${error instanceof Error ? error.message : String(error)}`, 'error');
+  }
+}
+
+async function reviewCloudInitialMerge(status: CloudSessionStatus | null): Promise<void> {
+  if (!status?.signedIn || !status.email) {
+    setSettingsFeedback('已登录 Athena 账号。', 'success');
+    return;
+  }
+  const account = status.email.trim().toLowerCase();
+  if (currentSettingsBundle?.settings.cloud.mergeReviewedAccount === account) {
+    setSettingsFeedback('已登录 Athena 账号。', 'success');
+    return;
+  }
+  const mergeLocal = await dialogs.confirm({
+    eyebrow: '首次登录',
+    title: '合并这台电脑的本机内容？',
+    message: '只处理你已打开的同步类别。账号中没有的内容会上传；如两边已有不同版本，Athena 会停止并要求明确选择，不会静默覆盖。',
+    confirmLabel: '合并所选内容',
+    cancelLabel: '暂不合并',
+  });
+  const existingConsent = currentSettingsBundle?.settings.privacy.networkConsent.cloudSync ?? false;
+  const bundle = await window.athenaAPI.saveSettings({
+    settings: {
+      cloud: {
+        mergeReviewedAccount: account,
+        syncEnabled: mergeLocal,
+      },
+      privacy: {
+        networkConsent: {
+          cloudSync: mergeLocal || existingConsent,
+        },
+      },
+    },
+  });
+  currentSettingsBundle = bundle;
+  populateSettingsForm(bundle);
+  applyRuntimeSettings(bundle.settings);
+  if (!mergeLocal) {
+    renderCloudAccountStatus(await window.athenaAPI.getCloudAccount());
+    setSettingsFeedback('已登录；本机内容保持独立，之后仍可手动打开同步。', 'success');
+    return;
+  }
+  renderCloudAccountStatus(await syncCloudAccountWithConflictChoice());
+  setSettingsFeedback('已登录，并按所选类别合并本机内容。', 'success');
+}
+
+async function syncCloudAccountWithConflictChoice(): Promise<CloudSessionStatus | null> {
+  try {
+    const status = await window.athenaAPI.syncCloudAccount();
+    await refreshBackgroundImage();
+    return status;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (!message.includes('merge-conflict') && !message.includes('版本不同')) throw error;
+    const useLocal = await dialogs.confirm({
+      eyebrow: '合并冲突',
+      title: '账号与本机有不同版本',
+      message: 'Athena 没有覆盖任何一边。请选择这次合并要写入账号的版本；选择账号版本也不会删除未同步的本机对话和记忆。',
+      confirmLabel: '使用本机版本',
+      cancelLabel: '使用账号版本',
+      tone: 'danger',
+    });
+    const status = await window.athenaAPI.syncCloudAccount(useLocal ? 'local' : 'cloud');
+    await refreshBackgroundImage();
+    return status;
+  }
+}
+
+async function refreshBackgroundImage(): Promise<void> {
+  try {
+    const dataUrl = await window.athenaAPI.getBackgroundImage();
+    appShell.dataset.userBackground = String(Boolean(dataUrl));
+    if (dataUrl) appShell.style.setProperty('--user-background-image', `url("${dataUrl}")`);
+    else appShell.style.removeProperty('--user-background-image');
+    backgroundImageStatus.textContent = dataUrl
+      ? '正在使用经过缩放、重编码并移除元数据的适配副本。'
+      : '正在使用默认背景。';
+  } catch (error) {
+    backgroundImageStatus.textContent = `背景读取失败：${error instanceof Error ? error.message : String(error)}`;
+  }
+}
+
+async function chooseBackgroundImage(): Promise<void> {
+  try {
+    const dataUrl = await window.athenaAPI.chooseBackgroundImage();
+    if (!dataUrl) return;
+    await refreshBackgroundImage();
+    setSettingsFeedback('背景已保存为不含原图元数据的适配副本。', 'success');
+    if (settingCloudSyncEnabled.checked && settingCloudSyncBackground.checked && settingConsentCloudSync.checked) {
+      renderCloudAccountStatus(await syncCloudAccountWithConflictChoice());
+    }
+  } catch (error) {
+    setSettingsFeedback(`背景设置失败：${error instanceof Error ? error.message : String(error)}`, 'error');
+  }
+}
+
+async function clearBackgroundImage(): Promise<void> {
+  try {
+    await window.athenaAPI.clearBackgroundImage();
+    await refreshBackgroundImage();
+    setSettingsFeedback('已恢复默认背景。', 'success');
+    if (settingCloudSyncEnabled.checked && settingCloudSyncBackground.checked && settingConsentCloudSync.checked) {
+      renderCloudAccountStatus(await syncCloudAccountWithConflictChoice());
+    }
+  } catch (error) {
+    setSettingsFeedback(`恢复背景失败：${error instanceof Error ? error.message : String(error)}`, 'error');
   }
 }
 
@@ -6081,7 +6204,7 @@ async function createCloudPairingOffer(): Promise<void> {
 async function syncCloudAccountNow(): Promise<void> {
   try {
     await persistCloudSettings();
-    renderCloudAccountStatus(await window.athenaAPI.syncCloudAccount());
+    renderCloudAccountStatus(await syncCloudAccountWithConflictChoice());
     setSettingsFeedback('已与 Athena Cloud 同步。', 'success');
   } catch (error) {
     setSettingsFeedback(`同步失败：${error instanceof Error ? error.message : String(error)}`, 'error');
