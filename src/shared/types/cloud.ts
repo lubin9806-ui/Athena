@@ -1,6 +1,20 @@
+export interface CloudSyncCategories {
+  conversations: boolean;
+  memories: boolean;
+  persona: boolean;
+  preferences: boolean;
+  reminders: boolean;
+  backgroundImage: boolean;
+  adultMode: boolean;
+}
+
 export interface CloudAccountSettings {
   syncEnabled: boolean;
+  syncCategories: CloudSyncCategories;
+  /** Account/sync service. Ordinary release builds supply this; developer builds may override it. */
   baseUrl: string;
+  /** Loopback service used only to pair a phone with this computer's capabilities. */
+  pairingBaseUrl: string;
   email: string;
   tenantId: string;
   deviceName: string;

@@ -1,13 +1,14 @@
 import { app, safeStorage } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
+import { networkInterfaces } from 'os';
 import { getAppSettings, saveSettingsBundle } from '../config/SettingsStore';
 import { canUseNetworkCapability } from '../privacy/PrivacyDataService';
 import { createChatWindow, deleteChatWindow, getChatWindow, getChatWindowMessages, listChatWindows, saveChatMessage } from '../../memory';
 import { deleteMemory, listMemories, upsertSyncedMemory, type MemoryKind } from '../../memory/admin';
 import { adoptSyncedReminder, deleteSyncedReminder } from '../scheduler/Reminder';
 import { listSyncableReminders } from '../scheduler/ScheduledJobStore';
-import type { CloudAccountSettings, CloudSessionStatus } from '../../shared/types/cloud';
+import type { CloudAccountSettings, CloudSessionStatus, CloudSyncCategories } from '../../shared/types/cloud';
 import { CloudProtocol, CloudProtocolError, isSessionEnded } from './CloudProtocol';
 import {
   conversationResourceId,
@@ -43,6 +44,8 @@ interface StoredSession {
   devices?: CloudSessionStatus['devices'];
   /** Last server vector seen for each synced resource. Older sessions omit it. */
   vectors?: Record<string, Record<string, number>>;
+  /** A category change replays the feed so newly enabled kinds are not skipped behind the old cursor. */
+  syncCategoriesKey?: string;
 }
 
 let lastError: string | null = null;
@@ -174,16 +177,20 @@ export interface CloudPairingOffer {
 }
 
 export async function createCloudPairingOffer(): Promise<CloudPairingOffer> {
-  const client = createClientFromSession();
-  if (!client) throw new CloudProtocolError(401, 'invalid-session', '请先在电脑端登录同一个 Athena 账号。');
-  const body = await client.offerPairing(getAppSettings().cloud.deviceName || 'Athena Desktop');
+  // Pairing is a computer-connection capability, not account login. The local
+  // service deliberately creates a separate, revocable device session without
+  // reading or changing the Desktop's Athena account session.
+  const settings = getAppSettings().cloud;
+  const localBaseUrl = CloudProtocol.assertBaseUrl(settings.pairingBaseUrl);
+  const client = new CloudProtocol(localBaseUrl, 'desktop');
+  const body = await client.offerPairing(settings.deviceName || 'Athena Desktop', false);
   const code = String(body.code || '');
-  const baseUrl = CloudProtocol.assertBaseUrl(getAppSettings().cloud.baseUrl);
+  const mobileBaseUrl = mobilePairingBaseUrl(localBaseUrl);
   return {
     code,
     expiresInSeconds: Number(body.expiresInSeconds || 0),
     expiresAt: String(body.expiresAt || ''),
-    pairingUri: buildMobilePairingUri(baseUrl, code),
+    pairingUri: buildMobilePairingUri(mobileBaseUrl, code),
   };
 }
 
@@ -192,13 +199,74 @@ export async function createCloudPairingOffer(): Promise<CloudPairingOffer> {
  * phone still has to exchange its one-time code with the configured server.
  */
 export function buildMobilePairingUri(baseUrl: string, code: string): string {
-  const normalized = CloudProtocol.assertBaseUrl(baseUrl);
+  const normalized = assertMobilePairingBaseUrl(baseUrl);
   if (!/^\d{6}$/.test(code)) throw new CloudProtocolError(0, 'invalid-code', '手机配对码格式无效。');
   const uri = new URL('athena://pair');
   uri.searchParams.set('version', '1');
   uri.searchParams.set('server', normalized);
   uri.searchParams.set('code', code);
   return uri.toString();
+}
+
+/**
+ * Desktop talks to the local service through loopback. A physical phone cannot:
+ * for a local engineering Cloud, hand it the preferred private IPv4 instead.
+ */
+export function mobilePairingBaseUrl(baseUrl: string, privateAddress = preferredPrivateIpv4()): string {
+  const normalized = CloudProtocol.assertBaseUrl(baseUrl);
+  const parsed = new URL(normalized);
+  if (parsed.protocol !== 'http:' || !isLoopbackHost(parsed.hostname) || !privateAddress || !isPrivateIpv4(privateAddress)) {
+    return normalized;
+  }
+  parsed.hostname = privateAddress;
+  return parsed.toString().replace(/\/$/, '');
+}
+
+function assertMobilePairingBaseUrl(baseUrl: string): string {
+  const trimmed = baseUrl.trim().replace(/\/+$/, '');
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    throw new CloudProtocolError(0, 'base-url-invalid', '手机配对地址无效。');
+  }
+  if (parsed.username || parsed.password || parsed.search || parsed.hash) {
+    throw new CloudProtocolError(0, 'base-url-invalid', '手机配对地址无效。');
+  }
+  if (parsed.protocol === 'http:' && !isLoopbackHost(parsed.hostname) && !isPrivateIpv4(parsed.hostname)) {
+    throw new CloudProtocolError(0, 'cleartext-forbidden', '手机配对的 HTTP 地址必须位于本机或私有局域网。');
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    throw new CloudProtocolError(0, 'base-url-invalid', '手机配对地址协议无效。');
+  }
+  return trimmed;
+}
+
+function preferredPrivateIpv4(): string | null {
+  const candidates: Array<{ address: string; score: number }> = [];
+  for (const [name, addresses] of Object.entries(networkInterfaces())) {
+    const label = name.toLowerCase();
+    const virtual = /(vethernet|virtual|vmware|vbox|hyper-v|tailscale|vpn|wsl|docker)/.test(label);
+    const preferred = /(wi-?fi|wlan|wireless)/.test(label) ? 100 : /(ethernet|以太网)/.test(label) ? 80 : 20;
+    for (const entry of addresses || []) {
+      if (entry.internal || entry.family !== 'IPv4' || !isPrivateIpv4(entry.address)) continue;
+      candidates.push({ address: entry.address, score: preferred - (virtual ? 200 : 0) });
+    }
+  }
+  candidates.sort((left, right) => right.score - left.score || left.address.localeCompare(right.address));
+  return candidates[0]?.address || null;
+}
+
+function isLoopbackHost(host: string): boolean {
+  return host === '127.0.0.1' || host === 'localhost';
+}
+
+function isPrivateIpv4(host: string): boolean {
+  const octets = host.split('.').map(value => Number(value));
+  if (octets.length !== 4 || octets.some(value => !Number.isInteger(value) || value < 0 || value > 255)) return false;
+  return octets[0] === 10
+    || (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31)
+    || (octets[0] === 192 && octets[1] === 168);
 }
 
 export async function syncCloudAccountNow(): Promise<CloudSessionStatus> {
@@ -212,14 +280,17 @@ export async function syncCloudAccountNow(): Promise<CloudSessionStatus> {
   if (!client) throw new CloudProtocolError(401, 'invalid-session', '尚未登录 Athena 账号。');
   const session = readSession();
   if (!session) throw new CloudProtocolError(401, 'invalid-session', '尚未登录 Athena 账号。');
+  const categories = getAppSettings().cloud.syncCategories;
+  const categoriesKey = JSON.stringify(categories);
 
   const imported = { ...session.imported };
   const importedMemoryKinds = { ...(session.importedMemoryKinds || {}) };
   const vectors = { ...(session.vectors || {}) };
-  const pulled = await pullAllChanges(client, session.cursor);
+  const pulled = await pullAllChanges(client, session.syncCategoriesKey === categoriesKey ? session.cursor : null);
   for (const record of pulled.records) {
     if (!isRecord(record)) continue;
     const resourceId = String(record.resourceId || '');
+    if (!shouldSyncResource(resourceId, categories)) continue;
     const vector = syncVector(record.vector);
     if (resourceId && Object.keys(vector).length) vectors[resourceId] = vector;
     if (record.deleted === true) {
@@ -297,6 +368,7 @@ export async function syncCloudAccountNow(): Promise<CloudSessionStatus> {
     imported,
     importedMemoryKinds,
     vectors,
+    syncCategoriesKey: categoriesKey,
   };
   // Preserve the pulled vectors even if a device races this one during the
   // following push. Without this, the next sync repeats an empty-base write.
@@ -315,7 +387,7 @@ export async function syncCloudAccountNow(): Promise<CloudSessionStatus> {
 
 export function queueCloudWindowSync(windowId: number): void {
   const settings = getAppSettings();
-  if (!settings.cloud.syncEnabled || !canUseNetworkCapability('cloudSync')) return;
+  if (!settings.cloud.syncEnabled || !settings.cloud.syncCategories.conversations || !canUseNetworkCapability('cloudSync')) return;
   void syncCloudAccountNow().catch(error => {
     lastError = error instanceof Error ? error.message : String(error);
   });
@@ -373,6 +445,7 @@ async function pushLocalState(
   importedMemoryKinds: Record<string, MemoryKind>,
   vectors: Record<string, Record<string, number>>,
 ): Promise<void> {
+  const categories = getAppSettings().cloud.syncCategories;
   // windowId -> the record it belongs to. A window adopted from another client
   // keeps writing to that client's record; pushing it under a desktop id would
   // put two records in the account for one conversation, and the phone would
@@ -389,64 +462,70 @@ async function pushLocalState(
   // than the sync appearing to have succeeded.
   const conflicted: string[] = [];
 
-  const windows = listChatWindows(false, false);
-  for (const window of windows) {
-    if (!shouldSyncWindow(window)) continue;
-    const messages = getChatWindowMessages(window.id, 80);
-    const payload = toConversationPayload(window, messages);
-    // A window whose syncable turns were all filtered out has nothing to send;
-    // pushing an empty conversation would only create a record of its existence.
-    if (payload.turns.length === 0) continue;
-    const resourceId = adopted.get(window.id) || conversationResourceId(window.id);
-    const first = await client.putRecord({
-      resourceId,
-      resourceType: 'conversation',
-      schemaVersion: 1,
-      baseVector: vectors[resourceId] || {},
-      payload,
-      deleted: false,
-    });
-    if (first.outcome === 'conflict') {
-      // Nothing is rewritten here. Retrying against the server's vector, which
-      // is what this did, is a silent overwrite wearing a retry's clothes: the
-      // turns the other client had added went away without anyone being told.
-      // The server refuses to pick a side and the client may not either, so the
-      // conflict is reported and the window is left alone until it is settled.
-      conflicted.push(window.title || resourceId);
-    } else {
-      rememberAcceptedVector(vectors, resourceId, first);
+  if (categories.conversations) {
+    const windows = listChatWindows(false, false);
+    for (const window of windows) {
+      if (!shouldSyncWindow(window)) continue;
+      const messages = getChatWindowMessages(window.id, 80);
+      const payload = toConversationPayload(window, messages);
+      // A window whose syncable turns were all filtered out has nothing to send;
+      // pushing an empty conversation would only create a record of its existence.
+      if (payload.turns.length === 0) continue;
+      const resourceId = adopted.get(window.id) || conversationResourceId(window.id);
+      const first = await client.putRecord({
+        resourceId,
+        resourceType: 'conversation',
+        schemaVersion: 1,
+        baseVector: vectors[resourceId] || {},
+        payload,
+        deleted: false,
+      });
+      if (first.outcome === 'conflict') {
+        // Nothing is rewritten here. Retrying against the server's vector, which
+        // is what this did, is a silent overwrite wearing a retry's clothes: the
+        // turns the other client had added went away without anyone being told.
+        // The server refuses to pick a side and the client may not either, so the
+        // conflict is reported and the window is left alone until it is settled.
+        conflicted.push(window.title || resourceId);
+      } else {
+        rememberAcceptedVector(vectors, resourceId, first);
+      }
     }
   }
 
   // Reminders finished here are pushed alongside the pending ones: a phone that
   // is never told a reminder was done goes on showing it forever.
-  for (const job of listSyncableReminders()) {
-    const resourceId = reminderResourceId(job.id);
-    const result = await client.putRecord({
-      resourceId,
-      resourceType: 'reminder',
-      schemaVersion: 1,
-      baseVector: vectors[resourceId] || {},
-      payload: toReminderPayload(job),
-      deleted: false,
-    }).catch(() => undefined);
-    if (result?.outcome === 'conflict') conflicted.push(job.title || resourceId);
-    else if (result) rememberAcceptedVector(vectors, resourceId, result);
+  if (categories.reminders) {
+    for (const job of listSyncableReminders()) {
+      const resourceId = reminderResourceId(job.id);
+      const result = await client.putRecord({
+        resourceId,
+        resourceType: 'reminder',
+        schemaVersion: 1,
+        baseVector: vectors[resourceId] || {},
+        payload: toReminderPayload(job),
+        deleted: false,
+      }).catch(() => undefined);
+      if (result?.outcome === 'conflict') conflicted.push(job.title || resourceId);
+      else if (result) rememberAcceptedVector(vectors, resourceId, result);
+    }
   }
 
-  const memories = listMemories({ kind: 'all', limit: 200 });
-  for (const item of memories.items.filter(item => item.kind !== 'message')) {
-    const resourceId = adoptedMemories.get(`${item.kind}:${item.id}`) || memoryResourceId(item.kind, item.id);
-    const result = await client.putRecord({
-      resourceId,
-      resourceType: 'memory',
-      schemaVersion: 1,
-      baseVector: vectors[resourceId] || {},
-      payload: toMemoryPayload(item),
-      deleted: false,
-    }).catch(() => undefined);
-    if (result?.outcome === 'conflict') conflicted.push(item.title || resourceId);
-    else if (result) rememberAcceptedVector(vectors, resourceId, result);
+  if (categories.memories) {
+    const memories = listMemories({ kind: 'all', limit: 200 });
+    for (const item of memories.items.filter(item => item.kind !== 'message')) {
+      const resourceId = adoptedMemories.get(`${item.kind}:${item.id}`) || memoryResourceId(item.kind, item.id);
+      const result = await client.putRecord({
+        resourceId,
+        resourceType: 'memory',
+        schemaVersion: 1,
+        baseVector: vectors[resourceId] || {},
+        payload: toMemoryPayload(item),
+        deleted: false,
+      }).catch(() => undefined);
+      if (result?.outcome === 'conflict') conflicted.push(item.title || resourceId);
+      else if (result) rememberAcceptedVector(vectors, resourceId, result);
+    }
   }
 
   if (conflicted.length) {
@@ -458,6 +537,17 @@ async function pushLocalState(
       `这些内容在别的设备上也改过，需要先确认：${conflicted.slice(0, 3).join('、')}`,
     );
   }
+}
+
+function shouldSyncResource(resourceId: string, categories: CloudSyncCategories): boolean {
+  if (resourceId.startsWith('conversation.')) return categories.conversations;
+  if (resourceId.startsWith('memory.')) return categories.memories;
+  if (resourceId.startsWith('reminder.')) return categories.reminders;
+  if (resourceId === 'preference.persona') return categories.persona;
+  if (resourceId === 'preference.settings') return categories.preferences;
+  if (resourceId === 'preference.background') return categories.backgroundImage;
+  if (resourceId === 'preference.adult-mode') return categories.adultMode;
+  return false;
 }
 
 function rememberAcceptedVector(

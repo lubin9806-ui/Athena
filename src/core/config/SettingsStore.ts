@@ -178,7 +178,17 @@ export const DEFAULT_SETTINGS: AppSettings = {
   },
   cloud: {
     syncEnabled: false,
+    syncCategories: {
+      conversations: true,
+      memories: true,
+      persona: false,
+      preferences: false,
+      reminders: true,
+      backgroundImage: false,
+      adultMode: false,
+    },
     baseUrl: '',
+    pairingBaseUrl: 'http://127.0.0.1:8787',
     email: '',
     tenantId: '',
     deviceName: 'Athena Desktop',
@@ -744,9 +754,20 @@ function sanitizePrivacy(value: unknown): PrivacySettings {
 
 function sanitizeCloud(value: unknown): CloudAccountSettings {
   const source = isRecord(value) ? value : {};
+  const categories = isRecord(source.syncCategories) ? source.syncCategories : {};
   return {
     syncEnabled: cleanBoolean(source.syncEnabled, DEFAULT_SETTINGS.cloud.syncEnabled),
+    syncCategories: {
+      conversations: cleanBoolean(categories.conversations, DEFAULT_SETTINGS.cloud.syncCategories.conversations),
+      memories: cleanBoolean(categories.memories, DEFAULT_SETTINGS.cloud.syncCategories.memories),
+      persona: cleanBoolean(categories.persona, DEFAULT_SETTINGS.cloud.syncCategories.persona),
+      preferences: cleanBoolean(categories.preferences, DEFAULT_SETTINGS.cloud.syncCategories.preferences),
+      reminders: cleanBoolean(categories.reminders, DEFAULT_SETTINGS.cloud.syncCategories.reminders),
+      backgroundImage: cleanBoolean(categories.backgroundImage, DEFAULT_SETTINGS.cloud.syncCategories.backgroundImage),
+      adultMode: cleanBoolean(categories.adultMode, DEFAULT_SETTINGS.cloud.syncCategories.adultMode),
+    },
     baseUrl: cleanString(source.baseUrl, 200, DEFAULT_SETTINGS.cloud.baseUrl),
+    pairingBaseUrl: cleanString(source.pairingBaseUrl, 200, DEFAULT_SETTINGS.cloud.pairingBaseUrl),
     email: cleanString(source.email, 254, DEFAULT_SETTINGS.cloud.email),
     tenantId: cleanString(source.tenantId, 80, DEFAULT_SETTINGS.cloud.tenantId),
     deviceName: cleanString(source.deviceName, 100, DEFAULT_SETTINGS.cloud.deviceName) || 'Athena Desktop',

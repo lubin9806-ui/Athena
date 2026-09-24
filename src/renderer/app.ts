@@ -943,7 +943,17 @@ interface NetworkConsentSettings {
 
 interface CloudAccountSettings {
   syncEnabled: boolean;
+  syncCategories: {
+    conversations: boolean;
+    memories: boolean;
+    persona: boolean;
+    preferences: boolean;
+    reminders: boolean;
+    backgroundImage: boolean;
+    adultMode: boolean;
+  };
   baseUrl: string;
+  pairingBaseUrl: string;
   email: string;
   tenantId: string;
   deviceName: string;
@@ -1443,8 +1453,17 @@ const remoteModelOptions = mustGet<HTMLDataListElement>('remote-model-options');
 const settingModelApiKey = mustGet<HTMLInputElement>('setting-model-api-key');
 const settingConsentRemoteModel = mustGet<HTMLInputElement>('setting-consent-remote-model');
 const settingCloudSyncEnabled = mustGet<HTMLInputElement>('setting-cloud-sync-enabled');
+const settingCloudSyncConversations = mustGet<HTMLInputElement>('setting-cloud-sync-conversations');
+const settingCloudSyncMemories = mustGet<HTMLInputElement>('setting-cloud-sync-memories');
+const settingCloudSyncPersona = mustGet<HTMLInputElement>('setting-cloud-sync-persona');
+const settingCloudSyncPreferences = mustGet<HTMLInputElement>('setting-cloud-sync-preferences');
+const settingCloudSyncReminders = mustGet<HTMLInputElement>('setting-cloud-sync-reminders');
+const settingCloudSyncBackground = mustGet<HTMLInputElement>('setting-cloud-sync-background');
+const settingCloudSyncAdultMode = mustGet<HTMLInputElement>('setting-cloud-sync-adult-mode');
 const settingConsentCloudSync = mustGet<HTMLInputElement>('setting-consent-cloud-sync');
+const cloudAccountBaseUrlField = mustGet<HTMLElement>('cloud-account-base-url-field');
 const settingCloudBaseUrl = mustGet<HTMLInputElement>('setting-cloud-base-url');
+const settingDesktopPairingBaseUrl = mustGet<HTMLInputElement>('setting-desktop-pairing-base-url');
 const settingCloudEmail = mustGet<HTMLInputElement>('setting-cloud-email');
 const settingCloudPassword = mustGet<HTMLInputElement>('setting-cloud-password');
 const settingCloudMfaCode = mustGet<HTMLInputElement>('setting-cloud-mfa-code');
@@ -5568,7 +5587,16 @@ function populateSettingsForm(bundle: SettingsBundle): void {
   settingConsentExternalToolNetwork.checked = privacy.networkConsent.externalToolNetwork;
   settingConsentCloudSync.checked = privacy.networkConsent.cloudSync;
   settingCloudSyncEnabled.checked = bundle.settings.cloud.syncEnabled;
+  settingCloudSyncConversations.checked = bundle.settings.cloud.syncCategories.conversations;
+  settingCloudSyncMemories.checked = bundle.settings.cloud.syncCategories.memories;
+  settingCloudSyncPersona.checked = bundle.settings.cloud.syncCategories.persona;
+  settingCloudSyncPreferences.checked = bundle.settings.cloud.syncCategories.preferences;
+  settingCloudSyncReminders.checked = bundle.settings.cloud.syncCategories.reminders;
+  settingCloudSyncBackground.checked = bundle.settings.cloud.syncCategories.backgroundImage;
+  settingCloudSyncAdultMode.checked = bundle.settings.cloud.syncCategories.adultMode;
+  cloudAccountBaseUrlField.hidden = !bundle.settings.developerMode;
   settingCloudBaseUrl.value = bundle.settings.cloud.baseUrl;
+  settingDesktopPairingBaseUrl.value = bundle.settings.cloud.pairingBaseUrl || 'http://127.0.0.1:8787';
   settingCloudEmail.value = bundle.settings.cloud.email;
   void refreshCloudAccountStatus();
   applySkuRuntimeProfile(bundle.sku);
@@ -5856,7 +5884,9 @@ async function saveSettingsForm(): Promise<void> {
         },
         cloud: {
           syncEnabled: settingCloudSyncEnabled.checked,
+          syncCategories: readCloudSyncCategories(),
           baseUrl: settingCloudBaseUrl.value.trim(),
+          pairingBaseUrl: settingDesktopPairingBaseUrl.value.trim(),
           email: settingCloudEmail.value.trim(),
           deviceName: currentSettingsBundle?.settings.cloud.deviceName || 'Athena Desktop',
         },
@@ -5975,7 +6005,9 @@ async function persistCloudSettings(): Promise<void> {
     settings: {
       cloud: {
         syncEnabled: settingCloudSyncEnabled.checked,
+        syncCategories: readCloudSyncCategories(),
         baseUrl: settingCloudBaseUrl.value.trim(),
+        pairingBaseUrl: settingDesktopPairingBaseUrl.value.trim(),
         email: settingCloudEmail.value.trim(),
         deviceName: currentSettingsBundle?.settings.cloud.deviceName || 'Athena Desktop',
       },
@@ -5984,6 +6016,18 @@ async function persistCloudSettings(): Promise<void> {
       },
     },
   });
+}
+
+function readCloudSyncCategories(): CloudAccountSettings['syncCategories'] {
+  return {
+    conversations: settingCloudSyncConversations.checked,
+    memories: settingCloudSyncMemories.checked,
+    persona: settingCloudSyncPersona.checked,
+    preferences: settingCloudSyncPreferences.checked,
+    reminders: settingCloudSyncReminders.checked,
+    backgroundImage: settingCloudSyncBackground.checked,
+    adultMode: settingCloudSyncAdultMode.checked,
+  };
 }
 
 async function registerCloudAccount(): Promise<void> {
@@ -6028,7 +6072,7 @@ async function createCloudPairingOffer(): Promise<void> {
     await persistCloudSettings();
     const offer = await window.athenaAPI.createCloudPairingOffer();
     if (!offer?.code) throw new Error('Cloud 没有返回配对码');
-    setSettingsFeedback(`手机配对码：${offer.code}（${offer.expiresInSeconds} 秒内有效）。手机端可扫描或粘贴：${offer.pairingUri}`, 'success');
+    setSettingsFeedback(`手机配对码：${offer.code}（${offer.expiresInSeconds} 秒内有效）。手机端可打开或粘贴链接：${offer.pairingUri}。本次配对只连接这台电脑，不会登录账号或打开同步。`, 'success');
   } catch (error) {
     setSettingsFeedback(`生成配对码失败：${error instanceof Error ? error.message : String(error)}`, 'error');
   }

@@ -1166,13 +1166,43 @@
               <input id="setting-cloud-sync-enabled" type="checkbox" />
               <span>打开跨设备同步</span>
             </label>
+            <div class="settings-note">各类内容独立控制；关闭总开关或某一类都不会删除本机数据。</div>
+            <label class="settings-toggle">
+              <input id="setting-cloud-sync-conversations" type="checkbox" />
+              <span>同步对话</span>
+            </label>
+            <label class="settings-toggle">
+              <input id="setting-cloud-sync-memories" type="checkbox" />
+              <span>同步长期记忆</span>
+            </label>
+            <label class="settings-toggle">
+              <input id="setting-cloud-sync-reminders" type="checkbox" />
+              <span>同步提醒</span>
+            </label>
+            <label class="settings-toggle">
+              <input id="setting-cloud-sync-persona" type="checkbox" disabled />
+              <span>同步人格卡（下一阶段接入）</span>
+            </label>
+            <label class="settings-toggle">
+              <input id="setting-cloud-sync-preferences" type="checkbox" disabled />
+              <span>同步普通偏好（下一阶段接入）</span>
+            </label>
+            <label class="settings-toggle">
+              <input id="setting-cloud-sync-background" type="checkbox" disabled />
+              <span>同步背景图适配副本（下一阶段接入；不上传原图与元数据）</span>
+            </label>
+            <label class="settings-toggle">
+              <input id="setting-cloud-sync-adult-mode" type="checkbox" disabled />
+              <span>同步成年模式启用状态（下一阶段接入）</span>
+            </label>
             <label class="settings-toggle">
               <input id="setting-consent-cloud-sync" type="checkbox" />
-              <span>同意将对话与记忆同步到我配置的 Athena Cloud</span>
+              <span>同意将已选择的内容同步到 Athena Cloud</span>
             </label>
-            <label class="settings-field">
-              <span>Cloud 基址</span>
-              <input id="setting-cloud-base-url" type="url" placeholder="http://127.0.0.1:8787" />
+            <label id="cloud-account-base-url-field" class="settings-field">
+              <span>账号服务地址（开发者）</span>
+              <input id="setting-cloud-base-url" type="url" placeholder="由正式版本提供" />
+              <small class="settings-note">普通用户不需要填写。当前工程版可在这里连接测试账号服务。</small>
             </label>
             <label class="settings-field">
               <span>邮箱</span>
@@ -1193,11 +1223,18 @@
             <div class="privacy-actions">
               <button id="cloud-register" class="settings-panel-link" type="button">注册并登录</button>
               <button id="cloud-login" class="settings-panel-link" type="button">登录</button>
-              <button id="cloud-pairing-offer" class="settings-panel-link" type="button">生成手机配对码</button>
               <button id="cloud-sync-now" class="settings-panel-link" type="button">立即同步</button>
               <button id="cloud-logout" class="settings-panel-link settings-panel-danger" type="button">退出账号</button>
             </div>
             <div id="cloud-account-status" class="settings-note" role="status" aria-live="polite"></div>
+            <hr />
+            <div class="settings-note">连接电脑与账号、同步相互独立。配对只让手机调用这台电脑提供的能力。</div>
+            <label class="settings-field">
+              <span>电脑配对服务（本机）</span>
+              <input id="setting-desktop-pairing-base-url" type="url" placeholder="http://127.0.0.1:8787" />
+              <small class="settings-note">工程测试默认使用本机服务；生成链接时会换成手机可访问的局域网地址。</small>
+            </label>
+            <button id="cloud-pairing-offer" class="settings-panel-link" type="button">生成独立电脑配对码</button>
           </div>
         </details>
 

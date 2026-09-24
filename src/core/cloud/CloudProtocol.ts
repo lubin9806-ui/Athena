@@ -108,8 +108,8 @@ export class CloudProtocol {
     return this.request('GET', '/v1/devices');
   }
 
-  async offerPairing(label = 'Athena Desktop'): Promise<Record<string, unknown>> {
-    return this.request('POST', '/v1/pair/offer', { json: { label } });
+  async offerPairing(label = 'Athena Desktop', authenticated = true): Promise<Record<string, unknown>> {
+    return this.request('POST', '/v1/pair/offer', { auth: authenticated, json: { label } });
   }
 
   async putRecord(record: Record<string, unknown>): Promise<Record<string, unknown>> {

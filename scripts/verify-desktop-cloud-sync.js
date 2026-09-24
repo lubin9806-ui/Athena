@@ -16,7 +16,7 @@ async function main() {
   }
   const mapper = require(mapperPath);
   const { CloudProtocol, CloudProtocolError } = require(protocolPath);
-  const { buildMobilePairingUri } = require(path.join(root, 'dist', 'core', 'cloud', 'CloudAccountService.js'));
+  const { buildMobilePairingUri, mobilePairingBaseUrl } = require(path.join(root, 'dist', 'core', 'cloud', 'CloudAccountService.js'));
 
   assert.equal(mapper.shouldSyncWindow({ mode: 'companion', is_temporary: false }), true);
   assert.equal(mapper.shouldSyncWindow({ mode: 'execute', is_temporary: false }), false);
@@ -186,6 +186,25 @@ async function main() {
   assert.match(preload, /createCloudPairingOffer/, 'desktop preload must expose pairing without exposing raw IPC');
   assert.match(renderer, /createCloudPairingOffer\(\)/, 'desktop account UI must be able to create a phone pairing code');
   assert.match(renderer, /offer\.pairingUri/, 'desktop must hand the phone client both the short-lived code and Cloud endpoint');
+  assert.match(service, /offerPairing\([^\n]+, false\)/, 'desktop pairing must not reuse the account session');
+  assert.match(service, /settings\.pairingBaseUrl/, 'desktop pairing must use a transport separate from the account endpoint');
+  assert.match(service, /if \(categories\.conversations\)/, 'conversation sync needs its own category gate');
+  assert.match(service, /if \(categories\.memories\)/, 'memory sync needs its own category gate');
+  assert.match(service, /if \(categories\.reminders\)/, 'reminder sync needs its own category gate');
+  assert.match(service, /session\.syncCategoriesKey === categoriesKey \? session\.cursor : null/, 'enabling a category must replay records skipped by the old cursor');
+  for (const id of [
+    'setting-cloud-sync-conversations',
+    'setting-cloud-sync-memories',
+    'setting-cloud-sync-persona',
+    'setting-cloud-sync-preferences',
+    'setting-cloud-sync-reminders',
+    'setting-cloud-sync-background',
+    'setting-cloud-sync-adult-mode',
+  ]) {
+    assert.match(rendererHtml, new RegExp(`id="${id}"`), `desktop sync selector is missing ${id}`);
+  }
+  assert.match(rendererHtml, /id="setting-cloud-sync-background"[^>]*disabled/, 'background sync must stay visibly unavailable until sanitized adaptation is implemented');
+  assert.match(rendererHtml, /id="setting-cloud-sync-adult-mode"[^>]*disabled/, 'adult-mode sync must stay visibly unavailable until its preference record is implemented');
   assert.match(rendererHtml, /id="setting-cloud-mfa-code"/, 'desktop account UI must accept an MFA code');
   assert.match(rendererHtml, /id="setting-cloud-recovery-code"/, 'desktop account UI must accept a recovery code');
   assert.doesNotMatch(rendererHtml, /id="setting-cloud-tenant-id"/, 'tenant ID must not be part of the user login flow');
@@ -199,6 +218,13 @@ async function main() {
   assert.equal(CloudProtocol.assertBaseUrl('http://127.0.0.1:8787'), 'http://127.0.0.1:8787');
   const pairingUri = buildMobilePairingUri('https://cloud.example.test/', '123456');
   assert.equal(pairingUri, 'athena://pair?version=1&server=https%3A%2F%2Fcloud.example.test&code=123456');
+  const lanBaseUrl = mobilePairingBaseUrl('http://127.0.0.1:8787', '192.168.1.20');
+  assert.equal(lanBaseUrl, 'http://192.168.1.20:8787');
+  assert.equal(
+    buildMobilePairingUri(lanBaseUrl, '654321'),
+    'athena://pair?version=1&server=http%3A%2F%2F192.168.1.20%3A8787&code=654321',
+  );
+  assert.throws(() => buildMobilePairingUri('http://example.test', '123456'), /私有局域网/);
   assert.throws(() => buildMobilePairingUri('https://cloud.example.test', 'not-a-code'), /配对码/);
 
   const { loadConfig } = require(path.join(root, 'cloud', 'src', 'config'));
@@ -236,6 +262,9 @@ async function main() {
     const pairing = await client.offerPairing('Athena Desktop');
     assert.match(pairing.code, /^\d{6}$/);
     assert.ok(Number(pairing.expiresInSeconds) > 0);
+    const anonymousPairingClient = new CloudProtocol(`http://127.0.0.1:${address.port}`, 'desktop');
+    const anonymousPairing = await anonymousPairingClient.offerPairing('Athena Desktop local connection', false);
+    assert.match(anonymousPairing.code, /^\d{6}$/);
     const pushed = await client.putRecord({
       resourceId: 'conversation.desktop-1',
       resourceType: 'conversation',
