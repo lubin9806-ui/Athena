@@ -12,7 +12,7 @@ const { createModelProvider } = require('./model-providers');
 const { IdempotencyService, DataRightsService, BackupService, Metrics } = require('./lifecycle');
 const { PairingService } = require('./pairing');
 const { randomId } = require('./crypto');
-const { LocalNoChargeBillingAdapter, LocalDeploymentAdapter, LocalRecoveryDeliveryAdapter } = require('./ports');
+const { LocalNoChargeBillingAdapter, LocalRecoveryDeliveryAdapter, createDeploymentAdapter } = require('./ports');
 
 function createCloudApp(config, adapters = {}) {
   const runtime = resolveRuntimeAdapters(config, adapters);
@@ -249,7 +249,7 @@ function resolveRuntimeAdapters(config, adapters) {
     modelProvider: adapters.modelProvider || createModelProvider(config),
     searchProvider: adapters.searchProvider || new LocalFixtureSearchProvider(),
     billingAdapter: adapters.billingAdapter || new LocalNoChargeBillingAdapter(),
-    deploymentAdapter: adapters.deploymentAdapter || new LocalDeploymentAdapter(config.region, 'local-2'),
+    deploymentAdapter: adapters.deploymentAdapter || createDeploymentAdapter(config),
     recoveryDelivery: adapters.recoveryDelivery || new LocalRecoveryDeliveryAdapter(),
   };
   assertAdapterBinding('Model provider', config.modelProvider, runtime.modelProvider, ['infer']);

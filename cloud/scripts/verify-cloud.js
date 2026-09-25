@@ -8,11 +8,12 @@ const { loadConfig } = require('../src/config');
 const root = path.resolve(__dirname, '..');
 const workspace = path.resolve(root, '..');
 const required = [
-  'README.md', 'package.json', 'package-lock.json', 'config/provider-policies.json',
+  'README.md', 'Dockerfile', '.dockerignore', 'package.json', 'package-lock.json', 'config/provider-policies.json',
   'src/config.js', 'src/crypto.js', 'src/database.js', 'src/services.js', 'src/lifecycle.js', 'src/server.js', 'src/ports.js',
   '../docs/cloud/ARCHITECTURE.md', '../docs/cloud/API_V1.md', '../docs/cloud/THREAT_MODEL.md',
   '../docs/cloud/OPERATIONS_SLO.md', '../docs/cloud/PENETRATION_BASELINE.md', '../docs/cloud/PROVIDER_REGISTER.md',
   '../docs/cloud/CLOUD_GO_NO_GO.md',
+  '../docs/cloud/RENDER_STAGING.md', '../render.yaml',
 ];
 for (const relative of required) {
   const resolved = path.resolve(root, relative);

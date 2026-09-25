@@ -1,0 +1,11 @@
+node_modules
+data
+backups
+exports
+.env
+*.db
+*.db-*
+*.log
+test
+scripts
+README.md

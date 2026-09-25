@@ -32,6 +32,10 @@ Expected final markers:
 
 The marker says the local engineering boundary passed. It does not override [CLOUD_GO_NO_GO.md](../docs/cloud/CLOUD_GO_NO_GO.md), which remains the release authority.
 
+## Managed staging
+
+The repository includes a manual-deploy Render Blueprint and container for a single-instance Singapore staging service. It is intended only for synthetic account/sync testing over a real HTTPS endpoint. Validate the contract with `npm.cmd run verify:staging`, then follow [RENDER_STAGING.md](../docs/cloud/RENDER_STAGING.md). The attached SQLite disk cannot scale horizontally and does not make the service production-ready.
+
 ## Data and cost behavior
 
 - Local state is written only under ignored `cloud/data`, `cloud/backups`, and `cloud/exports` paths.

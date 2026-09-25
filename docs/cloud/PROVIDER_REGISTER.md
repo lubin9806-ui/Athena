@@ -10,6 +10,7 @@ Machine-readable source: `cloud/config/provider-policies.json`.
 | Search | `local-fixture` | Current query exists in process memory for one call; no HTML scraping; example.test citations marked untrusted | Not eligible |
 | Billing | `local-no-charge` | Entitlement state only; creates no charge, invoice, tax record or refund transfer | Not eligible |
 | Deployment | `local` | Local files and simulated `local-1`/`local-2`; no cloud resource | Not eligible |
+| Deployment | `render` | Single Render Singapore instance with one persistent SQLite disk; staging Blueprint only | Not eligible for production or HA claims |
 | Recovery | `local-return-token` | Returns one-time token to local caller; no email/SMS | Not eligible |
 | Secrets | environment variable | Master key in process environment; not written to DB | Not eligible for production custody |
 
@@ -42,3 +43,7 @@ The infrastructure owner must decide cloud vendor, primary/secondary regions, re
 ## Current decision
 
 Production model provider: **unselected**. Billing provider: **unselected**. Cloud provider and regions: **unselected**. Recovery delivery provider: **unselected**. Therefore Cloud production remains fail-closed and No-Go.
+
+## Staging decision (2026-09-25)
+
+Render Singapore is the selected first staging target because it can run the existing Node.js service and attach a persistent disk with minimal product-code change. The repository contains a manual-deploy Blueprint, but no Render account, billable resource, domain, or live deployment has been created or verified yet. This decision is limited to disposable account/sync integration data and does not select the production cloud provider, database, secondary region, KMS, or backup architecture.

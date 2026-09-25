@@ -1,0 +1,46 @@
+previews:
+  generation: off
+
+services:
+  - type: web
+    name: athena-cloud-staging
+    runtime: docker
+    region: singapore
+    plan: 0.5c-512mb
+    numInstances: 1
+    autoDeployTrigger: off
+    dockerfilePath: ./cloud/Dockerfile
+    dockerContext: ./cloud
+    healthCheckPath: /health/ready
+    maxShutdownDelaySeconds: 30
+    disk:
+      name: athena-cloud-staging-data
+      mountPath: /app/storage
+      sizeGB: 1
+    envVars:
+      - key: ATHENA_CLOUD_ENV
+        value: staging
+      - key: ATHENA_CLOUD_HOST
+        value: 0.0.0.0
+      - key: ATHENA_CLOUD_DB
+        value: /app/storage/athena-cloud.db
+      - key: ATHENA_CLOUD_BACKUP_DIR
+        value: /app/storage/backups
+      - key: ATHENA_CLOUD_EXPORT_DIR
+        value: /app/storage/exports
+      - key: ATHENA_CLOUD_MASTER_KEY_BASE64
+        generateValue: true
+      - key: ATHENA_CLOUD_TLS_TERMINATED
+        value: "true"
+      - key: ATHENA_CLOUD_REGION
+        value: singapore
+      - key: ATHENA_CLOUD_PROVIDER
+        value: render
+      - key: ATHENA_CLOUD_BILLING_ADAPTER
+        value: local-no-charge
+      - key: ATHENA_CLOUD_RECOVERY_DELIVERY_ADAPTER
+        value: local-return-token
+      - key: ATHENA_CLOUD_MODEL_PROVIDER
+        value: local-fixture
+      - key: ATHENA_CLOUD_SEARCH_PROVIDER
+        value: local-fixture

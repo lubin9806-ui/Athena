@@ -80,7 +80,7 @@ test('runtime adapters must exactly match reviewed configuration and implement t
   });
   try {
     assert.throws(() => createCloudApp(config({ billingAdapter: 'reviewed-billing' })), /Billing adapter mismatch/);
-    assert.throws(() => createCloudApp(config({ cloudProvider: 'reviewed-cloud' })), /Cloud provider mismatch/);
+    assert.throws(() => createCloudApp(config({ cloudProvider: 'reviewed-cloud' })), /Unsupported Cloud provider adapter/);
     assert.throws(() => createCloudApp(config({ recoveryDeliveryAdapter: 'reviewed-mail' })), /Recovery delivery adapter mismatch/);
     assert.throws(() => createCloudApp(config(), { modelProvider: { id: 'wrong-model', infer() {} } }), /Model provider mismatch/);
     assert.throws(() => createCloudApp(config(), { searchProvider: { id: 'wrong-search', search() {} } }), /Search provider mismatch/);
@@ -166,6 +166,40 @@ test('authentication, MFA recovery, sessions and device revocation are enforced'
     assert.equal(databaseText.includes(account.accessToken), false);
     assert.equal(databaseText.includes('owner-auth@example.test'), false);
   } finally { await fx.close(); }
+});
+
+test('managed platform port and persistent storage paths are configurable', () => {
+  const previous = {
+    PORT: process.env.PORT,
+    ATHENA_CLOUD_BACKUP_DIR: process.env.ATHENA_CLOUD_BACKUP_DIR,
+    ATHENA_CLOUD_EXPORT_DIR: process.env.ATHENA_CLOUD_EXPORT_DIR,
+  };
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'athena-cloud-platform-config-'));
+  try {
+    process.env.PORT = '10000';
+    process.env.ATHENA_CLOUD_BACKUP_DIR = path.join(root, 'persistent-backups');
+    process.env.ATHENA_CLOUD_EXPORT_DIR = path.join(root, 'persistent-exports');
+    const config = loadConfig({ masterKey: crypto.randomBytes(32) });
+    assert.equal(config.port, 10000);
+    assert.equal(config.backupDir, path.join(root, 'persistent-backups'));
+    assert.equal(config.exportDir, path.join(root, 'persistent-exports'));
+  } finally {
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) delete process.env[key]; else process.env[key] = value;
+    }
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('Render staging binds a truthful single-region deployment adapter', async () => {
+  const fx = fixture({ cloudProvider: 'render', region: 'singapore' });
+  try {
+    assert.equal(fx.services.runtimeBindings.cloudProvider, 'render');
+    assert.deepEqual(fx.services.deployment.activeRegion(), { region: 'singapore', degraded: false });
+    assert.deepEqual(fx.services.deployment.markUnavailable('singapore'), { region: null, degraded: true });
+  } finally {
+    await fx.close();
+  }
 });
 
 test('a person logs in with email and password without knowing a tenant id', () => {

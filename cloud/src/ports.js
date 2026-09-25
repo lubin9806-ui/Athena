@@ -35,6 +35,30 @@ class LocalDeploymentAdapter extends DeploymentAdapter {
   }
 }
 
+// Render's persistent disk is intentionally modeled as a single-region
+// staging deployment. It does not claim a fallback that SQLite cannot provide.
+class RenderDeploymentAdapter extends DeploymentAdapter {
+  constructor(primary = 'singapore') {
+    super();
+    this.id = 'render';
+    this.primary = primary;
+    this.unavailable = false;
+  }
+  activeRegion() {
+    return { region: this.unavailable ? null : this.primary, degraded: this.unavailable };
+  }
+  markUnavailable(region, unavailable = true) {
+    if (region === this.primary) this.unavailable = unavailable;
+    return this.activeRegion();
+  }
+}
+
+function createDeploymentAdapter(config) {
+  if (config.cloudProvider === 'local') return new LocalDeploymentAdapter(config.region, 'local-2');
+  if (config.cloudProvider === 'render') return new RenderDeploymentAdapter(config.region);
+  throw new Error(`Unsupported Cloud provider adapter: ${config.cloudProvider}.`);
+}
+
 class SecretProvider {
   getMasterKey() { throw new Error('SecretProvider.getMasterKey must be implemented.'); }
 }
@@ -59,7 +83,8 @@ class LocalRecoveryDeliveryAdapter extends RecoveryDeliveryAdapter {
 }
 
 module.exports = {
-  BillingAdapter, LocalNoChargeBillingAdapter, DeploymentAdapter, LocalDeploymentAdapter,
+  BillingAdapter, LocalNoChargeBillingAdapter, DeploymentAdapter, LocalDeploymentAdapter, RenderDeploymentAdapter,
+  createDeploymentAdapter,
   SecretProvider, EnvironmentSecretProvider,
   RecoveryDeliveryAdapter, LocalRecoveryDeliveryAdapter,
 };

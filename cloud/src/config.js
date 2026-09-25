@@ -11,10 +11,12 @@ function loadConfig(overrides = {}) {
   const config = {
     environment,
     host: overrides.host || process.env.ATHENA_CLOUD_HOST || '127.0.0.1',
-    port: Number(overrides.port ?? process.env.ATHENA_CLOUD_PORT ?? 8787),
+    // Managed web-service platforms expose the assigned listener through
+    // PORT. ATHENA_CLOUD_PORT remains the explicit Athena override.
+    port: Number(overrides.port ?? process.env.ATHENA_CLOUD_PORT ?? process.env.PORT ?? 8787),
     dbPath: path.resolve(overrides.dbPath || process.env.ATHENA_CLOUD_DB || path.join(__dirname, '..', 'data', 'athena-cloud.db')),
-    backupDir: path.resolve(overrides.backupDir || path.join(__dirname, '..', 'backups')),
-    exportDir: path.resolve(overrides.exportDir || path.join(__dirname, '..', 'exports')),
+    backupDir: path.resolve(overrides.backupDir || process.env.ATHENA_CLOUD_BACKUP_DIR || path.join(__dirname, '..', 'backups')),
+    exportDir: path.resolve(overrides.exportDir || process.env.ATHENA_CLOUD_EXPORT_DIR || path.join(__dirname, '..', 'exports')),
     masterKey,
     tlsTerminated: overrides.tlsTerminated ?? process.env.ATHENA_CLOUD_TLS_TERMINATED === 'true',
     region: overrides.region || process.env.ATHENA_CLOUD_REGION || 'local-1',
