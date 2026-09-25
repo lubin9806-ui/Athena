@@ -338,6 +338,21 @@ export async function syncCloudAccountNow(
       `账号与本机的${labels.join('、')}版本不同，请明确选择保留哪一边。`,
     );
   }
+  // A preference that arrived in this pull is already the account version. If
+  // we apply it and immediately push the local representation back, receivers
+  // that deliberately decode/re-encode data (background images in particular)
+  // manufacture a new byte-level version and make the other device ask about a
+  // conflict again. Only an explicit "use local" decision may write one of the
+  // pulled conflicting preferences back during this sync.
+  const skipPreferencePush = new Set<string>();
+  for (const record of pulled.records) {
+    if (!isRecord(record)) continue;
+    const resourceId = String(record.resourceId || '');
+    if (!isPreferenceResource(resourceId) || !shouldSyncResource(resourceId, categories)) continue;
+    if (!preferenceConflicts.has(resourceId) || mergeConflictChoice === 'cloud') {
+      skipPreferencePush.add(resourceId);
+    }
+  }
   for (const record of pulled.records) {
     if (!isRecord(record)) continue;
     const resourceId = String(record.resourceId || '');
@@ -445,7 +460,7 @@ export async function syncCloudAccountNow(
   // Preserve the pulled vectors even if a device races this one during the
   // following push. Without this, the next sync repeats an empty-base write.
   writeSession(updatedSession);
-  await pushLocalState(client, imported, importedMemoryKinds, vectors);
+  await pushLocalState(client, imported, importedMemoryKinds, vectors, skipPreferencePush);
   writeSession({
     ...updatedSession,
     accessToken: client.session.accessToken || updatedSession.accessToken,
@@ -548,6 +563,7 @@ async function pushLocalState(
   imported: Record<string, number>,
   importedMemoryKinds: Record<string, MemoryKind>,
   vectors: Record<string, Record<string, number>>,
+  skipPreferencePush: ReadonlySet<string> = new Set(),
 ): Promise<void> {
   const categories = getAppSettings().cloud.syncCategories;
   // windowId -> the record it belongs to. A window adopted from another client
@@ -634,58 +650,66 @@ async function pushLocalState(
 
   if (categories.persona) {
     const resourceId = 'preference.persona';
-    const result = await client.putRecord({
-      resourceId,
-      resourceType: 'preference',
-      schemaVersion: 1,
-      baseVector: vectors[resourceId] || {},
-      payload: personaPreferencePayload(),
-      deleted: false,
-    }).catch(() => undefined);
-    if (result?.outcome === 'conflict') conflicted.push('人格卡');
-    else if (result) rememberAcceptedVector(vectors, resourceId, result);
+    if (!skipPreferencePush.has(resourceId)) {
+      const result = await client.putRecord({
+        resourceId,
+        resourceType: 'preference',
+        schemaVersion: 1,
+        baseVector: vectors[resourceId] || {},
+        payload: personaPreferencePayload(),
+        deleted: false,
+      }).catch(() => undefined);
+      if (result?.outcome === 'conflict') conflicted.push('人格卡');
+      else if (result) rememberAcceptedVector(vectors, resourceId, result);
+    }
   }
 
   if (categories.adultMode) {
     const resourceId = 'preference.adult-mode';
-    const result = await client.putRecord({
-      resourceId,
-      resourceType: 'preference',
-      schemaVersion: 1,
-      baseVector: vectors[resourceId] || {},
-      payload: adultModePreferencePayload(),
-      deleted: false,
-    }).catch(() => undefined);
-    if (result?.outcome === 'conflict') conflicted.push('成年模式状态');
-    else if (result) rememberAcceptedVector(vectors, resourceId, result);
+    if (!skipPreferencePush.has(resourceId)) {
+      const result = await client.putRecord({
+        resourceId,
+        resourceType: 'preference',
+        schemaVersion: 1,
+        baseVector: vectors[resourceId] || {},
+        payload: adultModePreferencePayload(),
+        deleted: false,
+      }).catch(() => undefined);
+      if (result?.outcome === 'conflict') conflicted.push('成年模式状态');
+      else if (result) rememberAcceptedVector(vectors, resourceId, result);
+    }
   }
 
   if (categories.backgroundImage) {
     const resourceId = BACKGROUND_RESOURCE_ID;
-    const result = await client.putRecord({
-      resourceId,
-      resourceType: 'preference',
-      schemaVersion: 1,
-      baseVector: vectors[resourceId] || {},
-      payload: desktopBackgroundPayload(),
-      deleted: false,
-    }).catch(() => undefined);
-    if (result?.outcome === 'conflict') conflicted.push('背景图');
-    else if (result) rememberAcceptedVector(vectors, resourceId, result);
+    if (!skipPreferencePush.has(resourceId)) {
+      const result = await client.putRecord({
+        resourceId,
+        resourceType: 'preference',
+        schemaVersion: 1,
+        baseVector: vectors[resourceId] || {},
+        payload: desktopBackgroundPayload(),
+        deleted: false,
+      }).catch(() => undefined);
+      if (result?.outcome === 'conflict') conflicted.push('背景图');
+      else if (result) rememberAcceptedVector(vectors, resourceId, result);
+    }
   }
 
   if (categories.preferences) {
     const resourceId = 'preference.settings';
-    const result = await client.putRecord({
-      resourceId,
-      resourceType: 'preference',
-      schemaVersion: 1,
-      baseVector: vectors[resourceId] || {},
-      payload: settingsPreferencePayload(),
-      deleted: false,
-    }).catch(() => undefined);
-    if (result?.outcome === 'conflict') conflicted.push('互动偏好');
-    else if (result) rememberAcceptedVector(vectors, resourceId, result);
+    if (!skipPreferencePush.has(resourceId)) {
+      const result = await client.putRecord({
+        resourceId,
+        resourceType: 'preference',
+        schemaVersion: 1,
+        baseVector: vectors[resourceId] || {},
+        payload: settingsPreferencePayload(),
+        deleted: false,
+      }).catch(() => undefined);
+      if (result?.outcome === 'conflict') conflicted.push('互动偏好');
+      else if (result) rememberAcceptedVector(vectors, resourceId, result);
+    }
   }
 
   if (conflicted.length) {
@@ -697,6 +721,13 @@ async function pushLocalState(
       `这些内容在别的设备上也改过，需要先确认：${conflicted.slice(0, 3).join('、')}`,
     );
   }
+}
+
+function isPreferenceResource(resourceId: string): boolean {
+  return resourceId === 'preference.persona'
+    || resourceId === 'preference.adult-mode'
+    || resourceId === 'preference.settings'
+    || resourceId === BACKGROUND_RESOURCE_ID;
 }
 
 function shouldSyncResource(resourceId: string, categories: CloudSyncCategories): boolean {

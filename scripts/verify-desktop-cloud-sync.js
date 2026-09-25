@@ -198,6 +198,8 @@ async function main() {
   assert.match(service, /merge-decision-required/, 'sync must be blocked until the account merge choice is reviewed');
   assert.match(service, /findPreferenceConflicts/, 'sync must detect different whole-value preference versions before applying them');
   assert.match(service, /merge-conflict/, 'different first-login preference versions must require an explicit choice');
+  assert.match(service, /skipPreferencePush/, 'a preference pulled from the account must not be bounced straight back');
+  assert.match(service, /mergeConflictChoice === 'cloud'/, 'choosing the account preference must suppress a same-sync rewrite');
   assert.match(renderer, /reviewCloudInitialMerge/, 'desktop login must ask whether to merge local content');
   assert.match(renderer, /syncCloudAccountWithConflictChoice/, 'desktop must expose a conflict choice rather than silently overwriting');
   assert.match(service, /session\.syncCategoriesKey === categoriesKey \? session\.cursor : null/, 'enabling a category must replay records skipped by the old cursor');
@@ -229,7 +231,7 @@ async function main() {
   assert.match(ipc, /cloud:deleteAccount/, 'desktop IPC must expose account deletion through a trusted handler');
   assert.doesNotMatch(rendererHtml, /id="setting-cloud-tenant-id"/, 'tenant ID must not be part of the user login flow');
   assert.ok(
-    service.indexOf('const pulled = await pullAllChanges') < service.indexOf('await pushLocalState(client, imported, importedMemoryKinds, vectors)'),
+    service.indexOf('const pulled = await pullAllChanges') < service.indexOf('await pushLocalState(client, imported, importedMemoryKinds, vectors'),
     'the desktop must pull current vectors and remote turns before it writes',
   );
 
