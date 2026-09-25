@@ -16,7 +16,7 @@ async function main() {
 
   for (const required of [
     'runtime: docker', 'region: singapore', 'plan: 0.5c-512mb', 'numInstances: 1',
-    'autoDeployTrigger: off', 'mountPath: /app/storage', 'sizeGB: 1',
+    'autoDeployTrigger: off', 'staging-api.elanastra.com', 'mountPath: /app/storage', 'sizeGB: 1',
     'value: staging', 'value: 0.0.0.0', 'value: /app/storage/athena-cloud.db',
     'generateValue: true', 'value: render', 'value: local-no-charge',
     'value: local-return-token', 'value: local-fixture',

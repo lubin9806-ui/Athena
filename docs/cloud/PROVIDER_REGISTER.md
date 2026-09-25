@@ -46,4 +46,4 @@ Production model provider: **unselected**. Billing provider: **unselected**. Clo
 
 ## Staging decision (2026-09-25)
 
-Render Singapore is the selected first staging target because it can run the existing Node.js service and attach a persistent disk with minimal product-code change. The repository contains a manual-deploy Blueprint, but no Render account, billable resource, domain, or live deployment has been created or verified yet. This decision is limited to disposable account/sync integration data and does not select the production cloud provider, database, secondary region, KMS, or backup architecture.
+Render Singapore is the selected first staging target because it can run the existing Node.js service and attach a persistent disk with minimal product-code change. The repository contains a manual-deploy Blueprint for `staging-api.elanastra.com`, but no Render account, billable resource, DNS record, or live deployment has been created or verified yet. This decision is limited to disposable account/sync integration data and does not select the production cloud provider, database, secondary region, KMS, or backup architecture.

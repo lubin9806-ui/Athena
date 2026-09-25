@@ -9,6 +9,8 @@ services:
     plan: 0.5c-512mb
     numInstances: 1
     autoDeployTrigger: off
+    domains:
+      - staging-api.elanastra.com
     dockerfilePath: ./cloud/Dockerfile
     dockerContext: ./cloud
     healthCheckPath: /health/ready

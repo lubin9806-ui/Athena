@@ -28,7 +28,7 @@ Use only test accounts at this point. Recovery delivery remains `local-return-to
 
 ## Add the domain after the first health check
 
-Use a dedicated non-production hostname such as `staging-api.<your-domain>`. Add it to the service in Render, create the DNS record Render provides, and verify the domain. Keep the default `onrender.com` hostname until custom-domain TLS and the packaged desktop and Android probes both pass.
+The staging hostname is `staging-api.elanastra.com` and is declared in `render.yaml`. The domain currently uses Cloudflare nameservers, so after the first Render deploy create a Cloudflare CNAME named `staging-api` pointing to the exact `<service>.onrender.com` hostname shown by Render. Start with Cloudflare proxying set to **DNS only**, remove any conflicting `AAAA` record for this hostname, then ask Render to verify the domain and issue TLS. Keep the default `onrender.com` hostname until custom-domain TLS and the packaged desktop and Android probes both pass.
 
 Do not use the eventual production hostname (`api.<your-domain>`) for this service. Production also requires managed recovery delivery, production provider decisions, independent security review, operational ownership, and a state architecture that is not tied to one SQLite disk.
 
