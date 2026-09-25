@@ -48,6 +48,8 @@ extraResources:
     to: build-info.json
   - from: .build/update-config.json
     to: update-config.json
+  - from: .build/account-config.json
+    to: account-config.json
   - from: .build/app-update.yml
     to: app-update.yml
   - from: .build/database

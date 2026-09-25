@@ -106,6 +106,7 @@ function main() {
   assert(entries.includes('dist/core/update/DesktopUpdater.js'), 'Packaged application is missing DesktopUpdater.');
   assert(entries.includes('dist/core/update/UpdatePolicy.js'), 'Packaged application is missing UpdatePolicy.');
   assert(entries.includes('dist/core/ai/CredentialStore.js'), 'Packaged application is missing the encrypted credential store.');
+  assert(entries.includes('dist/core/cloud/AccountServiceConfig.js'), 'Packaged application is missing the official account-service runtime config loader.');
   assert(entries.includes('dist/shared/releaseFeatures.js'), 'Packaged application is missing its release feature policy.');
   assert(entries.includes('dist/core/skills/SkillLibrary.js'), 'Packaged application is missing the governed Skill library.');
   assert(entries.includes('dist/core/skills/SkillAgentToolBridge.js'), 'Packaged application is missing the Skill tool bridge.');
@@ -162,6 +163,7 @@ function main() {
 
   const buildInfo = readJson(path.join(resources, 'build-info.json'));
   const updateConfig = readJson(path.join(resources, 'update-config.json'));
+  const accountConfig = readJson(path.join(resources, 'account-config.json'));
   const updaterMetadata = fs.readFileSync(path.join(resources, 'app-update.yml'), 'utf8');
   const imageRuntime = verifyPackagedImageRuntime(resources);
   const asarBytes = fs.statSync(asarPath).size;
@@ -171,6 +173,13 @@ function main() {
   assert.equal(buildInfo.buildInputSha256, buildInputHash(), 'Build inputs changed after the desktop package was created.');
   assert.equal(updateConfig.schemaVersion, 1);
   assert.equal(updateConfig.channel, buildInfo.channel);
+  assert.equal(accountConfig.schemaVersion, 1);
+  assert.equal(typeof accountConfig.enabled, 'boolean');
+  if (accountConfig.enabled) {
+    assert.equal(normalizeUpdateBaseUrl(accountConfig.baseUrl), accountConfig.baseUrl, 'Official account service URL is not approved.');
+  } else {
+    assert.equal(accountConfig.baseUrl, '', 'Disabled account service config must not retain an endpoint.');
+  }
   if (updateConfig.enabled) {
     assert.equal(normalizeUpdateBaseUrl(updateConfig.baseUrl), updateConfig.baseUrl, 'Enabled updater URL is not approved.');
     assert(!updaterMetadata.includes('updates.invalid'), 'Enabled updater contains the disabled placeholder URL.');
@@ -207,9 +216,10 @@ function main() {
   const blockers = [];
   if (!buildInfo.cleanCheckout) blockers.push('CLEAN_CHECKOUT_NOT_PROVEN');
   if (!updateConfig.enabled) blockers.push('PRODUCTION_UPDATE_FEED_DISABLED');
+  if (!accountConfig.enabled) blockers.push('OFFICIAL_ACCOUNT_SERVICE_DISABLED');
   if (ownedArtifacts.some(item => !item.signedAndTimestamped)) blockers.push('AUTHENTICODE_OR_TIMESTAMP_INVALID');
 
-  console.log(`ATHENA_DESKTOP_PACKAGE_OK version=${pkg.version} channel=${buildInfo.channel} entries=${entries.length} asarBytes=${asarBytes} settings=excluded modelConfig=excluded personas=public-default memory=empty live2d=disabled voiceRuntime=external-once imageRuntime=${imageRuntime.delivery} comfyui=optional maps=0`);
+  console.log(`ATHENA_DESKTOP_PACKAGE_OK version=${pkg.version} channel=${buildInfo.channel} entries=${entries.length} asarBytes=${asarBytes} settings=excluded modelConfig=excluded personas=public-default memory=empty live2d=disabled voiceRuntime=external-once imageRuntime=${imageRuntime.delivery} account=${accountConfig.enabled ? 'official-https' : 'disabled'} comfyui=optional maps=0`);
   for (const artifact of ownedArtifacts) {
     console.log(`ATHENA_DESKTOP_ARTIFACT file=${artifact.file} bytes=${artifact.bytes} sha256=${artifact.sha256} authenticode=${artifact.authenticode}`);
   }

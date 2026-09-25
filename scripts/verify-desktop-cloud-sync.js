@@ -189,6 +189,8 @@ async function main() {
   assert.match(renderer, /offer\.pairingUri/, 'desktop must hand the phone client both the short-lived code and Cloud endpoint');
   assert.match(service, /offerPairing\([^\n]+, false\)/, 'desktop pairing must not reuse the account session');
   assert.match(service, /settings\.pairingBaseUrl/, 'desktop pairing must use a transport separate from the account endpoint');
+  assert.match(service, /resolveAccountServiceBaseUrl\(settings\.developerMode, settings\.cloud\.baseUrl\)/, 'ordinary desktop builds must use the official account endpoint instead of a hidden user setting');
+  assert.match(service, /session\.baseUrl/, 'desktop account tokens must stay bound to their issuing endpoint');
   assert.match(service, /if \(categories\.conversations\)/, 'conversation sync needs its own category gate');
   assert.match(service, /if \(categories\.memories\)/, 'memory sync needs its own category gate');
   assert.match(service, /if \(categories\.reminders\)/, 'reminder sync needs its own category gate');

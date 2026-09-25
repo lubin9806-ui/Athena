@@ -12,6 +12,7 @@ import { resolvePersonaCard, savePersonaCard, type PersonaCardPatch } from '../a
 import type { CloudAccountSettings, CloudSessionStatus, CloudSyncCategories } from '../../shared/types/cloud';
 import { CloudProtocol, CloudProtocolError, isSessionEnded } from './CloudProtocol';
 import { applyCloudBackground, BACKGROUND_RESOURCE_ID, desktopBackgroundPayload } from './BackgroundSync';
+import { resolveAccountServiceBaseUrl } from './AccountServiceConfig';
 import {
   conversationResourceId,
   desktopMemoryRefFromResourceId,
@@ -30,6 +31,8 @@ import {
 
 interface StoredSession {
   version: 1;
+  /** Tokens stay bound to the service that issued them, even if settings later change. */
+  baseUrl?: string;
   accessToken: string;
   refreshToken: string;
   tenantId: string;
@@ -53,7 +56,8 @@ interface StoredSession {
 let lastError: string | null = null;
 
 export function getCloudAccountStatus(): CloudSessionStatus {
-  const settings = getAppSettings().cloud;
+  const appSettings = getAppSettings();
+  const settings = appSettings.cloud;
   const session = readSession();
   const sessionAccount = normalizeAccountEmail(session?.email || settings.email);
   return {
@@ -62,7 +66,7 @@ export function getCloudAccountStatus(): CloudSessionStatus {
       && settings.syncEnabled
       && Boolean(sessionAccount)
       && settings.mergeReviewedAccount === sessionAccount,
-    baseUrl: settings.baseUrl,
+    baseUrl: session?.baseUrl || resolveAccountServiceBaseUrl(appSettings.developerMode, settings.baseUrl),
     email: session?.email || settings.email,
     tenantId: session?.tenantId || settings.tenantId || null,
     deviceId: session?.deviceId || null,
@@ -900,14 +904,21 @@ function adoptConversation(payload: Record<string, unknown>): number | null {
 }
 
 function createClient(): CloudProtocol {
-  const settings = getAppSettings().cloud;
-  return new CloudProtocol(CloudProtocol.assertBaseUrl(settings.baseUrl), 'desktop');
+  const settings = getAppSettings();
+  const baseUrl = resolveAccountServiceBaseUrl(settings.developerMode, settings.cloud.baseUrl);
+  return new CloudProtocol(CloudProtocol.assertBaseUrl(baseUrl, settings.developerMode), 'desktop');
 }
 
 function createClientFromSession(): CloudProtocol | null {
   const session = readSession();
   if (!session) return null;
-  const client = createClient();
+  // Never move a bearer token just because the current endpoint setting was
+  // edited. New sessions remember their issuer; legacy sessions use the
+  // current resolved endpoint once and become bound on the next token write.
+  const client = session.baseUrl
+    ? new CloudProtocol(CloudProtocol.assertBaseUrl(session.baseUrl), 'desktop')
+    : createClient();
+  if (!session.baseUrl) writeSession({ ...session, baseUrl: client.baseUrl });
   client.session = {
     accessToken: session.accessToken,
     refreshToken: session.refreshToken,
@@ -933,6 +944,7 @@ function createClientFromSession(): CloudProtocol | null {
 function persistSession(client: CloudProtocol, email: string, body: Record<string, unknown>): void {
   writeSession({
     version: 1,
+    baseUrl: client.baseUrl,
     accessToken: String(body.accessToken || client.session.accessToken || ''),
     refreshToken: String(body.refreshToken || client.session.refreshToken || ''),
     tenantId: String(body.tenantId || client.session.tenantId || ''),

@@ -62,7 +62,13 @@ function main() {
   }
   const updateBaseUrl = process.env.ATHENA_UPDATE_BASE_URL?.trim() || '';
   const approvedUpdateBaseUrl = normalizeUpdateBaseUrl(updateBaseUrl);
+  const accountBaseUrl = process.env.ATHENA_ACCOUNT_BASE_URL?.trim() || '';
+  const approvedAccountBaseUrl = normalizeUpdateBaseUrl(accountBaseUrl);
   const signingPublisher = process.env.ATHENA_SIGNING_PUBLISHER?.trim() || '';
+  if (accountBaseUrl && !approvedAccountBaseUrl) {
+    console.error('ATHENA_RELEASE_EXTERNAL_BLOCKED official-account-service-url-invalid');
+    process.exit(5);
+  }
   if (signed && !approvedUpdateBaseUrl) {
     console.error('ATHENA_RELEASE_EXTERNAL_BLOCKED https-update-feed-missing');
     process.exit(3);
@@ -70,6 +76,10 @@ function main() {
   if (signed && !signingPublisher) {
     console.error('ATHENA_RELEASE_EXTERNAL_BLOCKED signing-publisher-identity-missing');
     process.exit(4);
+  }
+  if (signed && !approvedAccountBaseUrl) {
+    console.error('ATHENA_RELEASE_EXTERNAL_BLOCKED official-account-service-url-missing');
+    process.exit(5);
   }
   if (!signed) console.log('ATHENA_RELEASE_EXTERNAL_BLOCKED code-signing-certificate-missing; building unsigned engineering evidence only');
 
@@ -86,6 +96,11 @@ function main() {
     baseUrl: signed ? approvedUpdateBaseUrl || '' : '',
     channel,
     checkIntervalHours: 6,
+  });
+  writeJson(path.join(ROOT, '.build', 'account-config.json'), {
+    schemaVersion: 1,
+    enabled: Boolean(approvedAccountBaseUrl),
+    baseUrl: approvedAccountBaseUrl || '',
   });
   const publisher = signingPublisher || 'UNSIGNED ENGINEERING EVIDENCE';
   const escapedPublisher = publisher.replace(/'/g, "''");

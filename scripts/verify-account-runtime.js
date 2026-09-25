@@ -57,6 +57,7 @@ async function accountBackground(accessToken) {
 
     saveSettingsBundle({
       settings: {
+        developerMode: true,
         privacy: { networkConsent: { cloudSync: true } },
         cloud: {
           baseUrl,
@@ -115,6 +116,7 @@ async function accountBackground(accessToken) {
     assert.ok(size.width > 0 && size.height > 0 && Math.max(size.width, size.height) <= 1600, 'desktop background dimensions are invalid');
 
     const session = storedSession();
+    assert.equal(session.baseUrl, baseUrl, 'desktop session was not bound to its issuing account endpoint');
     const record = await accountBackground(session.accessToken);
     assert.equal(record.payload.origin, 'android', 'using the account version bounced a desktop re-encode back into Cloud');
     assert.equal(record.payload.mimeType, 'image/jpeg');

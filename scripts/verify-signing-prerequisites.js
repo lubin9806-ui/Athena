@@ -2,8 +2,10 @@ const { normalizeUpdateBaseUrl, packageMetadata, releaseChannel, signingCredenti
 
 const source = sourceState();
 const updateBaseUrl = process.env.ATHENA_UPDATE_BASE_URL?.trim() || '';
+const accountBaseUrl = process.env.ATHENA_ACCOUNT_BASE_URL?.trim() || '';
 const publisher = process.env.ATHENA_SIGNING_PUBLISHER?.trim() || '';
 const approvedUpdateBaseUrl = normalizeUpdateBaseUrl(updateBaseUrl);
+const approvedAccountBaseUrl = normalizeUpdateBaseUrl(accountBaseUrl);
 const version = packageMetadata().version;
 const blockers = [];
 
@@ -12,10 +14,11 @@ if (!source.cleanCheckout) blockers.push(`checkout-dirty:${source.changedPathCou
 if (!signingCredentialsPresent()) blockers.push('code-signing-certificate-missing');
 if (!publisher) blockers.push('signing-publisher-identity-missing');
 if (!approvedUpdateBaseUrl) blockers.push('https-update-feed-missing-or-invalid');
+if (!approvedAccountBaseUrl) blockers.push('official-account-service-missing-or-invalid');
 if (releaseChannel(version) !== 'beta') blockers.push(`private-beta-version-invalid:${version}`);
 
 console.log(`ATHENA_SIGNING_PREFLIGHT_SOURCE commit=${source.shortCommit} branch=${source.branch} clean=${source.cleanCheckout} git=${source.gitAvailable}`);
-console.log(`ATHENA_SIGNING_PREFLIGHT_INPUTS certificate=${signingCredentialsPresent()} publisher=${Boolean(publisher)} httpsFeed=${Boolean(approvedUpdateBaseUrl)} version=${version}`);
+console.log(`ATHENA_SIGNING_PREFLIGHT_INPUTS certificate=${signingCredentialsPresent()} publisher=${Boolean(publisher)} httpsFeed=${Boolean(approvedUpdateBaseUrl)} accountService=${Boolean(approvedAccountBaseUrl)} version=${version}`);
 
 if (blockers.length) {
   console.error(`ATHENA_SIGNING_PREFLIGHT_BLOCKED ${blockers.join(',')}`);
