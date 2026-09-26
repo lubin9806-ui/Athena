@@ -11,6 +11,7 @@ WORKDIR /app
 
 COPY --from=dependencies --chown=node:node /app/node_modules ./node_modules
 COPY --chown=node:node package.json ./
+COPY --chown=node:node config ./config
 COPY --chown=node:node src ./src
 
 RUN mkdir -p /app/storage/backups /app/storage/exports \
