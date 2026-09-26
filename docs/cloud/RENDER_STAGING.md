@@ -22,7 +22,8 @@ The disk makes this service single-instance and causes brief downtime during dep
 4. Keep the generated `ATHENA_CLOUD_MASTER_KEY_BASE64`. Do not paste a secret into the repository.
 5. Trigger the first deploy manually.
 6. Open `https://<service>.onrender.com/health/ready`. It must report `status=ready`, deployment region `singapore`, and runtime binding `cloudProvider=render`.
-7. Run `npm.cmd run verify:staging` locally. This verifies the deployment contract without creating cloud resources.
+7. Run `npm.cmd --prefix cloud run verify:staging` locally. This verifies the deployment contract without creating cloud resources.
+8. Run `npm.cmd run test:cloud-staging:live` locally. This creates a disposable synthetic account, exercises the real HTTPS account/sync path, verifies revocation and first-login merge behavior, and cryptographically deletes the account before exit.
 
 Use only test accounts at this point. Recovery delivery remains `local-return-token` but staging suppresses that token from HTTP responses, so password recovery is intentionally unavailable. Billing is no-charge and model/search responses are fixtures.
 
@@ -35,3 +36,16 @@ Do not use the eventual production hostname (`api.<your-domain>`) for this servi
 ## Evidence and rollback
 
 Capture the Blueprint service ID, deploy ID, health response, hostname, region, plan, disk size, and current commit. A failed deploy can be rolled back at the service level, but persistent state must be treated separately. Staging data may be intentionally reset; never infer that a Render disk snapshot is an application-consistent SQLite backup.
+
+## Active staging evidence (2026-09-26)
+
+- Blueprint: `exs-dars0bvpn0mc73dqcgj0`.
+- Service: `srv-darsasvavr4c73808ghg` (`athena-cloud-staging`).
+- Deploy: `dep-darshbnavr4c73811sl0`, commit `31527d3`.
+- Runtime: Render Singapore, `0.5c-512mb`, one instance, 1 GB persistent disk.
+- Provider hostname: `https://athena-cloud-staging.onrender.com`.
+- Custom hostname: `https://staging-api.elanastra.com`, Cloudflare DNS-only CNAME with Render-managed TLS.
+- Readiness: HTTP 200 with `status=ready`, SQLite available, region `singapore`, deployment adapter `render`, no-charge billing, local-return-token recovery, and fixture model/search providers.
+- Live acceptance: disposable registration, HTTPS session binding, device revoke, recovery-token suppression, first-login merge gate, explicit preference conflict, Android-origin JPEG background, adult-mode state, logout-local-data preservation, desktop-tool exclusion, and account cryptographic erase all passed. Machine-readable evidence: [athena-cloud-render-staging-live.json](../quality/athena-cloud-render-staging-live.json).
+
+This evidence proves only the named staging deployment and disposable-data integration path. It does not prove high availability, production recovery delivery, production billing/model/search providers, packaged desktop behavior, Android behavior, or production readiness.

@@ -14,7 +14,7 @@ Machine-readable source: `cloud/config/provider-policies.json`.
 | Recovery | `local-return-token` | Returns one-time token to local caller; no email/SMS | Not eligible |
 | Secrets | environment variable | Master key in process environment; not written to DB | Not eligible for production custody |
 
-No real fee, cloud resource, model request, email or SMS is produced by Window 09.
+The active staging service creates a real Render compute and disk charge. It does not create a model-provider charge, customer bill, email or SMS; model/search, billing and recovery still use the explicitly limited adapters below.
 
 Every configured adapter name is a runtime binding, not descriptive metadata. Service startup rejects missing port methods or an adapter ID that differs from the reviewed configuration, and `/health/ready` reports the bound IDs for deployment verification.
 
@@ -44,6 +44,8 @@ The infrastructure owner must decide cloud vendor, primary/secondary regions, re
 
 Production model provider: **unselected**. Billing provider: **unselected**. Cloud provider and regions: **unselected**. Recovery delivery provider: **unselected**. Therefore Cloud production remains fail-closed and No-Go.
 
-## Staging decision (2026-09-25)
+## Staging decision (updated 2026-09-26)
 
-Render Singapore is the selected first staging target because it can run the existing Node.js service and attach a persistent disk with minimal product-code change. The repository contains a manual-deploy Blueprint for `staging-api.elanastra.com`, but no Render account, billable resource, DNS record, or live deployment has been created or verified yet. This decision is limited to disposable account/sync integration data and does not select the production cloud provider, database, secondary region, KMS, or backup architecture.
+Render Singapore is the selected first staging target because it can run the existing Node.js service and attach a persistent disk with minimal product-code change. The manual-deploy Blueprint is live as `athena-cloud-staging`, backed by a billable `0.5c-512mb` instance and 1 GB persistent disk. `staging-api.elanastra.com` is a Cloudflare DNS-only CNAME to the Render service and has passed an external HTTPS readiness check. Exact service, deploy, commit and runtime evidence is recorded in [RENDER_STAGING.md](./RENDER_STAGING.md).
+
+This decision is limited to synthetic or disposable account/sync integration data. It does not select the production cloud provider, database, secondary region, KMS, backup architecture, billing provider, recovery delivery provider, or model/search providers. Production remains No-Go.

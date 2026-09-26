@@ -117,6 +117,7 @@
     "test:diagnostics": "tsc && electron scripts/verify-diagnostics.js",
     "test:cloud-sync": "tsc && node scripts/verify-desktop-cloud-sync.js",
     "test:account-runtime:live": "tsc && electron scripts/verify-account-runtime.js",
+    "test:cloud-staging:live": "tsc && electron scripts/verify-account-runtime.js --staging",
     "test:mobile-connection": "npm.cmd --prefix mobile test",
     "test:ci-workflows": "node scripts/verify-ci-workflows.js",
     "test:agent-routing": "tsc && node scripts/verify-agent-routing.js",

@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "checkedAt": "2026-09-26",
+  "scope": "synthetic-disposable-account-only",
+  "endpoint": "https://staging-api.elanastra.com",
+  "deployment": {
+    "provider": "render",
+    "region": "singapore",
+    "serviceId": "srv-darsasvavr4c73808ghg",
+    "blueprintId": "exs-dars0bvpn0mc73dqcgj0",
+    "deployId": "dep-darshbnavr4c73811sl0",
+    "deployedCommit": "31527d3c620a4a3ceae29a8e4845c3ec690fdd66",
+    "plan": "0.5c-512mb",
+    "diskGiB": 1
+  },
+  "readiness": {
+    "httpStatus": 200,
+    "status": "ready",
+    "database": true,
+    "runtimeBindings": {
+      "cloudProvider": "render",
+      "billingAdapter": "local-no-charge",
+      "recoveryDeliveryAdapter": "local-return-token",
+      "modelProvider": "local-fixture",
+      "searchProvider": "local-fixture"
+    }
+  },
+  "acceptance": {
+    "registration": "passed",
+    "httpsSessionBinding": "passed",
+    "firstLoginMergeGate": "blocked-until-explicit-choice",
+    "preferenceConflict": "explicit",
+    "background": {
+      "result": "passed",
+      "origin": "android",
+      "mimeType": "image/jpeg",
+      "bytes": 304,
+      "dimensions": "2x2",
+      "maxBytes": 184320,
+      "maxEdge": 1600,
+      "pathNameAndMetadataAbsent": true
+    },
+    "adultModeEnabled": true,
+    "logoutLocalBackgroundPreserved": true,
+    "deviceRevocation": "verified",
+    "revokedSessionRejected": true,
+    "recoveryTokenSuppressedOverHttps": true,
+    "desktopComputerToolRoute": "404-not-exposed",
+    "successfulRunAccountCleanup": "cryptographic-erase"
+  },
+  "commands": [
+    "npm.cmd --prefix cloud run verify:staging",
+    "npm.cmd run test:cloud-sync",
+    "npm.cmd run test:cloud-staging:live"
+  ],
+  "decision": "staging-go-production-no-go",
+  "notProven": [
+    "packaged desktop",
+    "Android companion",
+    "high availability",
+    "managed recovery delivery",
+    "production billing",
+    "production model or search providers",
+    "production data architecture"
+  ]
+}
