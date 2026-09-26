@@ -14,7 +14,6 @@ services:
     dockerfilePath: ./cloud/Dockerfile
     dockerContext: ./cloud
     healthCheckPath: /health/ready
-    maxShutdownDelaySeconds: 30
     disk:
       name: athena-cloud-staging-data
       mountPath: /app/storage
