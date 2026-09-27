@@ -36,6 +36,7 @@ let desktopPetWindow: DesktopPetController | null = null;
 const rendererRecovery = new RendererRecoveryPolicy(2, 60_000);
 const singleInstanceActivation = new SingleInstanceActivationQueue();
 const isSmokeTest = process.argv.includes('--smoke-test') || process.env.ATHENA_SMOKE_TEST === '1';
+const isPackagedAccountAcceptance = process.argv.includes('--account-staging-acceptance');
 const steamPlatform = initializeSteamPlatform();
 const isSteamBuild = steamPlatform.state.sku === 'steam';
 const isMicrosoftStoreBuild = isMicrosoftStoreSku();
@@ -95,9 +96,12 @@ const smokeWebglReadyMs = smokeDimension(process.env.ATHENA_SMOKE_WEBGL_READY_MS
 const smokeUserDataPath = isSmokeTest
   ? path.join(os.tmpdir(), 'athena-smoke', String(process.pid))
   : null;
+const packagedAccountAcceptancePath = isPackagedAccountAcceptance
+  ? path.join(os.tmpdir(), 'athena-packaged-account-acceptance', String(process.pid))
+  : null;
 let smokeReadyLogged = false;
 
-if (isVoiceSmokeTest) {
+if (isVoiceSmokeTest || isPackagedAccountAcceptance) {
   app.disableHardwareAcceleration();
 }
 
@@ -128,6 +132,21 @@ if (smokeUserDataPath) {
       // A terminated Chromium helper may briefly retain a cache file on Windows.
     }
   });
+}
+
+if (packagedAccountAcceptancePath) {
+  // This mode must never inherit a developer's paths: it proves the packaged
+  // runtime while keeping the person's real profile completely out of scope.
+  app.setPath('userData', path.join(packagedAccountAcceptancePath, 'user-data'));
+  process.env.ATHENA_CONFIG_DIR = path.join(packagedAccountAcceptancePath, 'config');
+  process.env.ATHENA_CREDENTIALS_DIR = path.join(packagedAccountAcceptancePath, 'credentials');
+  process.env.ATHENA_DB_DIR = path.join(packagedAccountAcceptancePath, 'database');
+  process.env.ATHENA_EXPORT_DIR = path.join(packagedAccountAcceptancePath, 'exports');
+  process.env.ATHENA_DIAGNOSTICS_DIR = path.join(packagedAccountAcceptancePath, 'diagnostics');
+  process.env.ATHENA_ATTACHMENT_DIR = path.join(packagedAccountAcceptancePath, 'attachments');
+  process.env.ATHENA_VOICE_TEMP_DIR = path.join(packagedAccountAcceptancePath, 'voice');
+  process.env.ATHENA_USE_LOCAL_SETTINGS = '0';
+  process.once('exit', () => removePackagedAccountAcceptancePath());
 }
 
 if (!smokeUserDataPath && isSteamBuild) {
@@ -1990,7 +2009,70 @@ function createTray(): void {
   tray.on('double-click', () => { mainWindow?.show(); mainWindow?.focus(); });
 }
 
+function removePackagedAccountAcceptancePath(): boolean {
+  if (!packagedAccountAcceptancePath) return true;
+  try {
+    fs.rmSync(packagedAccountAcceptancePath, { recursive: true, force: true });
+    return !fs.existsSync(packagedAccountAcceptancePath);
+  } catch {
+    return false;
+  }
+}
+
+async function runPackagedAccountAcceptanceMode(): Promise<void> {
+  let exitCode = 0;
+  try {
+    if (!app.isPackaged) throw new Error('Packaged account acceptance requires app.isPackaged=true.');
+    const appPath = app.getAppPath();
+    if (path.basename(appPath).toLowerCase() !== 'app.asar') {
+      throw new Error(`Packaged account acceptance requires app.asar, received ${path.basename(appPath)}.`);
+    }
+    const { officialAccountServiceConfig } = await import('../core/cloud/AccountServiceConfig');
+    const accountConfig = officialAccountServiceConfig();
+    const expectedEndpoint = 'https://staging-api.elanastra.com';
+    if (!accountConfig.enabled || accountConfig.baseUrl !== expectedEndpoint) {
+      throw new Error(`Packaged staging endpoint mismatch: ${accountConfig.baseUrl || 'disabled'}.`);
+    }
+    const credentialsDirectory = process.env.ATHENA_CREDENTIALS_DIR;
+    if (!credentialsDirectory) throw new Error('Packaged account acceptance credentials directory is missing.');
+
+    console.log(`ATHENA_PACKAGED_ACCOUNT_ACCEPTANCE_START packaged=true appPath=${path.basename(appPath)} endpoint=${accountConfig.baseUrl} profile=isolated`);
+    const { runAccountRuntimeAcceptance } = await import('../core/cloud/AccountRuntimeAcceptance');
+    const result = await runAccountRuntimeAcceptance({
+      baseUrl: accountConfig.baseUrl,
+      credentialsDirectory,
+      endpointSource: 'packaged-resource',
+      selfSeed: true,
+      expectedAdultMode: true,
+    });
+    console.log(
+      `ATHENA_PACKAGED_ACCOUNT_ACCEPTANCE_OK endpoint=${result.endpoint} endpointSource=${result.endpointSource}`
+      + ` backgroundBytes=${result.backgroundBytes} dimensions=${result.width}x${result.height}`
+      + ` adultMode=${result.adultMode} firstLogin=blocked conflict=explicit sync=cloud`
+      + ` logout=local-preserved deviceRevoke=verified cleanup=${result.cleanup}`,
+    );
+  } catch (error) {
+    exitCode = 1;
+    console.error('ATHENA_PACKAGED_ACCOUNT_ACCEPTANCE_FAILED', error);
+  } finally {
+    try {
+      const { closeDatabase } = await import('../memory/database');
+      closeDatabase();
+    } catch {
+      // The database is lazy and may never have opened.
+    }
+    const removed = removePackagedAccountAcceptancePath();
+    console.log(`ATHENA_PACKAGED_ACCOUNT_ACCEPTANCE_CLEANUP_${removed ? 'OK' : 'FAILED'} profile=${removed ? 'removed' : 'retained'}`);
+    if (!removed) exitCode = 1;
+    app.exit(exitCode);
+  }
+}
+
 app.whenReady().then(() => {
+  if (isPackagedAccountAcceptance) {
+    void runPackagedAccountAcceptanceMode();
+    return;
+  }
   if (steamPlatform.state.status === 'relaunch-required') {
     app.quit();
     return;
@@ -2036,7 +2118,7 @@ app.on('will-quit', (event) => {
 });
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 
-const gotTheLock = isSmokeTest || app.requestSingleInstanceLock();
+const gotTheLock = isSmokeTest || isPackagedAccountAcceptance || app.requestSingleInstanceLock();
 if (!gotTheLock) app.quit();
 else app.on('second-instance', () => {
   singleInstanceActivation.request();

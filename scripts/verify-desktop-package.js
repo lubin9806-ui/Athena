@@ -107,6 +107,7 @@ function main() {
   assert(entries.includes('dist/core/update/UpdatePolicy.js'), 'Packaged application is missing UpdatePolicy.');
   assert(entries.includes('dist/core/ai/CredentialStore.js'), 'Packaged application is missing the encrypted credential store.');
   assert(entries.includes('dist/core/cloud/AccountServiceConfig.js'), 'Packaged application is missing the official account-service runtime config loader.');
+  assert(entries.includes('dist/core/cloud/AccountRuntimeAcceptance.js'), 'Packaged application is missing its account acceptance runner.');
   assert(entries.includes('dist/shared/releaseFeatures.js'), 'Packaged application is missing its release feature policy.');
   assert(entries.includes('dist/core/skills/SkillLibrary.js'), 'Packaged application is missing the governed Skill library.');
   assert(entries.includes('dist/core/skills/SkillAgentToolBridge.js'), 'Packaged application is missing the Skill tool bridge.');
