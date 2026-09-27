@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "checkedAt": "2026-09-26",
+  "checkedAt": "2026-09-27",
   "scope": "synthetic-disposable-account-only",
   "endpoint": "https://staging-api.elanastra.com",
   "deployment": {
@@ -46,16 +46,40 @@
     "revokedSessionRejected": true,
     "recoveryTokenSuppressedOverHttps": true,
     "desktopComputerToolRoute": "404-not-exposed",
-    "successfulRunAccountCleanup": "cryptographic-erase"
+    "successfulRunAccountCleanup": "cryptographic-erase",
+    "packagedDesktop": {
+      "result": "passed-unsigned-engineering-evidence",
+      "version": "0.9.7-beta.1",
+      "commit": "c77ca6bd2d4f22679c1a61092347a2d1e3e49f25",
+      "buildInputSha256": "B7A2E9E8F337F2FFD9098981F9A4DA55D06639F26564045E7B18618624EA95E1",
+      "appPath": "app.asar",
+      "endpointSource": "resources/account-config.json",
+      "endpointConfig": "official-https",
+      "smokeMarkers": [
+        "ATHENA_SMOKE_READY_TO_SHOW",
+        "ATHENA_SMOKE_DOM_OK"
+      ],
+      "accountAcceptanceMarker": "ATHENA_PACKAGED_CLOUD_STAGING_OK",
+      "isolatedProfileRemoved": true,
+      "deletedAccountSessionRejected": true,
+      "installerSha256": "C12CE70EEDB770E407FD0199220B34605FD65D9BDED467943940F4CA1484535D",
+      "executableSha256": "E696B7DF7A6627EAA9FE37A6D7B21AC88D003F34DB81FE453C4A52DA1018220A",
+      "authenticode": "NotSigned",
+      "cleanCheckout": false
+    }
   },
   "commands": [
     "npm.cmd --prefix cloud run verify:staging",
     "npm.cmd run test:cloud-sync",
-    "npm.cmd run test:cloud-staging:live"
+    "npm.cmd run test:cloud-staging:live",
+    "PowerShell: $env:ATHENA_ACCOUNT_BASE_URL='https://staging-api.elanastra.com'; npm.cmd run build",
+    "npm.cmd run test:desktop-package",
+    "npm.cmd run test:packaged-smoke",
+    "npm.cmd run test:packaged-cloud-staging:live"
   ],
   "decision": "staging-go-production-no-go",
   "notProven": [
-    "packaged desktop",
+    "signed clean-checkout desktop distribution",
     "Android companion",
     "high availability",
     "managed recovery delivery",
