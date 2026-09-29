@@ -321,9 +321,14 @@ function writeResponse(response, status, body, headers = {}) {
   for (const [key, value] of Object.entries(headers || {})) response.setHeader(key, value);
   response.statusCode = status;
   if (status === 204 || body === null || body === undefined) return response.end();
-  if (Buffer.isBuffer(body)) return response.end(body);
+  if (Buffer.isBuffer(body)) {
+    response.setHeader('athena-body-bytes', body.length);
+    return response.end(body);
+  }
   if (!response.hasHeader('content-type')) response.setHeader('content-type', 'application/json; charset=utf-8');
-  response.end(JSON.stringify(body));
+  const payload = JSON.stringify(body);
+  response.setHeader('athena-body-bytes', Buffer.byteLength(payload, 'utf8'));
+  response.end(payload);
 }
 
 function normalizeError(error, requestId) {

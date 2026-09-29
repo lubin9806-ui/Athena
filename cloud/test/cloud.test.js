@@ -520,3 +520,41 @@ test('HTTP API v1 uses problem details, strict inputs and exposes no desktop com
     assert.equal((await badInput.json()).title, 'unknown-properties');
   } finally { await fx.close(); }
 });
+
+test('HTTP responses expose byte-accurate origin body sizes while 204 responses omit them', async () => {
+  const fx = fixture();
+  try {
+    const account = register(fx.services, 'framing');
+    const context = fx.services.auth.authenticate(account.accessToken);
+    fx.services.sync.put(context, {
+      resourceId: 'memory.framing', resourceType: 'memory', schemaVersion: 1, baseVector: {},
+      payload: { text: '中文响应长度' }, deleted: false,
+    });
+    const job = fx.services.dataRights.createExport(context);
+    const address = await fx.app.listen();
+    const base = `http://127.0.0.1:${address.port}`;
+    const headers = { authorization: `Bearer ${account.accessToken}` };
+
+    const jsonResponse = await fetch(`${base}/v1/sync/records/memory.framing`, { headers });
+    const jsonBytes = Buffer.from(await jsonResponse.arrayBuffer());
+    const jsonText = jsonBytes.toString('utf8');
+    assert.equal(jsonResponse.status, 200);
+    assert.equal(jsonResponse.headers.get('athena-body-bytes'), String(Buffer.byteLength(jsonText, 'utf8')));
+    assert.equal(JSON.parse(jsonText).payload.text, '中文响应长度');
+    assert.equal(jsonBytes.length > jsonText.length, true, 'the fixture must distinguish UTF-8 bytes from JavaScript string length');
+
+    const bufferResponse = await fetch(`${base}/v1/data/exports/${job.jobId}`, { headers });
+    const bufferBytes = Buffer.from(await bufferResponse.arrayBuffer());
+    const bufferText = bufferBytes.toString('utf8');
+    assert.equal(bufferResponse.status, 200);
+    assert.equal(bufferResponse.headers.get('athena-body-bytes'), String(bufferBytes.length));
+    assert.equal(bufferResponse.headers.get('content-type'), 'application/json');
+    assert.match(bufferResponse.headers.get('content-disposition'), /^attachment; filename="athena-export-/);
+    assert.equal(JSON.parse(bufferText).syncRecords[0].payload.text, '中文响应长度');
+
+    const noContentResponse = await fetch(`${base}/v1/auth/logout`, { method: 'POST', headers });
+    assert.equal(noContentResponse.status, 204);
+    assert.equal(noContentResponse.headers.get('athena-body-bytes'), null);
+    assert.equal((await noContentResponse.arrayBuffer()).byteLength, 0);
+  } finally { await fx.close(); }
+});
