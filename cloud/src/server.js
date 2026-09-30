@@ -85,7 +85,12 @@ async function route(request, services, config) {
   const path = url.pathname;
   const method = request.method || 'GET';
   const ip = request.socket.remoteAddress || 'unknown';
-  services.rate.consume(`ip:${ip}`, path.startsWith('/v1/auth/') ? config.authRateLimitPerMinute : config.rateLimitPerMinute);
+  const authenticationRoute = path.startsWith('/v1/auth/');
+  // Different limits require different counters. A shared IP bucket let normal
+  // sync/status reads spend the much smaller authentication allowance and
+  // reject logout even though the person had barely used any auth endpoints.
+  services.rate.consume(`ip:${authenticationRoute ? 'auth' : 'api'}:${ip}`,
+    authenticationRoute ? config.authRateLimitPerMinute : config.rateLimitPerMinute);
 
   if (method === 'GET' && path === '/health/live') return { body: { status: 'live', version: '1.0' } };
   if (method === 'GET' && path === '/health/ready') {

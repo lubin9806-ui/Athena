@@ -153,6 +153,66 @@ test('the local pairing account does not keep a device nobody holds', async () =
   } finally { await fx.close(); }
 });
 
+test('ordinary account reads do not consume the authentication budget or block logout', async () => {
+  const fx = fixture({ authRateLimitPerMinute: 10, rateLimitPerMinute: 120 });
+  const fixedNow = Date.now();
+  const consume = fx.services.rate.consume.bind(fx.services.rate);
+  fx.services.rate.consume = (key, limit) => consume(key, limit, fixedNow);
+  try {
+    const call = client(await fx.listen());
+    const registered = await call('POST', '/v1/auth/register', {
+      tenantName: 'Rate separation', email: 'rate-separation@example.test', password: PASSWORD,
+      deviceName: 'Desktop', platform: 'desktop',
+    });
+    assert.equal(registered.status, 201);
+    for (let read = 0; read < 12; read += 1) {
+      assert.equal((await call('GET', '/v1/account', null, registered.json.accessToken)).status, 200);
+    }
+    const logout = await call('POST', '/v1/auth/logout', null, registered.json.accessToken);
+    assert.equal(logout.status, 204, 'normal sync/status traffic must not spend the smaller authentication allowance');
+    const device = fx.services.store.db.prepare('SELECT status FROM devices WHERE id=?').get(registered.json.device.id);
+    assert.equal(device.status, 'revoked');
+    assert.equal((await call('GET', '/v1/account', null, registered.json.accessToken)).status, 401);
+  } finally { await fx.close(); }
+});
+
+test('authentication throttling remains enforced independently of the API budget', async () => {
+  const fx = fixture({ authRateLimitPerMinute: 3, rateLimitPerMinute: 3 });
+  const fixedNow = Date.now();
+  const consume = fx.services.rate.consume.bind(fx.services.rate);
+  fx.services.rate.consume = (key, limit) => consume(key, limit, fixedNow);
+  try {
+    const call = client(await fx.listen());
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const response = await call('POST', '/v1/auth/login', loginBody(null, 'missing@example.test'));
+      assert.equal(response.status, 401);
+    }
+    const limited = await call('POST', '/v1/auth/login', loginBody(null, 'missing@example.test'));
+    assert.equal(limited.status, 429);
+    assert.equal(limited.json.title, 'rate-limit');
+    assert.equal((await call('GET', '/health/ready')).status, 200, 'authentication failures must not exhaust ordinary API traffic');
+  } finally { await fx.close(); }
+});
+
+test('ordinary IP throttling remains enforced without consuming authentication allowance', async () => {
+  const fx = fixture({ authRateLimitPerMinute: 3, rateLimitPerMinute: 3 });
+  const fixedNow = Date.now();
+  const consume = fx.services.rate.consume.bind(fx.services.rate);
+  fx.services.rate.consume = (key, limit) => consume(key, limit, fixedNow);
+  try {
+    const call = client(await fx.listen());
+    for (let read = 0; read < 3; read += 1) assert.equal((await call('GET', '/health/ready')).status, 200);
+    const limited = await call('GET', '/health/ready');
+    assert.equal(limited.status, 429);
+    assert.equal(limited.json.title, 'rate-limit');
+    const registered = await call('POST', '/v1/auth/register', {
+      tenantName: 'Independent auth', email: 'independent-auth@example.test', password: PASSWORD,
+      deviceName: 'Desktop', platform: 'desktop',
+    });
+    assert.equal(registered.status, 201);
+  } finally { await fx.close(); }
+});
+
 test('enrolling MFA again cannot switch MFA off', async () => {
   const fx = fixture();
   try {
