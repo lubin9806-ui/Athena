@@ -7,7 +7,7 @@ const Database = require('better-sqlite3');
 const { randomId, sha256, hmacSha256, encryptBytes, decryptBytes, encryptJson, decryptJson } = require('./crypto');
 const { sealReplay, openReplay } = require('./lifecycle');
 
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 
 class CloudDatabase {
   constructor(config) {
@@ -24,7 +24,7 @@ class CloudDatabase {
   }
 
   migrate() {
-    const version = this.db.pragma('user_version', { simple: true });
+    let version = this.db.pragma('user_version', { simple: true });
     if (version > SCHEMA_VERSION) throw new Error(`Cloud database schema ${version} is newer than supported ${SCHEMA_VERSION}.`);
     if (version === 0) {
       this.db.exec(`
@@ -114,10 +114,11 @@ class CloudDatabase {
         );
         CREATE TABLE backup_catalog (
           id TEXT PRIMARY KEY, region TEXT NOT NULL, file_path TEXT NOT NULL, sha256 TEXT NOT NULL,
-          key_version INTEGER NOT NULL, created_at TEXT NOT NULL, restored_at TEXT, deleted_tenants_json TEXT NOT NULL DEFAULT '[]'
+          key_version INTEGER NOT NULL, created_at TEXT NOT NULL, restored_at TEXT, deleted_tenants_json TEXT NOT NULL DEFAULT '[]',
+          tenant_ids_json TEXT
         );
         CREATE INDEX users_login_hash ON users(login_hash);
-        PRAGMA user_version = 2;
+        PRAGMA user_version = 3;
       `);
       return;
     }
@@ -133,6 +134,12 @@ class CloudDatabase {
         }
         this.db.exec('CREATE INDEX users_login_hash ON users(login_hash); PRAGMA user_version = 2;');
       })();
+      version = 2;
+    }
+    if (version === 2) {
+      // Existing catalogs cannot prove which tenants their snapshots contain.
+      // Keep their membership NULL so deletion treats them conservatively.
+      this.db.exec('ALTER TABLE backup_catalog ADD COLUMN tenant_ids_json TEXT; PRAGMA user_version = 3;');
     }
   }
 

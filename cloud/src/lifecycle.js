@@ -175,11 +175,7 @@ class DataRightsService {
     const rows = this.db.prepare('SELECT * FROM backup_catalog').all();
     let count = 0;
     for (const row of rows) {
-      const tenants = JSON.parse(row.deleted_tenants_json || '[]');
-      if (!tenants.includes(tenantId)) {
-        tenants.push(tenantId);
-        this.db.prepare('UPDATE backup_catalog SET deleted_tenants_json=? WHERE id=?').run(JSON.stringify(tenants), row.id);
-      }
+      if (!backupContainsTenant(row, tenantId)) continue;
       if (fs.existsSync(row.file_path)) {
         fs.rmSync(row.file_path, { force: true });
         count += 1;
@@ -220,12 +216,21 @@ class BackupService {
     const artifact = path.join(this.config.backupDir, `${id}.db.aes`);
     await this.db.backup(snapshot);
     try {
+      const snapshotDb = new Database(snapshot, { readonly: true });
+      let tenantIds;
+      try {
+        tenantIds = snapshotDb.prepare('SELECT id FROM tenants ORDER BY id').all().map((row) => row.id);
+      } finally {
+        snapshotDb.close();
+      }
       const plaintext = fs.readFileSync(snapshot);
       const encrypted = encryptBytes(plaintext, this.config.masterKey, `backup:${id}:${this.config.region}`);
       fs.writeFileSync(artifact, encrypted, { encoding: 'utf8', mode: 0o600, flag: 'wx' });
       const digest = sha256(encrypted);
-      this.db.prepare('INSERT INTO backup_catalog VALUES (?,?,?,?,?,?,NULL,?)').run(
-        id, this.config.region, artifact, digest, 1, this.store.now(), '[]',
+      this.db.prepare(`INSERT INTO backup_catalog
+        (id,region,file_path,sha256,key_version,created_at,restored_at,deleted_tenants_json,tenant_ids_json)
+        VALUES (?,?,?,?,?,?,NULL,?,?)`).run(
+        id, this.config.region, artifact, digest, 1, this.store.now(), '[]', JSON.stringify(tenantIds),
       );
       return { id, region: this.config.region, sha256: digest, encrypted: true };
     } finally {
@@ -257,6 +262,18 @@ class BackupService {
     }
     this.db.prepare('UPDATE backup_catalog SET restored_at=? WHERE id=?').run(this.store.now(), id);
     return { id, targetPath: resolved, integrity: 'ok', deletionLedgerApplied: true };
+  }
+}
+
+function backupContainsTenant(row, tenantId) {
+  // Schema-v2 backups did not record snapshot membership. Purge unknown or
+  // malformed legacy metadata rather than risk resurrecting a deleted tenant.
+  if (typeof row.tenant_ids_json !== 'string') return true;
+  try {
+    const tenantIds = JSON.parse(row.tenant_ids_json);
+    return !Array.isArray(tenantIds) || tenantIds.includes(tenantId);
+  } catch {
+    return true;
   }
 }
 

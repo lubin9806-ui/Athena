@@ -8,6 +8,7 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const Database = require('better-sqlite3');
 const { loadConfig } = require('../src/config');
+const { CloudDatabase, SCHEMA_VERSION } = require('../src/database');
 const { createCloudApp } = require('../src/server');
 const { totp } = require('../src/crypto');
 const { RateLimiter, UnavailableModelProvider } = require('../src/services');
@@ -47,6 +48,37 @@ function register(services, suffix = 'a') {
     platform: 'test',
   });
 }
+
+test('schema v2 backup catalogs migrate with conservative unknown tenant membership', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'athena-cloud-migration-'));
+  const dbPath = path.join(root, 'cloud.db');
+  const legacy = new Database(dbPath);
+  legacy.exec(`
+    CREATE TABLE backup_catalog (
+      id TEXT PRIMARY KEY, region TEXT NOT NULL, file_path TEXT NOT NULL, sha256 TEXT NOT NULL,
+      key_version INTEGER NOT NULL, created_at TEXT NOT NULL, restored_at TEXT,
+      deleted_tenants_json TEXT NOT NULL DEFAULT '[]'
+    );
+    INSERT INTO backup_catalog VALUES ('bak_legacy','local-1','legacy.db.aes','digest',1,'2026-01-01T00:00:00.000Z',NULL,'[]');
+    PRAGMA user_version = 2;
+  `);
+  legacy.close();
+  const config = loadConfig({
+    port: 0,
+    dbPath,
+    backupDir: path.join(root, 'backups'),
+    exportDir: path.join(root, 'exports'),
+    masterKey: crypto.randomBytes(32),
+  });
+  const migrated = new CloudDatabase(config);
+  try {
+    assert.equal(migrated.db.pragma('user_version', { simple: true }), SCHEMA_VERSION);
+    assert.equal(migrated.db.prepare('SELECT tenant_ids_json FROM backup_catalog WHERE id=?').get('bak_legacy').tenant_ids_json, null);
+  } finally {
+    migrated.close();
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
 
 test('production configuration fails closed while local adapters remain zero-cost', () => {
   assert.throws(() => loadConfig({ environment: 'production' }), /Production Cloud configuration blocked/);
@@ -429,20 +461,35 @@ test('exports are encrypted at rest and backups restore only through verified st
   } finally { await fx.close(); }
 });
 
-test('account deletion purges known backups, writes a signed deny-restore ledger and removes tenant data', async () => {
+test('account deletion purges only backups containing the tenant, writes a signed deny-restore ledger and removes tenant data', async () => {
   const fx = fixture();
   try {
+    const retainedBackup = await fx.services.backup.create();
     const account = register(fx.services, 'delete');
     const context = fx.services.auth.authenticate(account.accessToken);
-    await fx.services.backup.create();
+    const purgedBackup = await fx.services.backup.create();
+    const retainedRow = fx.services.store.db.prepare('SELECT * FROM backup_catalog WHERE id=?').get(retainedBackup.id);
+    const purgedRow = fx.services.store.db.prepare('SELECT * FROM backup_catalog WHERE id=?').get(purgedBackup.id);
+    assert.deepEqual(
+      JSON.parse(retainedRow.tenant_ids_json),
+      [],
+    );
+    assert.deepEqual(
+      JSON.parse(purgedRow.tenant_ids_json),
+      [account.tenantId],
+    );
     const receipt = fx.services.dataRights.deleteAccount(context, `DELETE ${account.tenantId}`);
     assert.equal(receipt.status, 'complete');
     assert.equal(receipt.cryptographicErase, true);
     assert.equal(receipt.purgedBackups, 1);
     assert.equal(fx.services.store.db.prepare('SELECT count(*) AS count FROM tenants WHERE id=?').get(account.tenantId).count, 0);
+    assert.equal(fx.services.store.db.prepare('SELECT count(*) AS count FROM backup_catalog WHERE id=?').get(retainedBackup.id).count, 1);
+    assert.equal(fx.services.store.db.prepare('SELECT count(*) AS count FROM backup_catalog WHERE id=?').get(purgedBackup.id).count, 0);
+    assert.equal(fs.existsSync(retainedRow.file_path), true);
+    assert.equal(fs.existsSync(purgedRow.file_path), false);
     const ledger = fs.readFileSync(path.join(fx.config.backupDir, 'deletion-ledger.json'), 'utf8');
     assert.match(ledger, new RegExp(account.tenantId));
-    assert.equal(fs.readdirSync(fx.config.backupDir).filter((name) => name.endsWith('.db.aes')).length, 0);
+    assert.equal(fs.readdirSync(fx.config.backupDir).filter((name) => name.endsWith('.db.aes')).length, 1);
   } finally { await fx.close(); }
 });
 
