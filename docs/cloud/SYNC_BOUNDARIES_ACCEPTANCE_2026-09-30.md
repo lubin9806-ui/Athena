@@ -78,5 +78,76 @@ ATHENA_DESKTOP_SYNC_BOUNDARIES_OK cases=12 encryptedSession=real localData=isola
 同步轮次串行，队列等待期间改变选择的旧任务不会再发送请求。
 状态刷新保存最新的同步元数据，不把旧的导入映射覆盖回去。
 
-继续验证进程重启，以及桌面和手机同一账号的真实往返。
-本轮桌面源码修改尚未取得重新打包后的独立运行证据；此前包验收不能替代本次新代码的包证明。
+Android 会话追加提交 `a2f45a5`：195 项 JVM 检查通过，包括 6 项新增的刷新并发、迟到登录和服务地址绑定检查。
+同一 OPPO 5G 上，账号链路与真实控件流程合并复跑 `OK (2 tests)`，37.118 秒。
+该版本 APK SHA-256：`BE0E4B24C11078E3B3971E580B872503725C3329DD5E8742D4E7546755A8E469`。
+
+## 更新后桌面包：部分通过，线上账号验收失败已定位
+
+重新打包的桌面代码为 `70a60cb`，版本 `0.9.7-beta.1`，嵌入 staging 账号服务地址。
+使用 Athena 打包验收流程，先通过 typecheck 与源码 ready-to-show / DOM 检查，
+再构建安装包、检查最终 app.asar 和运行包内启动检查。
+
+```text
+ATHENA_DESKTOP_BUILD_OK signed=false
+ATHENA_DESKTOP_PACKAGE_OK version=0.9.7-beta.1 settings=excluded modelConfig=excluded personas=public-default memory=empty live2d=disabled account=official-https maps=0
+ATHENA_PACKAGED_SMOKE_OK markers=ready-to-show,dom
+```
+
+- 安装包：`release/Athena Setup 0.9.7-beta.1.exe`，400097919 字节，SHA-256
+  `8A740F49E005CE14E6729E888D3990AEF5ACBACB5DBBBE32B99C18D8D353919B`。
+- 未打包目录主程序：`release/win-unpacked/Athena.exe`，232771584 字节，SHA-256
+  `32F911720D89823F14B66E26BEC48121A60C56C5D9EDADC3803E3880105ACB9F`。
+- `app.asar` 为 133385956 字节、4474 个条目；用户设置、密钥配置、私人数据、私人角色和禁用的 Live2D 不进入包。
+- 未签名，工作区也不是干净 checkout，生产更新源禁用。此产物只作工程内测，不是生产发行或干净设备安装证明。
+
+`test:packaged-cloud-staging:live` 确认从 app.asar 和 packaged-resource staging 地址启动，
+但在退出后的设备撤销断言失败。本机已退出，服务端设备仍未变为 revoked。
+该失败尝试的随机账号成功加密擦除，隔离本机 profile 删除；不将它描述为包内账号验收通过。
+
+## 服务端限流修复：待上线复验
+
+修复提交 `88e800b` 已推送 `origin/codex/ci-green-0.9.7`。
+原实现对普通 API（120 次/分钟）与认证 API（10 次/分钟）使用相同 IP 计数器。
+因此十余次正常账号/同步读取也能让一次正常退出返回 429；客户端仍可清除本机会话，
+但远端设备没有完成撤销。
+
+新增三个 HTTP 回归在旧实现全部失败，固定同一分钟后稳定复现；修复后全部通过：
+
+1. 12 次正常账号读取后，退出返回 204，设备 revoked，旧凭据返回 401。
+2. 认证请求仍受独立上限约束，认证请求超额不消耗普通 API 预算。
+3. 普通 API 仍受独立上限约束，普通请求超额不消耗认证预算。
+
+只拆分认证和普通 API 的 IP bucket，不提高限额，不信任客户端转发头，不改变套餐、密钥或数据库。
+完整 Cloud 测试 46/46，`ATHENA_CLOUD_1_0_ENGINEERING_OK tests=46`，Render 配置验证通过。
+Render 配置为手动部署；本轮浏览器控制连续超时，没有成功触发部署。
+在新提交实际上线且重新通过包内账号验收之前，线上修复状态仍为待验证。
+
+## 两端真实往返与进程恢复：工具准备完成，尚未执行
+
+协调脚本：`docs/cloud/verify-cross-device-staging.cjs`。
+Android 端：`CrossDeviceStagingAcceptanceTest`，已编译测试 APK。
+
+脚本先检查 USB 真机、debug 应用与测试 APK，再创建一个自己的随机 staging 账号。
+桌面使用真实 Electron、Windows safeStorage、CloudAccountService 与隔离 profile；
+手机使用 MainActivity 的实际 ViewModel、Android Keystore 与加密本机存储。
+仅通过 USB 下发临时随机测试凭据，所有账号/同步请求仍走 HTTPS，不代理手机 5G。
+
+计划检查桌面暖色背景/成年开 → 手机显式选择 → 手机绿色背景/成年关 → 桌面显式选择 →
+桌面蓝色背景/成年开 → force-stop 手机 → 从本机加密存储恢复 → 显式选择账号版本。
+非所选的对话和人格名称使用本机 sentinel；最终云端只允许背景与成年模式两个资源，
+检查图片接收不反向产生无意的 re-encode 上传。各路径有账号加密擦除与临时凭据清理。
+
+本轮启动协调脚本时 USB 设备为 0，ADB reconnect 后仍为 0；脚本在创建账号前失败，
+只删除自己的空隔离 profile。因此不得声称两台客户端真实往返或 force-stop 恢复已通过。
+手机再次连接后，先安装最新测试 APK，再运行：
+
+```powershell
+cd G:\Athena
+npm.cmd run typecheck
+.\node_modules\.bin\tsc.cmd
+.\node_modules\.bin\electron.cmd docs/cloud/verify-cross-device-staging.cjs --staging --reset-debug-test-state
+```
+
+执行前确认测试 debug 应用中没有需要保留的数据。上述 tsc 命令编译 dist，typecheck 单独不输出 JavaScript。
+本轮编译 APK 与协调脚本语法检查通过，仅属于准备证据。
