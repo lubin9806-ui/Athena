@@ -60,6 +60,7 @@ for (const [label, script] of [
 }
 
 for (const command of [
+  'test:cloud-sync-boundaries',
   'test:chat-handoff',
   'test:memory-recall-evals',
   'test:memory-embeddings',
@@ -88,4 +89,4 @@ if (process.platform === 'win32') {
   assert.notEqual(probe.status, 0, 'PowerShell fail-fast probe swallowed an intermediate native command failure.');
 }
 
-console.log('ATHENA_CI_WORKFLOWS_OK failFast=native protectedSteps=10 criticalRegressions=5 liveSecrets=excluded');
+console.log('ATHENA_CI_WORKFLOWS_OK failFast=native protectedSteps=10 criticalRegressions=6 liveSecrets=excluded');

@@ -2,7 +2,7 @@ import { app, safeStorage } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
 import { networkInterfaces } from 'os';
-import { getAppSettings, saveSettingsBundle } from '../config/SettingsStore';
+import { getAppSettings, getCloudSyncSettingsRevision, saveSettingsBundle } from '../config/SettingsStore';
 import { canUseNetworkCapability } from '../privacy/PrivacyDataService';
 import { createChatWindow, deleteChatWindow, getChatWindow, getChatWindowMessages, listChatWindows, saveChatMessage } from '../../memory';
 import { deleteMemory, listMemories, upsertSyncedMemory, type MemoryKind } from '../../memory/admin';
@@ -54,6 +54,7 @@ interface StoredSession {
 }
 
 let lastError: string | null = null;
+let sessionGeneration = 0;
 
 export function getCloudAccountStatus(): CloudSessionStatus {
   const appSettings = getAppSettings();
@@ -83,11 +84,14 @@ export async function refreshCloudAccountStatus(): Promise<CloudSessionStatus> {
   const client = createClientFromSession();
   const session = readSession();
   if (!client || !session) return getCloudAccountStatus();
+  const generation = sessionGeneration;
   try {
     // Sequential on purpose: if the access token expired, the first call rotates
     // the one-time refresh token before the second call starts.
     const account = await client.account();
+    if (!sameCurrentSession(session, generation)) return getCloudAccountStatus();
     const deviceBody = await client.listDevices();
+    if (!sameCurrentSession(session, generation)) return getCloudAccountStatus();
     const devices = Array.isArray(deviceBody.devices)
       ? deviceBody.devices.filter(isRecord).map(device => ({
         id: String(device.id || ''),
@@ -110,13 +114,16 @@ export async function refreshCloudAccountStatus(): Promise<CloudSessionStatus> {
     });
     lastError = null;
   } catch (error) {
-    if (isSessionEnded(error)) writeSession(null);
-    lastError = error instanceof Error ? error.message : String(error);
+    if (sameCurrentSession(session, generation)) {
+      if (isSessionEnded(error)) writeSession(null);
+      lastError = error instanceof Error ? error.message : String(error);
+    }
   }
   return getCloudAccountStatus();
 }
 
 export async function registerCloudAccount(input: { tenantName: string; email: string; password: string }): Promise<CloudSessionStatus> {
+  const generation = ++sessionGeneration;
   const client = createClient();
   const settings = getAppSettings().cloud;
   const body = await client.register({
@@ -125,12 +132,13 @@ export async function registerCloudAccount(input: { tenantName: string; email: s
     password: input.password,
     deviceName: settings.deviceName || 'Athena Desktop',
   });
+  if (generation !== sessionGeneration) return getCloudAccountStatus();
   persistSession(client, input.email, body);
   saveSettingsBundle({
     settings: {
       cloud: {
         ...settings,
-        syncEnabled: settings.mergeReviewedAccount === normalizeAccountEmail(input.email) && settings.syncEnabled,
+        syncEnabled: false,
         email: input.email.trim(),
         tenantId: String(body.tenantId || ''),
       },
@@ -146,6 +154,7 @@ export async function loginCloudAccount(input: {
   mfaCode?: string | null;
   recoveryCode?: string | null;
 }): Promise<CloudSessionStatus> {
+  const generation = ++sessionGeneration;
   const client = createClient();
   const settings = getAppSettings().cloud;
   const body = await client.login({
@@ -155,12 +164,13 @@ export async function loginCloudAccount(input: {
     recoveryCode: input.recoveryCode || null,
     deviceName: settings.deviceName || 'Athena Desktop',
   });
+  if (generation !== sessionGeneration) return getCloudAccountStatus();
   persistSession(client, input.email, body);
   saveSettingsBundle({
     settings: {
       cloud: {
         ...settings,
-        syncEnabled: settings.mergeReviewedAccount === normalizeAccountEmail(input.email) && settings.syncEnabled,
+        syncEnabled: false,
         email: input.email.trim(),
         tenantId: String(body.tenantId || client.session.tenantId || ''),
       },
@@ -172,9 +182,12 @@ export async function loginCloudAccount(input: {
 
 export async function logoutCloudAccount(): Promise<CloudSessionStatus> {
   const client = createClientFromSession();
+  const generation = ++sessionGeneration;
+  saveSettingsBundle({ settings: { cloud: { syncEnabled: false } } });
   if (client) {
     try { await client.logout(); } catch { /* still clear local session */ }
   }
+  if (generation !== sessionGeneration) return getCloudAccountStatus();
   writeSession(null);
   lastError = null;
   return getCloudAccountStatus();
@@ -183,7 +196,9 @@ export async function logoutCloudAccount(): Promise<CloudSessionStatus> {
 export async function deleteCloudAccount(): Promise<CloudSessionStatus> {
   const client = createClientFromSession();
   if (!client) throw new CloudProtocolError(401, 'invalid-session', '尚未登录 Athena 账号。');
+  const generation = ++sessionGeneration;
   await client.deleteAccount();
+  if (generation !== sessionGeneration) return getCloudAccountStatus();
   const settings = getAppSettings().cloud;
   writeSession(null);
   saveSettingsBundle({
@@ -320,11 +335,26 @@ export async function syncCloudAccountNow(
   }
   const categories = cloudSettings.syncCategories;
   const categoriesKey = JSON.stringify(categories);
+  const settingsRevision = getCloudSyncSettingsRevision();
+  const generation = sessionGeneration;
+  const assertSyncCurrent = (): void => {
+    if (!sameCurrentSession(session, generation)) {
+      throw new CloudProtocolError(409, 'sync-session-changed', '账号会话已改变，本轮同步已停止；本机数据仍保留。');
+    }
+    const current = getAppSettings().cloud;
+    if (getCloudSyncSettingsRevision() !== settingsRevision
+      || !current.syncEnabled || !canUseNetworkCapability('cloudSync')
+      || current.mergeReviewedAccount !== normalizeAccountEmail(session.email)
+      || JSON.stringify(current.syncCategories) !== categoriesKey) {
+      throw new CloudProtocolError(409, 'sync-settings-changed', '同步选择已改变，本轮同步已停止；请按当前选择重新同步。');
+    }
+  };
 
   const imported = { ...session.imported };
   const importedMemoryKinds = { ...(session.importedMemoryKinds || {}) };
   const vectors = { ...(session.vectors || {}) };
-  const pulled = await pullAllChanges(client, session.syncCategoriesKey === categoriesKey ? session.cursor : null);
+  const pulled = await pullAllChanges(client, session.syncCategoriesKey === categoriesKey ? session.cursor : null, assertSyncCurrent);
+  assertSyncCurrent();
   // Preference records are whole-value settings, not append-only histories.
   // Without a durable local dirty marker, a difference can never be assumed
   // safe to overwrite in either direction, even after the first sync.
@@ -454,7 +484,9 @@ export async function syncCloudAccountNow(
     ...session,
     accessToken: client.session.accessToken || session.accessToken,
     refreshToken: client.session.refreshToken || session.refreshToken,
-    lastSyncAt: new Date().toISOString(),
+    // The pull can finish while a later upload fails or is withdrawn. Only a
+    // fully completed round advances the visible last-success timestamp.
+    lastSyncAt: session.lastSyncAt,
     cursor: pulled.nextCursor,
     imported,
     importedMemoryKinds,
@@ -464,7 +496,8 @@ export async function syncCloudAccountNow(
   // Preserve the pulled vectors even if a device races this one during the
   // following push. Without this, the next sync repeats an empty-base write.
   writeSession(updatedSession);
-  await pushLocalState(client, imported, importedMemoryKinds, vectors, skipPreferencePush);
+  await pushLocalState(client, imported, importedMemoryKinds, vectors, skipPreferencePush, assertSyncCurrent);
+  assertSyncCurrent();
   writeSession({
     ...updatedSession,
     accessToken: client.session.accessToken || updatedSession.accessToken,
@@ -488,11 +521,14 @@ export function queueCloudWindowSync(windowId: number): void {
 async function pullAllChanges(
   client: CloudProtocol,
   initialCursor: string | null,
+  assertSyncCurrent: () => void,
 ): Promise<{ records: Record<string, unknown>[]; nextCursor: string | null }> {
   const records: Record<string, unknown>[] = [];
   let cursor = initialCursor;
   while (true) {
+    assertSyncCurrent();
     const page = await client.listChanges(cursor, 100);
+    assertSyncCurrent();
     const pageRecords = Array.isArray(page.records) ? page.records.filter(isRecord) : [];
     records.push(...pageRecords);
     const next = typeof page.nextCursor === 'string' && page.nextCursor ? page.nextCursor : cursor;
@@ -567,8 +603,15 @@ async function pushLocalState(
   imported: Record<string, number>,
   importedMemoryKinds: Record<string, MemoryKind>,
   vectors: Record<string, Record<string, number>>,
-  skipPreferencePush: ReadonlySet<string> = new Set(),
+  skipPreferencePush: ReadonlySet<string>,
+  assertSyncCurrent: () => void,
 ): Promise<void> {
+  const putCurrentRecord = async (record: Record<string, unknown>): Promise<Record<string, unknown>> => {
+    assertSyncCurrent();
+    const result = await client.putRecord(record);
+    assertSyncCurrent();
+    return result;
+  };
   const categories = getAppSettings().cloud.syncCategories;
   // windowId -> the record it belongs to. A window adopted from another client
   // keeps writing to that client's record; pushing it under a desktop id would
@@ -596,7 +639,7 @@ async function pushLocalState(
       // pushing an empty conversation would only create a record of its existence.
       if (payload.turns.length === 0) continue;
       const resourceId = adopted.get(window.id) || conversationResourceId(window.id);
-      const first = await client.putRecord({
+      const first = await putCurrentRecord({
         resourceId,
         resourceType: 'conversation',
         schemaVersion: 1,
@@ -622,14 +665,14 @@ async function pushLocalState(
   if (categories.reminders) {
     for (const job of listSyncableReminders()) {
       const resourceId = reminderResourceId(job.id);
-      const result = await client.putRecord({
+      const result = await putCurrentRecord({
         resourceId,
         resourceType: 'reminder',
         schemaVersion: 1,
         baseVector: vectors[resourceId] || {},
         payload: toReminderPayload(job),
         deleted: false,
-      }).catch(() => undefined);
+      });
       if (result?.outcome === 'conflict') conflicted.push(job.title || resourceId);
       else if (result) rememberAcceptedVector(vectors, resourceId, result);
     }
@@ -639,14 +682,14 @@ async function pushLocalState(
     const memories = listMemories({ kind: 'all', limit: 200 });
     for (const item of memories.items.filter(item => item.kind !== 'message')) {
       const resourceId = adoptedMemories.get(`${item.kind}:${item.id}`) || memoryResourceId(item.kind, item.id);
-      const result = await client.putRecord({
+      const result = await putCurrentRecord({
         resourceId,
         resourceType: 'memory',
         schemaVersion: 1,
         baseVector: vectors[resourceId] || {},
         payload: toMemoryPayload(item),
         deleted: false,
-      }).catch(() => undefined);
+      });
       if (result?.outcome === 'conflict') conflicted.push(item.title || resourceId);
       else if (result) rememberAcceptedVector(vectors, resourceId, result);
     }
@@ -655,14 +698,14 @@ async function pushLocalState(
   if (categories.persona) {
     const resourceId = 'preference.persona';
     if (!skipPreferencePush.has(resourceId)) {
-      const result = await client.putRecord({
+      const result = await putCurrentRecord({
         resourceId,
         resourceType: 'preference',
         schemaVersion: 1,
         baseVector: vectors[resourceId] || {},
         payload: personaPreferencePayload(),
         deleted: false,
-      }).catch(() => undefined);
+      });
       if (result?.outcome === 'conflict') conflicted.push('人格卡');
       else if (result) rememberAcceptedVector(vectors, resourceId, result);
     }
@@ -671,14 +714,14 @@ async function pushLocalState(
   if (categories.adultMode) {
     const resourceId = 'preference.adult-mode';
     if (!skipPreferencePush.has(resourceId)) {
-      const result = await client.putRecord({
+      const result = await putCurrentRecord({
         resourceId,
         resourceType: 'preference',
         schemaVersion: 1,
         baseVector: vectors[resourceId] || {},
         payload: adultModePreferencePayload(),
         deleted: false,
-      }).catch(() => undefined);
+      });
       if (result?.outcome === 'conflict') conflicted.push('成年模式状态');
       else if (result) rememberAcceptedVector(vectors, resourceId, result);
     }
@@ -687,14 +730,14 @@ async function pushLocalState(
   if (categories.backgroundImage) {
     const resourceId = BACKGROUND_RESOURCE_ID;
     if (!skipPreferencePush.has(resourceId)) {
-      const result = await client.putRecord({
+      const result = await putCurrentRecord({
         resourceId,
         resourceType: 'preference',
         schemaVersion: 1,
         baseVector: vectors[resourceId] || {},
         payload: desktopBackgroundPayload(),
         deleted: false,
-      }).catch(() => undefined);
+      });
       if (result?.outcome === 'conflict') conflicted.push('背景图');
       else if (result) rememberAcceptedVector(vectors, resourceId, result);
     }
@@ -703,14 +746,14 @@ async function pushLocalState(
   if (categories.preferences) {
     const resourceId = 'preference.settings';
     if (!skipPreferencePush.has(resourceId)) {
-      const result = await client.putRecord({
+      const result = await putCurrentRecord({
         resourceId,
         resourceType: 'preference',
         schemaVersion: 1,
         baseVector: vectors[resourceId] || {},
         payload: settingsPreferencePayload(),
         deleted: false,
-      }).catch(() => undefined);
+      });
       if (result?.outcome === 'conflict') conflicted.push('互动偏好');
       else if (result) rememberAcceptedVector(vectors, resourceId, result);
     }
@@ -912,6 +955,7 @@ function createClient(): CloudProtocol {
 function createClientFromSession(): CloudProtocol | null {
   const session = readSession();
   if (!session) return null;
+  const generation = sessionGeneration;
   // Never move a bearer token just because the current endpoint setting was
   // edited. New sessions remember their issuer; legacy sessions use the
   // current resolved endpoint once and become bound on the next token write.
@@ -928,7 +972,7 @@ function createClientFromSession(): CloudProtocol | null {
   };
   client.onTokensRotated = rotated => {
     const current = readSession();
-    if (!current) return;
+    if (!current || !sameCurrentSession(session, generation)) return;
     writeSession({
       ...current,
       accessToken: rotated.accessToken || current.accessToken,
@@ -942,6 +986,7 @@ function createClientFromSession(): CloudProtocol | null {
 }
 
 function persistSession(client: CloudProtocol, email: string, body: Record<string, unknown>): void {
+  sessionGeneration++;
   writeSession({
     version: 1,
     baseUrl: client.baseUrl,
@@ -985,6 +1030,7 @@ function writeSession(session: StoredSession | null): void {
   if (!filePath) return;
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   if (!session) {
+    sessionGeneration++;
     if (fs.existsSync(filePath)) fs.rmSync(filePath, { force: true });
     return;
   }
@@ -993,6 +1039,13 @@ function writeSession(session: StoredSession | null): void {
     version: 1,
     blob: safeStorage.encryptString(JSON.stringify(session)).toString('base64'),
   }, null, 2));
+}
+
+function sameCurrentSession(expected: StoredSession, generation: number): boolean {
+  const current = readSession();
+  return generation === sessionGeneration && Boolean(current)
+    && current!.tenantId === expected.tenantId && current!.userId === expected.userId
+    && current!.deviceId === expected.deviceId && current!.baseUrl === expected.baseUrl;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

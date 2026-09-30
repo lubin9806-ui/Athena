@@ -269,6 +269,24 @@ const IMAGE_LOCAL_PROFILES = new Set<LocalImageProfile>(['fast', 'balanced', 'qu
 const IMAGE_CLOUD_FALLBACKS = new Set<ImageCloudFallback>(['never', 'ask']);
 export const TOOL_PERMISSION_RANK: Record<ToolPermissionLevel, number> = { off: 0, read: 1, files: 2, full: 3 };
 
+let cloudSyncSettingsRevision = 0;
+
+/** Includes an off/on round trip, which equality with the final settings misses. */
+export function getCloudSyncSettingsRevision(): number {
+  return cloudSyncSettingsRevision;
+}
+
+function cloudSyncPolicyKey(settings: AppSettings): string {
+  return JSON.stringify([
+    settings.developerMode,
+    settings.cloud.baseUrl,
+    settings.cloud.syncEnabled,
+    settings.cloud.syncCategories,
+    settings.cloud.mergeReviewedAccount,
+    settings.privacy.networkConsent.cloudSync,
+  ]);
+}
+
 export function getSettingsBundle(): SettingsBundle {
   const settings = loadAppSettings();
   const persona = resolvePersonaCardWithSource(settings.profile);
@@ -294,6 +312,7 @@ export function saveSettingsBundle(patch: SettingsPatch): SettingsBundle {
   // Unpackaged Electron writes overlays so tracked config stays at shipping
   // defaults. Isolated tests and packaged userData still write the plain files.
   writeJson(resolveLocalConfigOverlayPath('settings.json') || configPath('settings.json'), next.settings);
+  if (cloudSyncPolicyKey(current.settings) !== cloudSyncPolicyKey(next.settings)) cloudSyncSettingsRevision++;
   writeJson(resolveLocalConfigOverlayPath('model.json') || configPath('model.json'), next.model);
   return next;
 }

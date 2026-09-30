@@ -56,6 +56,7 @@ jobs:
         shell: pwsh
         run: |
           $PSNativeCommandUseErrorActionPreference = $true
+          npm.cmd run test:cloud-sync-boundaries
           npm.cmd run test:chat-windows
           npm.cmd run test:chat-handoff
           npm.cmd run test:memory-recall-evals
