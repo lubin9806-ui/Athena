@@ -102,6 +102,10 @@ async function assertOnlySelectedRecords() {
     await app.whenReady();
     assert(safeStorage.isEncryptionAvailable(), 'Real Windows encrypted session store is required');
     assert.equal(device(['get-state']).trim(), 'device');
+    assert.equal(device(['shell', 'getprop', 'ro.product.model']).trim(), 'PKT110', 'This evidence harness targets the OPPO test phone');
+    assert.equal(device(['shell', 'settings', 'get', 'global', 'wifi_on']).trim(), '0', '5G acceptance requires Wi-Fi disabled');
+    assert.equal(device(['shell', 'settings', 'get', 'global', 'airplane_mode_on']).trim(), '0');
+    assert(device(['shell', 'dumpsys', 'connectivity']).includes('MOBILE[NR]'), 'Mobile NR must be reported; full connectivity logs are never printed');
     assert.match(device(['shell', 'pm', 'path', packageName]), /package:/);
     assert.match(device(['shell', 'pm', 'path', `${packageName}.test`]), /package:/);
     const { CloudProtocol } = require(path.join(root, 'dist/core/cloud/CloudProtocol.js'));

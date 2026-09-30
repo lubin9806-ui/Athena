@@ -1,7 +1,7 @@
 # 两端同步开关与会话边界 · 2026-09-30
 
-本轮结论：手机端真机控件验收、桌面端同步竞态专项、桌面真实 staging 链路通过。
-范围仍是工程 staging，不是生产、签名 release 或完整两台客户端互通的发布证明。
+本轮结论：手机端真机控件验收、桌面端同步竞态专项、桌面真实 staging 链路、两端真实往返及手机 force-stop 恢复通过。
+范围仍是工程 staging，不是生产、签名 release、干净设备安装或完整后台恢复的发布证明。
 
 ## Android
 
@@ -123,24 +123,43 @@ ATHENA_PACKAGED_SMOKE_OK markers=ready-to-show,dom
 Render 配置为手动部署；本轮浏览器控制连续超时，没有成功触发部署。
 在新提交实际上线且重新通过包内账号验收之前，线上修复状态仍为待验证。
 
-## 两端真实往返与进程恢复：工具准备完成，尚未执行
+## 两端真实往返与进程恢复：实际通过
 
 协调脚本：`docs/cloud/verify-cross-device-staging.cjs`。
-Android 端：`CrossDeviceStagingAcceptanceTest`，已编译测试 APK。
+Android 端：`CrossDeviceStagingAcceptanceTest`，测试代码提交 `26c79ea`，已编译并安装测试 APK。
 
 脚本先检查 USB 真机、debug 应用与测试 APK，再创建一个自己的随机 staging 账号。
 桌面使用真实 Electron、Windows safeStorage、CloudAccountService 与隔离 profile；
 手机使用 MainActivity 的实际 ViewModel、Android Keystore 与加密本机存储。
 仅通过 USB 下发临时随机测试凭据，所有账号/同步请求仍走 HTTPS，不代理手机 5G。
 
-计划检查桌面暖色背景/成年开 → 手机显式选择 → 手机绿色背景/成年关 → 桌面显式选择 →
+实际检查桌面暖色背景/成年开 → 手机显式选择 → 手机绿色背景/成年关 → 桌面显式选择 →
 桌面蓝色背景/成年开 → force-stop 手机 → 从本机加密存储恢复 → 显式选择账号版本。
 非所选的对话和人格名称使用本机 sentinel；最终云端只允许背景与成年模式两个资源，
 检查图片接收不反向产生无意的 re-encode 上传。各路径有账号加密擦除与临时凭据清理。
 
-本轮启动协调脚本时 USB 设备为 0，ADB reconnect 后仍为 0；脚本在创建账号前失败，
-只删除自己的空隔离 profile。因此不得声称两台客户端真实往返或 force-stop 恢复已通过。
-手机再次连接后，先安装最新测试 APK，再运行：
+首次启动时 USB 设备为 0，脚本在创建账号前被预条件阻止，自己的空隔离 profile 已清理。
+用户重新连接手机后，确认 PKT110、Wi-Fi 关闭、飞行模式关闭和 MOBILE[NR]，
+安装最新测试 APK 并完成实际往返。协调脚本也加入这四项网络/设备前置断言。
+
+```text
+ATHENA_CROSS_DESKTOP_PUBLISH_OK firstLogin=explicit categories=background-adult-only
+ATHENA_CROSS_PHONE_PUBLISH_OK desktopToPhone=verified phoneToCloud=verified firstLogin=explicit conflict=explicit local=preserved
+ATHENA_CROSS_DESKTOP_RECEIVE_OK phoneToDesktop=verified conflict=explicit local=preserved imageEcho=absent
+ATHENA_CROSS_PHONE_RESTORE_OK session=keystore-restored local=encrypted-restored conflict=explicit desktopToPhone=verified pairing=unchanged
+ATHENA_CROSS_DEVICE_STAGING_OK desktop=Electron phone=OPPO-5G roundTrip=verified restart=force-stop-restored background=verified adultMode=verified categories=independent
+ATHENA_CROSS_ACCOUNT_CLEANUP_OK account=deleted cryptographicErase=true
+ATHENA_CROSS_PROFILE_CLEANUP_OK credentials=removed profile=removed
+```
+
+手机 publish、restore、cleanup 三阶段各为 `OK (1 test)`，耗时分别 8.842、5.155、0.02 秒。
+ADB force-stop 后 pidof 为空，随后启动真实 MainActivity；启动前读取 Keystore 会话与加密本机副本，
+启动后仍需显式处理两项账号版本冲突。测试 debug 状态重置并 force-stop，临时凭据文件删除，
+随机账号加密擦除、桌面隔离 profile 删除。仅归档脱敏标记，不归档密码、序列号或完整手机日志。
+此项使用源码编译的 Electron 服务，不冒充包内往返；证明手机强制终止后的恢复，
+不泛化为系统回收、后台调度或桌面进程重启。
+
+复现：
 
 ```powershell
 cd G:\Athena
@@ -150,4 +169,4 @@ npm.cmd run typecheck
 ```
 
 执行前确认测试 debug 应用中没有需要保留的数据。上述 tsc 命令编译 dist，typecheck 单独不输出 JavaScript。
-本轮编译 APK 与协调脚本语法检查通过，仅属于准备证据。
+debug 主 APK 仍为上述 BE0E4B24... 版本；新增手机代码只属于 androidTest 测试包。
