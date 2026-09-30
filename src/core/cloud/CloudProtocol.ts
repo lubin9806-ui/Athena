@@ -25,6 +25,7 @@ const REQUEST_TIMEOUT_MS = 20_000;
 const SESSION_CODES = new Set(['session-expired', 'refresh-expired', 'invalid-refresh', 'invalid-session', 'authentication-required']);
 
 export class CloudProtocol {
+  private refreshInFlight: Promise<void> | null = null;
   session: CloudProtocolSession = {
     accessToken: null,
     refreshToken: null,
@@ -149,6 +150,7 @@ export class CloudProtocol {
       accept: 'application/json',
       'x-request-id': randomBytes(12).toString('hex'),
     };
+    const attemptedAccessToken = this.session.accessToken;
     if (options.json) headers['content-type'] = 'application/json';
     if (options.auth !== false) {
       if (!this.session.accessToken) throw new CloudProtocolError(401, 'invalid-session', '尚未登录 Athena 账号。');
@@ -173,7 +175,10 @@ export class CloudProtocol {
     if (response.status === 409 && parsed.outcome === 'conflict') return parsed;
     const code = String(parsed.title || parsed.code || 'http-error');
     if (response.status === 401 && code === 'session-expired' && !retried && this.session.refreshToken) {
-      await this.refresh();
+      // Another request may already have rotated the shared client's tokens
+      // while this older 401 was in transit. Never consume the new refresh
+      // token for a request sent with the old access token.
+      if (attemptedAccessToken === this.session.accessToken) await this.refresh();
       return this.request(method, path, options, true);
     }
     if (!response.ok) {
@@ -183,6 +188,17 @@ export class CloudProtocol {
   }
 
   private async refresh(): Promise<void> {
+    if (this.refreshInFlight) return this.refreshInFlight;
+    const operation = this.refreshTokens();
+    this.refreshInFlight = operation;
+    try {
+      await operation;
+    } finally {
+      if (this.refreshInFlight === operation) this.refreshInFlight = null;
+    }
+  }
+
+  private async refreshTokens(): Promise<void> {
     let body: Record<string, unknown>;
     try {
       body = await this.request('POST', '/v1/auth/refresh', {

@@ -65,5 +65,18 @@ CI 配置本地通过不等于远端 CI 已运行。
 
 ## 后续证据
 
-继续验证并发同步、过期会话刷新、进程重启，以及桌面和手机同一账号的真实往返。
+追加的两项并发检查已经通过：
+
+```text
+PASS overlapping-status-sync-share-single-refresh
+PASS queued-sync-is-serialized-and-withdrawn
+ATHENA_DESKTOP_SYNC_BOUNDARIES_OK cases=12 encryptedSession=real localData=isolated network=loopback
+```
+
+修复前，同时过期的状态查询与同步会重复使用一次性 refresh token，结束有效会话。
+现在同一会话共用协议客户端，刷新过程 single-flight；迟到的旧 401 直接使用已经更新的 access token。
+同步轮次串行，队列等待期间改变选择的旧任务不会再发送请求。
+状态刷新保存最新的同步元数据，不把旧的导入映射覆盖回去。
+
+继续验证进程重启，以及桌面和手机同一账号的真实往返。
 本轮桌面源码修改尚未取得重新打包后的独立运行证据；此前包验收不能替代本次新代码的包证明。

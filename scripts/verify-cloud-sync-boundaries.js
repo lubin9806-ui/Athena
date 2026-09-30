@@ -21,6 +21,9 @@ let held = null;
 let writes = [];
 let fixtureServer;
 let fixtureLogin = 0;
+let expireFixtureTokens = false;
+let refreshRequests = 0;
+let changeRequests = 0;
 const email = 'sync-boundaries@example.test';
 const tenantId = `ten_${'1'.repeat(32)}`;
 
@@ -65,7 +68,18 @@ async function main() {
       const route = `${req.method} ${req.url}`;
       let body;
       let statusCode = 200;
-      if (route === 'POST /v1/auth/login') {
+      if (expireFixtureTokens && route === 'POST /v1/auth/refresh') {
+        refreshRequests++;
+        if (refreshRequests > 1) {
+          statusCode = 401;
+          body = { title: 'invalid-refresh' };
+        } else {
+          body = { accessToken: 'b'.repeat(64), refreshToken: 's'.repeat(64) };
+        }
+      } else if (expireFixtureTokens && route.startsWith('GET ') && req.headers.authorization === `Bearer ${'a'.repeat(64)}`) {
+        statusCode = 401;
+        body = { title: 'session-expired' };
+      } else if (route === 'POST /v1/auth/login') {
         fixtureLogin++;
         body = {
           accessToken: 'a'.repeat(64), refreshToken: 'r'.repeat(64), tenantId,
@@ -76,6 +90,7 @@ async function main() {
       } else if (route === 'GET /v1/devices') {
         body = { devices: [] };
       } else if (route.startsWith('GET /v1/sync/changes')) {
+        changeRequests++;
         body = { records: [], nextCursor: null };
       } else if (route.startsWith('PUT /v1/sync/records/')) {
         writes.push(decodeURIComponent(req.url.split('/').pop()));
@@ -124,6 +139,7 @@ async function main() {
     await service.loginCloudAccount({ email, password: 'fixture-only-password' });
     patch({ syncEnabled: true });
     writes = [];
+    changeRequests = 0;
   }
   async function interruptedPull(label, mutate) {
     await prepare();
@@ -204,12 +220,39 @@ async function main() {
   console.log('PASS logout-and-manual-login-keep-sync-off');
 
   await prepare();
+  expireFixtureTokens = true;
+  refreshRequests = 0;
+  const concurrent = await Promise.all([
+    service.refreshCloudAccountStatus(),
+    service.syncCloudAccountNow(),
+  ]);
+  expireFixtureTokens = false;
+  assert.equal(refreshRequests, 1, 'overlapping status/sync must not spend a one-time refresh token twice');
+  assert.ok(concurrent.every(status => status.signedIn));
+  assert.equal(service.getCloudAccountStatus().signedIn, true);
+  console.log('PASS overlapping-status-sync-share-single-refresh');
+
+  await prepare();
+  const firstGate = deferResponse('GET /v1/sync/changes', feed);
+  const firstSync = service.syncCloudAccountNow('cloud');
+  const firstRejected = assert.rejects(firstSync, error => error.code === 'sync-settings-changed');
+  await waitForRequest(firstGate);
+  const nextSync = service.syncCloudAccountNow('cloud');
+  const nextRejected = assert.rejects(nextSync, error => error.code === 'sync-settings-changed');
+  patch({ syncEnabled: false });
+  firstGate.release();
+  await Promise.all([firstRejected, nextRejected]);
+  assert.equal(changeRequests, 1, 'the queued stale round must not issue a second feed request');
+  assert.deepEqual(writes, []);
+  console.log('PASS queued-sync-is-serialized-and-withdrawn');
+
+  await prepare();
   const healthy = await service.syncCloudAccountNow();
   assert.equal(healthy.signedIn, true);
   assert.equal(healthy.syncEnabled, true);
   assert.deepEqual(writes, ['preference.adult-mode']);
   await service.logoutCloudAccount();
-  console.log('ATHENA_DESKTOP_SYNC_BOUNDARIES_OK cases=10 encryptedSession=real localData=isolated network=loopback');
+  console.log('ATHENA_DESKTOP_SYNC_BOUNDARIES_OK cases=12 encryptedSession=real localData=isolated network=loopback');
 }
 
 (async () => {

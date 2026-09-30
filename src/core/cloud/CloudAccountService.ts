@@ -55,6 +55,8 @@ interface StoredSession {
 
 let lastError: string | null = null;
 let sessionGeneration = 0;
+let cachedSessionClient: { generation: number; identity: string; client: CloudProtocol } | null = null;
+let syncQueue: Promise<void> = Promise.resolve();
 
 export function getCloudAccountStatus(): CloudSessionStatus {
   const appSettings = getAppSettings();
@@ -101,7 +103,7 @@ export async function refreshCloudAccountStatus(): Promise<CloudSessionStatus> {
       })).filter(device => device.id)
       : [];
     writeSession({
-      ...session,
+      ...readSession()!,
       accessToken: client.session.accessToken || session.accessToken,
       refreshToken: client.session.refreshToken || session.refreshToken,
       tenantId: String(account.tenantId || session.tenantId),
@@ -137,7 +139,7 @@ export async function registerCloudAccount(input: { tenantName: string; email: s
   saveSettingsBundle({
     settings: {
       cloud: {
-        ...settings,
+        ...getAppSettings().cloud,
         syncEnabled: false,
         email: input.email.trim(),
         tenantId: String(body.tenantId || ''),
@@ -169,7 +171,7 @@ export async function loginCloudAccount(input: {
   saveSettingsBundle({
     settings: {
       cloud: {
-        ...settings,
+        ...getAppSettings().cloud,
         syncEnabled: false,
         email: input.email.trim(),
         tenantId: String(body.tenantId || client.session.tenantId || ''),
@@ -317,6 +319,28 @@ function isPrivateIpv4(host: string): boolean {
 }
 
 export async function syncCloudAccountNow(
+  mergeConflictChoice?: 'local' | 'cloud',
+): Promise<CloudSessionStatus> {
+  const settingsRevision = getCloudSyncSettingsRevision();
+  const generation = sessionGeneration;
+  const previous = syncQueue;
+  let release!: () => void;
+  syncQueue = new Promise<void>(resolve => { release = resolve; });
+  try {
+    await previous;
+    if (generation !== sessionGeneration) {
+      throw new CloudProtocolError(409, 'sync-session-changed', '账号会话已改变，排队中的同步已停止。');
+    }
+    if (settingsRevision !== getCloudSyncSettingsRevision()) {
+      throw new CloudProtocolError(409, 'sync-settings-changed', '同步选择已改变，排队中的同步已停止。');
+    }
+    return await runCloudAccountSync(mergeConflictChoice);
+  } finally {
+    release();
+  }
+}
+
+async function runCloudAccountSync(
   mergeConflictChoice?: 'local' | 'cloud',
 ): Promise<CloudSessionStatus> {
   if (!canUseNetworkCapability('cloudSync')) {
@@ -481,7 +505,7 @@ export async function syncCloudAccountNow(
     if (windowId) imported[resourceId] = windowId;
   }
   const updatedSession: StoredSession = {
-    ...session,
+    ...(readSession() || session),
     accessToken: client.session.accessToken || session.accessToken,
     refreshToken: client.session.refreshToken || session.refreshToken,
     // The pull can finish while a later upload fails or is withdrawn. Only a
@@ -953,16 +977,23 @@ function createClient(): CloudProtocol {
 }
 
 function createClientFromSession(): CloudProtocol | null {
-  const session = readSession();
+  let session = readSession();
   if (!session) return null;
   const generation = sessionGeneration;
+  const identity = JSON.stringify([session.baseUrl, session.tenantId, session.userId, session.deviceId]);
+  if (cachedSessionClient?.generation === generation && cachedSessionClient.identity === identity) {
+    return cachedSessionClient.client;
+  }
   // Never move a bearer token just because the current endpoint setting was
   // edited. New sessions remember their issuer; legacy sessions use the
   // current resolved endpoint once and become bound on the next token write.
   const client = session.baseUrl
     ? new CloudProtocol(CloudProtocol.assertBaseUrl(session.baseUrl), 'desktop')
     : createClient();
-  if (!session.baseUrl) writeSession({ ...session, baseUrl: client.baseUrl });
+  if (!session.baseUrl) {
+    session = { ...session, baseUrl: client.baseUrl };
+    writeSession(session);
+  }
   client.session = {
     accessToken: session.accessToken,
     refreshToken: session.refreshToken,
@@ -972,7 +1003,7 @@ function createClientFromSession(): CloudProtocol | null {
   };
   client.onTokensRotated = rotated => {
     const current = readSession();
-    if (!current || !sameCurrentSession(session, generation)) return;
+    if (!current || !sameCurrentSession(session!, generation)) return;
     writeSession({
       ...current,
       accessToken: rotated.accessToken || current.accessToken,
@@ -981,6 +1012,11 @@ function createClientFromSession(): CloudProtocol | null {
       userId: rotated.userId || current.userId,
       deviceId: rotated.deviceId || current.deviceId,
     });
+  };
+  cachedSessionClient = {
+    generation,
+    identity: JSON.stringify([session.baseUrl, session.tenantId, session.userId, session.deviceId]),
+    client,
   };
   return client;
 }
