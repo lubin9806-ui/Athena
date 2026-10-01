@@ -41,6 +41,7 @@ interface DisposableAccount {
   seedDeviceId: string;
   email: string;
   password: string;
+  deleted?: boolean;
 }
 
 interface StoredSession {
@@ -76,6 +77,7 @@ export async function runAccountRuntimeAcceptance(
 
   let disposable: DisposableAccount | null = null;
   let accountDeleted = false;
+  let primaryFailure: unknown = null;
   try {
     if (selfSeed) {
       disposable = await seedDisposableAccount(baseUrl);
@@ -201,6 +203,9 @@ export async function runAccountRuntimeAcceptance(
       adultMode: getAppSettings().conversation.adultModeEnabled,
       cleanup: disposable ? 'cryptographic-erase' : 'not-requested',
     };
+  } catch (error) {
+    primaryFailure = error;
+    throw error;
   } finally {
     if (disposable && !accountDeleted) {
       try {
@@ -208,7 +213,8 @@ export async function runAccountRuntimeAcceptance(
         console.log('ATHENA_ACCOUNT_RUNTIME_CLEANUP_OK cleanup=cryptographic-erase');
       } catch (error) {
         console.error('Disposable staging account cleanup failed.', error);
-        throw error;
+        // Cleanup diagnostics must not replace the failed acceptance assertion.
+        if (!primaryFailure) throw error;
       }
     }
   }
@@ -346,14 +352,20 @@ async function putSeedRecord(baseUrl: string, accessToken: string, record: JsonR
 }
 
 async function deleteDisposableAccount(baseUrl: string, disposable: DisposableAccount): Promise<void> {
+  // Once the server confirmed cryptographic erasure, its old session is invalid.
+  // Do not submit DELETE again if the following negative-session probe fails.
+  if (disposable.deleted) return;
   const deletion = await jsonRequest(baseUrl, '/v1/account', {
     method: 'DELETE',
     headers: bearer(disposable.accessToken),
     body: { confirmation: `DELETE ${disposable.tenantId}` },
   });
-  assert.equal(deletion.response.status, 200, `disposable account deletion returned HTTP ${deletion.response.status}`);
+  assert.equal(deletion.response.status, 200,
+    `disposable account deletion returned HTTP ${deletion.response.status} (${String(deletion.body.title || 'unknown')})`);
   assert.equal(deletion.body.status, 'complete');
   assert.equal(deletion.body.cryptographicErase, true);
+  disposable.deleted = true;
+  console.log('ATHENA_ACCOUNT_RUNTIME_ERASE_OK cleanup=cryptographic-erase');
   const rejected = await jsonRequest(baseUrl, '/v1/account', {
     headers: bearer(disposable.accessToken),
   });
@@ -379,6 +391,7 @@ async function jsonRequest(
     method: options.method,
     headers,
     body: options.body ? JSON.stringify(options.body) : undefined,
+    signal: AbortSignal.timeout(20_000),
   });
   const text = await response.text();
   let body: JsonRecord = {};

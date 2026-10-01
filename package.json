@@ -117,6 +117,7 @@
     "test:diagnostics": "tsc && electron scripts/verify-diagnostics.js",
     "test:cloud-sync": "tsc && node scripts/verify-desktop-cloud-sync.js",
     "test:cloud-sync-boundaries": "tsc && electron scripts/verify-cloud-sync-boundaries.js",
+    "test:account-acceptance-cleanup": "node scripts/verify-account-acceptance-cleanup.js",
     "test:account-runtime:live": "tsc && electron scripts/verify-account-runtime.js",
     "test:cloud-staging:live": "tsc && electron scripts/verify-account-runtime.js --staging",
     "test:packaged-cloud-staging:live": "node scripts/run-packaged-account-acceptance.js",

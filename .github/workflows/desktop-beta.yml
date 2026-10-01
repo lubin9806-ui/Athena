@@ -48,6 +48,7 @@ jobs:
           npm.cmd run test:agent-routing
           npm.cmd run test:creative-state
           npm.cmd run test:cloud-sync
+          npm.cmd run test:account-acceptance-cleanup
           npm.cmd --prefix cloud run verify
           npm.cmd --prefix cloud run drill
       - name: Rebuild SQLite for Electron ABI

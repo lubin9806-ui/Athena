@@ -105,7 +105,7 @@ ATHENA_PACKAGED_SMOKE_OK markers=ready-to-show,dom
 但在退出后的设备撤销断言失败。本机已退出，服务端设备仍未变为 revoked。
 该失败尝试的随机账号成功加密擦除，隔离本机 profile 删除；不将它描述为包内账号验收通过。
 
-## 服务端限流修复：待上线复验
+## 服务端限流修复：已上线，源码复验通过
 
 修复提交 `88e800b` 已推送 `origin/codex/ci-green-0.9.7`。
 原实现对普通 API（120 次/分钟）与认证 API（10 次/分钟）使用相同 IP 计数器。
@@ -120,8 +120,24 @@ ATHENA_PACKAGED_SMOKE_OK markers=ready-to-show,dom
 
 只拆分认证和普通 API 的 IP bucket，不提高限额，不信任客户端转发头，不改变套餐、密钥或数据库。
 完整 Cloud 测试 46/46，`ATHENA_CLOUD_1_0_ENGINEERING_OK tests=46`，Render 配置验证通过。
-Render 配置为手动部署；本轮浏览器控制连续超时，没有成功触发部署。
-在新提交实际上线且重新通过包内账号验收之前，线上修复状态仍为待验证。
+早期浏览器控制连续超时，未能触发部署；恢复控制后已手动部署 `ec90621`（包含 `88e800b`）。
+部署 `dep-dauj8i9srm7s73cfm1eg` 显示 `Deploy succeeded | Live`，实例 `52vrp`，用时 1m02s。
+`/health/ready` 返回 ready / database=true / singapore / render；没有改变套餐、磁盘、密钥或访问权限。
+源码真实 staging 复验通过，包含退出后的设备 revoked、随机账号加密擦除及本机数据保留。
+
+旧工程包的此次复验在临时账号清理阶段失败，报 DELETE 401。由于其兜底清理会覆盖最先失败的
+断言，不能仅凭该最终 401 确定最先失败的请求；不将此次旧包验收描述为通过。
+
+## 2026-10-01：验收工具清理边界修正
+
+- 主断言失败时仍尝试清理，但清理报错不再覆盖主失败。
+- 服务端已返回 complete / cryptographicErase=true 后立即记住擦除成功；即使随后旧会话负向探针
+  异常，兜底也不再次用已擦除的会话提交 DELETE。负向探针断言仍必须通过，不降低验收要求。
+- JSON 请求加 20 秒超时，避免无限等待。
+- 三项 mocked 单元回归全部通过；第一项在 `41e6cb8` 原实现上失败。覆盖已擦除账号不重复删除、
+  清理失败保留主异常、未确认加密擦除的回执仍失败；此证据不冒充真实网络证明。
+- 检查接入 Windows CI 的 Node 阶段，本地 CI 配置检查通过，不代表远端 CI 已执行。
+- typecheck 与源码 Electron ready-to-show / DOM 检查通过。需要重建工程包再运行包内账号复验。
 
 ## 两端真实往返与进程恢复：实际通过
 
