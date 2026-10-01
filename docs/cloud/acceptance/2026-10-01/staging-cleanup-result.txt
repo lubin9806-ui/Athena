@@ -1,0 +1,21 @@
+Athena staging historical disposable-account cleanup
+Date: 2026-10-01
+User explicitly confirmed permanent deletion of one identified random test account.
+Only the exact confirmed tenant was passed to the application's dataRights.deleteAccount.
+
+Preconditions verified:
+environment=staging database=expected tenantCount=2 backupCount=0
+targetIdentity=known-random-test ownerCount=1
+targetResources=preference.adult-mode,preference.background
+protectedIdentity=non-test personal account
+
+Live Render Shell result:
+status=complete cryptographicErase=true remainingTenants=1 remainingBackups=0
+protectedAccountPresent=true protectedOriginalResourcesPresent=true
+protectedKeysUnchanged=true protectedSessionsAndDevicesPreserved=true
+
+The protected account's existing phone conversation resource was retained.
+Conversation payloads were not decrypted or read.
+No private email address, tenant/user/session/device identifiers, keys, tokens,
+passwords, or user-content payloads are included in this archive.
+This receipt does not represent deletion of the personal account or any local user data.

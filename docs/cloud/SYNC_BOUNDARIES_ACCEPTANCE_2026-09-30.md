@@ -82,7 +82,7 @@ Android 会话追加提交 `a2f45a5`：195 项 JVM 检查通过，包括 6 项�
 同一 OPPO 5G 上，账号链路与真实控件流程合并复跑 `OK (2 tests)`，37.118 秒。
 该版本 APK SHA-256：`BE0E4B24C11078E3B3971E580B872503725C3329DD5E8742D4E7546755A8E469`。
 
-## 更新后桌面包：部分通过，线上账号验收失败已定位
+## 旧桌面包历史结果：部分通过，线上账号验收失败已定位
 
 重新打包的桌面代码为 `70a60cb`，版本 `0.9.7-beta.1`，嵌入 staging 账号服务地址。
 使用 Athena 打包验收流程，先通过 typecheck 与源码 ready-to-show / DOM 检查，
@@ -137,7 +137,48 @@ ATHENA_PACKAGED_SMOKE_OK markers=ready-to-show,dom
 - 三项 mocked 单元回归全部通过；第一项在 `41e6cb8` 原实现上失败。覆盖已擦除账号不重复删除、
   清理失败保留主异常、未确认加密擦除的回执仍失败；此证据不冒充真实网络证明。
 - 检查接入 Windows CI 的 Node 阶段，本地 CI 配置检查通过，不代表远端 CI 已执行。
-- typecheck 与源码 Electron ready-to-show / DOM 检查通过。需要重建工程包再运行包内账号复验。
+- typecheck 与源码 Electron ready-to-show / DOM 检查通过；已重建并完成下述包内复验。
+
+## 2026-10-01：重建工程包的真实账号验收通过
+
+构建代码 `520daf5` 已提交并推送；服务端继续使用已上线的 `ec90621`。
+完整构建返回 `ATHENA_DESKTOP_BUILD_OK signed=false`。中途曾发生工具中断，未把当时部分更新的
+win-unpacked 目录与仍为旧文件的安装包混称为完成；之后重新运行完整 build 成功。
+
+```text
+ATHENA_DESKTOP_PACKAGE_OK version=0.9.7-beta.1 channel=beta entries=4474 asarBytes=133386607 settings=excluded modelConfig=excluded personas=public-default memory=empty live2d=disabled voiceRuntime=external-once imageRuntime=on-demand account=official-https comfyui=optional maps=0
+ATHENA_PACKAGED_SMOKE_OK markers=ready-to-show,dom
+ATHENA_PACKAGED_ACCOUNT_ACCEPTANCE_START packaged=true appPath=app.asar endpoint=https://staging-api.elanastra.com profile=isolated
+ATHENA_ACCOUNT_RUNTIME_ERASE_OK cleanup=cryptographic-erase
+ATHENA_PACKAGED_ACCOUNT_ACCEPTANCE_OK endpoint=https://staging-api.elanastra.com endpointSource=packaged-resource backgroundBytes=304 dimensions=2x2 adultMode=true firstLogin=blocked conflict=explicit sync=cloud logout=local-preserved deviceRevoke=verified cleanup=cryptographic-erase
+ATHENA_PACKAGED_ACCOUNT_ACCEPTANCE_CLEANUP_OK profile=removed
+ATHENA_PACKAGED_CLOUD_STAGING_OK package=app.asar endpointSource=packaged-resource account=deleted profile=removed
+```
+
+- 当前安装包：`release/Athena Setup 0.9.7-beta.1.exe`，227329329 字节，SHA-256
+  `D5D7A569B644B8CB13BF0399DED52CF0E2A904E48C59F641876C88446C433F96`。
+- 主程序：`release/win-unpacked/Athena.exe`，232771584 字节，SHA-256
+  `B04465174C5AC6FCF2AD9BF4E96748E682A923F8E9A0FEF494F7CB0F5BC9204D`。
+- app.asar：133386607 字节，SHA-256
+  `834C4CA64B7AEFFBF4EEA52B36F9027E6DE4CB5E5E082B1F0C562879C31507C6`。
+- build-input SHA-256：`A150377B309C51423AD6637388DA080173503B55CCC96FDC38934F9FFBB017B2`。
+
+最终包隐私检查与包内启动通过；账号请求来自 app.asar 与 packaged-resource 地址，而不是开发者
+覆盖地址。本次自建随机账号收到加密擦除回执，旧会话负向探针通过，隔离 profile 已删除。
+脱敏摘要见 `acceptance/2026-10-01/packaged-staging-result.txt`。
+
+仍为 NotSigned，工作区非干净 checkout，生产更新源禁用；不是正式发行、全新设备安装矩阵、
+完整离线包或生产账号服务的证明。模型、搜索、恢复邮件与计费仍使用 staging 工程适配器。
+
+同日云端只读核查有 2 个既存账号，备份 0。其中 1 个明确匹配已知随机验收邮箱与名称，
+只含背景/成年模式两项资源；另 1 个是 QQ 邮箱账号并包含手机对话，用户说明有自用账号。
+没有按总数或资源类型批量删除。用户随后明确确认删除这 1 个随机测试账号。
+执行前再次断言 staging 环境、固定数据库路径、精确目标、随机测试身份、唯一 owner、
+目标只有背景/成年模式两项资源、备份为 0，并确认另一账号不是测试身份。
+仅调用该目标的应用 `dataRights.deleteAccount`，返回 complete / cryptographicErase=true。
+执行后数据库剩 1 个账号；自用账号 active、原有手机对话资源仍在、加密密钥未改变，
+原有会话和设备未删除或撤销。没有读取手机对话正文，也没有归档私人邮箱、账号编号或凭据。
+脱敏结果见 `acceptance/2026-10-01/staging-cleanup-result.txt`。
 
 ## 两端真实往返与进程恢复：实际通过
 

@@ -1,0 +1,27 @@
+Athena Desktop unsigned engineering package acceptance
+Code commit: 520daf52f371bd8acc67296c66b53d3ba93ed40e
+Deployed cloud code: ec9062106fbe01af50c4250e1162bf85e3a562a3
+Endpoint: https://staging-api.elanastra.com
+Only a self-created random staging account and isolated local profile were used.
+
+ATHENA_DESKTOP_BUILD_OK signed=false
+ATHENA_DESKTOP_PACKAGE_OK version=0.9.7-beta.1 channel=beta entries=4474 asarBytes=133386607 settings=excluded modelConfig=excluded personas=public-default memory=empty live2d=disabled voiceRuntime=external-once imageRuntime=on-demand account=official-https comfyui=optional maps=0
+ATHENA_PACKAGED_SMOKE_OK markers=ready-to-show,dom
+ATHENA_PACKAGED_ACCOUNT_ACCEPTANCE_START packaged=true appPath=app.asar endpoint=https://staging-api.elanastra.com profile=isolated
+ATHENA_ACCOUNT_RUNTIME_ERASE_OK cleanup=cryptographic-erase
+ATHENA_PACKAGED_ACCOUNT_ACCEPTANCE_OK endpoint=https://staging-api.elanastra.com endpointSource=packaged-resource backgroundBytes=304 dimensions=2x2 adultMode=true firstLogin=blocked conflict=explicit sync=cloud logout=local-preserved deviceRevoke=verified cleanup=cryptographic-erase
+ATHENA_PACKAGED_ACCOUNT_ACCEPTANCE_CLEANUP_OK profile=removed
+ATHENA_PACKAGED_CLOUD_STAGING_OK package=app.asar endpointSource=packaged-resource account=deleted profile=removed
+Combined verification exit code: 0
+
+Installer bytes: 227329329
+Installer SHA-256: D5D7A569B644B8CB13BF0399DED52CF0E2A904E48C59F641876C88446C433F96
+Athena.exe bytes: 232771584
+Athena.exe SHA-256: B04465174C5AC6FCF2AD9BF4E96748E682A923F8E9A0FEF494F7CB0F5BC9204D
+app.asar bytes: 133386607
+app.asar SHA-256: 834C4CA64B7AEFFBF4EEA52B36F9027E6DE4CB5E5E082B1F0C562879C31507C6
+Build-input SHA-256: A150377B309C51423AD6637388DA080173503B55CCC96FDC38934F9FFBB017B2
+
+Release blockers: CLEAN_CHECKOUT_NOT_PROVEN, PRODUCTION_UPDATE_FEED_DISABLED, AUTHENTICODE_OR_TIMESTAMP_INVALID
+No passwords, tokens, private email addresses, device serials, user database, or full phone logs were archived.
+This is engineering staging evidence, not a signed production release or clean-device installation proof.
